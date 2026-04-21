@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import {
-  AppBar,
   Avatar,
   Box,
   Button,
@@ -11,7 +10,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Toolbar,
   Typography,
   useMediaQuery
 } from '@mui/material';
@@ -140,52 +138,6 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      <AppBar
-        position="fixed"
-        color="inherit"
-        elevation={0}
-        sx={{
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          ml: { md: `${drawerWidth}px` },
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          backdropFilter: 'blur(6px)',
-          backgroundColor: '#ffffff',
-          boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)'
-        }}
-      >
-        <Toolbar sx={{ minHeight: 64 }}>
-          {!isDesktop && (
-            <IconButton edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 1.5 }}>
-              <MenuRoundedIcon />
-            </IconButton>
-          )}
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.1, fontSize: { xs: 22, sm: 26 } }}>
-              Análisis de Calidad
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-              Control y clasificación de incidencias en archivos Excel
-            </Typography>
-          </Box>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar sx={{ bgcolor: 'primary.main', width: 34, height: 34, fontSize: 13 }}>{initials.toUpperCase()}</Avatar>
-            <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', sm: 'block' } }}>
-              {user?.name || user?.email}
-            </Typography>
-            <Button
-              variant="outlined"
-              startIcon={<LogoutRoundedIcon />}
-              onClick={onLogout}
-              sx={{ borderColor: 'rgba(29, 78, 216, 0.4)', '&:hover': { borderColor: 'primary.main' } }}
-            >
-              Salir
-            </Button>
-          </Box>
-        </Toolbar>
-      </AppBar>
-
       <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
         <Drawer
           variant={isDesktop ? 'permanent' : 'temporary'}
@@ -210,12 +162,58 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, sm: 3 },
+          p: { xs: 1.75, sm: 2.5 },
           width: { md: `calc(100% - ${drawerWidth}px)` },
-          mt: '64px',
-          minHeight: 'calc(100vh - 64px)'
+          minHeight: '100vh'
         }}
       >
+        <Box
+          sx={{
+            mb: { xs: 2, sm: 2.5 },
+            px: { xs: 1.5, sm: 2.25 },
+            py: { xs: 1.3, sm: 1.5 },
+            borderRadius: 2,
+            border: '1px solid rgba(226,232,240,0.95)',
+            backgroundColor: 'rgba(255,255,255,0.9)',
+            backdropFilter: 'blur(8px)',
+            boxShadow: '0 1px 6px rgba(15, 23, 42, 0.05)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1.75
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+            {!isDesktop && (
+              <IconButton edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 0.25 }}>
+                <MenuRoundedIcon />
+              </IconButton>
+            )}
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.1, fontSize: { xs: 20, sm: 23 } }}>
+                Análisis de Calidad
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.15 }}>
+                Control y clasificación de incidencias en archivos Excel
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+            <Avatar sx={{ bgcolor: 'primary.main', width: 34, height: 34, fontSize: 13 }}>{initials.toUpperCase()}</Avatar>
+            <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', sm: 'block' } }}>
+              {user?.name || user?.email}
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<LogoutRoundedIcon />}
+              onClick={onLogout}
+              sx={{ borderColor: 'rgba(29, 78, 216, 0.34)', '&:hover': { borderColor: 'primary.main' } }}
+            >
+              Salir
+            </Button>
+          </Box>
+        </Box>
         {children}
       </Box>
     </Box>

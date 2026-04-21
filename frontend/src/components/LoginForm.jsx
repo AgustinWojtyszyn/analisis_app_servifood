@@ -11,6 +11,7 @@ import {
   CircularProgress,
   Link as MuiLink
 } from '@mui/material';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import { supabase } from '../lib/supabaseClient';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
@@ -29,13 +30,17 @@ function mapSupabaseUser(user) {
   };
 }
 
-export default function LoginForm({ onLoginSuccess }) {
+export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBackToLanding, onSwitchMode }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isRegister, setIsRegister] = useState(false);
+  const [isRegister, setIsRegister] = useState(initialMode === 'register');
   const [name, setName] = useState('');
+
+  React.useEffect(() => {
+    setIsRegister(initialMode === 'register');
+  }, [initialMode]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -181,6 +186,15 @@ export default function LoginForm({ onLoginSuccess }) {
               </Button>
 
               <Box sx={{ textAlign: 'center' }}>
+                {onBackToLanding && (
+                  <Button
+                    onClick={onBackToLanding}
+                    startIcon={<ArrowBackRoundedIcon />}
+                    sx={{ mb: 1.25, textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Volver al inicio
+                  </Button>
+                )}
                 <Typography variant="body2">
                   {isRegister ? 'Ya tienes cuenta?' : 'No tienes cuenta?'}{' '}
                   <MuiLink
@@ -188,7 +202,12 @@ export default function LoginForm({ onLoginSuccess }) {
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
-                      setIsRegister(!isRegister);
+                      const nextIsRegister = !isRegister;
+                      if (onSwitchMode) {
+                        onSwitchMode(nextIsRegister ? 'register' : 'login');
+                      } else {
+                        setIsRegister(nextIsRegister);
+                      }
                       setError('');
                     }}
                     sx={{ cursor: 'pointer' }}

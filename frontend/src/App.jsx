@@ -18,6 +18,7 @@ import ProfilePage from './components/ProfilePage';
 import TutorialPage from './components/TutorialPage';
 import AdminUsersPage from './components/AdminUsersPage';
 import AppLayout from './components/AppLayout';
+import PublicLanding from './components/PublicLanding';
 import { supabase } from './lib/supabaseClient';
 import { useAuth } from './hooks/useAuth';
 import { getAnalysisById } from './services/analysis';
@@ -39,8 +40,21 @@ const pathSectionMap = Object.entries(sectionPathMap).reduce((acc, [section, pat
   return acc;
 }, {});
 
+const publicAuthPathMap = {
+  '/signin': '/login',
+  '/signup': '/register'
+};
+
 function getSectionFromPath(pathname) {
   return pathSectionMap[pathname] || 'panel';
+}
+
+function normalizePublicPath(pathname) {
+  const mappedPath = publicAuthPathMap[pathname] || pathname;
+  if (mappedPath === '/' || mappedPath === '/login' || mappedPath === '/register') {
+    return mappedPath;
+  }
+  return '/';
 }
 
 const baseSections = [
@@ -270,6 +284,62 @@ function MainApp({ user, onLogout }) {
   );
 }
 
+function PublicApp({ onLoginSuccess }) {
+  const [currentPath, setCurrentPath] = useState(() => normalizePublicPath(window.location.pathname));
+
+  useEffect(() => {
+    const normalizedPath = normalizePublicPath(window.location.pathname);
+    if (window.location.pathname !== normalizedPath) {
+      window.history.replaceState({}, '', normalizedPath);
+    }
+    setCurrentPath(normalizedPath);
+
+    const handlePopState = () => {
+      setCurrentPath(normalizePublicPath(window.location.pathname));
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigatePublic = (nextPath) => {
+    const normalizedPath = normalizePublicPath(nextPath);
+    if (window.location.pathname !== normalizedPath) {
+      window.history.pushState({}, '', normalizedPath);
+    }
+    setCurrentPath(normalizedPath);
+  };
+
+  if (currentPath === '/login') {
+    return (
+      <LoginForm
+        onLoginSuccess={onLoginSuccess}
+        initialMode="login"
+        onBackToLanding={() => navigatePublic('/')}
+        onSwitchMode={(mode) => navigatePublic(mode === 'register' ? '/register' : '/login')}
+      />
+    );
+  }
+
+  if (currentPath === '/register') {
+    return (
+      <LoginForm
+        onLoginSuccess={onLoginSuccess}
+        initialMode="register"
+        onBackToLanding={() => navigatePublic('/')}
+        onSwitchMode={(mode) => navigatePublic(mode === 'register' ? '/register' : '/login')}
+      />
+    );
+  }
+
+  return (
+    <PublicLanding
+      onLogin={() => navigatePublic('/login')}
+      onRegister={() => navigatePublic('/register')}
+    />
+  );
+}
+
 export default function App() {
   const { user, login, logout, loading } = useAuth();
 
@@ -290,7 +360,7 @@ export default function App() {
       {user ? (
         <MainApp user={user} onLogout={logout} />
       ) : (
-        <LoginForm onLoginSuccess={login} />
+        <PublicApp onLoginSuccess={login} />
       )}
     </ThemeProvider>
   );
