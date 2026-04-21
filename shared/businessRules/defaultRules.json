@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "name": "Logística - Falta de Mercadería",
+    "keywords": ["faltó mercadería", "falta de mercaderia", "mercadería faltante", "falta mercader"],
+    "category": "logística",
+    "severity": "media",
+    "suggestedAction": "seguimiento"
+  },
+  {
+    "id": 2,
+    "name": "Inocuidad - Producto Defectuoso",
+    "keywords": ["producto en mal estado", "producto defectuoso", "estado producto", "mal estado"],
+    "category": "inocuidad",
+    "severity": "alta",
+    "suggestedAction": "medida_correctiva"
+  },
+  {
+    "id": 3,
+    "name": "Calidad - Problemas de Calidad",
+    "keywords": ["problema de calidad", "defecto de calidad", "calidad deficiente", "control de calidad"],
+    "category": "calidad",
+    "severity": "media",
+    "suggestedAction": "seguimiento"
+  },
+  {
+    "id": 4,
+    "name": "Reclamo Externo - Cliente",
+    "keywords": ["cliente reclamó", "reclamo cliente", "cliente insatisfecho", "queja cliente"],
+    "category": "reclamo_externo",
+    "severity": "alta",
+    "suggestedAction": "medida_correctiva"
+  },
+  {
+    "id": 5,
+    "name": "Reclamo Interno",
+    "keywords": ["incumplimiento interno", "reclamo interno", "falta interna", "incumplimiento"],
+    "category": "reclamo_interno",
+    "severity": "media",
+    "suggestedAction": "seguimiento"
+  },
+  {
+    "id": 6,
+    "name": "Retraso o Demora",
+    "keywords": ["demora", "retraso", "atraso", "entrega tarde"],
+    "category": "logística",
+    "severity": "baja",
+    "suggestedAction": "aviso"
+  }
+]

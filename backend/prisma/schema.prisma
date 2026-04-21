@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    Int     @id @default(autoincrement())
+  email String  @unique
+  name  String
+  password String
+  role  String  @default("user") // "admin" or "user"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  analyses Analysis[]
+}
+
+model Analysis {
+  id    Int     @id @default(autoincrement())
+  userId Int
+  user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  filename String
+  uploadDate DateTime @default(now())
+  totalRecords Int
+  summaryJson String // JSON con resumen general
+  rulesUsedJson String // JSON con reglas aplicadas
+  
+  // Relations
+  processedRecords ProcessedRecord[]
+
+  @@index([userId])
+}
+
+model ProcessedRecord {
+  id    Int     @id @default(autoincrement())
+  analysisId Int
+  analysis  Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  
+  // Original data
+  rowData String // JSON con datos originales
+  
+  // Analysis results
+  employee String
+  sector String
+  description String
+  category String // "logística", "inocuidad", "calidad", "reclamo_externo", "reclamo_interno", "otros"
+  severity String // "baja", "media", "alta"
+  suggestedAction String
+  notes String // JSON array
+  
+  @@index([analysisId])
+}
+
+model BusinessRule {
+  id    Int     @id @default(autoincrement())
+  name  String  @unique
+  keywords String // JSON array
+  category String
+  severity String
+  suggestedAction String
+  enabled Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model IncidenceCount {
+  id    Int     @id @default(autoincrement())
+  analysisId Int
+  employee String
+  count Int
+  severity String
+  suggestedMeasure String // "aviso", "seguimiento", "medida_correctiva"
+
+  @@unique([analysisId, employee])
+}
