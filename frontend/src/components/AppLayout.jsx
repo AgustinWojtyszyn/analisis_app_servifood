@@ -57,41 +57,32 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box
         sx={{
-          px: 2,
-          py: 2,
-          background: 'linear-gradient(155deg, #10255c 0%, #1b3f95 58%, #2756ba 100%)'
+          px: 2.25,
+          pt: 2.5,
+          pb: 2
         }}
       >
         <Box
+          component="img"
+          src={servifoodLogo}
+          alt="ServiFood Logo"
           sx={{
-            borderRadius: 2.5,
-            p: 1.5,
-            backgroundColor: 'rgba(255,255,255,0.08)',
-            border: '1px solid rgba(255,255,255,0.16)',
-            display: 'flex',
-            justifyContent: 'center'
+            width: '100%',
+            maxWidth: 180,
+            height: 92,
+            objectFit: 'contain',
+            display: 'block',
+            mx: 'auto'
           }}
-        >
-          <Box
-            component="img"
-            src={servifoodLogo}
-            alt="ServiFood Logo"
-            sx={{
-              width: '100%',
-              maxWidth: 168,
-              height: 88,
-              objectFit: 'contain'
-            }}
-          />
-        </Box>
-        <Typography sx={{ mt: 1.5, color: 'rgba(255,255,255,0.92)', fontSize: 12, textAlign: 'center', fontWeight: 600 }}>
+        />
+        <Typography sx={{ mt: 1.25, color: 'rgba(255,255,255,0.88)', fontSize: 12, textAlign: 'center', fontWeight: 600 }}>
           Plataforma de análisis de calidad
         </Typography>
       </Box>
 
-      <Divider />
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.14)' }} />
 
-      <List sx={{ px: 1.5, py: 1.75, flex: 1 }}>
+      <List sx={{ px: 1.5, py: 2.25, flex: 1 }}>
         {sections.map((section) => {
           const selected = currentSection === section.id;
           return (
@@ -101,49 +92,40 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
               onClick={() => handleSelect(section.id)}
               disabled={section.disabled}
               sx={{
-                mb: 0.75,
-                px: 1.25,
-                py: 0.9,
+                mb: 0.6,
+                px: 1.4,
+                py: 1,
                 borderRadius: 2,
                 '&.Mui-selected': {
-                  backgroundColor: 'rgba(29, 78, 216, 0.14)',
-                  color: 'primary.dark',
-                  '& .MuiListItemIcon-root': { color: 'primary.dark' },
+                  backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                  color: '#ffffff',
+                  '& .MuiListItemIcon-root': { color: '#ffffff' },
                   '& .MuiListItemText-primary': { fontWeight: 700 }
                 },
                 '&:hover': {
-                  backgroundColor: 'rgba(29, 78, 216, 0.08)'
+                  backgroundColor: 'rgba(255, 255, 255, 0.11)'
                 }
               }}
             >
-              <ListItemIcon sx={{ minWidth: 36, color: selected ? 'primary.dark' : 'text.secondary' }}>
+              <ListItemIcon sx={{ minWidth: 36, color: selected ? '#ffffff' : 'rgba(255,255,255,0.74)' }}>
                 {sectionIcons[section.id]}
               </ListItemIcon>
               <ListItemText
                 primary={section.label}
-                primaryTypographyProps={{ fontWeight: selected ? 700 : 600, fontSize: 14 }}
+                primaryTypographyProps={{ fontWeight: selected ? 700 : 600, fontSize: 14, color: selected ? '#ffffff' : 'rgba(255,255,255,0.86)' }}
               />
             </ListItemButton>
           );
         })}
       </List>
 
-      <Box sx={{ p: 2.5, pt: 0 }}>
-        <Box
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            background: 'linear-gradient(145deg, #f6f9ff, #eef3ff)',
-            border: '1px solid rgba(164, 181, 216, 0.4)'
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
-            Usuario activo
-          </Typography>
-          <Typography variant="body1" sx={{ fontWeight: 700, mt: 0.5 }}>
-            {user?.name || user?.email}
-          </Typography>
-        </Box>
+      <Box sx={{ px: 2.25, pb: 2.25 }}>
+        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.74)', fontWeight: 600 }}>
+          Usuario activo
+        </Typography>
+        <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 700, mt: 0.25 }}>
+          {user?.name || user?.email}
+        </Typography>
       </Box>
     </Box>
   );
@@ -206,10 +188,9 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
             '& .MuiDrawer-paper': {
               width: drawerWidth,
               boxSizing: 'border-box',
-              borderRight: '1px solid',
-              borderColor: 'divider',
-              backgroundColor: '#ffffff',
-              boxShadow: '0 8px 22px rgba(12, 33, 74, 0.14)'
+              borderRight: '1px solid rgba(255,255,255,0.14)',
+              background: 'linear-gradient(180deg, #14316f 0%, #1c428d 100%)',
+              boxShadow: 'none'
             }
           }}
         >

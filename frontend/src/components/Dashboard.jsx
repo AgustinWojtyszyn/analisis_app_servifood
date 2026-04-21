@@ -33,7 +33,7 @@ export function MetricCard({ title, value, variant = 'info', icon: CustomIcon })
   };
 
   return (
-    <Card sx={{ height: '100%', transition: 'all 0.2s ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 14px 28px rgba(18, 47, 105, 0.16)' } }}>
+    <Card sx={{ height: '100%', transition: 'all 0.2s ease', '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 10px 18px rgba(18, 47, 105, 0.10)' } }}>
       <CardContent sx={{ p: 2.25 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
@@ -69,7 +69,7 @@ export function SummaryGrid({ summary }) {
   const { totalRecords, byCategory, bySeverity } = summary;
 
   return (
-    <Grid container spacing={2} sx={{ mb: 3 }}>
+    <Grid container spacing={2.25} sx={{ mb: 3.5 }}>
       <Grid item xs={12} sm={6} md={3}>
         <MetricCard 
           title="Total de Registros" 

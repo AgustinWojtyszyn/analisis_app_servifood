@@ -142,7 +142,7 @@ export default function AnalysisResults({ records }) {
   };
 
   return (
-    <Paper sx={{ p: { xs: 2, md: 2.75 } }}>
+    <Paper sx={{ p: { xs: 2, md: 2.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)' }}>
       <Box
         sx={{
           display: 'flex',
@@ -221,7 +221,7 @@ export default function AnalysisResults({ records }) {
         </TextField>
       </Box>
 
-      <TableContainer sx={{ overflowX: 'auto' }}>
+      <TableContainer sx={{ overflowX: 'auto', backgroundColor: 'transparent' }}>
         <Table>
           <TableHead>
             <TableRow>
@@ -240,7 +240,7 @@ export default function AnalysisResults({ records }) {
                 hover
                 sx={{
                   '&:last-child td': { border: 0 },
-                  '&:hover': { backgroundColor: 'rgba(29, 78, 216, 0.03)' }
+                  '&:hover': { backgroundColor: 'rgba(29, 78, 216, 0.025)' }
                 }}
               >
                 <TableCell>{normalizeCellValue(record.empleado)}</TableCell>

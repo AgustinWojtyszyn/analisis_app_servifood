@@ -84,7 +84,7 @@ export const appTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 14,
-          boxShadow: '0 12px 30px rgba(12, 33, 76, 0.10)'
+          boxShadow: '0 4px 16px rgba(12, 33, 76, 0.06)'
         }
       }
     },
@@ -92,8 +92,8 @@ export const appTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 14,
-          boxShadow: '0 12px 26px rgba(22, 46, 97, 0.12)',
-          border: '1px solid rgba(218, 226, 243, 0.65)'
+          boxShadow: '0 6px 18px rgba(22, 46, 97, 0.08)',
+          border: 'none'
         }
       }
     },
@@ -131,8 +131,8 @@ export const appTheme = createTheme({
     MuiTableContainer: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
-          border: '1px solid #e4ebf8'
+          borderRadius: 10,
+          border: 'none'
         }
       }
     },
