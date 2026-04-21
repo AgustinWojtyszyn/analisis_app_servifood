@@ -127,6 +127,8 @@ function parseKeywords(value) {
 function normalizeRuleModel(rule, index = 0) {
   const categoria = normalizeForMatch(rule?.categoria || rule?.category) || 'operativo';
   const gravedad = normalizeForMatch(rule?.gravedad || rule?.severity) || 'baja';
+  const rawPeso = Number(rule?.peso);
+  const peso = Number.isFinite(rawPeso) ? Math.min(3, Math.max(1, rawPeso)) : 1;
   const defaultImmediate = gravedad === 'alta' ? 'Contener incidente y escalar' : 'Registrar incidencia y notificar';
   const defaultCorrective = gravedad === 'alta' ? 'Ejecutar plan correctivo formal' : 'Definir mejoras y seguimiento';
 
@@ -136,6 +138,7 @@ function normalizeRuleModel(rule, index = 0) {
     categoria,
     origen: normalizeForMatch(rule?.origen) || 'interno',
     gravedad,
+    peso,
     keywords: parseKeywords(rule?.keywords),
     accion_inmediata: rule?.accion_inmediata || rule?.suggestedAction || defaultImmediate,
     accion_correctiva: rule?.accion_correctiva || defaultCorrective
@@ -168,6 +171,7 @@ function classifyRecordByKeywords(analysisText, businessRules = []) {
       categoria: 'operativo',
       origen: 'interno',
       gravedad: 'baja',
+      peso: 1,
       accionInmediata: 'Registrar incidencia',
       accionCorrectiva: 'Revisar en próxima reunión operativa',
       accionSugerida: 'Registrar incidencia',
@@ -189,6 +193,7 @@ function classifyRecordByKeywords(analysisText, businessRules = []) {
         categoria: rule.categoria,
         origen: rule.origen,
         gravedad: rule.gravedad,
+        peso: rule.peso,
         accionInmediata: rule.accion_inmediata,
         accionCorrectiva: rule.accion_correctiva,
         accionSugerida: rule.accion_inmediata,
@@ -202,6 +207,7 @@ function classifyRecordByKeywords(analysisText, businessRules = []) {
     categoria: 'operativo',
     origen: 'interno',
     gravedad: 'baja',
+    peso: 1,
     accionInmediata: 'Registrar incidencia',
     accionCorrectiva: 'Revisar en próxima reunión operativa',
     accionSugerida: 'Registrar incidencia',
@@ -212,6 +218,12 @@ function classifyRecordByKeywords(analysisText, businessRules = []) {
 
 function getSeverityPoints(gravedad) {
   return SEVERITY_POINTS[gravedad] || SEVERITY_POINTS.baja;
+}
+
+function getRecordScore(gravedad, peso) {
+  const base = getSeverityPoints(gravedad);
+  const normalizedPeso = Number.isFinite(Number(peso)) ? Math.min(3, Math.max(1, Number(peso))) : 1;
+  return base * normalizedPeso;
 }
 
 function getFinalActionByScore(score) {
@@ -288,6 +300,7 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
         categoria,
         origen,
         gravedad,
+        peso,
         accionInmediata,
         accionCorrectiva,
         accionSugerida,
@@ -296,6 +309,7 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
       } = classifyRecordByKeywords(normalizedText, businessRules);
 
       const puntajeGravedad = getSeverityPoints(gravedad);
+      const score = getRecordScore(gravedad, peso);
       const notas = [];
       if (reglaAplicada) notas.push(`Regla aplicada: ${reglaAplicada}`);
       if (nota) notas.push(nota);
@@ -305,15 +319,15 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
 
       categoryCount[categoria] = (categoryCount[categoria] || 0) + 1;
       severityCount[gravedad] = (severityCount[gravedad] || 0) + 1;
-      sectorScores[sector] = (sectorScores[sector] || 0) + puntajeGravedad;
+      sectorScores[sector] = (sectorScores[sector] || 0) + score;
 
       if (empleado) {
         if (!employeeIncidences[empleado]) {
           employeeIncidences[empleado] = { count: 0, score: 0, records: [] };
         }
         employeeIncidences[empleado].count += 1;
-        employeeIncidences[empleado].score += puntajeGravedad;
-        employeeIncidences[empleado].records.push({ categoria, gravedad, puntaje: puntajeGravedad });
+        employeeIncidences[empleado].score += score;
+        employeeIncidences[empleado].records.push({ categoria, gravedad, peso, score });
       }
 
       results.push({
@@ -330,7 +344,9 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
         categoria,
         origen,
         gravedad,
+        peso,
         puntajeGravedad,
+        score,
         accionInmediata,
         accionCorrectiva,
         accionSugerida,

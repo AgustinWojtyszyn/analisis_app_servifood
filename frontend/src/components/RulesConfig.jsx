@@ -24,6 +24,12 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import { rulesService } from '../services/api';
 
+function keywordsToString(keywords) {
+  if (Array.isArray(keywords)) return keywords.join(', ');
+  if (typeof keywords === 'string') return keywords;
+  return '';
+}
+
 export default function RulesConfig() {
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,7 +41,10 @@ export default function RulesConfig() {
     keywords: '',
     category: '',
     severity: 'media',
-    suggestedAction: 'seguimiento'
+    origen: 'interno',
+    accion_inmediata: 'aviso',
+    accion_correctiva: '',
+    peso: 1
   });
 
   useEffect(() => {
@@ -46,7 +55,7 @@ export default function RulesConfig() {
     try {
       setLoading(true);
       const response = await rulesService.getRules();
-      setRules(response.data);
+      setRules(response.data || []);
     } catch (err) {
       setError('Error cargando reglas');
     } finally {
@@ -58,11 +67,14 @@ export default function RulesConfig() {
     if (rule) {
       setEditingRule(rule);
       setFormData({
-        name: rule.name,
-        keywords: typeof rule.keywords === 'string' ? rule.keywords : JSON.stringify(rule.keywords).slice(1, -1).replaceAll(',', ', '),
-        category: rule.category,
-        severity: rule.severity,
-        suggestedAction: rule.suggestedAction
+        name: rule.name || rule.nombre || '',
+        keywords: keywordsToString(rule.keywords),
+        category: rule.category || rule.categoria || '',
+        severity: rule.severity || rule.gravedad || 'media',
+        origen: rule.origen || 'interno',
+        accion_inmediata: rule.accion_inmediata || rule.suggestedAction || 'aviso',
+        accion_correctiva: rule.accion_correctiva || '',
+        peso: Number(rule.peso) || 1
       });
     } else {
       setEditingRule(null);
@@ -71,7 +83,10 @@ export default function RulesConfig() {
         keywords: '',
         category: '',
         severity: 'media',
-        suggestedAction: 'seguimiento'
+        origen: 'interno',
+        accion_inmediata: 'aviso',
+        accion_correctiva: '',
+        peso: 1
       });
     }
     setOpenDialog(true);
@@ -86,12 +101,19 @@ export default function RulesConfig() {
     try {
       const keywordArray = formData.keywords
         .split(',')
-        .map(k => k.trim())
-        .filter(k => k);
+        .map((k) => k.trim())
+        .filter((k) => k);
 
       const ruleData = {
-        ...formData,
-        keywords: keywordArray
+        name: formData.name,
+        keywords: keywordArray,
+        category: formData.category,
+        severity: formData.severity,
+        origen: formData.origen,
+        accion_inmediata: formData.accion_inmediata,
+        accion_correctiva: formData.accion_correctiva,
+        peso: Number(formData.peso) || 1,
+        suggestedAction: formData.accion_inmediata
       };
 
       if (editingRule) {
@@ -147,7 +169,11 @@ export default function RulesConfig() {
             <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>Nombre</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Categoría</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Origen</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Gravedad</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Peso</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Acción inmediata</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Acción correctiva</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Palabras Clave</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>
             </TableRow>
@@ -155,17 +181,23 @@ export default function RulesConfig() {
           <TableBody>
             {rules.map((rule) => (
               <TableRow key={rule.id} hover>
-                <TableCell>{rule.name}</TableCell>
-                <TableCell>{rule.category}</TableCell>
+                <TableCell>{rule.name || rule.nombre}</TableCell>
+                <TableCell>{rule.category || rule.categoria}</TableCell>
                 <TableCell>
-                  <Chip label={rule.severity} size="small" />
+                  <Chip label={rule.origen || 'interno'} size="small" />
                 </TableCell>
                 <TableCell>
-                  {typeof rule.keywords === 'string' ? (
-                    <span>{rule.keywords.slice(0, 50)}...</span>
-                  ) : (
-                    <span>{JSON.stringify(rule.keywords).slice(0, 50)}...</span>
-                  )}
+                  <Chip label={rule.severity || rule.gravedad} size="small" />
+                </TableCell>
+                <TableCell>{rule.peso || 1}</TableCell>
+                <TableCell sx={{ maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {rule.accion_inmediata || rule.suggestedAction || '-'}
+                </TableCell>
+                <TableCell sx={{ maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {rule.accion_correctiva || '-'}
+                </TableCell>
+                <TableCell sx={{ maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {keywordsToString(rule.keywords)}
                 </TableCell>
                 <TableCell>
                   <IconButton
@@ -189,7 +221,6 @@ export default function RulesConfig() {
         </Table>
       </TableContainer>
 
-      {/* Dialog para crear/editar */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
           {editingRule ? 'Editar Regla' : 'Nueva Regla'}
@@ -221,6 +252,18 @@ export default function RulesConfig() {
           <TextField
             fullWidth
             select
+            label="Origen"
+            value={formData.origen}
+            onChange={(e) => setFormData({ ...formData, origen: e.target.value })}
+            margin="normal"
+            SelectProps={{ native: true }}
+          >
+            <option value="interno">interno</option>
+            <option value="externo">externo</option>
+          </TextField>
+          <TextField
+            fullWidth
+            select
             label="Gravedad"
             value={formData.severity}
             onChange={(e) => setFormData({ ...formData, severity: e.target.value })}
@@ -233,17 +276,29 @@ export default function RulesConfig() {
           </TextField>
           <TextField
             fullWidth
-            select
-            label="Acción Sugerida"
-            value={formData.suggestedAction}
-            onChange={(e) => setFormData({ ...formData, suggestedAction: e.target.value })}
+            type="number"
+            inputProps={{ min: 1, max: 3, step: 1 }}
+            label="Peso (1-3)"
+            value={formData.peso}
+            onChange={(e) => setFormData({ ...formData, peso: e.target.value })}
             margin="normal"
-            SelectProps={{ native: true }}
-          >
-            <option value="aviso">Aviso</option>
-            <option value="seguimiento">Seguimiento</option>
-            <option value="medida_correctiva">Medida Correctiva</option>
-          </TextField>
+          />
+          <TextField
+            fullWidth
+            label="Acción inmediata"
+            value={formData.accion_inmediata}
+            onChange={(e) => setFormData({ ...formData, accion_inmediata: e.target.value })}
+            margin="normal"
+          />
+          <TextField
+            fullWidth
+            label="Acción correctiva"
+            value={formData.accion_correctiva}
+            onChange={(e) => setFormData({ ...formData, accion_correctiva: e.target.value })}
+            margin="normal"
+            multiline
+            rows={2}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancelar</Button>
