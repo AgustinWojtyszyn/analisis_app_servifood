@@ -14,7 +14,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { uploadExcel } from '../services/analysis';
 
-export default function FileUpload({ onUploadSuccess }) {
+export default function FileUpload({ onUploadSuccess, showHeader = true }) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -96,12 +96,16 @@ export default function FileUpload({ onUploadSuccess }) {
     <Box sx={{ mb: 4 }}>
       <Card>
         <CardContent sx={{ p: 4 }}>
-          <Typography variant="h5" sx={{ mb: 0.5, fontWeight: 800 }}>
-            Cargar Archivo Excel
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Subí un archivo para clasificar incidencias y generar métricas automáticamente.
-          </Typography>
+          {showHeader && (
+            <>
+              <Typography variant="h5" sx={{ mb: 0.5, fontWeight: 800 }}>
+                Cargar Archivo Excel
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Subí un archivo para clasificar incidencias y generar métricas automáticamente.
+              </Typography>
+            </>
+          )}
 
           <Paper
             component="label"

@@ -9,8 +9,7 @@ import {
 import { appTheme } from './styles/theme';
 import LoginForm from './components/LoginForm';
 import FileUpload from './components/FileUpload';
-import { SummaryGrid, CategoryGrid, EmployeeMetrics } from './components/Dashboard';
-import DashboardHome from './components/DashboardHome';
+import { SummaryGrid } from './components/Dashboard';
 import AnalysisResults from './components/AnalysisResults';
 import AnalysisHistory from './components/AnalysisHistory';
 import RulesConfig from './components/RulesConfig';
@@ -32,14 +31,14 @@ function MainApp({ user, onLogout }) {
 
   const handleUploadSuccess = async (analysis) => {
     setCurrentAnalysis(analysis);
-    setCurrentSection('results');
+    setCurrentSection('panel');
   };
 
   const handleSelectAnalysis = async (analysisId) => {
     try {
       const response = await getAnalysisById(analysisId);
       setCurrentAnalysis(response);
-      setCurrentSection('results');
+      setCurrentSection('panel');
     } catch (err) {
       alert('Error cargando analisis');
     }
@@ -52,9 +51,44 @@ function MainApp({ user, onLogout }) {
     return section;
   });
 
+  const renderAnalysisContent = () => (
+    <>
+      <SummaryGrid summary={currentAnalysis?.summary} />
+      <AnalysisResults records={currentAnalysis?.records || []} />
+    </>
+  );
+
   const renderSection = () => {
     if (currentSection === 'panel') {
-      return <DashboardHome user={user} currentAnalysis={currentAnalysis} />;
+      if (!currentAnalysis) {
+        return (
+          <Box
+            sx={{
+              minHeight: 'calc(100vh - 160px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Box sx={{ width: '100%', maxWidth: 860 }}>
+              <Typography variant="h4" sx={{ fontWeight: 900, textAlign: 'center', color: '#ffffff', mb: 1 }}>
+                Cargar archivo Excel
+              </Typography>
+              <Typography sx={{ textAlign: 'center', color: 'rgba(255,255,255,0.92)', mb: 3 }}>
+                Subí tu archivo para analizar incidencias y obtener resultados claros en segundos.
+              </Typography>
+              <FileUpload onUploadSuccess={handleUploadSuccess} showHeader={false} />
+              <Paper sx={{ p: 2.5, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  No hay análisis aún. Empezá subiendo tu primer archivo.
+                </Typography>
+              </Paper>
+            </Box>
+          </Box>
+        );
+      }
+
+      return renderAnalysisContent();
     }
 
     if (currentSection === 'upload') {
@@ -79,16 +113,7 @@ function MainApp({ user, onLogout }) {
         );
       }
 
-      return (
-        <>
-          <SummaryGrid summary={currentAnalysis.summary} />
-          <CategoryGrid summary={currentAnalysis.summary} />
-          <Box sx={{ mb: 3 }}>
-            <EmployeeMetrics summary={currentAnalysis.summary} />
-          </Box>
-          <AnalysisResults records={currentAnalysis.records} />
-        </>
-      );
+      return renderAnalysisContent();
     }
 
     if (currentSection === 'rules') {
