@@ -1,5 +1,122 @@
 import ExcelJS from 'exceljs';
 
+const DEFAULT_CLASSIFICATION_RULES = [
+  {
+    category: 'inocuidad',
+    severity: 'alta',
+    action: 'medida_correctiva',
+    keywords: ['temperatura', 'camara', 'cámara', 'heladera']
+  },
+  {
+    category: 'gestion',
+    severity: 'media',
+    action: 'aviso',
+    keywords: ['falta', 'incompleto', 'registro']
+  },
+  {
+    category: 'higiene_orden',
+    severity: 'media',
+    action: 'aviso',
+    keywords: ['orden', 'etiquetado']
+  },
+  {
+    category: 'auditoria',
+    severity: 'media',
+    action: 'aviso',
+    keywords: ['auditoria', 'auditoría']
+  }
+];
+
+function normalizeCellValue(value) {
+  if (value == null) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(normalizeCellValue).filter(Boolean).join(' ');
+  }
+
+  if (typeof value === 'object') {
+    if (Array.isArray(value.richText)) {
+      return value.richText
+        .map((part) => normalizeCellValue(part?.text))
+        .filter(Boolean)
+        .join('');
+    }
+
+    if (typeof value.text === 'string') {
+      return value.text;
+    }
+
+    if (value.result != null) {
+      return normalizeCellValue(value.result);
+    }
+  }
+
+  return String(value);
+}
+
+function normalizeForMatch(value) {
+  return normalizeCellValue(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function classifyRecordByKeywords(descripcion, businessRules = []) {
+  const normalizedDescription = normalizeForMatch(descripcion);
+
+  if (!normalizedDescription) {
+    return {
+      categoria: 'otros',
+      gravedad: 'baja',
+      accionSugerida: 'ninguna',
+      nota: null
+    };
+  }
+
+  for (const rule of DEFAULT_CLASSIFICATION_RULES) {
+    const matchedKeyword = rule.keywords.find((keyword) =>
+      normalizedDescription.includes(normalizeForMatch(keyword))
+    );
+
+    if (matchedKeyword) {
+      return {
+        categoria: rule.category,
+        gravedad: rule.severity,
+        accionSugerida: rule.action,
+        nota: `Coincidencia keyword: "${matchedKeyword}"`
+      };
+    }
+  }
+
+  for (const rule of businessRules) {
+    const keywords = Array.isArray(rule?.keywords) ? rule.keywords : [];
+    const matchedKeyword = keywords.find((keyword) =>
+      normalizedDescription.includes(normalizeForMatch(keyword))
+    );
+
+    if (matchedKeyword) {
+      return {
+        categoria: rule.category || 'otros',
+        gravedad: rule.severity || 'baja',
+        accionSugerida: rule.suggestedAction || 'ninguna',
+        nota: `Coincidencia con regla: "${rule.name || matchedKeyword}"`
+      };
+    }
+  }
+
+  return {
+    categoria: 'otros',
+    gravedad: 'baja',
+    accionSugerida: 'ninguna',
+    nota: null
+  };
+}
+
 /**
  * Analiza un archivo Excel y aplica las reglas de negocio
  * @param {Buffer} fileBuffer - Buffer del archivo Excel
@@ -25,6 +142,7 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
 
     const sheet = workbook.worksheets[0];
     const rows = [];
+    const headerIndexes = detectHeaders(sheet.getRow(1).values);
 
     // Paso 2: Leer datos
     progressCallback?.(30, 'Leyendo datos del Excel...');
@@ -42,30 +160,24 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
     rows.forEach((rowValues, index) => {
       progressCallback?.(40 + Math.floor((index / totalRows) * 40), `Analizando registro ${index + 1} de ${totalRows}...`);
 
-      const [, fecha, empleado, sector, descripcion, tipo, observacion, responsable] = rowValues || [];
+      const getValue = (headerIndex, fallbackIndex) => {
+        const indexToUse = Number.isInteger(headerIndex) ? headerIndex : fallbackIndex;
+        return rowValues?.[indexToUse];
+      };
+
+      const fecha = getValue(headerIndexes.fecha, 1);
+      const empleado = normalizeCellValue(getValue(headerIndexes.empleado, 2));
+      const sector = normalizeCellValue(getValue(headerIndexes.sector, 3));
+      const descripcion = normalizeCellValue(getValue(headerIndexes.descripcion, 4));
+      const tipo = normalizeCellValue(getValue(headerIndexes.tipo, 5));
+      const observacion = normalizeCellValue(getValue(headerIndexes.observacion, 6));
+      const responsable = normalizeCellValue(getValue(headerIndexes.responsable, 7));
 
       // Inicializar registro
-      let categoria = 'otros';
-      let gravedad = 'baja';
-      let accionSugerida = 'ninguna';
+      let { categoria, gravedad, accionSugerida, nota } = classifyRecordByKeywords(descripcion, businessRules);
       const notas = [];
-
-      // Aplicar reglas
-      if (descripcion) {
-        const descriptionLower = String(descripcion).toLowerCase();
-        for (const regla of businessRules) {
-          const match = regla.keywords.some(keyword =>
-            descriptionLower.includes(keyword.toLowerCase())
-          );
-
-          if (match) {
-            categoria = regla.category;
-            gravedad = regla.severity;
-            accionSugerida = regla.suggestedAction;
-            notas.push(`Coincidencia con regla: "${regla.name}"`);
-            break; // Usar la primera coincidencia
-          }
-        }
+      if (nota) {
+        notas.push(nota);
       }
 
       // Contar por categoría
@@ -102,15 +214,7 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
     const employeeMeasures = {};
     for (const [empleado, data] of Object.entries(employeeIncidences)) {
       const count = data.count;
-      let medida = 'ninguna';
-      
-      if (count === 1) {
-        medida = 'aviso';
-      } else if (count === 2) {
-        medida = 'seguimiento';
-      } else if (count >= 3) {
-        medida = 'medida_correctiva';
-      }
+      const medida = count >= 3 ? 'medida_correctiva' : 'aviso';
 
       employeeMeasures[empleado] = {
         count,
