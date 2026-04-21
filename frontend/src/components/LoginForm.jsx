@@ -12,6 +12,7 @@ import {
   Link as MuiLink
 } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
+import { resolveAuthRedirectUrl } from '../lib/authRedirect';
 
 function mapSupabaseUser(user) {
   if (!user) return null;
@@ -42,11 +43,14 @@ export default function LoginForm({ onLoginSuccess }) {
 
     try {
       if (isRegister) {
+        const emailRedirectTo = resolveAuthRedirectUrl();
+
         const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { name }
+            data: { name },
+            emailRedirectTo
           }
         });
 
