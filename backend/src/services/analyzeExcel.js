@@ -5,13 +5,20 @@ const DEFAULT_CLASSIFICATION_RULES = [
     category: 'inocuidad',
     severity: 'alta',
     action: 'medida_correctiva',
-    keywords: ['temperatura', 'camara', 'cámara', 'heladera']
-  },
-  {
-    category: 'gestion',
-    severity: 'media',
-    action: 'aviso',
-    keywords: ['falta', 'incompleto', 'registro']
+    keywords: [
+      'temperatura',
+      'camara',
+      'cámara',
+      'heladera',
+      'cadena de frio',
+      'contaminacion',
+      'vencido',
+      'inocuidad',
+      'plaga',
+      'sin equipo',
+      'sin epp',
+      'riesgo'
+    ]
   },
   {
     category: 'higiene_orden',
@@ -20,10 +27,22 @@ const DEFAULT_CLASSIFICATION_RULES = [
     keywords: ['orden', 'etiquetado']
   },
   {
+    category: 'gestion_documental',
+    severity: 'media',
+    action: 'aviso',
+    keywords: ['registro incompleto', 'documentacion faltante']
+  },
+  {
     category: 'auditoria',
     severity: 'media',
     action: 'aviso',
-    keywords: ['auditoria', 'auditoría']
+    keywords: ['auditoria', 'auditoría', 'desvio', 'no conformidad', 'incumplimiento', 'falta']
+  },
+  {
+    category: 'mejora',
+    severity: 'baja',
+    action: 'seguimiento',
+    keywords: ['capacitacion', 'respaldo', 'drive', 'actualizacion', 'seguimiento', 'mejora']
   }
 ];
 
@@ -66,8 +85,43 @@ function normalizeForMatch(value) {
     .trim();
 }
 
-function classifyRecordByKeywords(descripcion, businessRules = []) {
-  const normalizedDescription = normalizeForMatch(descripcion);
+function buildAnalysisText(fields) {
+  const orderedSources = [
+    fields.descripcion,
+    fields.hallazgo,
+    fields.detalle,
+    fields.observacion,
+    fields.comentarios,
+    fields.tipo
+  ]
+    .map((value) => normalizeCellValue(value).trim())
+    .filter(Boolean);
+
+  const normalizedText = normalizeForMatch(orderedSources.join(' | '));
+  const primaryDescription = orderedSources[0] || '';
+
+  return { normalizedText, primaryDescription };
+}
+
+function ensureActionForSeverity(action, severity) {
+  const normalizedAction = normalizeForMatch(action);
+  if (normalizedAction) {
+    return action;
+  }
+
+  if (severity === 'alta') {
+    return 'medida_correctiva';
+  }
+
+  if (severity === 'media') {
+    return 'aviso';
+  }
+
+  return 'ninguna';
+}
+
+function classifyRecordByKeywords(analysisText, businessRules = []) {
+  const normalizedDescription = normalizeForMatch(analysisText);
 
   if (!normalizedDescription) {
     return {
@@ -87,7 +141,7 @@ function classifyRecordByKeywords(descripcion, businessRules = []) {
       return {
         categoria: rule.category,
         gravedad: rule.severity,
-        accionSugerida: rule.action,
+        accionSugerida: ensureActionForSeverity(rule.action, rule.severity),
         nota: `Coincidencia keyword: "${matchedKeyword}"`
       };
     }
@@ -100,10 +154,11 @@ function classifyRecordByKeywords(descripcion, businessRules = []) {
     );
 
     if (matchedKeyword) {
+      const gravedad = rule.severity || 'baja';
       return {
         categoria: rule.category || 'otros',
-        gravedad: rule.severity || 'baja',
-        accionSugerida: rule.suggestedAction || 'ninguna',
+        gravedad,
+        accionSugerida: ensureActionForSeverity(rule.suggestedAction, gravedad),
         nota: `Coincidencia con regla: "${rule.name || matchedKeyword}"`
       };
     }
@@ -112,7 +167,7 @@ function classifyRecordByKeywords(descripcion, businessRules = []) {
   return {
     categoria: 'otros',
     gravedad: 'baja',
-    accionSugerida: 'ninguna',
+    accionSugerida: ensureActionForSeverity('ninguna', 'baja'),
     nota: null
   };
 }
@@ -172,12 +227,26 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
       const tipo = normalizeCellValue(getValue(headerIndexes.tipo, 5));
       const observacion = normalizeCellValue(getValue(headerIndexes.observacion, 6));
       const responsable = normalizeCellValue(getValue(headerIndexes.responsable, 7));
+      const detalle = normalizeCellValue(getValue(headerIndexes.detalle, undefined));
+      const hallazgo = normalizeCellValue(getValue(headerIndexes.hallazgo, undefined));
+      const comentarios = normalizeCellValue(getValue(headerIndexes.comentarios, undefined));
+      const { normalizedText, primaryDescription } = buildAnalysisText({
+        descripcion,
+        tipo,
+        observacion,
+        detalle,
+        hallazgo,
+        comentarios
+      });
 
       // Inicializar registro
-      let { categoria, gravedad, accionSugerida, nota } = classifyRecordByKeywords(descripcion, businessRules);
+      let { categoria, gravedad, accionSugerida, nota } = classifyRecordByKeywords(normalizedText, businessRules);
       const notas = [];
       if (nota) {
         notas.push(nota);
+      }
+      if (normalizedText) {
+        notas.push('Clasificado usando texto combinado: descripcion/hallazgo/detalle/observacion/comentarios/tipo');
       }
 
       // Contar por categoría
@@ -198,9 +267,12 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
         fecha: fecha || '',
         empleado: empleado || 'N/A',
         sector: sector || 'N/A',
-        descripcion: descripcion || '',
+        descripcion: primaryDescription || descripcion || '',
         tipo: tipo || '',
         observacion: observacion || '',
+        detalle: detalle || '',
+        hallazgo: hallazgo || '',
+        comentarios: comentarios || '',
         responsable: responsable || 'N/A',
         categoria,
         gravedad,
@@ -263,16 +335,19 @@ export function detectHeaders(headerRow) {
     fecha: ['fecha', 'date', 'fecha del evento'],
     empleado: ['empleado', 'employee', 'personal', 'responsable'],
     sector: ['sector', 'department', 'área', 'area'],
-    descripcion: ['descripción', 'description', 'detalle', 'description', 'evento'],
+    descripcion: ['descripción', 'descripcion', 'description', 'descripcion del hallazgo', 'descripcion hallazgo'],
+    detalle: ['detalle', 'detalles', 'detalle del hallazgo', 'detalle hallazgo'],
+    hallazgo: ['hallazgo', 'finding'],
+    comentarios: ['comentario', 'comentarios', 'comment', 'comments'],
     tipo: ['tipo', 'type', 'clasificación', 'classification'],
-    observacion: ['observación', 'observation', 'nota', 'note'],
+    observacion: ['observación', 'observacion', 'observation', 'nota', 'note'],
     responsable: ['responsable', 'supervisor', 'jefe', 'manager']
   };
 
   for (const [key, aliases] of Object.entries(mapping)) {
     for (let i = 0; i < headerValues.length; i++) {
-      const headerValue = String(headerValues[i] || '').toLowerCase().trim();
-      if (aliases.some(alias => headerValue.includes(alias))) {
+      const headerValue = normalizeForMatch(headerValues[i] || '');
+      if (aliases.some(alias => headerValue.includes(normalizeForMatch(alias)))) {
         headers[key] = i;
       }
     }
