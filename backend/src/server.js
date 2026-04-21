@@ -46,6 +46,12 @@ app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) {
     return next();
   }
+
+  // No hacer fallback SPA para requests de archivos estaticos (.js, .css, .png, etc)
+  if (path.extname(req.path)) {
+    return res.status(404).send('Not Found');
+  }
+
   return res.sendFile(path.join(frontendDistPath, 'index.html'));
 });
 
