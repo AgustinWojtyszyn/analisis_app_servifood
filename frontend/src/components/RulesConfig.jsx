@@ -191,10 +191,10 @@ export default function RulesConfig() {
                 </TableCell>
                 <TableCell>{rule.peso || 1}</TableCell>
                 <TableCell sx={{ maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {rule.accion_inmediata || rule.suggestedAction || '-'}
+                  {rule.accion_inmediata || rule.suggestedAction || 'Registrar incidencia y notificar'}
                 </TableCell>
                 <TableCell sx={{ maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {rule.accion_correctiva || '-'}
+                  {rule.accion_correctiva || 'Definir mejora y seguimiento'}
                 </TableCell>
                 <TableCell sx={{ maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {keywordsToString(rule.keywords)}

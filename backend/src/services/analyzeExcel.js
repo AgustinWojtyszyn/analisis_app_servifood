@@ -6,12 +6,18 @@ const SEVERITY_POINTS = {
   alta: 3
 };
 
+const ORIGIN_PRIORITY_BONUS = {
+  interno: 0,
+  externo: 1
+};
+
 const INTERNAL_DEFAULT_RULES = [
   {
     nombre: 'Control de cadena de frío',
     categoria: 'inocuidad',
     origen: 'interno',
     gravedad: 'alta',
+    peso: 3,
     keywords: ['temperatura', 'camara', 'cámara', 'heladera', 'cadena de frio', 'vencido'],
     accion_inmediata: 'Bloquear lote y notificar responsable de inocuidad',
     accion_correctiva: 'Revisar cadena de frío y registrar acciones correctivas'
@@ -21,6 +27,7 @@ const INTERNAL_DEFAULT_RULES = [
     categoria: 'inocuidad',
     origen: 'interno',
     gravedad: 'alta',
+    peso: 3,
     keywords: ['contaminacion', 'plaga', 'inocuidad', 'riesgo'],
     accion_inmediata: 'Aislar área afectada y detener operación comprometida',
     accion_correctiva: 'Implementar plan de saneamiento y verificación'
@@ -30,6 +37,7 @@ const INTERNAL_DEFAULT_RULES = [
     categoria: 'operativo',
     origen: 'interno',
     gravedad: 'alta',
+    peso: 2,
     keywords: ['sin equipo', 'sin epp'],
     accion_inmediata: 'Detener tarea y exigir equipamiento obligatorio',
     accion_correctiva: 'Capacitar personal y reforzar control de EPP'
@@ -39,6 +47,7 @@ const INTERNAL_DEFAULT_RULES = [
     categoria: 'documentacion',
     origen: 'interno',
     gravedad: 'media',
+    peso: 1,
     keywords: ['registro incompleto', 'documentacion faltante', 'falta'],
     accion_inmediata: 'Solicitar regularización documental',
     accion_correctiva: 'Estandarizar registros y auditar cumplimiento'
@@ -48,6 +57,7 @@ const INTERNAL_DEFAULT_RULES = [
     categoria: 'calidad',
     origen: 'interno',
     gravedad: 'media',
+    peso: 2,
     keywords: ['auditoria', 'auditoría', 'desvio', 'no conformidad', 'incumplimiento'],
     accion_inmediata: 'Registrar desvío y notificar referente del área',
     accion_correctiva: 'Implementar plan de acción y seguimiento de cierre'
@@ -57,6 +67,7 @@ const INTERNAL_DEFAULT_RULES = [
     categoria: 'logistica',
     origen: 'externo',
     gravedad: 'media',
+    peso: 1,
     keywords: ['demora', 'retraso', 'atraso', 'entrega tarde'],
     accion_inmediata: 'Informar al cliente/sector afectado y reprogramar entrega',
     accion_correctiva: 'Optimizar planificación logística y controlar tiempos'
@@ -128,9 +139,12 @@ function normalizeRuleModel(rule, index = 0) {
   const categoria = normalizeForMatch(rule?.categoria || rule?.category) || 'operativo';
   const gravedad = normalizeForMatch(rule?.gravedad || rule?.severity) || 'baja';
   const rawPeso = Number(rule?.peso);
-  const peso = Number.isFinite(rawPeso) ? Math.min(3, Math.max(1, rawPeso)) : 1;
+  const inferredPeso = inferPesoByBusinessContext(categoria, gravedad);
+  const peso = Number.isFinite(rawPeso) ? Math.min(3, Math.max(1, rawPeso)) : inferredPeso;
   const defaultImmediate = gravedad === 'alta' ? 'Contener incidente y escalar' : 'Registrar incidencia y notificar';
   const defaultCorrective = gravedad === 'alta' ? 'Ejecutar plan correctivo formal' : 'Definir mejoras y seguimiento';
+  const incomingImmediate = normalizeCellValue(rule?.accion_inmediata || rule?.suggestedAction).trim();
+  const incomingCorrective = normalizeCellValue(rule?.accion_correctiva).trim();
 
   return {
     id: rule?.id ?? index + 1,
@@ -140,9 +154,16 @@ function normalizeRuleModel(rule, index = 0) {
     gravedad,
     peso,
     keywords: parseKeywords(rule?.keywords),
-    accion_inmediata: rule?.accion_inmediata || rule?.suggestedAction || defaultImmediate,
-    accion_correctiva: rule?.accion_correctiva || defaultCorrective
+    accion_inmediata: incomingImmediate && incomingImmediate !== '-' ? incomingImmediate : defaultImmediate,
+    accion_correctiva: incomingCorrective && incomingCorrective !== '-' ? incomingCorrective : defaultCorrective
   };
+}
+
+function inferPesoByBusinessContext(categoria, gravedad) {
+  if (categoria === 'inocuidad' && gravedad === 'alta') return 3;
+  if (categoria === 'operativo') return 2;
+  if (categoria === 'documentacion') return 1;
+  return 1;
 }
 
 function buildAnalysisText(fields) {
@@ -220,14 +241,17 @@ function getSeverityPoints(gravedad) {
   return SEVERITY_POINTS[gravedad] || SEVERITY_POINTS.baja;
 }
 
-function getRecordScore(gravedad, peso) {
+function getRecordScore(gravedad, peso, origen) {
   const base = getSeverityPoints(gravedad);
   const normalizedPeso = Number.isFinite(Number(peso)) ? Math.min(3, Math.max(1, Number(peso))) : 1;
-  return base * normalizedPeso;
+  const originBonus = ORIGIN_PRIORITY_BONUS[normalizeForMatch(origen)] || 0;
+  return (base * normalizedPeso) + originBonus;
 }
 
 function getFinalActionByScore(score) {
-  return score < 3 ? 'aviso' : 'medida_correctiva';
+  if (score >= 6) return 'medida_correctiva';
+  if (score >= 3) return 'seguimiento';
+  return 'aviso';
 }
 
 /**
@@ -309,7 +333,7 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
       } = classifyRecordByKeywords(normalizedText, businessRules);
 
       const puntajeGravedad = getSeverityPoints(gravedad);
-      const score = getRecordScore(gravedad, peso);
+      const score = getRecordScore(gravedad, peso, origen);
       const notas = [];
       if (reglaAplicada) notas.push(`Regla aplicada: ${reglaAplicada}`);
       if (nota) notas.push(nota);
@@ -349,6 +373,7 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
         score,
         accionInmediata,
         accionCorrectiva,
+        decision: getFinalActionByScore(score),
         accionSugerida,
         notas
       });
@@ -370,6 +395,11 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
       .sort((a, b) => b.score - a.score);
 
     const highestRiskSector = bySectorScore[0] || null;
+    const byEmployeeScore = Object.entries(employeeMeasures)
+      .map(([empleado, data]) => ({ empleado, ...data }))
+      .sort((a, b) => b.score - a.score);
+    const highestEmployeeScore = byEmployeeScore[0]?.score || 0;
+    const highestRiskEmployees = byEmployeeScore.filter((item) => item.score === highestEmployeeScore);
 
     progressCallback?.(95, 'Generando resumen...');
     const summary = {
@@ -377,6 +407,7 @@ export async function analyzeExcel(fileBuffer, businessRules, progressCallback =
       byCategory: categoryCount,
       bySeverity: severityCount,
       employeeMeasures,
+      highestRiskEmployees,
       sectorPrioritization: {
         bySectorScore,
         highestRiskSector

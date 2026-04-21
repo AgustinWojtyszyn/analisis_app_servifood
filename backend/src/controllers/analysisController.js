@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { PrismaClient } from '@prisma/client';
 import { analyzeExcel } from '../services/analyzeExcel.js';
 import defaultRules from '../../../shared/businessRules/defaultRules.json' with { type: 'json' };
 
@@ -8,6 +9,75 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey)
   : null;
+const prisma = new PrismaClient();
+
+function normalizeKeywords(value) {
+  if (Array.isArray(value)) return value;
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.keywords)) return parsed.keywords;
+    } catch {
+      return value.split(',').map((item) => item.trim()).filter(Boolean);
+    }
+  }
+
+  return [];
+}
+
+function parseRuleMetadata(rawKeywords) {
+  if (Array.isArray(rawKeywords)) return { keywords: rawKeywords };
+
+  if (typeof rawKeywords === 'string') {
+    try {
+      const parsed = JSON.parse(rawKeywords);
+      if (Array.isArray(parsed)) return { keywords: parsed };
+      if (parsed && typeof parsed === 'object') {
+        return {
+          keywords: normalizeKeywords(parsed.keywords),
+          origen: parsed.origen,
+          accion_inmediata: parsed.accion_inmediata,
+          accion_correctiva: parsed.accion_correctiva,
+          peso: parsed.peso
+        };
+      }
+    } catch {
+      return { keywords: normalizeKeywords(rawKeywords) };
+    }
+  }
+
+  return { keywords: [] };
+}
+
+async function getRulesForAnalysis() {
+  try {
+    const dbRules = await prisma.businessRule.findMany({
+      where: { enabled: true },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    if (!dbRules.length) return defaultRules;
+
+    return dbRules.map((rule) => {
+      const metadata = parseRuleMetadata(rule.keywords);
+      return {
+        id: rule.id,
+        nombre: rule.name,
+        categoria: rule.category,
+        origen: metadata.origen || 'interno',
+        gravedad: rule.severity,
+        keywords: normalizeKeywords(metadata.keywords),
+        accion_inmediata: metadata.accion_inmediata || rule.suggestedAction || 'aviso',
+        accion_correctiva: metadata.accion_correctiva || '',
+        peso: metadata.peso
+      };
+    });
+  } catch {
+    return defaultRules;
+  }
+}
 
 /**
  * Subir y procesar archivo Excel
@@ -28,7 +98,8 @@ export async function uploadAndAnalyze(req, res) {
       return res.status(400).json({ error: 'Solo se aceptan archivos .xlsx o .xls' });
     }
 
-    const analysisResult = await analyzeExcel(req.file.buffer, defaultRules);
+    const activeRules = await getRulesForAnalysis();
+    const analysisResult = await analyzeExcel(req.file.buffer, activeRules);
 
     if (!analysisResult.success) {
       return res.status(400).json({ error: analysisResult.error });

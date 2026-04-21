@@ -25,9 +25,12 @@ const severityColors = {
 };
 
 const categoryColors = {
+  logistica: { bg: 'rgba(37, 99, 235, 0.10)', text: '#1e3a8a' },
   logística: { bg: 'rgba(37, 99, 235, 0.10)', text: '#1e3a8a' },
   inocuidad: { bg: 'rgba(220, 38, 38, 0.10)', text: '#991b1b' },
   calidad: { bg: 'rgba(234, 88, 12, 0.10)', text: '#9a3412' },
+  documentacion: { bg: 'rgba(14, 116, 144, 0.12)', text: '#155e75' },
+  operativo: { bg: 'rgba(79, 70, 229, 0.10)', text: '#3730a3' },
   reclamo_externo: { bg: 'rgba(190, 24, 93, 0.10)', text: '#9d174d' },
   reclamo_interno: { bg: 'rgba(249, 115, 22, 0.10)', text: '#9a3412' },
   otros: { bg: 'rgba(148, 163, 184, 0.16)', text: '#334155' }
@@ -122,14 +125,17 @@ export default function AnalysisResults({ records }) {
 
   const handleExport = () => {
     const csv = [
-      ['Empleado', 'Sector', 'Descripción', 'Categoría', 'Gravedad', 'Acción Sugerida', 'Notas'],
+      ['Empleado', 'Sector', 'Descripción', 'Categoría', 'Origen', 'Gravedad', 'Acción inmediata', 'Acción correctiva', 'Score', 'Notas'],
       ...filteredRecords.map(r => [
         normalizeCellValue(r.empleado),
         normalizeCellValue(r.sector),
         normalizeCellValue(r.descripcion),
         normalizeCellValue(r.categoria),
+        normalizeCellValue(r.origen || 'interno'),
         normalizeCellValue(r.gravedad),
-        normalizeCellValue(r.accionSugerida),
+        normalizeCellValue(r.accionInmediata || r.accionSugerida),
+        normalizeCellValue(r.accionCorrectiva),
+        normalizeCellValue(r.score),
         normalizeCellValue(r.notas).replaceAll(',', ';')
       ])
     ]
@@ -149,8 +155,11 @@ export default function AnalysisResults({ records }) {
       Sector: normalizeCellValue(record.sector),
       Descripción: normalizeCellValue(record.descripcion),
       Categoría: normalizeCellValue(record.categoria),
+      Origen: normalizeCellValue(record.origen || 'interno'),
       Gravedad: normalizeCellValue(record.gravedad),
-      Acción: normalizeCellValue(record.accionSugerida).replaceAll('_', ' ')
+      'Acción inmediata': normalizeCellValue(record.accionInmediata || record.accionSugerida).replaceAll('_', ' '),
+      'Acción correctiva': normalizeCellValue(record.accionCorrectiva),
+      Score: normalizeCellValue(record.score)
     }));
 
     const sheet = XLSX.utils.json_to_sheet(rows);
@@ -258,8 +267,11 @@ export default function AnalysisResults({ records }) {
               <TableCell sx={{ fontWeight: 600 }}>Sector</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Descripción</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Categoría</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Origen</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Gravedad</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Acción</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Acción inmediata</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Acción correctiva</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Score</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -288,6 +300,9 @@ export default function AnalysisResults({ records }) {
                   />
                 </TableCell>
                 <TableCell>
+                  <Chip label={normalizeCellValue(record.origen || 'interno')} size="small" />
+                </TableCell>
+                <TableCell>
                   <Chip
                     label={normalizeCellValue(record.gravedad)}
                     size="small"
@@ -300,7 +315,17 @@ export default function AnalysisResults({ records }) {
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600 }}>
-                    {normalizeCellValue(record.accionSugerida).replaceAll('_', ' ')}
+                    {normalizeCellValue(record.accionInmediata || record.accionSugerida).replaceAll('_', ' ')}
+                  </Typography>
+                </TableCell>
+                <TableCell sx={{ maxWidth: 240 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    {normalizeCellValue(record.accionCorrectiva || 'Definir mejora y seguimiento')}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {normalizeCellValue(record.score || 0)}
                   </Typography>
                 </TableCell>
               </TableRow>

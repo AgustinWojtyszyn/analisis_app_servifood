@@ -2,42 +2,67 @@ import { PrismaClient } from '@prisma/client';
 import defaultRules from '../../../shared/businessRules/defaultRules.json' with { type: 'json' };
 
 const prisma = new PrismaClient();
-let fallbackRules = (defaultRules || []).map((rule) => ({
-  id: rule.id,
-  name: rule.name || rule.nombre,
-  keywords: Array.isArray(rule.keywords) ? [...rule.keywords] : [],
-  category: rule.category || rule.categoria,
-  severity: rule.severity || rule.gravedad || 'media',
-  suggestedAction: rule.suggestedAction || rule.accion_inmediata || 'aviso',
-  origen: rule.origen || 'interno',
-  accion_inmediata: rule.accion_inmediata || rule.suggestedAction || 'aviso',
-  accion_correctiva: rule.accion_correctiva || '',
-  peso: Number.isFinite(Number(rule.peso)) ? Math.min(3, Math.max(1, Number(rule.peso))) : 1,
-  enabled: true,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString()
-}));
 
 function normalizePeso(value) {
   const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return 1;
+  if (!Number.isFinite(numeric)) return null;
   return Math.min(3, Math.max(1, numeric));
+}
+
+function inferPesoByContext(category, severity) {
+  const normalizedCategory = String(category || '').toLowerCase();
+  const normalizedSeverity = String(severity || '').toLowerCase();
+  if (normalizedCategory === 'inocuidad' && normalizedSeverity === 'alta') return 3;
+  if (normalizedCategory === 'operativo') return 2;
+  if (normalizedCategory === 'documentacion') return 1;
+  return 1;
+}
+
+function resolvePeso(value, category, severity) {
+  const normalized = normalizePeso(value);
+  if (normalized != null) return normalized;
+  return inferPesoByContext(category, severity);
+}
+
+function resolveAction(value, fallback) {
+  const text = String(value ?? '').trim();
+  return text && text !== '-' ? text : fallback;
+}
+
+function normalizeKeywords(value) {
+  if (Array.isArray(value)) return value.map((k) => String(k).trim()).filter(Boolean);
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed.map((k) => String(k).trim()).filter(Boolean);
+      }
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.keywords)) {
+        return parsed.keywords.map((k) => String(k).trim()).filter(Boolean);
+      }
+    } catch {
+      return value.split(',').map((k) => k.trim()).filter(Boolean);
+    }
+  }
+
+  return [];
 }
 
 function parseRuleMetadata(rawKeywords) {
   if (Array.isArray(rawKeywords)) {
-    return { keywords: rawKeywords };
+    return { keywords: normalizeKeywords(rawKeywords) };
   }
 
   if (typeof rawKeywords === 'string') {
     try {
       const parsed = JSON.parse(rawKeywords);
       if (Array.isArray(parsed)) {
-        return { keywords: parsed };
+        return { keywords: normalizeKeywords(parsed) };
       }
       if (parsed && typeof parsed === 'object') {
         return {
-          keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+          keywords: normalizeKeywords(parsed.keywords),
           origen: parsed.origen,
           accion_inmediata: parsed.accion_inmediata,
           accion_correctiva: parsed.accion_correctiva,
@@ -45,12 +70,7 @@ function parseRuleMetadata(rawKeywords) {
         };
       }
     } catch {
-      return {
-        keywords: rawKeywords
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean)
-      };
+      return { keywords: normalizeKeywords(rawKeywords) };
     }
   }
 
@@ -59,34 +79,51 @@ function parseRuleMetadata(rawKeywords) {
 
 function buildStoredKeywordsPayload({ keywords, origen, accion_inmediata, accion_correctiva, peso }) {
   return JSON.stringify({
-    keywords: Array.isArray(keywords) ? keywords : [],
+    keywords: normalizeKeywords(keywords),
     origen: origen || 'interno',
-    accion_inmediata: accion_inmediata || '',
-    accion_correctiva: accion_correctiva || '',
-    peso: normalizePeso(peso)
+    accion_inmediata: accion_inmediata || 'Registrar incidencia y notificar',
+    accion_correctiva: accion_correctiva || 'Definir mejora y seguimiento',
+    peso: peso
   });
 }
 
 function toApiRule(rule) {
   const metadata = parseRuleMetadata(rule.keywords);
-  const accionInmediata = metadata.accion_inmediata || rule.suggestedAction || 'aviso';
-  const accionCorrectiva = metadata.accion_correctiva || '';
-  const origen = metadata.origen || rule.origen || 'interno';
-  const peso = normalizePeso(metadata.peso ?? rule.peso);
+  const accionInmediata = resolveAction(metadata.accion_inmediata, rule.suggestedAction || 'Registrar incidencia y notificar');
+  const accionCorrectiva = resolveAction(metadata.accion_correctiva, 'Definir mejora y seguimiento');
+  const resolvedPeso = resolvePeso(metadata.peso ?? rule.peso, rule.category, rule.severity);
 
   return {
     ...rule,
     keywords: metadata.keywords || [],
-    origen,
+    origen: metadata.origen || rule.origen || 'interno',
     accion_inmediata: accionInmediata,
     accion_correctiva: accionCorrectiva,
-    peso,
+    peso: resolvedPeso,
     nombre: rule.name,
     categoria: rule.category,
     gravedad: rule.severity,
     suggestedAction: accionInmediata
   };
 }
+
+let fallbackRules = (defaultRules || []).map((rule) => ({
+  id: rule.id,
+  name: rule.name || rule.nombre,
+  keywords: buildStoredKeywordsPayload({
+    keywords: rule.keywords,
+    origen: rule.origen,
+    accion_inmediata: rule.accion_inmediata || rule.suggestedAction,
+    accion_correctiva: rule.accion_correctiva,
+    peso: resolvePeso(rule.peso, rule.category || rule.categoria, rule.severity || rule.gravedad)
+  }),
+  category: rule.category || rule.categoria,
+  severity: rule.severity || rule.gravedad || 'media',
+  suggestedAction: rule.suggestedAction || rule.accion_inmediata || 'aviso',
+  enabled: true,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+}));
 
 /**
  * Obtener todas las reglas de negocio
@@ -127,9 +164,18 @@ export async function createRule(req, res) {
     const resolvedName = name || nombre;
     const resolvedCategory = category || categoria;
     const resolvedSeverity = severity || gravedad || 'media';
-    const resolvedImmediateAction = accion_inmediata || suggestedAction || 'aviso';
+    const resolvedImmediateAction = resolveAction(
+      accion_inmediata || suggestedAction,
+      'Registrar incidencia y notificar'
+    );
+    const resolvedCorrectiveAction = resolveAction(
+      accion_correctiva,
+      'Definir mejora y seguimiento'
+    );
+    const resolvedKeywords = normalizeKeywords(keywords);
+    const resolvedPeso = resolvePeso(peso, resolvedCategory, resolvedSeverity);
 
-    if (!resolvedName || !keywords || !resolvedCategory) {
+    if (!resolvedName || !resolvedCategory || resolvedKeywords.length === 0) {
       return res.status(400).json({ error: 'Faltan campos requeridos' });
     }
 
@@ -137,11 +183,11 @@ export async function createRule(req, res) {
       data: {
         name: resolvedName,
         keywords: buildStoredKeywordsPayload({
-          keywords,
+          keywords: resolvedKeywords,
           origen,
           accion_inmediata: resolvedImmediateAction,
-          accion_correctiva,
-          peso
+          accion_correctiva: resolvedCorrectiveAction,
+          peso: resolvedPeso
         }),
         category: resolvedCategory,
         severity: resolvedSeverity,
@@ -165,27 +211,41 @@ export async function createRule(req, res) {
       origen,
       peso
     } = req.body;
+
     const resolvedName = name || nombre;
     const resolvedCategory = category || categoria;
     const resolvedSeverity = severity || gravedad || 'media';
-    const resolvedImmediateAction = accion_inmediata || suggestedAction || 'aviso';
+    const resolvedImmediateAction = resolveAction(
+      accion_inmediata || suggestedAction,
+      'Registrar incidencia y notificar'
+    );
+    const resolvedCorrectiveAction = resolveAction(
+      accion_correctiva,
+      'Definir mejora y seguimiento'
+    );
+    const resolvedKeywords = normalizeKeywords(keywords);
+    const resolvedPeso = resolvePeso(peso, resolvedCategory, resolvedSeverity);
     const nextId = fallbackRules.length ? Math.max(...fallbackRules.map((r) => Number(r.id) || 0)) + 1 : 1;
     const now = new Date().toISOString();
+
     const fallbackRule = {
       id: nextId,
       name: resolvedName,
-      keywords: Array.isArray(keywords) ? keywords : [],
+      keywords: buildStoredKeywordsPayload({
+        keywords: resolvedKeywords,
+        origen,
+        accion_inmediata: resolvedImmediateAction,
+        accion_correctiva: resolvedCorrectiveAction,
+        peso: resolvedPeso
+      }),
       category: resolvedCategory,
       severity: resolvedSeverity,
       suggestedAction: resolvedImmediateAction,
-      origen: origen || 'interno',
-      accion_inmediata: resolvedImmediateAction,
-      accion_correctiva: accion_correctiva || '',
-      peso: normalizePeso(peso),
       enabled: true,
       createdAt: now,
       updatedAt: now
     };
+
     fallbackRules.unshift(fallbackRule);
     res.status(201).json(toApiRule(fallbackRule));
   }
@@ -197,6 +257,7 @@ export async function createRule(req, res) {
 export async function updateRule(req, res) {
   try {
     const { id } = req.params;
+    const numericId = parseInt(id, 10);
     const {
       name,
       nombre,
@@ -213,29 +274,48 @@ export async function updateRule(req, res) {
       enabled
     } = req.body;
 
+    const currentRule = await prisma.businessRule.findUnique({ where: { id: numericId } });
+    if (!currentRule) {
+      return res.status(404).json({ error: 'Regla no encontrada' });
+    }
+
+    const currentMeta = parseRuleMetadata(currentRule.keywords);
+    const nextKeywords = keywords !== undefined ? normalizeKeywords(keywords) : currentMeta.keywords;
+    const nextOrigen = origen ?? currentMeta.origen ?? 'interno';
+    const nextSeverity = severity ?? gravedad ?? currentRule.severity;
+    const nextCategory = category ?? categoria ?? currentRule.category;
+    const nextAccionInmediata = resolveAction(
+      accion_inmediata ?? suggestedAction ?? currentMeta.accion_inmediata ?? currentRule.suggestedAction,
+      'Registrar incidencia y notificar'
+    );
+    const nextAccionCorrectiva = resolveAction(
+      accion_correctiva ?? currentMeta.accion_correctiva,
+      'Definir mejora y seguimiento'
+    );
+    const nextPeso = resolvePeso(peso !== undefined ? peso : currentMeta.peso, nextCategory, nextSeverity);
+
     const rule = await prisma.businessRule.update({
-      where: { id: parseInt(id) },
+      where: { id: numericId },
       data: {
-        name: name || nombre || undefined,
-        keywords: keywords || accion_inmediata || accion_correctiva || origen || peso !== undefined
-          ? buildStoredKeywordsPayload({
-              keywords: keywords || parseRuleMetadata((await prisma.businessRule.findUnique({ where: { id: parseInt(id) } }))?.keywords).keywords,
-              origen,
-              accion_inmediata: accion_inmediata || suggestedAction,
-              accion_correctiva,
-              peso
-            })
-          : undefined,
-        category: category || categoria || undefined,
-        severity: severity || gravedad || undefined,
-        suggestedAction: accion_inmediata || suggestedAction || undefined,
-        enabled: enabled !== undefined ? enabled : undefined
+        name: name ?? nombre ?? currentRule.name,
+        keywords: buildStoredKeywordsPayload({
+          keywords: nextKeywords,
+          origen: nextOrigen,
+          accion_inmediata: nextAccionInmediata,
+          accion_correctiva: nextAccionCorrectiva,
+          peso: nextPeso
+        }),
+        category: nextCategory,
+        severity: nextSeverity,
+        suggestedAction: nextAccionInmediata,
+        enabled: enabled !== undefined ? enabled : currentRule.enabled
       }
     });
 
     res.json(toApiRule(rule));
   } catch (error) {
     const { id } = req.params;
+    const numericId = parseInt(id, 10);
     const {
       name,
       nombre,
@@ -251,7 +331,7 @@ export async function updateRule(req, res) {
       peso,
       enabled
     } = req.body;
-    const numericId = parseInt(id);
+
     const index = fallbackRules.findIndex((rule) => Number(rule.id) === numericId);
 
     if (index < 0) {
@@ -259,17 +339,34 @@ export async function updateRule(req, res) {
     }
 
     const current = fallbackRules[index];
+    const currentMeta = parseRuleMetadata(current.keywords);
+    const nextKeywords = keywords !== undefined ? normalizeKeywords(keywords) : currentMeta.keywords;
+    const nextOrigen = origen ?? currentMeta.origen ?? 'interno';
+    const nextSeverity = severity ?? gravedad ?? current.severity;
+    const nextCategory = category ?? categoria ?? current.category;
+    const nextAccionInmediata = resolveAction(
+      accion_inmediata ?? suggestedAction ?? currentMeta.accion_inmediata ?? current.suggestedAction,
+      'Registrar incidencia y notificar'
+    );
+    const nextAccionCorrectiva = resolveAction(
+      accion_correctiva ?? currentMeta.accion_correctiva,
+      'Definir mejora y seguimiento'
+    );
+    const nextPeso = resolvePeso(peso !== undefined ? peso : currentMeta.peso, nextCategory, nextSeverity);
+
     const updated = {
       ...current,
       name: name ?? nombre ?? current.name,
-      keywords: keywords ?? current.keywords,
-      category: category ?? categoria ?? current.category,
-      severity: severity ?? gravedad ?? current.severity,
-      suggestedAction: accion_inmediata ?? suggestedAction ?? current.suggestedAction,
-      origen: origen ?? current.origen,
-      accion_inmediata: accion_inmediata ?? current.accion_inmediata,
-      accion_correctiva: accion_correctiva ?? current.accion_correctiva,
-      peso: peso !== undefined ? normalizePeso(peso) : current.peso,
+      keywords: buildStoredKeywordsPayload({
+        keywords: nextKeywords,
+        origen: nextOrigen,
+        accion_inmediata: nextAccionInmediata,
+        accion_correctiva: nextAccionCorrectiva,
+        peso: nextPeso
+      }),
+      category: nextCategory,
+      severity: nextSeverity,
+      suggestedAction: nextAccionInmediata,
       enabled: enabled ?? current.enabled,
       updatedAt: new Date().toISOString()
     };
@@ -287,13 +384,13 @@ export async function deleteRule(req, res) {
     const { id } = req.params;
 
     await prisma.businessRule.delete({
-      where: { id: parseInt(id) }
+      where: { id: parseInt(id, 10) }
     });
 
     res.json({ success: true });
   } catch (error) {
     const { id } = req.params;
-    const numericId = parseInt(id);
+    const numericId = parseInt(id, 10);
     fallbackRules = fallbackRules.filter((rule) => Number(rule.id) !== numericId);
     res.json({ success: true });
   }
