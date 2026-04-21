@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Avatar,
   Box,
   Button,
   Divider,
@@ -51,6 +50,42 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     const parts = source.split(' ').filter(Boolean);
     return (parts[0]?.[0] || 'U') + (parts[1]?.[0] || '');
   }, [user]);
+
+  const sectionMeta = useMemo(() => ({
+    panel: {
+      title: 'Panel Principal',
+      subtitle: 'Subí archivos y gestioná tus resultados desde un solo flujo'
+    },
+    history: {
+      title: 'Historial',
+      subtitle: 'Consultá análisis anteriores y recuperá resultados'
+    },
+    charts: {
+      title: 'Gráficos',
+      subtitle: 'Visualizá patrones por gravedad, categoría y sector'
+    },
+    profile: {
+      title: 'Mi Perfil',
+      subtitle: 'Actualizá tu información de usuario'
+    },
+    tutorial: {
+      title: 'Tutorial',
+      subtitle: 'Guía rápida para usar la plataforma'
+    },
+    rules: {
+      title: 'Configurar Reglas',
+      subtitle: 'Administrá reglas de clasificación y acciones'
+    },
+    adminUsers: {
+      title: 'Gestión de usuarios',
+      subtitle: 'Controlá roles y estado de acceso del equipo'
+    }
+  }), []);
+
+  const currentMeta = sectionMeta[currentSection] || {
+    title: 'Análisis de Calidad',
+    subtitle: 'Plataforma de análisis de calidad'
+  };
 
   const handleSelect = (id) => {
     onSelectSection(id);
@@ -155,90 +190,79 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         </Drawer>
       </Box>
 
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: { xs: 1.75, sm: 2.5 },
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          minHeight: '100vh'
-        }}
-      >
-        <Box
-          sx={{
-            mt: { xs: 1.25, sm: 2 },
-            mb: { xs: 3.5, sm: 4.25 },
-            maxWidth: 860,
-            mx: 'auto',
-            px: { xs: 1.25, sm: 1.5 },
-            py: { xs: 1.1, sm: 1.25 },
-            borderRadius: 2.5,
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '1fr auto 1fr' },
-            alignItems: 'center',
-            gap: { xs: 1.5, md: 2.25 }
-          }}
-        >
-          <Box sx={{ display: { xs: 'none', md: 'block' } }} />
-
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.25, minWidth: 0, position: 'relative' }}>
-            {!isDesktop && (
-              <IconButton
-                edge="start"
-                onClick={() => setMobileOpen(true)}
-                sx={{
-                  position: 'absolute',
-                  left: 0,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'rgba(255,255,255,0.95)'
-                }}
-              >
-                <MenuRoundedIcon />
-              </IconButton>
-            )}
-            <Box sx={{ minWidth: 0, textAlign: 'center', px: { xs: 4.5, md: 0 } }}>
-              <Typography
-                sx={{
-                  fontWeight: 900,
-                  lineHeight: 1.04,
-                  fontSize: { xs: 32, sm: 38 },
-                  letterSpacing: '-0.02em',
-                  color: '#f8fbff'
-                }}
-              >
-                Análisis de Calidad
-              </Typography>
-              <Typography
-                sx={{
-                  mt: 0.65,
-                  color: 'rgba(232,242,255,0.86)',
-                  fontSize: { xs: 14.5, sm: 16.5 },
-                  fontWeight: 500
-                }}
-              >
-                Control y clasificación de incidencias en archivos Excel
-              </Typography>
+      <Box component="main" sx={{ flexGrow: 1, width: { md: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh' }}>
+        <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pt: { xs: 1.5, sm: 2.25 } }}>
+          <Box
+            sx={{
+              backgroundColor: '#ffffff',
+              borderRadius: 2.5,
+              border: '1px solid #dce6f6',
+              px: { xs: 1.2, sm: 2.2 },
+              py: { xs: 1.25, sm: 1.6 },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1.25
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.1, minWidth: 0 }}>
+              {!isDesktop && (
+                <IconButton edge="start" onClick={() => setMobileOpen(true)} sx={{ color: 'primary.main' }}>
+                  <MenuRoundedIcon />
+                </IconButton>
+              )}
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 900, fontSize: { xs: 23, sm: 28 }, color: '#0f2a66', lineHeight: 1.05 }}>
+                  Análisis de Calidad
+                </Typography>
+                <Typography sx={{ mt: 0.35, color: '#516181', fontSize: { xs: 13.5, sm: 14.5 } }}>
+                  Control y clasificación de incidencias en archivos Excel
+                </Typography>
+              </Box>
             </Box>
-          </Box>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'center', md: 'flex-end' }, gap: 1.2 }}>
-            <Avatar sx={{ bgcolor: 'primary.main', width: 34, height: 34, fontSize: 13 }}>{initials.toUpperCase()}</Avatar>
             <Button
               variant="outlined"
               startIcon={<LogoutRoundedIcon />}
               onClick={onLogout}
-              sx={{
-                color: '#eaf2ff',
-                borderColor: 'rgba(234,242,255,0.44)',
-                '&:hover': { borderColor: '#ffffff', backgroundColor: 'rgba(255,255,255,0.08)' }
-              }}
+              sx={{ borderColor: 'rgba(29,78,216,0.35)', color: '#1f3a73', '&:hover': { borderColor: '#1d4ed8', backgroundColor: 'rgba(29,78,216,0.06)' } }}
             >
               Salir
             </Button>
           </Box>
+
+          <Box
+            sx={{
+              mt: 1.1,
+              mb: 2.35,
+              backgroundColor: '#ffffff',
+              borderRadius: 2.2,
+              border: '1px solid #e4ecfa',
+              px: { xs: 1.2, sm: 2 },
+              py: 1.05,
+              display: 'flex',
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              justifyContent: 'space-between',
+              gap: 1,
+              flexDirection: { xs: 'column', sm: 'row' }
+            }}
+          >
+            <Box>
+              <Typography sx={{ fontWeight: 800, color: '#17346f', fontSize: { xs: 15.5, sm: 16.5 } }}>
+                {currentMeta.title}
+              </Typography>
+              <Typography sx={{ color: '#637390', fontSize: 13.5, mt: 0.2 }}>
+                {currentMeta.subtitle}
+              </Typography>
+            </Box>
+            <Typography sx={{ color: '#4f6286', fontWeight: 700, fontSize: 13.5 }}>
+              {user?.name || user?.email || initials.toUpperCase()}
+            </Typography>
+          </Box>
         </Box>
-        {children}
+
+        <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pb: { xs: 2, sm: 2.5 } }}>
+          {children}
+        </Box>
       </Box>
     </Box>
   );
