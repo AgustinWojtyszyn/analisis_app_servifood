@@ -93,15 +93,15 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
   };
 
   return (
-    <Box sx={{ mb: 4 }}>
+    <Box sx={{ mb: 3 }}>
       <Card>
-        <CardContent sx={{ p: 4 }}>
+        <CardContent sx={{ p: { xs: 2.5, md: 3.25 } }}>
           {showHeader && (
             <>
-              <Typography variant="h5" sx={{ mb: 0.5, fontWeight: 800 }}>
+              <Typography variant="h5" sx={{ mb: 0.5, fontWeight: 800, fontSize: { xs: 24, md: 28 } }}>
                 Cargar Archivo Excel
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
                 Subí un archivo para clasificar incidencias y generar métricas automáticamente.
               </Typography>
             </>
@@ -115,28 +115,29 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
             onDragOver={handleDrag}
             onDrop={handleDrop}
             sx={{
-              p: { xs: 3, md: 5 },
+              p: { xs: 3, md: 4.5 },
               textAlign: 'center',
               border: '2px dashed',
               borderColor: dragActive ? 'primary.main' : 'divider',
               background: dragActive
-                ? 'linear-gradient(140deg, rgba(37,99,235,0.16), rgba(14,165,233,0.12))'
-                : 'linear-gradient(140deg, rgba(219,234,254,0.35), rgba(239,246,255,0.55))',
+                ? 'linear-gradient(145deg, rgba(29,78,216,0.15), rgba(37,99,235,0.11))'
+                : 'linear-gradient(145deg, #f4f8ff, #ecf3ff)',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
-              mb: 3,
+              mb: 2.5,
               borderRadius: 3,
               '&:hover': {
                 borderColor: 'primary.main',
-                transform: 'translateY(-1px)'
+                transform: 'translateY(-1px)',
+                boxShadow: '0 10px 20px rgba(37, 99, 235, 0.12)'
               }
             }}
           >
             <CloudUploadIcon sx={{ fontSize: 54, mb: 2, color: 'primary.main' }} />
-            <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
+            <Typography variant="h6" sx={{ mb: 1, fontWeight: 700, fontSize: { xs: 19, md: 21 } }}>
               Arrastra tu archivo aqui o haz clic para seleccionar
             </Typography>
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body2" color="text.secondary">
               Formatos soportados: .xlsx, .xls
             </Typography>
 
@@ -183,7 +184,7 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
               onClick={handleUpload}
               disabled={!selectedFile || uploading}
               fullWidth
-              sx={{ py: 1.6, boxShadow: '0 10px 24px rgba(37, 99, 235, 0.25)' }}
+              sx={{ py: 1.4, boxShadow: '0 10px 20px rgba(29, 78, 216, 0.24)' }}
             >
               {uploading ? (
                 <>

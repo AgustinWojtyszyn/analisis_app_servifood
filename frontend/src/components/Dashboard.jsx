@@ -25,20 +25,38 @@ const metricVariants = {
 export function MetricCard({ title, value, variant = 'info', icon: CustomIcon }) {
   const { icon: DefaultIcon, color } = metricVariants[variant] || metricVariants.info;
   const Icon = CustomIcon || DefaultIcon;
+  const iconBackgrounds = {
+    success: 'rgba(22, 163, 74, 0.14)',
+    warning: 'rgba(234, 88, 12, 0.14)',
+    error: 'rgba(220, 38, 38, 0.14)',
+    info: 'rgba(2, 132, 199, 0.14)'
+  };
 
   return (
-    <Card sx={{ height: '100%', transition: 'transform 0.2s ease', '&:hover': { transform: 'translateY(-2px)' } }}>
-      <CardContent>
+    <Card sx={{ height: '100%', transition: 'all 0.2s ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 14px 28px rgba(18, 47, 105, 0.16)' } }}>
+      <CardContent sx={{ p: 2.25 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
-            <Typography color="text.secondary" gutterBottom>
+            <Typography color="text.secondary" sx={{ fontSize: 13.5, fontWeight: 600 }} gutterBottom>
               {title}
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 700, my: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 0.5, mb: 0 }}>
               {value}
             </Typography>
           </Box>
-          <Icon sx={{ fontSize: 40, color: `${color}.main` }} />
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 1.5,
+              backgroundColor: iconBackgrounds[color] || iconBackgrounds.info,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Icon sx={{ fontSize: 24, color: `${color}.main` }} />
+          </Box>
         </Box>
       </CardContent>
     </Card>
@@ -51,7 +69,7 @@ export function SummaryGrid({ summary }) {
   const { totalRecords, byCategory, bySeverity } = summary;
 
   return (
-    <Grid container spacing={2} sx={{ mb: 4 }}>
+    <Grid container spacing={2} sx={{ mb: 3 }}>
       <Grid item xs={12} sm={6} md={3}>
         <MetricCard 
           title="Total de Registros" 
@@ -118,25 +136,25 @@ export function EmployeeMetrics({ summary }) {
   };
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+    <Paper sx={{ p: 2.5 }}>
+      <Typography variant="h6" sx={{ mb: 1.75, fontWeight: 700 }}>
         Acciones Recomendadas por Empleado
       </Typography>
       <Box sx={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-              <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600 }}>Empleado</th>
-              <th style={{ textAlign: 'center', padding: '12px', fontWeight: 600 }}>Incidencias</th>
-              <th style={{ textAlign: 'center', padding: '12px', fontWeight: 600 }}>Acción</th>
+              <th style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 700, color: '#475569' }}>Empleado</th>
+              <th style={{ textAlign: 'center', padding: '10px 12px', fontWeight: 700, color: '#475569' }}>Incidencias</th>
+              <th style={{ textAlign: 'center', padding: '10px 12px', fontWeight: 700, color: '#475569' }}>Acción</th>
             </tr>
           </thead>
           <tbody>
             {Object.entries(measures).map(([employee, data]) => (
               <tr key={employee} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '12px' }}>{employee}</td>
-                <td style={{ textAlign: 'center', padding: '12px' }}>{data.count}</td>
-                <td style={{ textAlign: 'center', padding: '12px' }}>
+                <td style={{ padding: '10px 12px' }}>{employee}</td>
+                <td style={{ textAlign: 'center', padding: '10px 12px' }}>{data.count}</td>
+                <td style={{ textAlign: 'center', padding: '10px 12px' }}>
                   <Chip
                     label={data.medida.replace('_', ' ')}
                     color={measureColors[data.medida]}

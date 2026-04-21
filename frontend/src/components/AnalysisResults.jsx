@@ -17,18 +17,18 @@ import {
 import DownloadIcon from '@mui/icons-material/Download';
 
 const severityColors = {
-  baja: 'success',
-  media: 'warning',
-  alta: 'error'
+  baja: { color: 'success', bg: 'rgba(22, 163, 74, 0.12)', text: '#166534' },
+  media: { color: 'warning', bg: 'rgba(234, 88, 12, 0.12)', text: '#9a3412' },
+  alta: { color: 'error', bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' }
 };
 
 const categoryColors = {
-  logística: 'info',
-  inocuidad: 'error',
-  calidad: 'warning',
-  reclamo_externo: 'error',
-  reclamo_interno: 'warning',
-  otros: 'default'
+  logística: { bg: 'rgba(37, 99, 235, 0.10)', text: '#1e3a8a' },
+  inocuidad: { bg: 'rgba(220, 38, 38, 0.10)', text: '#991b1b' },
+  calidad: { bg: 'rgba(234, 88, 12, 0.10)', text: '#9a3412' },
+  reclamo_externo: { bg: 'rgba(190, 24, 93, 0.10)', text: '#9d174d' },
+  reclamo_interno: { bg: 'rgba(249, 115, 22, 0.10)', text: '#9a3412' },
+  otros: { bg: 'rgba(148, 163, 184, 0.16)', text: '#334155' }
 };
 
 function normalizeCellValue(value) {
@@ -142,7 +142,7 @@ export default function AnalysisResults({ records }) {
   };
 
   return (
-    <Paper sx={{ p: { xs: 2, md: 3 } }}>
+    <Paper sx={{ p: { xs: 2, md: 2.75 } }}>
       <Box
         sx={{
           display: 'flex',
@@ -153,7 +153,7 @@ export default function AnalysisResults({ records }) {
           mb: 2.5
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 800 }}>
+        <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: 19, md: 21 } }}>
           Registros Procesados ({filteredRecords.length})
         </Typography>
         <Button
@@ -235,7 +235,14 @@ export default function AnalysisResults({ records }) {
           </TableHead>
           <TableBody>
             {displayedRecords.map((record, index) => (
-              <TableRow key={index} hover sx={{ '&:last-child td': { border: 0 } }}>
+              <TableRow
+                key={index}
+                hover
+                sx={{
+                  '&:last-child td': { border: 0 },
+                  '&:hover': { backgroundColor: 'rgba(29, 78, 216, 0.03)' }
+                }}
+              >
                 <TableCell>{normalizeCellValue(record.empleado)}</TableCell>
                 <TableCell>{normalizeCellValue(record.sector)}</TableCell>
                 <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -244,19 +251,26 @@ export default function AnalysisResults({ records }) {
                 <TableCell>
                   <Chip
                     label={normalizeCellValue(record.categoria)}
-                    color={categoryColors[record.categoria] || 'info'}
                     size="small"
+                    sx={{
+                      backgroundColor: (categoryColors[record.categoria] || categoryColors.otros).bg,
+                      color: (categoryColors[record.categoria] || categoryColors.otros).text
+                    }}
                   />
                 </TableCell>
                 <TableCell>
                   <Chip
                     label={normalizeCellValue(record.gravedad)}
-                    color={severityColors[record.gravedad] || 'default'}
                     size="small"
+                    sx={{
+                      backgroundColor: (severityColors[record.gravedad] || severityColors.baja).bg,
+                      color: (severityColors[record.gravedad] || severityColors.baja).text,
+                      textTransform: 'capitalize'
+                    }}
                   />
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600 }}>
                     {normalizeCellValue(record.accionSugerida).replaceAll('_', ' ')}
                   </Typography>
                 </TableCell>

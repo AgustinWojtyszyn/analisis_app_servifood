@@ -23,6 +23,7 @@ import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 
 const drawerWidth = 260;
 
@@ -54,18 +55,43 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
 
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Box sx={{ px: 2.5, py: 3 }}>
-        <Typography variant="overline" sx={{ color: 'primary.main', fontWeight: 800, letterSpacing: 1.2 }}>
-          ServiFood
-        </Typography>
-        <Typography variant="h6" sx={{ fontWeight: 800, mt: 0.5 }}>
-          Analysis App
+      <Box
+        sx={{
+          px: 2,
+          py: 2,
+          background: 'linear-gradient(155deg, #10255c 0%, #1b3f95 58%, #2756ba 100%)'
+        }}
+      >
+        <Box
+          sx={{
+            borderRadius: 2.5,
+            p: 1.5,
+            backgroundColor: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.16)',
+            display: 'flex',
+            justifyContent: 'center'
+          }}
+        >
+          <Box
+            component="img"
+            src={servifoodLogo}
+            alt="ServiFood Logo"
+            sx={{
+              width: '100%',
+              maxWidth: 168,
+              height: 88,
+              objectFit: 'contain'
+            }}
+          />
+        </Box>
+        <Typography sx={{ mt: 1.5, color: 'rgba(255,255,255,0.92)', fontSize: 12, textAlign: 'center', fontWeight: 600 }}>
+          Plataforma de análisis de calidad
         </Typography>
       </Box>
 
       <Divider />
 
-      <List sx={{ px: 1.5, py: 2, flex: 1 }}>
+      <List sx={{ px: 1.5, py: 1.75, flex: 1 }}>
         {sections.map((section) => {
           const selected = currentSection === section.id;
           return (
@@ -76,11 +102,17 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
               disabled={section.disabled}
               sx={{
                 mb: 0.75,
-                borderRadius: 2.5,
+                px: 1.25,
+                py: 0.9,
+                borderRadius: 2,
                 '&.Mui-selected': {
-                  backgroundColor: 'rgba(29, 78, 216, 0.12)',
+                  backgroundColor: 'rgba(29, 78, 216, 0.14)',
                   color: 'primary.dark',
-                  '& .MuiListItemIcon-root': { color: 'primary.dark' }
+                  '& .MuiListItemIcon-root': { color: 'primary.dark' },
+                  '& .MuiListItemText-primary': { fontWeight: 700 }
+                },
+                '&:hover': {
+                  backgroundColor: 'rgba(29, 78, 216, 0.08)'
                 }
               }}
             >
@@ -100,9 +132,9 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         <Box
           sx={{
             p: 2,
-            borderRadius: 2.5,
-            background: 'linear-gradient(135deg, rgba(29,78,216,0.12), rgba(14,165,233,0.12))',
-            border: '1px solid rgba(148, 163, 184, 0.25)'
+            borderRadius: 2,
+            background: 'linear-gradient(145deg, #f6f9ff, #eef3ff)',
+            border: '1px solid rgba(164, 181, 216, 0.4)'
           }}
         >
           <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
@@ -127,32 +159,37 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
           ml: { md: `${drawerWidth}px` },
           borderBottom: '1px solid',
           borderColor: 'divider',
-          backdropFilter: 'blur(10px)',
+          backdropFilter: 'blur(6px)',
           backgroundColor: '#ffffff',
-          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.10)'
+          boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)'
         }}
       >
-        <Toolbar sx={{ minHeight: 72 }}>
+        <Toolbar sx={{ minHeight: 64 }}>
           {!isDesktop && (
             <IconButton edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 1.5 }}>
               <MenuRoundedIcon />
             </IconButton>
           )}
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+            <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.1, fontSize: { xs: 22, sm: 26 } }}>
               Análisis de Calidad
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
               Control y clasificación de incidencias en archivos Excel
             </Typography>
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>{initials.toUpperCase()}</Avatar>
+            <Avatar sx={{ bgcolor: 'primary.main', width: 34, height: 34, fontSize: 13 }}>{initials.toUpperCase()}</Avatar>
             <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', sm: 'block' } }}>
               {user?.name || user?.email}
             </Typography>
-            <Button variant="outlined" startIcon={<LogoutRoundedIcon />} onClick={onLogout}>
+            <Button
+              variant="outlined"
+              startIcon={<LogoutRoundedIcon />}
+              onClick={onLogout}
+              sx={{ borderColor: 'rgba(29, 78, 216, 0.4)', '&:hover': { borderColor: 'primary.main' } }}
+            >
               Salir
             </Button>
           </Box>
@@ -172,7 +209,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
               borderRight: '1px solid',
               borderColor: 'divider',
               backgroundColor: '#ffffff',
-              boxShadow: '0 8px 24px rgba(15, 23, 42, 0.10)'
+              boxShadow: '0 8px 22px rgba(12, 33, 74, 0.14)'
             }
           }}
         >
@@ -184,10 +221,10 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, sm: 3.5 },
+          p: { xs: 2, sm: 3 },
           width: { md: `calc(100% - ${drawerWidth}px)` },
-          mt: '72px',
-          minHeight: 'calc(100vh - 72px)'
+          mt: '64px',
+          minHeight: 'calc(100vh - 64px)'
         }}
       >
         {children}
