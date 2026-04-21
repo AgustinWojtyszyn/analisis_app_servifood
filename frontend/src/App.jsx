@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ThemeProvider,
   CssBaseline,
@@ -13,32 +13,75 @@ import { SummaryGrid } from './components/Dashboard';
 import AnalysisResults from './components/AnalysisResults';
 import AnalysisHistory from './components/AnalysisHistory';
 import RulesConfig from './components/RulesConfig';
+import ChartsPage from './components/ChartsPage';
+import ProfilePage from './components/ProfilePage';
+import TutorialPage from './components/TutorialPage';
 import AppLayout from './components/AppLayout';
 import { useAuth } from './hooks/useAuth';
 import { getAnalysisById } from './services/analysis';
+
+const sectionPathMap = {
+  panel: '/',
+  upload: '/cargar',
+  history: '/historial',
+  results: '/resultados',
+  rules: '/reglas',
+  charts: '/graficos',
+  profile: '/perfil',
+  tutorial: '/tutorial'
+};
+
+const pathSectionMap = Object.entries(sectionPathMap).reduce((acc, [section, path]) => {
+  acc[path] = section;
+  return acc;
+}, {});
+
+function getSectionFromPath(pathname) {
+  return pathSectionMap[pathname] || 'panel';
+}
 
 const sections = [
   { id: 'panel', label: 'Panel Principal' },
   { id: 'upload', label: 'Cargar Archivo' },
   { id: 'history', label: 'Historial' },
   { id: 'results', label: 'Resultados' },
-  { id: 'rules', label: 'Configurar Reglas' }
+  { id: 'rules', label: 'Configurar Reglas' },
+  { id: 'charts', label: 'Gráficos' },
+  { id: 'profile', label: 'Mi Perfil' },
+  { id: 'tutorial', label: 'Ver Tutorial' }
 ];
 
 function MainApp({ user, onLogout }) {
-  const [currentSection, setCurrentSection] = useState('panel');
+  const [currentSection, setCurrentSection] = useState(() => getSectionFromPath(window.location.pathname));
   const [currentAnalysis, setCurrentAnalysis] = useState(null);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentSection(getSectionFromPath(window.location.pathname));
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateToSection = (nextSection) => {
+    const nextPath = sectionPathMap[nextSection] || '/';
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, '', nextPath);
+    }
+    setCurrentSection(nextSection);
+  };
 
   const handleUploadSuccess = async (analysis) => {
     setCurrentAnalysis(analysis);
-    setCurrentSection('panel');
+    navigateToSection('panel');
   };
 
   const handleSelectAnalysis = async (analysisId) => {
     try {
       const response = await getAnalysisById(analysisId);
       setCurrentAnalysis(response);
-      setCurrentSection('panel');
+      navigateToSection('results');
     } catch (err) {
       alert('Error cargando analisis');
     }
@@ -129,6 +172,18 @@ function MainApp({ user, onLogout }) {
       return <RulesConfig />;
     }
 
+    if (currentSection === 'charts') {
+      return <ChartsPage records={currentAnalysis?.records || []} />;
+    }
+
+    if (currentSection === 'profile') {
+      return <ProfilePage user={user} />;
+    }
+
+    if (currentSection === 'tutorial') {
+      return <TutorialPage />;
+    }
+
     return null;
   };
 
@@ -138,7 +193,7 @@ function MainApp({ user, onLogout }) {
       onLogout={onLogout}
       sections={resolvedSections}
       currentSection={currentSection}
-      onSelectSection={setCurrentSection}
+      onSelectSection={navigateToSection}
     >
       {renderSection()}
     </AppLayout>

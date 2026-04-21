@@ -21,6 +21,9 @@ import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
+import PieChartRoundedIcon from '@mui/icons-material/PieChartRounded';
+import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
+import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
@@ -32,7 +35,10 @@ const sectionIcons = {
   upload: <UploadFileRoundedIcon />,
   history: <HistoryRoundedIcon />,
   results: <InsightsRoundedIcon />,
-  rules: <RuleRoundedIcon />
+  rules: <RuleRoundedIcon />,
+  charts: <PieChartRoundedIcon />,
+  profile: <PersonRoundedIcon />,
+  tutorial: <SchoolRoundedIcon />
 };
 
 export default function AppLayout({ user, onLogout, sections, currentSection, onSelectSection, children }) {

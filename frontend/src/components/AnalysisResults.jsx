@@ -15,6 +15,8 @@ import {
   Button
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
+import GridOnRoundedIcon from '@mui/icons-material/GridOnRounded';
+import * as XLSX from 'xlsx';
 
 const severityColors = {
   baja: { color: 'success', bg: 'rgba(22, 163, 74, 0.12)', text: '#166534' },
@@ -141,6 +143,22 @@ export default function AnalysisResults({ records }) {
     link.click();
   };
 
+  const handleExportExcel = () => {
+    const rows = filteredRecords.map((record) => ({
+      Empleado: normalizeCellValue(record.empleado),
+      Sector: normalizeCellValue(record.sector),
+      Descripción: normalizeCellValue(record.descripcion),
+      Categoría: normalizeCellValue(record.categoria),
+      Gravedad: normalizeCellValue(record.gravedad),
+      Acción: normalizeCellValue(record.accionSugerida).replaceAll('_', ' ')
+    }));
+
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, 'Resultados');
+    XLSX.writeFile(workbook, `analysis-${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <Paper sx={{ p: { xs: 2, md: 2.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)' }}>
       <Box
@@ -156,15 +174,26 @@ export default function AnalysisResults({ records }) {
         <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: 19, md: 21 } }}>
           Registros Procesados ({filteredRecords.length})
         </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<DownloadIcon />}
-          onClick={handleExport}
-          size="small"
-          sx={{ '&:hover': { backgroundColor: 'rgba(29,78,216,0.08)' } }}
-        >
-          Exportar CSV
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<GridOnRoundedIcon />}
+            onClick={handleExportExcel}
+            size="small"
+            sx={{ '&:hover': { backgroundColor: 'rgba(29,78,216,0.08)' } }}
+          >
+            Exportar Excel
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleExport}
+            size="small"
+            sx={{ '&:hover': { backgroundColor: 'rgba(29,78,216,0.08)' } }}
+          >
+            Exportar CSV
+          </Button>
+        </Box>
       </Box>
 
       <Box
