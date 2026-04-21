@@ -1,50 +1,86 @@
 [
   {
     "id": 1,
-    "name": "Logística - Falta de Mercadería",
-    "keywords": ["faltó mercadería", "falta de mercaderia", "mercadería faltante", "falta mercader"],
-    "category": "logística",
-    "severity": "media",
-    "suggestedAction": "seguimiento"
+    "nombre": "Cadena de frío comprometida",
+    "categoria": "inocuidad",
+    "origen": "interno",
+    "gravedad": "alta",
+    "keywords": ["temperatura", "camara", "cámara", "heladera", "cadena de frio", "vencido"],
+    "accion_inmediata": "Bloquear lote y notificar responsable de inocuidad",
+    "accion_correctiva": "Auditar cadena de frío y ejecutar plan de corrección",
+    "name": "Cadena de frío comprometida",
+    "category": "inocuidad",
+    "severity": "alta",
+    "suggestedAction": "Bloquear lote y notificar responsable de inocuidad"
   },
   {
     "id": 2,
-    "name": "Inocuidad - Producto Defectuoso",
-    "keywords": ["producto en mal estado", "producto defectuoso", "estado producto", "mal estado"],
+    "nombre": "Contaminación y plagas",
+    "categoria": "inocuidad",
+    "origen": "interno",
+    "gravedad": "alta",
+    "keywords": ["contaminacion", "plaga", "inocuidad", "riesgo"],
+    "accion_inmediata": "Aislar área afectada y detener proceso",
+    "accion_correctiva": "Implementar saneamiento y verificación de inocuidad",
+    "name": "Contaminación y plagas",
     "category": "inocuidad",
     "severity": "alta",
-    "suggestedAction": "medida_correctiva"
+    "suggestedAction": "Aislar área afectada y detener proceso"
   },
   {
     "id": 3,
-    "name": "Calidad - Problemas de Calidad",
-    "keywords": ["problema de calidad", "defecto de calidad", "calidad deficiente", "control de calidad"],
-    "category": "calidad",
-    "severity": "media",
-    "suggestedAction": "seguimiento"
+    "nombre": "Incumplimiento operativo de seguridad",
+    "categoria": "operativo",
+    "origen": "interno",
+    "gravedad": "alta",
+    "keywords": ["sin equipo", "sin epp", "riesgo"],
+    "accion_inmediata": "Detener tarea y exigir protección obligatoria",
+    "accion_correctiva": "Capacitar al equipo y reforzar controles operativos",
+    "name": "Incumplimiento operativo de seguridad",
+    "category": "operativo",
+    "severity": "alta",
+    "suggestedAction": "Detener tarea y exigir protección obligatoria"
   },
   {
     "id": 4,
-    "name": "Reclamo Externo - Cliente",
-    "keywords": ["cliente reclamó", "reclamo cliente", "cliente insatisfecho", "queja cliente"],
-    "category": "reclamo_externo",
-    "severity": "alta",
-    "suggestedAction": "medida_correctiva"
+    "nombre": "Falla de calidad en proceso",
+    "categoria": "calidad",
+    "origen": "interno",
+    "gravedad": "media",
+    "keywords": ["desvio", "no conformidad", "incumplimiento", "auditoria", "auditoría"],
+    "accion_inmediata": "Registrar desvío y notificar referente de calidad",
+    "accion_correctiva": "Aplicar plan de mejora y seguimiento de cierre",
+    "name": "Falla de calidad en proceso",
+    "category": "calidad",
+    "severity": "media",
+    "suggestedAction": "Registrar desvío y notificar referente de calidad"
   },
   {
     "id": 5,
-    "name": "Reclamo Interno",
-    "keywords": ["incumplimiento interno", "reclamo interno", "falta interna", "incumplimiento"],
-    "category": "reclamo_interno",
+    "nombre": "Documentación incompleta",
+    "categoria": "documentacion",
+    "origen": "interno",
+    "gravedad": "media",
+    "keywords": ["registro incompleto", "documentacion faltante", "falta"],
+    "accion_inmediata": "Solicitar regularización documental",
+    "accion_correctiva": "Estandarizar registros y auditar cumplimiento documental",
+    "name": "Documentación incompleta",
+    "category": "documentacion",
     "severity": "media",
-    "suggestedAction": "seguimiento"
+    "suggestedAction": "Solicitar regularización documental"
   },
   {
     "id": 6,
-    "name": "Retraso o Demora",
+    "nombre": "Demora logística",
+    "categoria": "logistica",
+    "origen": "externo",
+    "gravedad": "media",
     "keywords": ["demora", "retraso", "atraso", "entrega tarde"],
-    "category": "logística",
-    "severity": "baja",
-    "suggestedAction": "aviso"
+    "accion_inmediata": "Informar desvío de entrega y reprogramar",
+    "accion_correctiva": "Optimizar planificación logística y monitorear tiempos",
+    "name": "Demora logística",
+    "category": "logistica",
+    "severity": "media",
+    "suggestedAction": "Informar desvío de entrega y reprogramar"
   }
 ]
