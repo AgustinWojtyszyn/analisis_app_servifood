@@ -14,7 +14,7 @@ export const appTheme = createTheme({
       dark: '#0369a1'
     },
     background: {
-      default: '#eef4ff',
+      default: '#1a237e',
       paper: '#ffffff'
     },
     text: {
@@ -70,7 +70,7 @@ export const appTheme = createTheme({
       styleOverrides: {
         body: {
           background:
-            'linear-gradient(135deg, rgba(37,99,235,0.14) 0%, rgba(14,165,233,0.08) 45%, rgba(248,250,252,1) 100%)',
+            'linear-gradient(135deg, #1a237e 0%, #283593 52%, #303f9f 100%)',
           minHeight: '100vh'
         }
       }

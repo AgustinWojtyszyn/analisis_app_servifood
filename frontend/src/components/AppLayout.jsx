@@ -128,7 +128,8 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
           borderBottom: '1px solid',
           borderColor: 'divider',
           backdropFilter: 'blur(10px)',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)'
+          backgroundColor: '#ffffff',
+          boxShadow: '0 8px 24px rgba(15, 23, 42, 0.10)'
         }}
       >
         <Toolbar sx={{ minHeight: 72 }}>
@@ -169,7 +170,9 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
               width: drawerWidth,
               boxSizing: 'border-box',
               borderRight: '1px solid',
-              borderColor: 'divider'
+              borderColor: 'divider',
+              backgroundColor: '#ffffff',
+              boxShadow: '0 8px 24px rgba(15, 23, 42, 0.10)'
             }
           }}
         >
@@ -183,7 +186,8 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
           flexGrow: 1,
           p: { xs: 2, sm: 3.5 },
           width: { md: `calc(100% - ${drawerWidth}px)` },
-          mt: '72px'
+          mt: '72px',
+          minHeight: 'calc(100vh - 72px)'
         }}
       >
         {children}
