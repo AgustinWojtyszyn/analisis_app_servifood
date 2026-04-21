@@ -27,11 +27,11 @@ export function MetricCard({ title, value, variant = 'info', icon: CustomIcon })
   const Icon = CustomIcon || DefaultIcon;
 
   return (
-    <Card sx={{ height: '100%' }}>
+    <Card sx={{ height: '100%', transition: 'transform 0.2s ease', '&:hover': { transform: 'translateY(-2px)' } }}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
-            <Typography color="textSecondary" gutterBottom>
+            <Typography color="text.secondary" gutterBottom>
               {title}
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 700, my: 1 }}>
@@ -125,7 +125,7 @@ export function EmployeeMetrics({ summary }) {
       <Box sx={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ borderBottom: '1px solid #424242' }}>
+            <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
               <th style={{ textAlign: 'left', padding: '12px', fontWeight: 600 }}>Empleado</th>
               <th style={{ textAlign: 'center', padding: '12px', fontWeight: 600 }}>Incidencias</th>
               <th style={{ textAlign: 'center', padding: '12px', fontWeight: 600 }}>Acción</th>
@@ -133,7 +133,7 @@ export function EmployeeMetrics({ summary }) {
           </thead>
           <tbody>
             {Object.entries(measures).map(([employee, data]) => (
-              <tr key={employee} style={{ borderBottom: '1px solid #333333' }}>
+              <tr key={employee} style={{ borderBottom: '1px solid #e2e8f0' }}>
                 <td style={{ padding: '12px' }}>{employee}</td>
                 <td style={{ textAlign: 'center', padding: '12px' }}>{data.count}</td>
                 <td style={{ textAlign: 'center', padding: '12px' }}>

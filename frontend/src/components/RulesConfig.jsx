@@ -17,7 +17,8 @@ import {
   CircularProgress,
   Alert,
   Chip,
-  IconButton
+  IconButton,
+  Typography
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -118,11 +119,18 @@ export default function RulesConfig() {
   };
 
   if (loading) {
-    return <CircularProgress />;
+    return (
+      <Paper sx={{ p: 3, textAlign: 'center' }}>
+        <CircularProgress />
+      </Paper>
+    );
   }
 
   return (
     <Box>
+      <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.5 }}>
+        Reglas de Clasificación
+      </Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Button
@@ -136,7 +144,7 @@ export default function RulesConfig() {
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#2c2c2c' }}>
+            <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>Nombre</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Categoría</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Gravedad</TableCell>

@@ -2,165 +2,121 @@ import React, { useState } from 'react';
 import {
   ThemeProvider,
   CssBaseline,
-  Container,
   Box,
-  AppBar,
-  Toolbar,
   Typography,
-  Button,
-  Tabs,
-  Tab,
   Paper
 } from '@mui/material';
-import LogoutIcon from '@mui/icons-material/Logout';
-import { darkTheme } from './styles/theme';
+import { appTheme } from './styles/theme';
 import LoginForm from './components/LoginForm';
 import FileUpload from './components/FileUpload';
 import { SummaryGrid, CategoryGrid, EmployeeMetrics } from './components/Dashboard';
+import DashboardHome from './components/DashboardHome';
 import AnalysisResults from './components/AnalysisResults';
 import AnalysisHistory from './components/AnalysisHistory';
 import RulesConfig from './components/RulesConfig';
+import AppLayout from './components/AppLayout';
 import { useAuth } from './hooks/useAuth';
 import { getAnalysisById } from './services/analysis';
 
-function TabPanel(props) {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`tabpanel-${index}`}
-      aria-labelledby={`tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+const sections = [
+  { id: 'panel', label: 'Panel Principal' },
+  { id: 'upload', label: 'Cargar Archivo' },
+  { id: 'history', label: 'Historial' },
+  { id: 'results', label: 'Resultados' },
+  { id: 'rules', label: 'Configurar Reglas' }
+];
 
 function MainApp({ user, onLogout }) {
-  const [currentTab, setCurrentTab] = useState(0);
+  const [currentSection, setCurrentSection] = useState('panel');
   const [currentAnalysis, setCurrentAnalysis] = useState(null);
 
   const handleUploadSuccess = async (analysis) => {
     setCurrentAnalysis(analysis);
-    setCurrentTab(2);
+    setCurrentSection('results');
   };
 
   const handleSelectAnalysis = async (analysisId) => {
     try {
       const response = await getAnalysisById(analysisId);
       setCurrentAnalysis(response);
-      setCurrentTab(2);
+      setCurrentSection('results');
     } catch (err) {
       alert('Error cargando analisis');
     }
   };
 
+  const resolvedSections = sections.map((section) => {
+    if (section.id === 'results' && !currentAnalysis) {
+      return { ...section, disabled: false };
+    }
+    return section;
+  });
+
+  const renderSection = () => {
+    if (currentSection === 'panel') {
+      return <DashboardHome user={user} currentAnalysis={currentAnalysis} />;
+    }
+
+    if (currentSection === 'upload') {
+      return <FileUpload onUploadSuccess={handleUploadSuccess} />;
+    }
+
+    if (currentSection === 'history') {
+      return <AnalysisHistory onSelectAnalysis={handleSelectAnalysis} />;
+    }
+
+    if (currentSection === 'results') {
+      if (!currentAnalysis) {
+        return (
+          <Paper sx={{ p: 4, textAlign: 'center' }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+              No hay análisis aún
+            </Typography>
+            <Typography color="text.secondary">
+              Cargá un archivo o seleccioná uno del historial para ver resultados.
+            </Typography>
+          </Paper>
+        );
+      }
+
+      return (
+        <>
+          <SummaryGrid summary={currentAnalysis.summary} />
+          <CategoryGrid summary={currentAnalysis.summary} />
+          <Box sx={{ mb: 3 }}>
+            <EmployeeMetrics summary={currentAnalysis.summary} />
+          </Box>
+          <AnalysisResults records={currentAnalysis.records} />
+        </>
+      );
+    }
+
+    if (currentSection === 'rules') {
+      if (user?.role !== 'admin') {
+        return (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography color="textSecondary">
+              Solo los administradores pueden configurar reglas
+            </Typography>
+          </Paper>
+        );
+      }
+      return <RulesConfig />;
+    }
+
+    return null;
+  };
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar position="static" sx={{ backgroundColor: '#1a1a1a', borderBottom: '1px solid #333' }}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flex: 1, fontWeight: 700 }}>
-            Analysis App - Analisis de Excel
-          </Typography>
-          <Typography variant="body2" sx={{ mr: 2 }}>
-            {user?.name} ({user?.role})
-          </Typography>
-          <Button
-            color="inherit"
-            startIcon={<LogoutIcon />}
-            onClick={onLogout}
-            size="small"
-          >
-            Salir
-          </Button>
-        </Toolbar>
-      </AppBar>
-
-      <Container maxWidth="lg" sx={{ flex: 1, py: 4 }}>
-        <Paper sx={{ mb: 3 }}>
-          <Tabs
-            value={currentTab}
-            onChange={(e, newValue) => setCurrentTab(newValue)}
-            aria-label="main tabs"
-            sx={{
-              borderBottom: '1px solid',
-              borderBottomColor: 'divider',
-              '& .MuiTab-root': {
-                minHeight: 56
-              }
-            }}
-          >
-            <Tab label="Cargar Archivo" id="tab-0" />
-            <Tab label="Historial" id="tab-1" />
-            <Tab label="Resultados" id="tab-2" disabled={!currentAnalysis} />
-            <Tab label="Configurar Reglas" id="tab-3" />
-          </Tabs>
-        </Paper>
-
-        <TabPanel value={currentTab} index={0}>
-          <FileUpload onUploadSuccess={handleUploadSuccess} />
-          {currentAnalysis && (
-            <Paper sx={{ p: 3, mt: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                Ultimo Analisis
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                <strong>Archivo:</strong> {currentAnalysis.filename}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Registros:</strong> {currentAnalysis.totalRecords}
-              </Typography>
-            </Paper>
-          )}
-        </TabPanel>
-
-        <TabPanel value={currentTab} index={1}>
-          <AnalysisHistory onSelectAnalysis={handleSelectAnalysis} />
-        </TabPanel>
-
-        <TabPanel value={currentTab} index={2}>
-          {currentAnalysis && (
-            <>
-              <SummaryGrid summary={currentAnalysis.summary} />
-              <CategoryGrid summary={currentAnalysis.summary} />
-              <Box sx={{ mb: 3 }}>
-                <EmployeeMetrics summary={currentAnalysis.summary} />
-              </Box>
-              <AnalysisResults records={currentAnalysis.records} />
-            </>
-          )}
-        </TabPanel>
-
-        <TabPanel value={currentTab} index={3}>
-          {user?.role === 'admin' ? (
-            <RulesConfig />
-          ) : (
-            <Paper sx={{ p: 3, textAlign: 'center' }}>
-              <Typography color="textSecondary">
-                Solo los administradores pueden configurar reglas
-              </Typography>
-            </Paper>
-          )}
-        </TabPanel>
-      </Container>
-
-      <Box
-        component="footer"
-        sx={{
-          backgroundColor: '#1a1a1a',
-          borderTop: '1px solid #333',
-          p: 3,
-          textAlign: 'center',
-          color: 'text.secondary'
-        }}
-      >
-        <Typography variant="body2">
-          Analysis App
-        </Typography>
-      </Box>
-    </Box>
+    <AppLayout
+      user={user}
+      onLogout={onLogout}
+      sections={resolvedSections}
+      currentSection={currentSection}
+      onSelectSection={setCurrentSection}
+    >
+      {renderSection()}
+    </AppLayout>
   );
 }
 
@@ -169,7 +125,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <ThemeProvider theme={darkTheme}>
+      <ThemeProvider theme={appTheme}>
         <CssBaseline />
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
           <Typography>Cargando...</Typography>
@@ -179,7 +135,7 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider theme={darkTheme}>
+    <ThemeProvider theme={appTheme}>
       <CssBaseline />
       {user ? (
         <MainApp user={user} onLogout={logout} />

@@ -1,42 +1,42 @@
 import { createTheme } from '@mui/material/styles';
 
-export const darkTheme = createTheme({
+export const appTheme = createTheme({
   palette: {
-    mode: 'dark',
+    mode: 'light',
     primary: {
-      main: '#64B5F6',
-      light: '#90CAF9',
-      dark: '#1976D2'
+      main: '#1d4ed8',
+      light: '#60a5fa',
+      dark: '#1e3a8a'
     },
     secondary: {
-      main: '#81C784',
-      light: '#A5D6A7',
-      dark: '#388E3C'
+      main: '#0ea5e9',
+      light: '#7dd3fc',
+      dark: '#0369a1'
     },
     background: {
-      default: '#121212',
-      paper: '#1E1E1E'
+      default: '#eef4ff',
+      paper: '#ffffff'
     },
     text: {
-      primary: '#FFFFFF',
-      secondary: '#B0BEC5'
+      primary: '#0f172a',
+      secondary: '#475569'
     },
-    divider: '#37474F',
+    divider: '#dbe4f4',
     success: {
-      main: '#66BB6A'
+      main: '#16a34a'
     },
     warning: {
-      main: '#FFA726'
+      main: '#ea580c'
     },
     error: {
-      main: '#EF5350'
+      main: '#dc2626'
     },
     info: {
-      main: '#29B6F6'
+      main: '#0284c7'
     }
   },
   typography: {
-    fontFamily: 'Roboto, "Helvetica Neue", sans-serif',
+    fontFamily: '"Sora", "Nunito Sans", "Segoe UI", sans-serif',
     h1: {
       fontSize: '2.5rem',
       fontWeight: 700
@@ -63,6 +63,51 @@ export const darkTheme = createTheme({
     }
   },
   shape: {
-    borderRadius: 8
+    borderRadius: 14
+  },
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          background:
+            'linear-gradient(135deg, rgba(37,99,235,0.14) 0%, rgba(14,165,233,0.08) 45%, rgba(248,250,252,1) 100%)',
+          minHeight: '100vh'
+        }
+      }
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
+          boxShadow: '0 8px 30px rgba(15, 23, 42, 0.08)'
+        }
+      }
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 16,
+          boxShadow: '0 10px 30px rgba(29, 78, 216, 0.10)'
+        }
+      }
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          textTransform: 'none',
+          fontWeight: 700
+        }
+      }
+    },
+    MuiTableHead: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#f3f7ff'
+        }
+      }
+    }
   }
 });
+
+export const darkTheme = appTheme;

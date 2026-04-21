@@ -9,9 +9,9 @@ import {
   TableHead,
   TableRow,
   Button,
-  CircularProgress,
   Alert,
-  Typography
+  Typography,
+  Skeleton
 } from '@mui/material';
 import { getAnalysisHistory, deleteAnalysis } from '../services/analysis';
 
@@ -52,8 +52,11 @@ export default function AnalysisHistory({ onSelectAnalysis }) {
 
   if (loading) {
     return (
-      <Paper sx={{ p: 3, textAlign: 'center' }}>
-        <CircularProgress />
+      <Paper sx={{ p: 3 }}>
+        <Skeleton variant="text" width="30%" height={34} />
+        <Skeleton variant="rounded" height={46} sx={{ mt: 1.5 }} />
+        <Skeleton variant="rounded" height={46} sx={{ mt: 1 }} />
+        <Skeleton variant="rounded" height={46} sx={{ mt: 1 }} />
       </Paper>
     );
   }
@@ -64,9 +67,12 @@ export default function AnalysisHistory({ onSelectAnalysis }) {
 
   if (analyses.length === 0) {
     return (
-      <Paper sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="textSecondary">
-          No hay analisis previos
+      <Paper sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+          No hay análisis aún
+        </Typography>
+        <Typography color="text.secondary">
+          Cuando subas tu primer Excel, aparecerá aquí en el historial.
         </Typography>
       </Paper>
     );
@@ -77,7 +83,7 @@ export default function AnalysisHistory({ onSelectAnalysis }) {
       <TableContainer>
         <Table>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#2c2c2c' }}>
+            <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>Archivo</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Fecha</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Registros</TableCell>

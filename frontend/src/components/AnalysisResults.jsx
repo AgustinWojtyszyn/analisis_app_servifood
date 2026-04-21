@@ -66,21 +66,30 @@ export default function AnalysisResults({ records }) {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [filterSeverity, setFilterSeverity] = useState('all');
 
   if (!records || records.length === 0) {
     return (
-      <Paper sx={{ p: 3, textAlign: 'center' }}>
-        <Typography color="textSecondary">
-          No hay registros para mostrar
+      <Paper sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+          No hay análisis aún
+        </Typography>
+        <Typography color="text.secondary">
+          Cargá un archivo desde la sección “Cargar Archivo” para ver resultados.
         </Typography>
       </Paper>
     );
   }
 
+  const availableCategories = [...new Set(records.map((record) => normalizeCellValue(record.categoria)).filter(Boolean))];
+  const availableSeverities = [...new Set(records.map((record) => normalizeCellValue(record.gravedad)).filter(Boolean))];
+
   const filteredRecords = records.filter(record => {
     const empleadoText = normalizeCellValue(record.empleado).toLowerCase();
     const descripcionText = normalizeCellValue(record.descripcion).toLowerCase();
     const sectorText = normalizeCellValue(record.sector).toLowerCase();
+    const categoria = normalizeCellValue(record.categoria);
+    const gravedad = normalizeCellValue(record.gravedad);
 
     const matchesSearch = 
       empleadoText.includes(searchTerm.toLowerCase()) ||
@@ -88,9 +97,11 @@ export default function AnalysisResults({ records }) {
       sectorText.includes(searchTerm.toLowerCase());
     
     const matchesCategory = 
-      filterCategory === 'all' || record.categoria === filterCategory;
+      filterCategory === 'all' || categoria === filterCategory;
+    const matchesSeverity =
+      filterSeverity === 'all' || gravedad === filterSeverity;
 
-    return matchesSearch && matchesCategory;
+    return matchesSearch && matchesCategory && matchesSeverity;
   });
 
   const handleChangePage = (event, newPage) => {
@@ -131,9 +142,18 @@ export default function AnalysisResults({ records }) {
   };
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+    <Paper sx={{ p: { xs: 2, md: 3 } }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', md: 'center' },
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 1.5,
+          mb: 2.5
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 800 }}>
           Registros Procesados ({filteredRecords.length})
         </Typography>
         <Button
@@ -141,22 +161,29 @@ export default function AnalysisResults({ records }) {
           startIcon={<DownloadIcon />}
           onClick={handleExport}
           size="small"
+          sx={{ '&:hover': { backgroundColor: 'rgba(29,78,216,0.08)' } }}
         >
           Exportar CSV
         </Button>
       </Box>
 
-      {/* Filtros */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1fr 200px 180px' },
+          gap: 1.5,
+          mb: 2.5
+        }}
+      >
         <TextField
-          placeholder="Buscar por empleado, sector o descripción..."
+          placeholder="Buscar..."
           value={searchTerm}
           onChange={(e) => {
             setSearchTerm(e.target.value);
             setPage(0);
           }}
           size="small"
-          sx={{ flex: 1 }}
+          fullWidth
         />
         <TextField
           select
@@ -167,24 +194,37 @@ export default function AnalysisResults({ records }) {
             setPage(0);
           }}
           size="small"
-          sx={{ minWidth: 150 }}
+          fullWidth
           SelectProps={{ native: true }}
         >
           <option value="all">Todas</option>
-          <option value="logística">Logística</option>
-          <option value="inocuidad">Inocuidad</option>
-          <option value="calidad">Calidad</option>
-          <option value="reclamo_externo">Reclamo Externo</option>
-          <option value="reclamo_interno">Reclamo Interno</option>
-          <option value="otros">Otros</option>
+          {availableCategories.map((category) => (
+            <option key={category} value={category}>{category}</option>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label="Gravedad"
+          value={filterSeverity}
+          onChange={(e) => {
+            setFilterSeverity(e.target.value);
+            setPage(0);
+          }}
+          size="small"
+          fullWidth
+          SelectProps={{ native: true }}
+        >
+          <option value="all">Todas</option>
+          {availableSeverities.map((severity) => (
+            <option key={severity} value={severity}>{severity}</option>
+          ))}
         </TextField>
       </Box>
 
-      {/* Tabla */}
       <TableContainer sx={{ overflowX: 'auto' }}>
         <Table>
           <TableHead>
-            <TableRow sx={{ backgroundColor: '#2c2c2c' }}>
+            <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>Empleado</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Sector</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Descripción</TableCell>
@@ -204,14 +244,14 @@ export default function AnalysisResults({ records }) {
                 <TableCell>
                   <Chip
                     label={normalizeCellValue(record.categoria)}
-                    color={categoryColors[record.categoria] || 'default'}
+                    color={categoryColors[record.categoria] || 'info'}
                     size="small"
                   />
                 </TableCell>
                 <TableCell>
                   <Chip
                     label={normalizeCellValue(record.gravedad)}
-                    color={severityColors[record.gravedad]}
+                    color={severityColors[record.gravedad] || 'default'}
                     size="small"
                   />
                 </TableCell>
@@ -226,7 +266,6 @@ export default function AnalysisResults({ records }) {
         </Table>
       </TableContainer>
 
-      {/* Paginación */}
       <TablePagination
         rowsPerPageOptions={[5, 10, 25, 50]}
         component="div"

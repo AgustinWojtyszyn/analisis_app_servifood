@@ -96,28 +96,40 @@ export default function FileUpload({ onUploadSuccess }) {
     <Box sx={{ mb: 4 }}>
       <Card>
         <CardContent sx={{ p: 4 }}>
-          <Typography variant="h5" sx={{ mb: 3, fontWeight: 600 }}>
+          <Typography variant="h5" sx={{ mb: 0.5, fontWeight: 800 }}>
             Cargar Archivo Excel
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Subí un archivo para clasificar incidencias y generar métricas automáticamente.
           </Typography>
 
           <Paper
+            component="label"
+            htmlFor="file-input"
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
             sx={{
-              p: 4,
+              p: { xs: 3, md: 5 },
               textAlign: 'center',
               border: '2px dashed',
               borderColor: dragActive ? 'primary.main' : 'divider',
-              backgroundColor: dragActive ? 'rgba(100, 181, 246, 0.1)' : 'transparent',
+              background: dragActive
+                ? 'linear-gradient(140deg, rgba(37,99,235,0.16), rgba(14,165,233,0.12))'
+                : 'linear-gradient(140deg, rgba(219,234,254,0.35), rgba(239,246,255,0.55))',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
-              mb: 3
+              mb: 3,
+              borderRadius: 3,
+              '&:hover': {
+                borderColor: 'primary.main',
+                transform: 'translateY(-1px)'
+              }
             }}
           >
-            <CloudUploadIcon sx={{ fontSize: 48, mb: 2, color: 'primary.main' }} />
-            <Typography variant="h6" sx={{ mb: 1 }}>
+            <CloudUploadIcon sx={{ fontSize: 54, mb: 2, color: 'primary.main' }} />
+            <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
               Arrastra tu archivo aqui o haz clic para seleccionar
             </Typography>
             <Typography variant="body2" color="textSecondary">
@@ -167,7 +179,7 @@ export default function FileUpload({ onUploadSuccess }) {
               onClick={handleUpload}
               disabled={!selectedFile || uploading}
               fullWidth
-              sx={{ py: 1.5 }}
+              sx={{ py: 1.6, boxShadow: '0 10px 24px rgba(37, 99, 235, 0.25)' }}
             >
               {uploading ? (
                 <>
