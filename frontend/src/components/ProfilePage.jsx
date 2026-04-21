@@ -25,7 +25,7 @@ function formatDate(value) {
   }
 }
 
-export default function ProfilePage({ user }) {
+export default function ProfilePage({ user, onProfileUpdated }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -61,6 +61,7 @@ export default function ProfilePage({ user }) {
       if (profileError) {
         setError(profileError.message || 'No se pudo cargar el perfil');
       } else if (data) {
+        onProfileUpdated?.({ role: data.role, full_name: data.full_name, is_active: data.is_active });
         setProfile({
           email: data.email || user.email || '',
           full_name: data.full_name || '',
@@ -106,6 +107,7 @@ export default function ProfilePage({ user }) {
       setError('No se encontró el perfil para actualizar.');
     } else {
       setSuccess('Perfil actualizado correctamente');
+      onProfileUpdated?.({ full_name: profile.full_name });
     }
 
     setSaving(false);

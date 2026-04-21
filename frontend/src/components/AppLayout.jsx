@@ -24,6 +24,7 @@ import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
 import PieChartRoundedIcon from '@mui/icons-material/PieChartRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
+import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
@@ -38,7 +39,8 @@ const sectionIcons = {
   rules: <RuleRoundedIcon />,
   charts: <PieChartRoundedIcon />,
   profile: <PersonRoundedIcon />,
-  tutorial: <SchoolRoundedIcon />
+  tutorial: <SchoolRoundedIcon />,
+  adminUsers: <AdminPanelSettingsRoundedIcon />
 };
 
 export default function AppLayout({ user, onLogout, sections, currentSection, onSelectSection, children }) {

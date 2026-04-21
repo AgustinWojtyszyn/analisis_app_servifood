@@ -16,7 +16,9 @@ import RulesConfig from './components/RulesConfig';
 import ChartsPage from './components/ChartsPage';
 import ProfilePage from './components/ProfilePage';
 import TutorialPage from './components/TutorialPage';
+import AdminUsersPage from './components/AdminUsersPage';
 import AppLayout from './components/AppLayout';
+import { supabase } from './lib/supabaseClient';
 import { useAuth } from './hooks/useAuth';
 import { getAnalysisById } from './services/analysis';
 
@@ -28,7 +30,8 @@ const sectionPathMap = {
   rules: '/reglas',
   charts: '/graficos',
   profile: '/perfil',
-  tutorial: '/tutorial'
+  tutorial: '/tutorial',
+  adminUsers: '/admin-usuarios'
 };
 
 const pathSectionMap = Object.entries(sectionPathMap).reduce((acc, [section, path]) => {
@@ -40,7 +43,7 @@ function getSectionFromPath(pathname) {
   return pathSectionMap[pathname] || 'panel';
 }
 
-const sections = [
+const baseSections = [
   { id: 'panel', label: 'Panel Principal' },
   { id: 'upload', label: 'Cargar Archivo' },
   { id: 'history', label: 'Historial' },
@@ -54,6 +57,19 @@ const sections = [
 function MainApp({ user, onLogout }) {
   const [currentSection, setCurrentSection] = useState(() => getSectionFromPath(window.location.pathname));
   const [currentAnalysis, setCurrentAnalysis] = useState(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
+
+  const effectiveRole = currentUserProfile?.role || user?.role || 'user';
+  const isAdmin = effectiveRole === 'admin';
+  const sidebarSections = isAdmin
+    ? [...baseSections, { id: 'adminUsers', label: 'Gestión de usuarios' }]
+    : baseSections;
+
+  const layoutUser = {
+    ...user,
+    role: effectiveRole,
+    name: currentUserProfile?.full_name || user?.name
+  };
 
   useEffect(() => {
     const handlePopState = () => {
@@ -63,6 +79,30 @@ function MainApp({ user, onLogout }) {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCurrentProfile() {
+      if (!user?.id) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, is_active')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+      if (!error && data) {
+        setCurrentUserProfile(data);
+      }
+    }
+
+    loadCurrentProfile();
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id]);
 
   const navigateToSection = (nextSection) => {
     const nextPath = sectionPathMap[nextSection] || '/';
@@ -77,6 +117,10 @@ function MainApp({ user, onLogout }) {
     navigateToSection('panel');
   };
 
+  const handleProfileUpdated = (patch) => {
+    setCurrentUserProfile((prev) => ({ ...(prev || {}), ...patch }));
+  };
+
   const handleSelectAnalysis = async (analysisId) => {
     try {
       const response = await getAnalysisById(analysisId);
@@ -87,12 +131,18 @@ function MainApp({ user, onLogout }) {
     }
   };
 
-  const resolvedSections = sections.map((section) => {
+  const resolvedSections = sidebarSections.map((section) => {
     if (section.id === 'results' && !currentAnalysis) {
       return { ...section, disabled: false };
     }
     return section;
   });
+
+  useEffect(() => {
+    if (currentSection === 'adminUsers' && !isAdmin) {
+      navigateToSection('panel');
+    }
+  }, [currentSection, isAdmin]);
 
   const renderAnalysisContent = () => (
     <>
@@ -160,7 +210,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'rules') {
-      if (user?.role !== 'admin') {
+      if (!isAdmin) {
         return (
           <Paper sx={{ p: 3, textAlign: 'center' }}>
             <Typography color="textSecondary">
@@ -177,11 +227,24 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'profile') {
-      return <ProfilePage user={user} />;
+      return <ProfilePage user={layoutUser} onProfileUpdated={handleProfileUpdated} />;
     }
 
     if (currentSection === 'tutorial') {
       return <TutorialPage />;
+    }
+
+    if (currentSection === 'adminUsers') {
+      if (!isAdmin) {
+        return (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <Typography color="textSecondary">
+              No tenés permisos para acceder a Gestión de usuarios.
+            </Typography>
+          </Paper>
+        );
+      }
+      return <AdminUsersPage currentUserId={user?.id} onCurrentUserUpdated={handleProfileUpdated} />;
     }
 
     return null;
@@ -189,7 +252,7 @@ function MainApp({ user, onLogout }) {
 
   return (
     <AppLayout
-      user={user}
+      user={layoutUser}
       onLogout={onLogout}
       sections={resolvedSections}
       currentSection={currentSection}
