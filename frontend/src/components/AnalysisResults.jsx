@@ -31,6 +31,36 @@ const categoryColors = {
   otros: 'default'
 };
 
+function normalizeCellValue(value) {
+  if (value == null) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(normalizeCellValue).filter(Boolean).join(' ');
+  }
+
+  if (typeof value === 'object') {
+    if (Array.isArray(value.richText)) {
+      return value.richText
+        .map((part) => normalizeCellValue(part?.text))
+        .filter(Boolean)
+        .join('');
+    }
+
+    if (typeof value.text === 'string') {
+      return value.text;
+    }
+
+    if (value.result != null) {
+      return normalizeCellValue(value.result);
+    }
+  }
+
+  return String(value);
+}
+
 export default function AnalysisResults({ records }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -48,10 +78,14 @@ export default function AnalysisResults({ records }) {
   }
 
   const filteredRecords = records.filter(record => {
+    const empleadoText = normalizeCellValue(record.empleado).toLowerCase();
+    const descripcionText = normalizeCellValue(record.descripcion).toLowerCase();
+    const sectorText = normalizeCellValue(record.sector).toLowerCase();
+
     const matchesSearch = 
-      record.empleado?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.sector?.toLowerCase().includes(searchTerm.toLowerCase());
+      empleadoText.includes(searchTerm.toLowerCase()) ||
+      descripcionText.includes(searchTerm.toLowerCase()) ||
+      sectorText.includes(searchTerm.toLowerCase());
     
     const matchesCategory = 
       filterCategory === 'all' || record.categoria === filterCategory;
@@ -77,13 +111,13 @@ export default function AnalysisResults({ records }) {
     const csv = [
       ['Empleado', 'Sector', 'Descripción', 'Categoría', 'Gravedad', 'Acción Sugerida', 'Notas'],
       ...filteredRecords.map(r => [
-        r.empleado,
-        r.sector,
-        r.descripcion,
-        r.categoria,
-        r.gravedad,
-        r.accionSugerida,
-        (r.notas || []).join('; ')
+        normalizeCellValue(r.empleado),
+        normalizeCellValue(r.sector),
+        normalizeCellValue(r.descripcion),
+        normalizeCellValue(r.categoria),
+        normalizeCellValue(r.gravedad),
+        normalizeCellValue(r.accionSugerida),
+        normalizeCellValue(r.notas).replaceAll(',', ';')
       ])
     ]
     .map(row => row.map(cell => `"${cell}"`).join(','))
@@ -162,28 +196,28 @@ export default function AnalysisResults({ records }) {
           <TableBody>
             {displayedRecords.map((record, index) => (
               <TableRow key={index} hover sx={{ '&:last-child td': { border: 0 } }}>
-                <TableCell>{record.empleado}</TableCell>
-                <TableCell>{record.sector}</TableCell>
+                <TableCell>{normalizeCellValue(record.empleado)}</TableCell>
+                <TableCell>{normalizeCellValue(record.sector)}</TableCell>
                 <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {record.descripcion}
+                  {normalizeCellValue(record.descripcion)}
                 </TableCell>
                 <TableCell>
                   <Chip
-                    label={record.categoria}
+                    label={normalizeCellValue(record.categoria)}
                     color={categoryColors[record.categoria] || 'default'}
                     size="small"
                   />
                 </TableCell>
                 <TableCell>
                   <Chip
-                    label={record.gravedad}
+                    label={normalizeCellValue(record.gravedad)}
                     color={severityColors[record.gravedad]}
                     size="small"
                   />
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">
-                    {record.accionSugerida.replace('_', ' ')}
+                    {normalizeCellValue(record.accionSugerida).replaceAll('_', ' ')}
                   </Typography>
                 </TableCell>
               </TableRow>
