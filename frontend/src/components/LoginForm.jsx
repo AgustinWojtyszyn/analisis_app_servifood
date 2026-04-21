@@ -11,11 +11,25 @@ import {
   CircularProgress,
   Link as MuiLink
 } from '@mui/material';
-import { authService } from '../services/api';
+import { supabase } from '../lib/supabaseClient';
+
+function mapSupabaseUser(user) {
+  if (!user) return null;
+
+  const metadata = user.user_metadata || {};
+  const appMetadata = user.app_metadata || {};
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: metadata.name || metadata.full_name || user.email,
+    role: appMetadata.role || 'user'
+  };
+}
 
 export default function LoginForm({ onLoginSuccess }) {
-  const [email, setEmail] = useState('admin@example.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
@@ -27,20 +41,40 @@ export default function LoginForm({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      let response;
       if (isRegister) {
-        response = await authService.register(email, password, name);
-      } else {
-        response = await authService.login(email, password);
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { name }
+          }
+        });
+
+        if (signUpError) {
+          throw signUpError;
+        }
+
+        if (!data?.session) {
+          setError('Cuenta creada. Revisa tu email para confirmar la cuenta.');
+          return;
+        }
+
+        onLoginSuccess(mapSupabaseUser(data.session.user));
+        return;
       }
 
-      const { token, user } = response.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      
-      onLoginSuccess(user);
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (signInError) {
+        throw signInError;
+      }
+
+      onLoginSuccess(mapSupabaseUser(data.user));
     } catch (err) {
-      setError(err.response?.data?.error || 'Error de autenticación');
+      setError(err?.message || 'Error de autenticacion');
     } finally {
       setLoading(false);
     }
@@ -60,11 +94,11 @@ export default function LoginForm({ onLoginSuccess }) {
         <Card sx={{ width: '100%', boxShadow: 3 }}>
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 3, fontWeight: 700 }}>
-              {isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}
+              {isRegister ? 'Crear Cuenta' : 'Iniciar Sesion'}
             </Typography>
 
             <Typography variant="body2" color="textSecondary" align="center" sx={{ mb: 3 }}>
-              Sistema de Análisis de Archivos Excel
+              Sistema de Analisis de Archivos Excel
             </Typography>
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -82,7 +116,7 @@ export default function LoginForm({ onLoginSuccess }) {
                   required
                 />
               )}
-              
+
               <TextField
                 fullWidth
                 label="Email"
@@ -96,7 +130,7 @@ export default function LoginForm({ onLoginSuccess }) {
 
               <TextField
                 fullWidth
-                label="Contraseña"
+                label="Contrasena"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -112,12 +146,12 @@ export default function LoginForm({ onLoginSuccess }) {
                 sx={{ mt: 3, mb: 2, py: 1.5 }}
                 disabled={loading}
               >
-                {loading ? <CircularProgress size={24} /> : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesión')}
+                {loading ? <CircularProgress size={24} /> : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesion')}
               </Button>
 
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="body2">
-                  {isRegister ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
+                  {isRegister ? 'Ya tienes cuenta?' : 'No tienes cuenta?'}{' '}
                   <MuiLink
                     component="button"
                     type="button"
@@ -128,17 +162,11 @@ export default function LoginForm({ onLoginSuccess }) {
                     }}
                     sx={{ cursor: 'pointer' }}
                   >
-                    {isRegister ? 'Inicia sesión' : 'Regístrate aquí'}
+                    {isRegister ? 'Inicia sesion' : 'Registrate aqui'}
                   </MuiLink>
                 </Typography>
               </Box>
             </Box>
-
-            <Alert severity="info" sx={{ mt: 3 }}>
-              <Typography variant="caption">
-                <strong>Demo:</strong> admin@example.com / admin123
-              </Typography>
-            </Alert>
           </CardContent>
         </Card>
       </Box>

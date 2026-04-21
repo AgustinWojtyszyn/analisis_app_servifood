@@ -1,96 +1,74 @@
-import { PrismaClient } from '@prisma/client';
+import { createClient } from '@supabase/supabase-js';
 import { analyzeExcel } from '../services/analyzeExcel.js';
-import defaultRules from '../../../shared/businessRules/defaultRules.json' assert { type: 'json' };
+import defaultRules from '../../../shared/businessRules/defaultRules.json' with { type: 'json' };
 
-const prisma = new PrismaClient();
+const supabaseUrl = process.env.SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabaseAdmin = supabaseUrl && serviceRoleKey
+  ? createClient(supabaseUrl, serviceRoleKey)
+  : null;
 
 /**
  * Subir y procesar archivo Excel
  */
 export async function uploadAndAnalyze(req, res) {
   try {
-    if (!req.files || !req.files.file) {
-      return res.status(400).json({ error: 'No se proporcionó archivo' });
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
     }
 
-    const file = req.files.file;
-    const filename = file.name;
+    if (!req.file) {
+      return res.status(400).json({ error: 'Excel file is required' });
+    }
 
-    // Validar extensión
+    const filename = req.file.originalname;
+
     if (!filename.endsWith('.xlsx') && !filename.endsWith('.xls')) {
       return res.status(400).json({ error: 'Solo se aceptan archivos .xlsx o .xls' });
     }
 
-    // Obtener reglas de la base de datos o usar default
-    let businessRules = await prisma.businessRule.findMany({
-      where: { enabled: true }
-    });
-
-    if (businessRules.length === 0) {
-      businessRules = defaultRules;
-    }
-
-    // Analizar archivo
-    const analysisResult = await analyzeExcel(file.data, businessRules);
+    const analysisResult = await analyzeExcel(req.file.buffer, defaultRules);
 
     if (!analysisResult.success) {
       return res.status(400).json({ error: analysisResult.error });
     }
 
-    // Guardar análisis en BD
-    const analysis = await prisma.analysis.create({
-      data: {
-        userId: req.user.id,
+    const resultPayload = {
+      totalRecords: analysisResult.records.length,
+      summary: analysisResult.summary,
+      records: analysisResult.records
+    };
+
+    const { data, error } = await supabaseAdmin
+      .from('analysis_history')
+      .insert({
+        user_id: req.user.id,
         filename,
-        totalRecords: analysisResult.records.length,
-        summaryJson: JSON.stringify(analysisResult.summary),
-        rulesUsedJson: JSON.stringify(businessRules.map(r => r.name))
-      }
-    });
+        results: resultPayload
+      })
+      .select()
+      .single();
 
-    // Guardar registros procesados
-    for (const record of analysisResult.records) {
-      await prisma.processedRecord.create({
-        data: {
-          analysisId: analysis.id,
-          rowData: JSON.stringify(record),
-          employee: record.empleado,
-          sector: record.sector,
-          description: record.descripcion,
-          category: record.categoria,
-          severity: record.gravedad,
-          suggestedAction: record.accionSugerida,
-          notes: JSON.stringify(record.notas)
-        }
-      });
+    if (error) {
+      return res.status(500).json({ error: error.message });
     }
 
-    // Guardar conteo de incidencias
-    for (const [empleado, data] of Object.entries(analysisResult.summary.employeeMeasures)) {
-      await prisma.incidenceCount.create({
-        data: {
-          analysisId: analysis.id,
-          employee: empleado,
-          count: data.count,
-          severity: data.severities.join(','),
-          suggestedMeasure: data.medida
-        }
-      });
-    }
-
-    res.json({
+    return res.json({
       success: true,
-      analysisId: analysis.id,
+      analysisId: data.id,
       analysis: {
-        id: analysis.id,
-        filename,
-        totalRecords: analysisResult.records.length,
-        summary: analysisResult.summary
+        id: data.id,
+        filename: data.filename,
+        uploadDate: data.created_at,
+        totalRecords: resultPayload.totalRecords,
+        summary: resultPayload.summary,
+        records: resultPayload.records
       }
     });
   } catch (error) {
     console.error('Error en análisis:', error);
-    res.status(500).json({ error: 'Error procesando archivo: ' + error.message });
+    return res.status(500).json({ error: 'Error procesando archivo: ' + error.message });
   }
 }
 
@@ -99,39 +77,34 @@ export async function uploadAndAnalyze(req, res) {
  */
 export async function getAnalysis(req, res) {
   try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+    }
+
     const { id } = req.params;
 
-    const analysis = await prisma.analysis.findUnique({
-      where: { id: parseInt(id) },
-      include: {
-        processedRecords: true
-      }
-    });
+    const { data, error } = await supabaseAdmin
+      .from('analysis_history')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .single();
 
-    if (!analysis) {
+    if (error || !data) {
       return res.status(404).json({ error: 'Análisis no encontrado' });
     }
 
-    // Verificar permisos
-    if (analysis.userId !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'No tiene permisos para ver este análisis' });
-    }
-
-    res.json({
-      id: analysis.id,
-      filename: analysis.filename,
-      uploadDate: analysis.uploadDate,
-      totalRecords: analysis.totalRecords,
-      summary: JSON.parse(analysis.summaryJson),
-      records: analysis.processedRecords.map(r => ({
-        ...JSON.parse(r.rowData),
-        id: r.id,
-        notes: JSON.parse(r.notes)
-      }))
+    return res.json({
+      id: data.id,
+      filename: data.filename,
+      uploadDate: data.created_at,
+      totalRecords: data.results?.totalRecords || 0,
+      summary: data.results?.summary || null,
+      records: data.results?.records || []
     });
   } catch (error) {
     console.error('Error obteniendo análisis:', error);
-    res.status(500).json({ error: 'Error obteniendo análisis' });
+    return res.status(500).json({ error: 'Error obteniendo análisis' });
   }
 }
 
@@ -140,23 +113,59 @@ export async function getAnalysis(req, res) {
  */
 export async function getHistory(req, res) {
   try {
-    const analyses = await prisma.analysis.findMany({
-      where: { userId: req.user.id },
-      orderBy: { uploadDate: 'desc' },
-      take: 50
-    });
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+    }
 
-    const historyData = analyses.map(a => ({
-      id: a.id,
-      filename: a.filename,
-      uploadDate: a.uploadDate,
-      totalRecords: a.totalRecords,
-      summary: JSON.parse(a.summaryJson)
+    const { data, error } = await supabaseAdmin
+      .from('analysis_history')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const historyData = (data || []).map((item) => ({
+      id: item.id,
+      filename: item.filename,
+      uploadDate: item.created_at,
+      totalRecords: item.results?.totalRecords || 0,
+      summary: item.results?.summary || null
     }));
 
-    res.json(historyData);
+    return res.json(historyData);
   } catch (error) {
     console.error('Error obteniendo historial:', error);
-    res.status(500).json({ error: 'Error obteniendo historial' });
+    return res.status(500).json({ error: 'Error obteniendo historial' });
+  }
+}
+
+/**
+ * Eliminar análisis del usuario
+ */
+export async function deleteAnalysis(req, res) {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+    }
+
+    const { id } = req.params;
+
+    const { error } = await supabaseAdmin
+      .from('analysis_history')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.user.id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Error eliminando análisis:', error);
+    return res.status(500).json({ error: 'Error eliminando análisis' });
   }
 }

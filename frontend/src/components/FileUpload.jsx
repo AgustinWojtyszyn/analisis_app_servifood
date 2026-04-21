@@ -12,8 +12,7 @@ import {
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
-import { analysisService } from '../services/api';
+import { uploadExcel } from '../services/analysis';
 
 export default function FileUpload({ onUploadSuccess }) {
   const [dragActive, setDragActive] = useState(false);
@@ -76,22 +75,17 @@ export default function FileUpload({ onUploadSuccess }) {
     setSuccess(false);
 
     try {
-      const response = await analysisService.uploadFile(selectedFile, (progress) => {
-        setProgress(progress);
+      const response = await uploadExcel(selectedFile, (nextProgress) => {
+        setProgress(nextProgress);
       });
 
       setStatus('Procesando datos...');
-      setProgress(80);
-
-      // Simular procesamiento
-      setTimeout(() => {
-        setProgress(100);
-        setStatus('¡Análisis completado exitosamente!');
-        setSuccess(true);
-        onUploadSuccess(response.data.analysis);
-      }, 1000);
+      setProgress(100);
+      setStatus('Analisis completado exitosamente');
+      setSuccess(true);
+      onUploadSuccess(response.analysis);
     } catch (err) {
-      setError(err.response?.data?.error || 'Error cargando archivo');
+      setError(err.message || 'Error cargando archivo');
       setProgress(0);
     } finally {
       setUploading(false);
@@ -106,7 +100,6 @@ export default function FileUpload({ onUploadSuccess }) {
             Cargar Archivo Excel
           </Typography>
 
-          {/* Drag & Drop Area */}
           <Paper
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -125,7 +118,7 @@ export default function FileUpload({ onUploadSuccess }) {
           >
             <CloudUploadIcon sx={{ fontSize: 48, mb: 2, color: 'primary.main' }} />
             <Typography variant="h6" sx={{ mb: 1 }}>
-              Arrastra tu archivo aquí o haz clic para seleccionar
+              Arrastra tu archivo aqui o haz clic para seleccionar
             </Typography>
             <Typography variant="body2" color="textSecondary">
               Formatos soportados: .xlsx, .xls
@@ -140,17 +133,14 @@ export default function FileUpload({ onUploadSuccess }) {
             />
           </Paper>
 
-          {/* Selected File */}
           {selectedFile && !success && (
             <Alert severity="info" sx={{ mb: 2 }}>
               Archivo seleccionado: <strong>{selectedFile.name}</strong>
             </Alert>
           )}
 
-          {/* Error Alert */}
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-          {/* Success Alert */}
           {success && (
             <Alert severity="success" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
               <CheckCircleIcon sx={{ mr: 1 }} />
@@ -158,7 +148,6 @@ export default function FileUpload({ onUploadSuccess }) {
             </Alert>
           )}
 
-          {/* Progress Section */}
           {uploading && (
             <Box sx={{ mb: 3 }}>
               <Typography variant="body2" sx={{ mb: 1 }}>
@@ -171,7 +160,6 @@ export default function FileUpload({ onUploadSuccess }) {
             </Box>
           )}
 
-          {/* Upload Button */}
           {!success && (
             <Button
               variant="contained"
@@ -192,7 +180,6 @@ export default function FileUpload({ onUploadSuccess }) {
             </Button>
           )}
 
-          {/* Reset Button */}
           {success && (
             <Button
               variant="outlined"

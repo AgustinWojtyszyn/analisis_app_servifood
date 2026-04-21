@@ -13,7 +13,7 @@ import {
   Alert,
   Typography
 } from '@mui/material';
-import { analysisService } from '../services/api';
+import { getAnalysisHistory, deleteAnalysis } from '../services/analysis';
 
 export default function AnalysisHistory({ onSelectAnalysis }) {
   const [analyses, setAnalyses] = useState([]);
@@ -27,13 +27,27 @@ export default function AnalysisHistory({ onSelectAnalysis }) {
   const loadHistory = async () => {
     try {
       setLoading(true);
-      const response = await analysisService.getHistory();
-      setAnalyses(response.data);
+      const { data, error: historyError } = await getAnalysisHistory();
+
+      if (historyError) {
+        throw new Error(historyError.message || 'Error cargando historial');
+      }
+
+      setAnalyses(data || []);
     } catch (err) {
-      setError(err.response?.data?.error || 'Error cargando historial');
+      setError(err.message || 'Error cargando historial');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = async (id) => {
+    const { error: deleteError } = await deleteAnalysis(id);
+    if (deleteError) {
+      setError(deleteError.message || 'No se pudo eliminar el analisis');
+      return;
+    }
+    setAnalyses((prev) => prev.filter((item) => item.id !== id));
   };
 
   if (loading) {
@@ -52,7 +66,7 @@ export default function AnalysisHistory({ onSelectAnalysis }) {
     return (
       <Paper sx={{ p: 3, textAlign: 'center' }}>
         <Typography color="textSecondary">
-          No hay análisis previos
+          No hay analisis previos
         </Typography>
       </Paper>
     );
@@ -75,7 +89,7 @@ export default function AnalysisHistory({ onSelectAnalysis }) {
               <TableRow key={analysis.id} hover>
                 <TableCell>{analysis.filename}</TableCell>
                 <TableCell>
-                  {new Date(analysis.uploadDate).toLocaleDateString('es-ES', {
+                  {new Date(analysis.created_at).toLocaleDateString('es-ES', {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',
@@ -83,15 +97,25 @@ export default function AnalysisHistory({ onSelectAnalysis }) {
                     minute: '2-digit'
                   })}
                 </TableCell>
-                <TableCell>{analysis.totalRecords}</TableCell>
+                <TableCell>{analysis.results?.totalRecords || 0}</TableCell>
                 <TableCell>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => onSelectAnalysis(analysis.id)}
-                  >
-                    Ver Detalles
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => onSelectAnalysis(analysis.id)}
+                    >
+                      Ver Detalles
+                    </Button>
+                    <Button
+                      variant="text"
+                      color="error"
+                      size="small"
+                      onClick={() => handleDelete(analysis.id)}
+                    >
+                      Eliminar
+                    </Button>
+                  </Box>
                 </TableCell>
               </TableRow>
             ))}

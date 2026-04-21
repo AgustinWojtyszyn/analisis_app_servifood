@@ -1,14 +1,29 @@
 import express from 'express';
-import { uploadAndAnalyze, getAnalysis, getHistory } from '../controllers/analysisController.js';
+import multer from 'multer';
+import {
+  uploadAndAnalyze,
+  getAnalysis,
+  getHistory,
+  deleteAnalysis
+} from '../controllers/analysisController.js';
 import { authenticateToken } from '../middlewares/auth.js';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 /**
  * POST /api/analysis/upload
+ * POST /api/upload-excel
  * Subir y procesar un archivo Excel
  */
-router.post('/upload', authenticateToken, uploadAndAnalyze);
+router.post('/upload', authenticateToken, upload.single('file'), uploadAndAnalyze);
+router.post('/upload-excel', authenticateToken, upload.single('excel'), uploadAndAnalyze);
+
+/**
+ * GET /api/analysis/user/history
+ * Obtener historial de análisis del usuario actual
+ */
+router.get('/user/history', authenticateToken, getHistory);
 
 /**
  * GET /api/analysis/:id
@@ -17,9 +32,9 @@ router.post('/upload', authenticateToken, uploadAndAnalyze);
 router.get('/:id', authenticateToken, getAnalysis);
 
 /**
- * GET /api/analysis/user/history
- * Obtener historial de análisis del usuario actual
+ * DELETE /api/analysis/:id
+ * Eliminar un análisis del usuario actual
  */
-router.get('/user/history', authenticateToken, getHistory);
+router.delete('/:id', authenticateToken, deleteAnalysis);
 
 export default router;
