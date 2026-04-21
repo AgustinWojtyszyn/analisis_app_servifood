@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { supabase } from '../lib/supabaseClient';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
+import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 
 function mapSupabaseUser(user) {
   if (!user) return null;
@@ -95,8 +96,34 @@ export default function LoginForm({ onLoginSuccess }) {
           py: 3
         }}
       >
-        <Card sx={{ width: '100%', boxShadow: 3 }}>
-          <CardContent sx={{ p: 4 }}>
+        <Card
+          sx={{
+            width: '100%',
+            boxShadow: '0 14px 30px rgba(15,23,42,0.18)',
+            borderRadius: 3,
+            overflow: 'hidden'
+          }}
+        >
+          <Box
+            sx={{
+              px: 3,
+              pt: 2.5,
+              pb: 2,
+              background: 'linear-gradient(150deg, #12306d 0%, #1b428f 58%, #2756ba 100%)',
+              textAlign: 'center'
+            }}
+          >
+            <Box
+              component="img"
+              src={servifoodLogo}
+              alt="ServiFood Logo"
+              sx={{ width: '100%', maxWidth: 210, height: 84, objectFit: 'contain', mx: 'auto', display: 'block' }}
+            />
+            <Typography sx={{ mt: 1, color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>
+              Plataforma de análisis de calidad
+            </Typography>
+          </Box>
+          <CardContent sx={{ p: 3.5, backgroundColor: '#ffffff' }}>
             <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 3, fontWeight: 700 }}>
               {isRegister ? 'Crear Cuenta' : 'Iniciar Sesion'}
             </Typography>
@@ -147,7 +174,7 @@ export default function LoginForm({ onLoginSuccess }) {
                 type="submit"
                 fullWidth
                 variant="contained"
-                sx={{ mt: 3, mb: 2, py: 1.5 }}
+                sx={{ mt: 3, mb: 2, py: 1.5, backgroundColor: '#1d4ed8', '&:hover': { backgroundColor: '#1e3a8a' } }}
                 disabled={loading}
               >
                 {loading ? <CircularProgress size={24} /> : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesion')}

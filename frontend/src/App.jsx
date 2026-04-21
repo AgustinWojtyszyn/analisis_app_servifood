@@ -81,6 +81,13 @@ function MainApp({ user, onLogout }) {
   }, []);
 
   useEffect(() => {
+    const authPaths = ['/login', '/register', '/signin', '/signup'];
+    if (authPaths.includes(window.location.pathname)) {
+      navigateToSection('panel');
+    }
+  }, []);
+
+  useEffect(() => {
     let mounted = true;
 
     async function loadCurrentProfile() {
