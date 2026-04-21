@@ -26,14 +26,19 @@ function formatDate(value) {
 }
 
 export default function ProfilePage({ user, onProfileUpdated }) {
+  const userId = user?.id || null;
+  const userEmail = user?.email || '';
+  const userName = user?.name || '';
+  const userRole = user?.role || 'user';
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [profile, setProfile] = useState({
-    email: user?.email || '',
-    full_name: user?.name || '',
-    role: user?.role || 'user',
+    email: userEmail,
+    full_name: userName,
+    role: userRole,
     is_active: true,
     created_at: null
   });
@@ -42,7 +47,7 @@ export default function ProfilePage({ user, onProfileUpdated }) {
     let mounted = true;
 
     async function loadProfile() {
-      if (!user?.id) {
+      if (!userId) {
         setLoading(false);
         return;
       }
@@ -53,7 +58,7 @@ export default function ProfilePage({ user, onProfileUpdated }) {
       const { data, error: profileError } = await supabase
         .from('profiles')
         .select('id, email, full_name, role, is_active, created_at')
-        .eq('id', user.id)
+        .eq('id', userId)
         .maybeSingle();
 
       if (!mounted) return;
@@ -63,18 +68,18 @@ export default function ProfilePage({ user, onProfileUpdated }) {
       } else if (data) {
         onProfileUpdated?.({ role: data.role, full_name: data.full_name, is_active: data.is_active });
         setProfile({
-          email: data.email || user.email || '',
+          email: data.email || userEmail || '',
           full_name: data.full_name || '',
-          role: data.role || user.role || 'user',
+          role: data.role || userRole || 'user',
           is_active: data.is_active ?? true,
           created_at: data.created_at || null
         });
       } else {
         setProfile((prev) => ({
           ...prev,
-          email: user.email || prev.email,
-          full_name: user.name || prev.full_name,
-          role: user.role || prev.role
+          email: userEmail || prev.email,
+          full_name: userName || prev.full_name,
+          role: userRole || prev.role
         }));
       }
 
@@ -86,10 +91,10 @@ export default function ProfilePage({ user, onProfileUpdated }) {
     return () => {
       mounted = false;
     };
-  }, [user]);
+  }, [userId]);
 
   const handleSave = async () => {
-    if (!user?.id) return;
+    if (!userId) return;
 
     setSaving(true);
     setError('');
@@ -98,7 +103,7 @@ export default function ProfilePage({ user, onProfileUpdated }) {
     const { data: updatedRows, error: updateError } = await supabase
       .from('profiles')
       .update({ full_name: profile.full_name })
-      .eq('id', user.id)
+      .eq('id', userId)
       .select('id');
 
     if (updateError) {
