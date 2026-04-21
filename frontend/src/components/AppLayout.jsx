@@ -169,46 +169,76 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
       >
         <Box
           sx={{
-            mb: { xs: 2, sm: 2.5 },
-            px: { xs: 1.5, sm: 2.25 },
-            py: { xs: 1.3, sm: 1.5 },
-            borderRadius: 2,
-            border: '1px solid rgba(226,232,240,0.95)',
-            backgroundColor: 'rgba(255,255,255,0.9)',
-            backdropFilter: 'blur(8px)',
-            boxShadow: '0 1px 6px rgba(15, 23, 42, 0.05)',
-            display: 'flex',
+            mt: { xs: 1.25, sm: 2 },
+            mb: { xs: 3.5, sm: 4.25 },
+            maxWidth: 860,
+            mx: 'auto',
+            px: { xs: 1.25, sm: 1.5 },
+            py: { xs: 1.1, sm: 1.25 },
+            borderRadius: 2.5,
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: '1fr auto 1fr' },
             alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 1.75
+            gap: { xs: 1.5, md: 2.25 }
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+          <Box sx={{ display: { xs: 'none', md: 'block' } }} />
+
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.25, minWidth: 0, position: 'relative' }}>
             {!isDesktop && (
-              <IconButton edge="start" onClick={() => setMobileOpen(true)} sx={{ mr: 0.25 }}>
+              <IconButton
+                edge="start"
+                onClick={() => setMobileOpen(true)}
+                sx={{
+                  position: 'absolute',
+                  left: 0,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'rgba(255,255,255,0.95)'
+                }}
+              >
                 <MenuRoundedIcon />
               </IconButton>
             )}
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.1, fontSize: { xs: 20, sm: 23 } }}>
+            <Box sx={{ minWidth: 0, textAlign: 'center', px: { xs: 4.5, md: 0 } }}>
+              <Typography
+                sx={{
+                  fontWeight: 900,
+                  lineHeight: 1.04,
+                  fontSize: { xs: 32, sm: 38 },
+                  letterSpacing: '-0.02em',
+                  color: '#f8fbff'
+                }}
+              >
                 Análisis de Calidad
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.15 }}>
+              <Typography
+                sx={{
+                  mt: 0.65,
+                  color: 'rgba(232,242,255,0.86)',
+                  fontSize: { xs: 14.5, sm: 16.5 },
+                  fontWeight: 500
+                }}
+              >
                 Control y clasificación de incidencias en archivos Excel
               </Typography>
             </Box>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'center', md: 'flex-end' }, gap: 1.2 }}>
             <Avatar sx={{ bgcolor: 'primary.main', width: 34, height: 34, fontSize: 13 }}>{initials.toUpperCase()}</Avatar>
-            <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', sm: 'block' } }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', sm: 'block' }, color: '#f1f6ff' }}>
               {user?.name || user?.email}
             </Typography>
             <Button
               variant="outlined"
               startIcon={<LogoutRoundedIcon />}
               onClick={onLogout}
-              sx={{ borderColor: 'rgba(29, 78, 216, 0.34)', '&:hover': { borderColor: 'primary.main' } }}
+              sx={{
+                color: '#eaf2ff',
+                borderColor: 'rgba(234,242,255,0.44)',
+                '&:hover': { borderColor: '#ffffff', backgroundColor: 'rgba(255,255,255,0.08)' }
+              }}
             >
               Salir
             </Button>
