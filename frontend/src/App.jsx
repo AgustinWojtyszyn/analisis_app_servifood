@@ -46,6 +46,9 @@ const publicAuthPathMap = {
 };
 
 function getSectionFromPath(pathname) {
+  if (pathname === '/cargar' || pathname === '/resultados') {
+    return 'panel';
+  }
   return pathSectionMap[pathname] || 'panel';
 }
 
@@ -59,10 +62,7 @@ function normalizePublicPath(pathname) {
 
 const baseSections = [
   { id: 'panel', label: 'Panel Principal' },
-  { id: 'upload', label: 'Cargar Archivo' },
   { id: 'history', label: 'Historial' },
-  { id: 'results', label: 'Resultados' },
-  { id: 'rules', label: 'Configurar Reglas' },
   { id: 'charts', label: 'Gráficos' },
   { id: 'profile', label: 'Mi Perfil' },
   { id: 'tutorial', label: 'Ver Tutorial' }
@@ -76,7 +76,7 @@ function MainApp({ user, onLogout }) {
   const effectiveRole = currentUserProfile?.role || user?.role || 'user';
   const isAdmin = effectiveRole === 'admin';
   const sidebarSections = isAdmin
-    ? [...baseSections, { id: 'adminUsers', label: 'Gestión de usuarios' }]
+    ? [...baseSections, { id: 'rules', label: 'Configurar Reglas' }, { id: 'adminUsers', label: 'Gestión de usuarios' }]
     : baseSections;
 
   const layoutUser = {

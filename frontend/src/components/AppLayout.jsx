@@ -129,9 +129,6 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.74)', fontWeight: 600 }}>
           Usuario activo
         </Typography>
-        <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 700, mt: 0.25 }}>
-          {user?.name || user?.email}
-        </Typography>
       </Box>
     </Box>
   );
@@ -227,9 +224,6 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
 
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'center', md: 'flex-end' }, gap: 1.2 }}>
             <Avatar sx={{ bgcolor: 'primary.main', width: 34, height: 34, fontSize: 13 }}>{initials.toUpperCase()}</Avatar>
-            <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', sm: 'block' }, color: '#f1f6ff' }}>
-              {user?.name || user?.email}
-            </Typography>
             <Button
               variant="outlined"
               startIcon={<LogoutRoundedIcon />}
