@@ -15,9 +15,9 @@ import {
   Button
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
-import GridOnRoundedIcon from '@mui/icons-material/GridOnRounded';
 import CleaningServicesRoundedIcon from '@mui/icons-material/CleaningServicesRounded';
 import * as XLSX from 'xlsx';
+import excelIcon from '../assets/excel.png';
 
 const severityColors = {
   baja: { color: 'success', bg: 'rgba(22, 163, 74, 0.12)', text: '#166534' },
@@ -184,6 +184,14 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     await onExportSuccess?.(analysisId);
   };
 
+  const handleNewUpload = () => {
+    const confirmed = window.confirm('¿Querés borrar los resultados actuales y cargar un nuevo archivo?');
+    if (!confirmed) return;
+
+    resetLocalState();
+    onClearAnalysis?.();
+  };
+
   return (
     <Paper sx={{ p: { xs: 2, md: 2.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)' }}>
       <Box
@@ -199,25 +207,45 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
         <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: 19, md: 21 } }}>
           Registros Procesados ({filteredRecords.length})
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 1.25
+          }}
+        >
           <Button
             variant="text"
             startIcon={<CleaningServicesRoundedIcon />}
-            onClick={() => {
-              resetLocalState();
-              onClearAnalysis?.();
-            }}
+            onClick={handleNewUpload}
             size="small"
+            sx={{ borderRadius: 2, px: 1.5, py: 0.75 }}
           >
-            Limpiar dashboard
+            Nueva carga
           </Button>
           <Button
-            variant="outlined"
-            startIcon={<GridOnRoundedIcon />}
+            variant="contained"
             onClick={handleExportExcel}
             size="small"
-            sx={{ '&:hover': { backgroundColor: 'rgba(29,78,216,0.08)' } }}
+            sx={{
+              backgroundColor: '#1d6f42',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              borderRadius: 2,
+              px: 1.75,
+              py: 0.75,
+              boxShadow: '0 2px 8px rgba(29, 111, 66, 0.25)',
+              '&:hover': {
+                backgroundColor: '#155c36',
+                boxShadow: '0 6px 12px rgba(21, 92, 54, 0.32)',
+                transform: 'translateY(-1px)'
+              }
+            }}
           >
+            <img src={excelIcon} alt="" width={16} height={16} />
             Exportar Excel
           </Button>
           <Button
@@ -225,7 +253,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
             startIcon={<DownloadIcon />}
             onClick={handleExport}
             size="small"
-            sx={{ '&:hover': { backgroundColor: 'rgba(29,78,216,0.08)' } }}
+            sx={{ borderRadius: 2, px: 1.5, py: 0.75, '&:hover': { backgroundColor: 'rgba(29,78,216,0.08)' } }}
           >
             Exportar CSV
           </Button>
