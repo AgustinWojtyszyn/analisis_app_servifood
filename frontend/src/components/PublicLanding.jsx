@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
-import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 import excelIcon from '../assets/excel.png';
+import classificationIcon from '../assets/classification.png';
 
 const featureItems = [
   {
@@ -13,7 +13,7 @@ const featureItems = [
     description: 'Subí tu archivo y obtené una lectura estructurada en pocos segundos.'
   },
   {
-    icon: <RuleRoundedIcon sx={{ fontSize: 24 }} />,
+    icon: <img src={classificationIcon} alt="Clasificación" width={24} height={24} />,
     title: 'Clasificar incidencias por gravedad',
     description: 'Aplicá reglas de negocio para priorizar lo urgente frente a lo operativo.'
   },
