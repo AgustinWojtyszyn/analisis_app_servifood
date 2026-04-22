@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
-import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 import excelIcon from '../assets/excel.png';
 import classificationIcon from '../assets/classification.png';
+import recruitmentIcon from '../assets/recruitment.png';
 
 const featureItems = [
   {
@@ -18,7 +18,7 @@ const featureItems = [
     description: 'Aplicá reglas de negocio para priorizar lo urgente frente a lo operativo.'
   },
   {
-    icon: <BoltRoundedIcon sx={{ fontSize: 24 }} />,
+    icon: <img src={recruitmentIcon} alt="Recruitment" width={24} height={24} />,
     title: 'Detectar problemas críticos en segundos',
     description: 'Identificá focos de riesgo sin revisión manual fila por fila.'
   },
