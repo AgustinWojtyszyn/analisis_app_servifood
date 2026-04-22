@@ -14,10 +14,10 @@ import {
   Typography,
   Button
 } from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
 import CleaningServicesRoundedIcon from '@mui/icons-material/CleaningServicesRounded';
 import * as XLSX from 'xlsx';
 import excelIcon from '../assets/excel.png';
+import whatsappIcon from '../assets/whatsappicon.png';
 
 const severityColors = {
   baja: { color: 'success', bg: 'rgba(22, 163, 74, 0.12)', text: '#166534' },
@@ -132,31 +132,37 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     page * rowsPerPage + rowsPerPage
   );
 
-  const handleExport = async () => {
-    const csv = [
-      ['Empleado', 'Sector', 'Descripción', 'Categoría', 'Origen', 'Gravedad', 'Acción inmediata', 'Acción correctiva', 'Score', 'Notas'],
-      ...filteredRecords.map(r => [
-        normalizeCellValue(r.empleado),
-        normalizeCellValue(r.sector),
-        normalizeCellValue(r.descripcion),
-        normalizeCellValue(r.categoria),
-        normalizeCellValue(r.origen || 'interno'),
-        normalizeCellValue(r.gravedad),
-        normalizeCellValue(r.accionInmediata || r.accionSugerida),
-        normalizeCellValue(r.accionCorrectiva),
-        normalizeCellValue(r.score),
-        normalizeCellValue(r.notas).replaceAll(',', ';')
-      ])
-    ]
-    .map(row => row.map(cell => `"${cell}"`).join(','))
-    .join('\n');
+  const handleShareWhatsApp = async () => {
+    const severityCount = filteredRecords.reduce((acc, record) => {
+      const severity = normalizeCellValue(record.gravedad).toLowerCase() || 'sin_dato';
+      acc[severity] = (acc[severity] || 0) + 1;
+      return acc;
+    }, {});
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `analysis-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(link.href);
+    const previewLimit = 12;
+    const simplifiedRows = filteredRecords.slice(0, previewLimit).map((record, index) => {
+      const empleado = normalizeCellValue(record.empleado) || 'Sin empleado';
+      const categoria = normalizeCellValue(record.categoria) || 'Sin categoría';
+      const gravedad = normalizeCellValue(record.gravedad) || 'Sin gravedad';
+      const sector = normalizeCellValue(record.sector) || 'Sin sector';
+      return `${index + 1}. ${empleado} | ${categoria} | ${gravedad} | ${sector}`;
+    });
+
+    const remaining = filteredRecords.length - simplifiedRows.length;
+    const message = [
+      '*Resumen simplificado de análisis*',
+      `Registros filtrados: ${filteredRecords.length}`,
+      `Alta: ${severityCount.alta || 0} | Media: ${severityCount.media || 0} | Baja: ${severityCount.baja || 0}`,
+      '',
+      '*Detalle:*',
+      ...simplifiedRows,
+      remaining > 0 ? `... y ${remaining} registros más` : ''
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
 
     resetLocalState();
     await onExportSuccess?.(analysisId);
@@ -249,13 +255,28 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
             Exportar Excel
           </Button>
           <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={handleExport}
+            variant="contained"
+            onClick={handleShareWhatsApp}
             size="small"
-            sx={{ borderRadius: 2, px: 1.5, py: 0.75, '&:hover': { backgroundColor: 'rgba(29,78,216,0.08)' } }}
+            sx={{
+              backgroundColor: '#25d366',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              borderRadius: 2,
+              px: 1.75,
+              py: 0.75,
+              boxShadow: '0 2px 8px rgba(37, 211, 102, 0.24)',
+              '&:hover': {
+                backgroundColor: '#1ebc59',
+                boxShadow: '0 6px 12px rgba(30, 188, 89, 0.30)',
+                transform: 'translateY(-1px)'
+              }
+            }}
           >
-            Exportar CSV
+            <img src={whatsappIcon} alt="" width={16} height={16} />
+            WhatsApp
           </Button>
         </Box>
       </Box>
