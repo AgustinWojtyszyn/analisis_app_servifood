@@ -276,7 +276,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
             }}
           >
             <img src={whatsappIcon} alt="" width={16} height={16} />
-            WhatsApp
+            Exportar por WhatsApp
           </Button>
         </Box>
       </Box>
