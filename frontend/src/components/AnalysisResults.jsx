@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import GridOnRoundedIcon from '@mui/icons-material/GridOnRounded';
+import CleaningServicesRoundedIcon from '@mui/icons-material/CleaningServicesRounded';
 import * as XLSX from 'xlsx';
 
 const severityColors = {
@@ -66,12 +67,20 @@ function normalizeCellValue(value) {
   return String(value);
 }
 
-export default function AnalysisResults({ records }) {
+export default function AnalysisResults({ records, analysisId, onExportSuccess, onClearAnalysis }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterSeverity, setFilterSeverity] = useState('all');
+
+  const resetLocalState = () => {
+    setPage(0);
+    setRowsPerPage(10);
+    setSearchTerm('');
+    setFilterCategory('all');
+    setFilterSeverity('all');
+  };
 
   if (!records || records.length === 0) {
     return (
@@ -123,7 +132,7 @@ export default function AnalysisResults({ records }) {
     page * rowsPerPage + rowsPerPage
   );
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const csv = [
       ['Empleado', 'Sector', 'Descripción', 'Categoría', 'Origen', 'Gravedad', 'Acción inmediata', 'Acción correctiva', 'Score', 'Notas'],
       ...filteredRecords.map(r => [
@@ -147,9 +156,13 @@ export default function AnalysisResults({ records }) {
     link.href = URL.createObjectURL(blob);
     link.download = `analysis-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
+    URL.revokeObjectURL(link.href);
+
+    resetLocalState();
+    await onExportSuccess?.(analysisId);
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     const rows = filteredRecords.map((record) => ({
       Empleado: normalizeCellValue(record.empleado),
       Sector: normalizeCellValue(record.sector),
@@ -166,6 +179,9 @@ export default function AnalysisResults({ records }) {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, 'Resultados');
     XLSX.writeFile(workbook, `analysis-${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    resetLocalState();
+    await onExportSuccess?.(analysisId);
   };
 
   return (
@@ -184,6 +200,17 @@ export default function AnalysisResults({ records }) {
           Registros Procesados ({filteredRecords.length})
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="text"
+            startIcon={<CleaningServicesRoundedIcon />}
+            onClick={() => {
+              resetLocalState();
+              onClearAnalysis?.();
+            }}
+            size="small"
+          >
+            Limpiar dashboard
+          </Button>
           <Button
             variant="outlined"
             startIcon={<GridOnRoundedIcon />}

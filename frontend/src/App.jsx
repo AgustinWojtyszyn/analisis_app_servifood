@@ -21,7 +21,7 @@ import AppLayout from './components/AppLayout';
 import PublicLanding from './components/PublicLanding';
 import { supabase } from './lib/supabaseClient';
 import { useAuth } from './hooks/useAuth';
-import { getAnalysisById } from './services/analysis';
+import { getAnalysisById, getActiveAnalysis, updateAnalysisStatus } from './services/analysis';
 
 const sectionPathMap = {
   panel: '/',
@@ -70,8 +70,10 @@ const baseSections = [
 
 function MainApp({ user, onLogout }) {
   const [currentSection, setCurrentSection] = useState(() => getSectionFromPath(window.location.pathname));
-  const [currentAnalysis, setCurrentAnalysis] = useState(null);
+  const [activeAnalysis, setActiveAnalysis] = useState(null);
+  const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
+  const [dashboardResetKey, setDashboardResetKey] = useState(0);
 
   const effectiveRole = currentUserProfile?.role || user?.role || 'user';
   const isAdmin = effectiveRole === 'admin';
@@ -125,6 +127,26 @@ function MainApp({ user, onLogout }) {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadActiveAnalysis() {
+      try {
+        const active = await getActiveAnalysis();
+        if (!mounted) return;
+        setActiveAnalysis(active || null);
+      } catch (error) {
+        if (!mounted) return;
+        setActiveAnalysis(null);
+      }
+    }
+
+    loadActiveAnalysis();
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id]);
+
   const navigateToSection = (nextSection) => {
     const nextPath = sectionPathMap[nextSection] || '/';
     if (window.location.pathname !== nextPath) {
@@ -134,8 +156,16 @@ function MainApp({ user, onLogout }) {
   };
 
   const handleUploadSuccess = async (analysis) => {
-    setCurrentAnalysis(analysis);
+    setActiveAnalysis(analysis);
+    setSelectedAnalysis(analysis);
+    setDashboardResetKey((prev) => prev + 1);
     navigateToSection('panel');
+  };
+
+  const clearCurrentAnalysis = () => {
+    setActiveAnalysis(null);
+    setSelectedAnalysis(null);
+    setDashboardResetKey((prev) => prev + 1);
   };
 
   const handleProfileUpdated = (patch) => {
@@ -145,7 +175,7 @@ function MainApp({ user, onLogout }) {
   const handleSelectAnalysis = async (analysisId) => {
     try {
       const response = await getAnalysisById(analysisId);
-      setCurrentAnalysis(response);
+      setSelectedAnalysis(response);
       navigateToSection('results');
     } catch (err) {
       alert('Error cargando analisis');
@@ -153,7 +183,7 @@ function MainApp({ user, onLogout }) {
   };
 
   const resolvedSections = sidebarSections.map((section) => {
-    if (section.id === 'results' && !currentAnalysis) {
+    if (section.id === 'results' && !selectedAnalysis && !activeAnalysis) {
       return { ...section, disabled: false };
     }
     return section;
@@ -167,14 +197,33 @@ function MainApp({ user, onLogout }) {
 
   const renderAnalysisContent = () => (
     <>
-      <SummaryGrid summary={currentAnalysis?.summary} />
-      <AnalysisResults records={currentAnalysis?.records || []} />
+      <SummaryGrid summary={(selectedAnalysis || activeAnalysis)?.summary} />
+      <AnalysisResults
+        records={(selectedAnalysis || activeAnalysis)?.records || []}
+        analysisId={(selectedAnalysis || activeAnalysis)?.id}
+        onExportSuccess={async (analysisId) => {
+          if (analysisId) {
+            try {
+              await updateAnalysisStatus(analysisId, 'exported');
+            } catch (error) {
+              // Si falla el update remoto, igual limpiamos para no dejar datos anclados en el dashboard.
+            }
+          }
+
+          clearCurrentAnalysis();
+          navigateToSection('panel');
+        }}
+        onClearAnalysis={() => {
+          clearCurrentAnalysis();
+          navigateToSection('panel');
+        }}
+      />
     </>
   );
 
   const renderSection = () => {
     if (currentSection === 'panel') {
-      if (!currentAnalysis) {
+      if (!activeAnalysis) {
         return (
           <Box
             sx={{
@@ -191,10 +240,10 @@ function MainApp({ user, onLogout }) {
               <Typography sx={{ textAlign: 'center', color: 'rgba(255,255,255,0.92)', mb: 3 }}>
                 Subí tu archivo para analizar incidencias y obtener resultados claros en segundos.
               </Typography>
-              <FileUpload onUploadSuccess={handleUploadSuccess} showHeader={false} />
+              <FileUpload key={`upload-${dashboardResetKey}`} onUploadSuccess={handleUploadSuccess} showHeader={false} />
               <Paper sx={{ p: 2.5, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
-                  No hay análisis aún. Empezá subiendo tu primer archivo.
+                  No hay análisis activo. Cargá un Excel para iniciar un nuevo análisis.
                 </Typography>
               </Paper>
             </Box>
@@ -206,7 +255,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'upload') {
-      return <FileUpload onUploadSuccess={handleUploadSuccess} />;
+      return <FileUpload key={`upload-view-${dashboardResetKey}`} onUploadSuccess={handleUploadSuccess} />;
     }
 
     if (currentSection === 'history') {
@@ -214,7 +263,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'results') {
-      if (!currentAnalysis) {
+      if (!selectedAnalysis && !activeAnalysis) {
         return (
           <Paper sx={{ p: 4, textAlign: 'center' }}>
             <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
@@ -244,7 +293,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'charts') {
-      return <ChartsPage records={currentAnalysis?.records || []} />;
+      return <ChartsPage records={(selectedAnalysis || activeAnalysis)?.records || []} />;
     }
 
     if (currentSection === 'profile') {

@@ -4,7 +4,9 @@ import {
   uploadAndAnalyze,
   getAnalysis,
   getHistory,
-  deleteAnalysis
+  deleteAnalysis,
+  getActiveAnalysis,
+  updateAnalysisStatus
 } from '../controllers/analysisController.js';
 import { authenticateToken } from '../middlewares/auth.js';
 
@@ -24,6 +26,7 @@ router.post('/upload-excel', authenticateToken, upload.single('excel'), uploadAn
  * Obtener historial de análisis del usuario actual
  */
 router.get('/user/history', authenticateToken, getHistory);
+router.get('/user/active', authenticateToken, getActiveAnalysis);
 
 /**
  * GET /api/analysis/:id
@@ -36,5 +39,6 @@ router.get('/:id', authenticateToken, getAnalysis);
  * Eliminar un análisis del usuario actual
  */
 router.delete('/:id', authenticateToken, deleteAnalysis);
+router.patch('/:id/status', authenticateToken, updateAnalysisStatus);
 
 export default router;

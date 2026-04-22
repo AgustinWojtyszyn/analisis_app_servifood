@@ -87,6 +87,7 @@ export default function AnalysisHistory({ onSelectAnalysis }) {
               <TableCell sx={{ fontWeight: 600 }}>Archivo</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Fecha</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Registros</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Estado</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>
             </TableRow>
           </TableHead>
@@ -95,7 +96,7 @@ export default function AnalysisHistory({ onSelectAnalysis }) {
               <TableRow key={analysis.id} hover>
                 <TableCell>{analysis.filename}</TableCell>
                 <TableCell>
-                  {new Date(analysis.created_at).toLocaleDateString('es-ES', {
+                  {new Date(analysis.uploadDate || analysis.created_at).toLocaleDateString('es-ES', {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',
@@ -103,7 +104,8 @@ export default function AnalysisHistory({ onSelectAnalysis }) {
                     minute: '2-digit'
                   })}
                 </TableCell>
-                <TableCell>{analysis.results?.totalRecords || 0}</TableCell>
+                <TableCell>{analysis.totalRecords || analysis.results?.totalRecords || 0}</TableCell>
+                <TableCell>{analysis.status || 'n/a'}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button

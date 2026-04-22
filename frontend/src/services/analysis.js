@@ -49,37 +49,58 @@ export async function uploadExcel(file, onProgress) {
   return xhrResult;
 }
 
-export async function getAnalysisHistory() {
-  return await supabase
-    .from('analysis_history')
-    .select('*')
-    .order('created_at', { ascending: false });
-}
-
-export async function deleteAnalysis(id) {
-  return await supabase
-    .from('analysis_history')
-    .delete()
-    .eq('id', id);
-}
-
-export async function getAnalysisById(id) {
+async function authorizedFetch(path, options = {}) {
   const token = await getAccessToken();
-
   if (!token) {
     throw new Error('No hay sesion activa');
   }
 
-  const response = await fetch(`${API_BASE_URL}/analysis/${id}`, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
     headers: {
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
     }
   });
 
-  const payload = await response.json();
+  const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.error || 'No se pudo obtener el analisis');
+    throw new Error(payload.error || 'Error en la solicitud');
   }
 
   return payload;
+}
+
+export async function getAnalysisHistory() {
+  const data = await authorizedFetch('/analysis/user/history');
+  return { data, error: null };
+}
+
+export async function getActiveAnalysis() {
+  return await authorizedFetch('/analysis/user/active');
+}
+
+export async function deleteAnalysis(id) {
+  try {
+    await authorizedFetch(`/analysis/${id}`, { method: 'DELETE' });
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
+}
+
+export async function updateAnalysisStatus(id, status) {
+  return await authorizedFetch(`/analysis/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status })
+  });
+}
+
+export async function getAnalysisById(id) {
+  return await authorizedFetch(`/analysis/${id}`, {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
 }
