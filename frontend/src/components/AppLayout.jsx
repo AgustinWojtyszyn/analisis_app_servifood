@@ -160,10 +160,23 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         })}
       </List>
 
-      <Box sx={{ px: 2.25, pb: 2.25 }}>
-        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.74)', fontWeight: 600 }}>
-          Usuario activo
-        </Typography>
+      <Box sx={{ px: 1.75, pb: 2.25 }}>
+        <Box
+          sx={{
+            borderRadius: 2,
+            border: '1px solid rgba(255,255,255,0.16)',
+            backgroundColor: 'rgba(255,255,255,0.08)',
+            px: 1.25,
+            py: 1.05
+          }}
+        >
+          <Typography sx={{ color: 'rgba(236,244,255,0.92)', fontWeight: 700, fontSize: 13.5 }}>
+            Hola, {user?.name || 'equipo'}
+          </Typography>
+          <Typography sx={{ color: 'rgba(225,236,255,0.82)', fontSize: 12.5, mt: 0.2 }}>
+            Sesión activa en la plataforma
+          </Typography>
+        </Box>
       </Box>
     </Box>
   );
@@ -255,7 +268,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
               </Typography>
             </Box>
             <Typography sx={{ color: '#4f6286', fontWeight: 700, fontSize: 13.5 }}>
-              {user?.name || user?.email || initials.toUpperCase()}
+              {user?.email || initials.toUpperCase()}
             </Typography>
           </Box>
         </Box>
