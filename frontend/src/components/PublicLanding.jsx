@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, Button, Typography } from '@mui/material';
-import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 import excelIcon from '../assets/excel.png';
 import classificationIcon from '../assets/classification.png';
 import recruitmentIcon from '../assets/recruitment.png';
+import leadershipIcon from '../assets/leadership.png';
 
 const featureItems = [
   {
@@ -14,7 +14,7 @@ const featureItems = [
   },
   {
     icon: <img src={classificationIcon} alt="Clasificación" width={24} height={24} />,
-    title: 'Clasificar incidencias por gravedad',
+    title: 'Clasificar desvios por tipo y cumplimiento',
     description: 'Aplicá reglas de negocio para priorizar lo urgente frente a lo operativo.'
   },
   {
@@ -23,7 +23,7 @@ const featureItems = [
     description: 'Identificá focos de riesgo sin revisión manual fila por fila.'
   },
   {
-    icon: <InsightsRoundedIcon sx={{ fontSize: 24 }} />,
+    icon: <img src={leadershipIcon} alt="Leadership" width={24} height={24} />,
     title: 'Priorizar acciones por sector',
     description: 'Tomá decisiones con una vista clara de impacto por área.'
   }

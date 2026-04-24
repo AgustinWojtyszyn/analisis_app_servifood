@@ -90,6 +90,10 @@ export async function deleteAnalysis(id) {
   }
 }
 
+export async function deleteActiveAnalysis() {
+  return await authorizedFetch('/analysis/user/active', { method: 'DELETE' });
+}
+
 export async function updateAnalysisStatus(id, status) {
   return await authorizedFetch(`/analysis/${id}/status`, {
     method: 'PATCH',

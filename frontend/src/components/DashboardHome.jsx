@@ -66,13 +66,13 @@ export default function DashboardHome({ user, currentAnalysis, loading = false }
           <SummaryCard title="Total registros" value={summary?.totalRecords || 0} tone="info" />
         </Grid>
         <Grid item xs={12} sm={6} lg={3}>
-          <SummaryCard title="Alta gravedad" value={summary?.bySeverity?.alta || 0} tone="error" />
+          <SummaryCard title="Total desvíos" value={summary?.totalDesvios || 0} tone="error" />
         </Grid>
         <Grid item xs={12} sm={6} lg={3}>
-          <SummaryCard title="Media gravedad" value={summary?.bySeverity?.media || 0} tone="warning" />
+          <SummaryCard title="No conformes" value={(summary?.totalNC || 0) + (summary?.totalOBS || 0)} tone="warning" />
         </Grid>
         <Grid item xs={12} sm={6} lg={3}>
-          <SummaryCard title="Baja gravedad" value={summary?.bySeverity?.baja || 0} tone="success" />
+          <SummaryCard title="Oportunidades de mejora" value={summary?.totalOM || 0} tone="success" />
         </Grid>
       </Grid>
 

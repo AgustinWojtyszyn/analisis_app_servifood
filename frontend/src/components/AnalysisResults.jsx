@@ -7,34 +7,29 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow,
   TablePagination,
+  TableRow,
   Chip,
   TextField,
   Typography,
   Button
 } from '@mui/material';
 import CleaningServicesRoundedIcon from '@mui/icons-material/CleaningServicesRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import * as XLSX from 'xlsx';
 import excelIcon from '../assets/excel.png';
 import whatsappIcon from '../assets/whatsappicon.png';
 
-const severityColors = {
-  baja: { color: 'success', bg: 'rgba(22, 163, 74, 0.12)', text: '#166534' },
-  media: { color: 'warning', bg: 'rgba(234, 88, 12, 0.12)', text: '#9a3412' },
-  alta: { color: 'error', bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' }
+const resultColors = {
+  'Conforme': { bg: 'rgba(22, 163, 74, 0.12)', text: '#166534' },
+  'No conforme': { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
+  'Oportunidad de mejora': { bg: 'rgba(234, 88, 12, 0.12)', text: '#9a3412' }
 };
 
-const categoryColors = {
-  logistica: { bg: 'rgba(37, 99, 235, 0.10)', text: '#1e3a8a' },
-  logística: { bg: 'rgba(37, 99, 235, 0.10)', text: '#1e3a8a' },
-  inocuidad: { bg: 'rgba(220, 38, 38, 0.10)', text: '#991b1b' },
-  calidad: { bg: 'rgba(234, 88, 12, 0.10)', text: '#9a3412' },
-  documentacion: { bg: 'rgba(14, 116, 144, 0.12)', text: '#155e75' },
-  operativo: { bg: 'rgba(79, 70, 229, 0.10)', text: '#3730a3' },
-  reclamo_externo: { bg: 'rgba(190, 24, 93, 0.10)', text: '#9d174d' },
-  reclamo_interno: { bg: 'rgba(249, 115, 22, 0.10)', text: '#9a3412' },
-  otros: { bg: 'rgba(148, 163, 184, 0.16)', text: '#334155' }
+const typeColors = {
+  NC: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
+  OBS: { bg: 'rgba(245, 158, 11, 0.15)', text: '#92400e' },
+  OM: { bg: 'rgba(14, 165, 233, 0.12)', text: '#0c4a6e' }
 };
 
 function normalizeCellValue(value) {
@@ -67,19 +62,32 @@ function normalizeCellValue(value) {
   return String(value);
 }
 
-export default function AnalysisResults({ records, analysisId, onExportSuccess, onClearAnalysis }) {
+function splitAreas(areaClasificada) {
+  return normalizeCellValue(areaClasificada)
+    .split(',')
+    .map((area) => area.trim())
+    .filter(Boolean);
+}
+
+export default function AnalysisResults({
+  records,
+  analysisId,
+  onExportSuccess,
+  onReprocessExcel,
+  onDeleteCurrent
+}) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [filterSeverity, setFilterSeverity] = useState('all');
+  const [filterArea, setFilterArea] = useState('all');
+  const [filterTipo, setFilterTipo] = useState('all');
 
   const resetLocalState = () => {
     setPage(0);
     setRowsPerPage(10);
     setSearchTerm('');
-    setFilterCategory('all');
-    setFilterSeverity('all');
+    setFilterArea('all');
+    setFilterTipo('all');
   };
 
   if (!records || records.length === 0) {
@@ -95,30 +103,32 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     );
   }
 
-  const availableCategories = [...new Set(records.map((record) => normalizeCellValue(record.categoria)).filter(Boolean))];
-  const availableSeverities = [...new Set(records.map((record) => normalizeCellValue(record.gravedad)).filter(Boolean))];
+  const availableAreas = [...new Set(records.flatMap((record) => splitAreas(record.areaClasificada)).filter(Boolean))];
+  const availableTipos = [...new Set(records.map((record) => normalizeCellValue(record.tipoDesvio)).filter(Boolean))];
 
-  const filteredRecords = records.filter(record => {
-    const empleadoText = normalizeCellValue(record.empleado).toLowerCase();
-    const descripcionText = normalizeCellValue(record.descripcion).toLowerCase();
-    const sectorText = normalizeCellValue(record.sector).toLowerCase();
-    const categoria = normalizeCellValue(record.categoria);
-    const gravedad = normalizeCellValue(record.gravedad);
+  const filteredRecords = records.filter((record) => {
+    const textSearch = [
+      record.areaProceso,
+      record.actividadRealizada,
+      record.tipoActividad,
+      record.resultado,
+      record.notaTecnica,
+      record.areaClasificada,
+      record.iso22000
+    ].map((value) => normalizeCellValue(value).toLowerCase()).join(' | ');
 
-    const matchesSearch = 
-      empleadoText.includes(searchTerm.toLowerCase()) ||
-      descripcionText.includes(searchTerm.toLowerCase()) ||
-      sectorText.includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = 
-      filterCategory === 'all' || categoria === filterCategory;
-    const matchesSeverity =
-      filterSeverity === 'all' || gravedad === filterSeverity;
+    const area = normalizeCellValue(record.areaClasificada);
+    const areaParts = splitAreas(area);
+    const tipo = normalizeCellValue(record.tipoDesvio);
 
-    return matchesSearch && matchesCategory && matchesSeverity;
+    const matchesSearch = textSearch.includes(searchTerm.toLowerCase());
+    const matchesArea = filterArea === 'all' || areaParts.includes(filterArea);
+    const matchesTipo = filterTipo === 'all' || tipo === filterTipo;
+
+    return matchesSearch && matchesArea && matchesTipo;
   });
 
-  const handleChangePage = (event, newPage) => {
+  const handleChangePage = (_event, newPage) => {
     setPage(newPage);
   };
 
@@ -133,26 +143,25 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
   );
 
   const handleShareWhatsApp = async () => {
-    const severityCount = filteredRecords.reduce((acc, record) => {
-      const severity = normalizeCellValue(record.gravedad).toLowerCase() || 'sin_dato';
-      acc[severity] = (acc[severity] || 0) + 1;
+    const byTipo = filteredRecords.reduce((acc, record) => {
+      const tipo = normalizeCellValue(record.tipoDesvio) || 'Conforme';
+      acc[tipo] = (acc[tipo] || 0) + 1;
       return acc;
     }, {});
 
     const previewLimit = 12;
     const simplifiedRows = filteredRecords.slice(0, previewLimit).map((record, index) => {
-      const empleado = normalizeCellValue(record.empleado) || 'Sin empleado';
-      const categoria = normalizeCellValue(record.categoria) || 'Sin categoría';
-      const gravedad = normalizeCellValue(record.gravedad) || 'Sin gravedad';
-      const sector = normalizeCellValue(record.sector) || 'Sin sector';
-      return `${index + 1}. ${empleado} | ${categoria} | ${gravedad} | ${sector}`;
+      const area = normalizeCellValue(record.areaClasificada) || 'Sin área';
+      const tipo = normalizeCellValue(record.tipoDesvio) || 'Conforme';
+      const iso = normalizeCellValue(record.iso22000) || 'Sin ISO';
+      return `${index + 1}. ${area} | ${tipo} | ${iso}`;
     });
 
     const remaining = filteredRecords.length - simplifiedRows.length;
     const message = [
-      '*Resumen simplificado de análisis*',
+      '*Resumen automático de desvíos*',
       `Registros filtrados: ${filteredRecords.length}`,
-      `Alta: ${severityCount.alta || 0} | Media: ${severityCount.media || 0} | Baja: ${severityCount.baja || 0}`,
+      `NC: ${byTipo.NC || 0} | OBS: ${byTipo.OBS || 0} | OM: ${byTipo.OM || 0} | Conformes: ${byTipo.Conforme || 0}`,
       '',
       '*Detalle:*',
       ...simplifiedRows,
@@ -170,15 +179,21 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
 
   const handleExportExcel = async () => {
     const rows = filteredRecords.map((record) => ({
-      Empleado: normalizeCellValue(record.empleado),
-      Sector: normalizeCellValue(record.sector),
-      Descripción: normalizeCellValue(record.descripcion),
-      Categoría: normalizeCellValue(record.categoria),
-      Origen: normalizeCellValue(record.origen || 'interno'),
-      Gravedad: normalizeCellValue(record.gravedad),
-      'Acción inmediata': normalizeCellValue(record.accionInmediata || record.accionSugerida).replaceAll('_', ' '),
-      'Acción correctiva': normalizeCellValue(record.accionCorrectiva),
-      Score: normalizeCellValue(record.score)
+      Fecha: normalizeCellValue(record.fecha),
+      'Área / Proceso': normalizeCellValue(record.areaProceso),
+      'Actividad realizada': normalizeCellValue(record.actividadRealizada),
+      'Hallazgo detectado': normalizeCellValue(record.hallazgoDetectado),
+      'N° Acción': normalizeCellValue(record.numeroAccion),
+      'Tipo de actividad': normalizeCellValue(record.tipoActividad),
+      Resultado: normalizeCellValue(record.resultado),
+      '¿Desvío?': normalizeCellValue(record.desvio),
+      '¿Acción?': normalizeCellValue(record.accion),
+      'Nota técnica': normalizeCellValue(record.notaTecnica),
+      'Área clasificada': normalizeCellValue(record.areaClasificada),
+      'Resultado clasificado': normalizeCellValue(record.resultadoClasificado),
+      'Tipo de desvío': normalizeCellValue(record.tipoDesvio),
+      'Vinculación SGIA / ISO 22000': normalizeCellValue(record.iso22000),
+      'Estado de acción': normalizeCellValue(record.estadoAccion)
     }));
 
     const sheet = XLSX.utils.json_to_sheet(rows);
@@ -190,12 +205,20 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     await onExportSuccess?.(analysisId);
   };
 
-  const handleNewUpload = () => {
-    const confirmed = window.confirm('¿Querés borrar los resultados actuales y cargar un nuevo archivo?');
+  const handleReprocessExcel = () => {
+    const confirmed = window.confirm('¿Querés reprocesar con un nuevo Excel?');
     if (!confirmed) return;
 
     resetLocalState();
-    onClearAnalysis?.();
+    onReprocessExcel?.();
+  };
+
+  const handleDeleteCurrent = async () => {
+    const confirmed = window.confirm('¿Eliminar análisis actual?');
+    if (!confirmed) return;
+
+    resetLocalState();
+    await onDeleteCurrent?.();
   };
 
   return (
@@ -211,7 +234,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
         }}
       >
         <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: 19, md: 21 } }}>
-          Registros Procesados ({filteredRecords.length})
+          Registros procesados ({filteredRecords.length})
         </Typography>
         <Box
           sx={{
@@ -224,11 +247,21 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
           <Button
             variant="text"
             startIcon={<CleaningServicesRoundedIcon />}
-            onClick={handleNewUpload}
+            onClick={handleReprocessExcel}
             size="small"
             sx={{ borderRadius: 2, px: 1.5, py: 0.75 }}
           >
-            Nueva carga
+            Reprocesar Excel
+          </Button>
+          <Button
+            variant="text"
+            color="error"
+            startIcon={<DeleteOutlineRoundedIcon />}
+            onClick={handleDeleteCurrent}
+            size="small"
+            sx={{ borderRadius: 2, px: 1.5, py: 0.75 }}
+          >
+            Eliminar análisis actual
           </Button>
           <Button
             variant="contained"
@@ -284,7 +317,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 200px 180px' },
+          gridTemplateColumns: { xs: '1fr', md: '1fr 220px 170px' },
           gap: 1.5,
           mb: 2.5
         }}
@@ -301,10 +334,10 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
         />
         <TextField
           select
-          label="Categoría"
-          value={filterCategory}
+          label="Área clasificada"
+          value={filterArea}
           onChange={(e) => {
-            setFilterCategory(e.target.value);
+            setFilterArea(e.target.value);
             setPage(0);
           }}
           size="small"
@@ -312,25 +345,25 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
           SelectProps={{ native: true }}
         >
           <option value="all">Todas</option>
-          {availableCategories.map((category) => (
-            <option key={category} value={category}>{category}</option>
+          {availableAreas.map((area) => (
+            <option key={area} value={area}>{area}</option>
           ))}
         </TextField>
         <TextField
           select
-          label="Gravedad"
-          value={filterSeverity}
+          label="Tipo desvío"
+          value={filterTipo}
           onChange={(e) => {
-            setFilterSeverity(e.target.value);
+            setFilterTipo(e.target.value);
             setPage(0);
           }}
           size="small"
           fullWidth
           SelectProps={{ native: true }}
         >
-          <option value="all">Todas</option>
-          {availableSeverities.map((severity) => (
-            <option key={severity} value={severity}>{severity}</option>
+          <option value="all">Todos</option>
+          {availableTipos.map((tipo) => (
+            <option key={tipo} value={tipo}>{tipo}</option>
           ))}
         </TextField>
       </Box>
@@ -339,15 +372,16 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Empleado</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Sector</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Descripción</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Categoría</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Origen</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Gravedad</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Acción inmediata</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Acción correctiva</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Score</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Fecha</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Área / Proceso</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Actividad realizada</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Hallazgo detectado</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>N° Acción</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Área clasificada</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Resultado clasificado</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Tipo desvío</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>ISO 22000</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Estado acción</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -360,50 +394,46 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
                   '&:hover': { backgroundColor: 'rgba(29, 78, 216, 0.025)' }
                 }}
               >
-                <TableCell>{normalizeCellValue(record.empleado)}</TableCell>
-                <TableCell>{normalizeCellValue(record.sector)}</TableCell>
-                <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {normalizeCellValue(record.descripcion)}
+                <TableCell>{normalizeCellValue(record.fecha)}</TableCell>
+                <TableCell>{normalizeCellValue(record.areaProceso)}</TableCell>
+                <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {normalizeCellValue(record.actividadRealizada)}
                 </TableCell>
+                <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {normalizeCellValue(record.hallazgoDetectado)}
+                </TableCell>
+                <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {normalizeCellValue(record.numeroAccion)}
+                </TableCell>
+                <TableCell>{normalizeCellValue(record.areaClasificada)}</TableCell>
                 <TableCell>
                   <Chip
-                    label={normalizeCellValue(record.categoria)}
+                    label={normalizeCellValue(record.resultadoClasificado)}
                     size="small"
                     sx={{
-                      backgroundColor: (categoryColors[record.categoria] || categoryColors.otros).bg,
-                      color: (categoryColors[record.categoria] || categoryColors.otros).text
+                      backgroundColor: (resultColors[record.resultadoClasificado] || resultColors['No conforme']).bg,
+                      color: (resultColors[record.resultadoClasificado] || resultColors['No conforme']).text
                     }}
                   />
                 </TableCell>
                 <TableCell>
-                  <Chip label={normalizeCellValue(record.origen || 'interno')} size="small" />
+                  {normalizeCellValue(record.tipoDesvio) ? (
+                    <Chip
+                      label={normalizeCellValue(record.tipoDesvio)}
+                      size="small"
+                      sx={{
+                        backgroundColor: (typeColors[record.tipoDesvio] || typeColors.OBS).bg,
+                        color: (typeColors[record.tipoDesvio] || typeColors.OBS).text
+                      }}
+                    />
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">-</Typography>
+                  )}
                 </TableCell>
-                <TableCell>
-                  <Chip
-                    label={normalizeCellValue(record.gravedad)}
-                    size="small"
-                    sx={{
-                      backgroundColor: (severityColors[record.gravedad] || severityColors.baja).bg,
-                      color: (severityColors[record.gravedad] || severityColors.baja).text,
-                      textTransform: 'capitalize'
-                    }}
-                  />
+                <TableCell sx={{ maxWidth: 260 }}>
+                  <Typography variant="body2">{normalizeCellValue(record.iso22000)}</Typography>
                 </TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ color: 'text.primary', fontWeight: 600 }}>
-                    {normalizeCellValue(record.accionInmediata || record.accionSugerida).replaceAll('_', ' ')}
-                  </Typography>
-                </TableCell>
-                <TableCell sx={{ maxWidth: 240 }}>
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    {normalizeCellValue(record.accionCorrectiva || 'Definir mejora y seguimiento')}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                    {normalizeCellValue(record.score || 0)}
-                  </Typography>
-                </TableCell>
+                <TableCell>{normalizeCellValue(record.estadoAccion).replace('_', ' ')}</TableCell>
               </TableRow>
             ))}
           </TableBody>

@@ -1,3 +1,4 @@
+import '../config/env.js';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaClient } from '@prisma/client';
 import { analyzeExcel } from '../services/analyzeExcel.js';
@@ -11,6 +12,17 @@ const supabaseAdmin = supabaseUrl && serviceRoleKey
   : null;
 const prisma = new PrismaClient();
 const STATUS_VALUES = new Set(['active', 'exported', 'archived']);
+
+function returnSupabaseError(res, context, error, fallbackMessage = 'Error en Supabase') {
+  const details = {
+    message: error?.message || fallbackMessage,
+    code: error?.code || null,
+    details: error?.details || null,
+    hint: error?.hint || null
+  };
+  console.error(`[Supabase:${context}]`, details);
+  return res.status(500).json({ error: details.message });
+}
 
 function normalizeKeywords(value) {
   if (Array.isArray(value)) return value;
@@ -89,14 +101,28 @@ function isStatusColumnMissing(error) {
   );
 }
 
+function isUpdatedAtColumnMissing(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('updated_at') && (
+    message.includes('does not exist') ||
+    message.includes('has no field') ||
+    message.includes('record \"new\"') ||
+    message.includes('record \"old\"') ||
+    message.includes('column')
+  );
+}
+
 function mapAnalysisRowToApi(row) {
+  const summary = row.results?.summary || null;
+  const processedAt = summary?.processedAt || row.created_at;
   return {
     id: row.id,
     filename: row.filename,
     status: row.status || null,
     uploadDate: row.created_at,
+    processedAt,
     totalRecords: row.results?.totalRecords || 0,
-    summary: row.results?.summary || null,
+    summary,
     records: row.results?.records || []
   };
 }
@@ -127,10 +153,25 @@ export async function uploadAndAnalyze(req, res) {
       return res.status(400).json({ error: analysisResult.error });
     }
 
+    const results = analysisResult.records;
+
+    // Log con timestamp para verificar resultados nuevos
+    const processingTimestamp = new Date().toISOString();
+    console.log('='.repeat(60));
+    console.log('RESULTADOS NUEVOS - Timestamp:', processingTimestamp);
+    console.log('Total registros:', results.length);
+    console.log('Primeros 5 registros:');
+    console.log(JSON.stringify(results.slice(0, 5), null, 2));
+    console.log('='.repeat(60));
+
     const resultPayload = {
-      totalRecords: analysisResult.records.length,
-      summary: analysisResult.summary,
-      records: analysisResult.records
+      totalRecords: results.length,
+      summary: {
+        ...analysisResult.summary,
+        totalRecords: results.length,
+        processedAt: processingTimestamp
+      },
+      records: results
     };
 
     const archiveActiveResult = await supabaseAdmin
@@ -139,9 +180,15 @@ export async function uploadAndAnalyze(req, res) {
       .eq('user_id', req.user.id)
       .eq('status', 'active');
 
-    if (archiveActiveResult.error && !isStatusColumnMissing(archiveActiveResult.error)) {
-      return res.status(500).json({ error: archiveActiveResult.error.message });
+    if (
+      archiveActiveResult.error &&
+      !isStatusColumnMissing(archiveActiveResult.error) &&
+      !isUpdatedAtColumnMissing(archiveActiveResult.error)
+    ) {
+      return returnSupabaseError(res, 'archive_active', archiveActiveResult.error);
     }
+
+    console.log('RESULTADOS NUEVOS', results.slice(0, 10));
 
     let insertResult = await supabaseAdmin
       .from('analysis_history')
@@ -167,10 +214,12 @@ export async function uploadAndAnalyze(req, res) {
     }
 
     if (insertResult.error) {
-      return res.status(500).json({ error: insertResult.error.message });
+      return returnSupabaseError(res, 'insert_analysis_history', insertResult.error);
     }
 
     const data = insertResult.data;
+    console.log('RESULTADOS GUARDADOS EN SUPABASE', (data?.results?.records || []).slice(0, 10));
+    console.log('ANALISIS ACTIVO ACTUAL', { id: data?.id, userId: req.user.id, processedAt: data?.results?.summary?.processedAt || null });
 
     return res.json({
       success: true,
@@ -228,7 +277,7 @@ export async function getHistory(req, res) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      return returnSupabaseError(res, 'get_history', error);
     }
 
     const historyData = (data || []).map((item) => mapAnalysisRowToApi(item));
@@ -258,7 +307,7 @@ export async function deleteAnalysis(req, res) {
       .eq('user_id', req.user.id);
 
     if (error) {
-      return res.status(500).json({ error: error.message });
+      return returnSupabaseError(res, 'delete_analysis', error);
     }
 
     return res.json({ success: true });
@@ -290,7 +339,7 @@ export async function getActiveAnalysis(req, res) {
     }
 
     if (query.error) {
-      return res.status(500).json({ error: query.error.message });
+      return returnSupabaseError(res, 'get_active_analysis', query.error);
     }
 
     const activeAnalysis = query.data?.[0];
@@ -302,6 +351,51 @@ export async function getActiveAnalysis(req, res) {
   } catch (error) {
     console.error('Error obteniendo análisis activo:', error);
     return res.status(500).json({ error: 'Error obteniendo análisis activo' });
+  }
+}
+
+/**
+ * Eliminar análisis activo del usuario
+ */
+export async function deleteActiveAnalysis(req, res) {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+    }
+
+    const activeResult = await supabaseAdmin
+      .from('analysis_history')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .eq('status', 'active');
+
+    if (activeResult.error && isStatusColumnMissing(activeResult.error)) {
+      return res.json({ success: true, deletedCount: 0, warning: 'schema_column_missing' });
+    }
+
+    if (activeResult.error) {
+      return returnSupabaseError(res, 'delete_active_analysis_select', activeResult.error);
+    }
+
+    const activeIds = (activeResult.data || []).map((row) => row.id).filter(Boolean);
+    if (activeIds.length === 0) {
+      return res.json({ success: true, deletedCount: 0 });
+    }
+
+    const deleteResult = await supabaseAdmin
+      .from('analysis_history')
+      .delete()
+      .eq('user_id', req.user.id)
+      .in('id', activeIds);
+
+    if (deleteResult.error) {
+      return returnSupabaseError(res, 'delete_active_analysis_delete', deleteResult.error);
+    }
+
+    return res.json({ success: true, deletedCount: activeIds.length });
+  } catch (error) {
+    console.error('Error eliminando análisis activo:', error);
+    return res.status(500).json({ error: 'Error eliminando análisis activo' });
   }
 }
 
@@ -329,12 +423,12 @@ export async function updateAnalysisStatus(req, res) {
       .select()
       .single();
 
-    if (updateResult.error && isStatusColumnMissing(updateResult.error)) {
-      return res.status(200).json({ success: true, status: null, warning: 'status_column_missing' });
+    if (updateResult.error && (isStatusColumnMissing(updateResult.error) || isUpdatedAtColumnMissing(updateResult.error))) {
+      return res.status(200).json({ success: true, status: null, warning: 'schema_column_missing' });
     }
 
     if (updateResult.error) {
-      return res.status(500).json({ error: updateResult.error.message });
+      return returnSupabaseError(res, 'update_analysis_status', updateResult.error);
     }
 
     return res.json({

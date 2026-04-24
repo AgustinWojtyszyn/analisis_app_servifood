@@ -1,39 +1,28 @@
 import React from 'react';
+import { Box, Card, CardContent, Grid, Typography } from '@mui/material';
 import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Grid,
-  Paper,
-  Chip
-} from '@mui/material';
-import {
-  CheckCircle as CheckCircleIcon,
-  WarningAmber as WarningIcon,
-  Error as ErrorIcon,
-  Info as InfoIcon
+  Analytics as AnalyticsIcon,
+  ReportProblem as ReportProblemIcon,
+  FactCheck as FactCheckIcon,
+  Rule as RuleIcon,
+  Visibility as VisibilityIcon,
+  TrendingUp as TrendingUpIcon
 } from '@mui/icons-material';
 
 const metricVariants = {
-  success: { icon: CheckCircleIcon, color: 'success' },
-  warning: { icon: WarningIcon, color: 'warning' },
-  error: { icon: ErrorIcon, color: 'error' },
-  info: { icon: InfoIcon, color: 'info' }
+  info: { icon: AnalyticsIcon, color: 'info.main', bg: 'rgba(2, 132, 199, 0.14)' },
+  error: { icon: ReportProblemIcon, color: 'error.main', bg: 'rgba(220, 38, 38, 0.14)' },
+  success: { icon: FactCheckIcon, color: 'success.main', bg: 'rgba(22, 163, 74, 0.14)' },
+  warning: { icon: VisibilityIcon, color: 'warning.main', bg: 'rgba(234, 88, 12, 0.14)' },
+  primary: { icon: RuleIcon, color: 'primary.main', bg: 'rgba(29, 78, 216, 0.14)' },
+  secondary: { icon: TrendingUpIcon, color: 'secondary.main', bg: 'rgba(126, 34, 206, 0.14)' }
 };
 
-export function MetricCard({ title, value, variant = 'info', icon: CustomIcon }) {
-  const { icon: DefaultIcon, color } = metricVariants[variant] || metricVariants.info;
-  const Icon = CustomIcon || DefaultIcon;
-  const iconBackgrounds = {
-    success: 'rgba(22, 163, 74, 0.14)',
-    warning: 'rgba(234, 88, 12, 0.14)',
-    error: 'rgba(220, 38, 38, 0.14)',
-    info: 'rgba(2, 132, 199, 0.14)'
-  };
+function MetricCard({ title, value, variant = 'info' }) {
+  const { icon: Icon, color, bg } = metricVariants[variant] || metricVariants.info;
 
   return (
-    <Card sx={{ height: '100%', transition: 'all 0.2s ease', '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 10px 18px rgba(18, 47, 105, 0.10)' } }}>
+    <Card sx={{ height: '100%' }}>
       <CardContent sx={{ p: 2.25 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
@@ -49,13 +38,13 @@ export function MetricCard({ title, value, variant = 'info', icon: CustomIcon })
               width: 40,
               height: 40,
               borderRadius: 1.5,
-              backgroundColor: iconBackgrounds[color] || iconBackgrounds.info,
+              backgroundColor: bg,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}
           >
-            <Icon sx={{ fontSize: 24, color: `${color}.main` }} />
+            <Icon sx={{ fontSize: 24, color }} />
           </Box>
         </Box>
       </CardContent>
@@ -63,109 +52,47 @@ export function MetricCard({ title, value, variant = 'info', icon: CustomIcon })
   );
 }
 
-export function SummaryGrid({ summary }) {
+export function SummaryGrid({ summary, processedAt = null }) {
   if (!summary) return null;
 
-  const { totalRecords, byCategory, bySeverity } = summary;
+  const effectiveProcessedAt = summary.processedAt || processedAt;
+  const processedAtLabel = effectiveProcessedAt
+    ? new Date(effectiveProcessedAt).toLocaleString('es-AR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+    : null;
 
   return (
-    <Grid container spacing={2.25} sx={{ mb: 3.5 }}>
-      <Grid item xs={12} sm={6} md={3}>
-        <MetricCard 
-          title="Total de Registros" 
-          value={totalRecords}
-          variant="info"
-        />
+    <>
+      {processedAtLabel && (
+        <Typography sx={{ mb: 1.25, color: 'text.secondary', fontSize: 14 }}>
+          Procesado: {processedAtLabel}
+        </Typography>
+      )}
+      <Grid container spacing={2.25} sx={{ mb: 3.5 }}>
+      <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard title="Total registros" value={summary.totalRecords || 0} variant="info" />
       </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <MetricCard 
-          title="Registros de Alta Gravedad" 
-          value={bySeverity?.alta || 0}
-          variant="error"
-        />
+      <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard title="Total desvíos" value={summary.totalDesvios || 0} variant="error" />
       </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <MetricCard 
-          title="Registros de Gravedad Media" 
-          value={bySeverity?.media || 0}
-          variant="warning"
-        />
+      <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard title="Conformes" value={summary.totalConformes || 0} variant="success" />
       </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <MetricCard 
-          title="Registros de Baja Gravedad" 
-          value={bySeverity?.baja || 0}
-          variant="success"
-        />
+      <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard title="NC" value={summary.totalNC || 0} variant="primary" />
       </Grid>
-    </Grid>
-  );
-}
-
-export function CategoryGrid({ summary }) {
-  if (!summary?.byCategory) return null;
-
-  return (
-    <Paper sx={{ p: 3, mb: 4 }}>
-      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-        Registros por Categoría
-      </Typography>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        {Object.entries(summary.byCategory).map(([category, count]) => (
-          <Chip
-            key={category}
-            label={`${category}: ${count}`}
-            variant="outlined"
-            sx={{ py: 2.5 }}
-          />
-        ))}
-      </Box>
-    </Paper>
-  );
-}
-
-export function EmployeeMetrics({ summary }) {
-  if (!summary?.employeeMeasures) return null;
-
-  const measures = summary.employeeMeasures;
-  const measureColors = {
-    'ninguna': 'success',
-    'aviso': 'info',
-    'seguimiento': 'warning',
-    'medida_correctiva': 'error'
-  };
-
-  return (
-    <Paper sx={{ p: 2.5 }}>
-      <Typography variant="h6" sx={{ mb: 1.75, fontWeight: 700 }}>
-        Acciones Recomendadas por Empleado
-      </Typography>
-      <Box sx={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-              <th style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 700, color: '#475569' }}>Empleado</th>
-              <th style={{ textAlign: 'center', padding: '10px 12px', fontWeight: 700, color: '#475569' }}>Incidencias</th>
-              <th style={{ textAlign: 'center', padding: '10px 12px', fontWeight: 700, color: '#475569' }}>Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(measures).map(([employee, data]) => (
-              <tr key={employee} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '10px 12px' }}>{employee}</td>
-                <td style={{ textAlign: 'center', padding: '10px 12px' }}>{data.count}</td>
-                <td style={{ textAlign: 'center', padding: '10px 12px' }}>
-                  <Chip
-                    label={data.medida.replace('_', ' ')}
-                    color={measureColors[data.medida]}
-                    size="small"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Box>
-    </Paper>
+      <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard title="OBS" value={summary.totalOBS || 0} variant="warning" />
+      </Grid>
+      <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard title="OM" value={summary.totalOM || 0} variant="secondary" />
+      </Grid>
+      </Grid>
+    </>
   );
 }

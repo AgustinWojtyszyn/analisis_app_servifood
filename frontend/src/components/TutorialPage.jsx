@@ -25,13 +25,13 @@ const steps = [
     icon: <SettingsSuggestRoundedIcon />
   },
   {
-    title: 'Paso 3: Revisar categoría, gravedad y acción',
+    title: 'Paso 3: Revisar area clasificada, tipo y accion',
     description: 'Validá las columnas clave para tomar decisiones sobre cada incidencia.',
     icon: <FactCheckRoundedIcon />
   },
   {
     title: 'Paso 4: Filtrar resultados',
-    description: 'Usá búsqueda, categoría y gravedad para enfocarte en lo más relevante.',
+    description: 'Usa busqueda, area y tipo de desvio para enfocarte en lo mas relevante.',
     icon: <FilterAltRoundedIcon />
   },
   {

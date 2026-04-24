@@ -6,6 +6,7 @@ import {
   getHistory,
   deleteAnalysis,
   getActiveAnalysis,
+  deleteActiveAnalysis,
   updateAnalysisStatus
 } from '../controllers/analysisController.js';
 import { authenticateToken } from '../middlewares/auth.js';
@@ -27,6 +28,7 @@ router.post('/upload-excel', authenticateToken, upload.single('excel'), uploadAn
  */
 router.get('/user/history', authenticateToken, getHistory);
 router.get('/user/active', authenticateToken, getActiveAnalysis);
+router.delete('/user/active', authenticateToken, deleteActiveAnalysis);
 
 /**
  * GET /api/analysis/:id

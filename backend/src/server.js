@@ -1,3 +1,4 @@
+import './config/env.js';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -69,6 +70,8 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
+  console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
+  console.log('SUPABASE_KEY_OK:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
   console.log(`Servidor ejecutandose en http://localhost:${PORT}`);
 });
 

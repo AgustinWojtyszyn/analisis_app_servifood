@@ -21,7 +21,7 @@ import AppLayout from './components/AppLayout';
 import PublicLanding from './components/PublicLanding';
 import { supabase } from './lib/supabaseClient';
 import { useAuth } from './hooks/useAuth';
-import { getAnalysisById, getActiveAnalysis, updateAnalysisStatus } from './services/analysis';
+import { deleteActiveAnalysis, deleteAnalysis, getAnalysisById, getActiveAnalysis, updateAnalysisStatus } from './services/analysis';
 
 const sectionPathMap = {
   panel: '/',
@@ -86,6 +86,8 @@ function MainApp({ user, onLogout }) {
     role: effectiveRole,
     name: currentUserProfile?.full_name || user?.name
   };
+
+  const getCurrentAnalysis = () => selectedAnalysis || activeAnalysis || null;
 
   useEffect(() => {
     const handlePopState = () => {
@@ -155,9 +157,22 @@ function MainApp({ user, onLogout }) {
     setCurrentSection(nextSection);
   };
 
+  const refreshActiveAnalysis = async () => {
+    const active = await getActiveAnalysis();
+    setActiveAnalysis(active || null);
+    return active || null;
+  };
+
   const handleUploadSuccess = async (analysis) => {
-    setActiveAnalysis(analysis);
-    setSelectedAnalysis(analysis);
+    try {
+      const activeFromSupabase = await refreshActiveAnalysis();
+      const latest = activeFromSupabase || analysis || null;
+      setActiveAnalysis(latest);
+      setSelectedAnalysis(latest);
+    } catch (error) {
+      setActiveAnalysis(analysis || null);
+      setSelectedAnalysis(analysis || null);
+    }
     setDashboardResetKey((prev) => prev + 1);
     navigateToSection('panel');
   };
@@ -195,12 +210,51 @@ function MainApp({ user, onLogout }) {
     }
   }, [currentSection, isAdmin]);
 
+  const handleReprocessExcel = () => {
+    setSelectedAnalysis(null);
+    navigateToSection('upload');
+  };
+
+  const handleDeleteCurrentAnalysis = async () => {
+    const current = getCurrentAnalysis();
+    if (!current?.id) {
+      clearCurrentAnalysis();
+      navigateToSection('upload');
+      return;
+    }
+
+    try {
+      if (current.status === 'active' || current.id === activeAnalysis?.id) {
+        await deleteActiveAnalysis();
+      } else {
+        const deleted = await deleteAnalysis(current.id);
+        if (deleted?.error) {
+          throw deleted.error;
+        }
+      }
+    } catch (error) {
+      alert('No se pudo eliminar el análisis actual');
+      return;
+    }
+
+    clearCurrentAnalysis();
+    try {
+      await refreshActiveAnalysis();
+    } catch {
+      setActiveAnalysis(null);
+    }
+    navigateToSection('upload');
+  };
+
   const renderAnalysisContent = () => (
     <>
-      <SummaryGrid summary={(selectedAnalysis || activeAnalysis)?.summary} />
+      <SummaryGrid
+        summary={getCurrentAnalysis()?.summary}
+        processedAt={getCurrentAnalysis()?.processedAt || getCurrentAnalysis()?.uploadDate || null}
+      />
       <AnalysisResults
-        records={(selectedAnalysis || activeAnalysis)?.records || []}
-        analysisId={(selectedAnalysis || activeAnalysis)?.id}
+        records={getCurrentAnalysis()?.records || []}
+        analysisId={getCurrentAnalysis()?.id}
         onExportSuccess={async (analysisId) => {
           if (analysisId) {
             try {
@@ -213,10 +267,8 @@ function MainApp({ user, onLogout }) {
           clearCurrentAnalysis();
           navigateToSection('panel');
         }}
-        onClearAnalysis={() => {
-          clearCurrentAnalysis();
-          navigateToSection('panel');
-        }}
+        onReprocessExcel={handleReprocessExcel}
+        onDeleteCurrent={handleDeleteCurrentAnalysis}
       />
     </>
   );
@@ -293,7 +345,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'charts') {
-      return <ChartsPage records={(selectedAnalysis || activeAnalysis)?.records || []} />;
+      return <ChartsPage records={(selectedAnalysis || activeAnalysis)?.records || []} summary={(selectedAnalysis || activeAnalysis)?.summary || null} />;
     }
 
     if (currentSection === 'profile') {

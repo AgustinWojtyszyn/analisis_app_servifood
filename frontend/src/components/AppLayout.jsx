@@ -62,7 +62,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     },
     charts: {
       title: 'Gráficos',
-      subtitle: 'Visualizá patrones por gravedad, categoría y sector'
+      subtitle: 'Visualiza patrones por area, tipo de desvio e ISO 22000'
     },
     profile: {
       title: 'Mi Perfil',
