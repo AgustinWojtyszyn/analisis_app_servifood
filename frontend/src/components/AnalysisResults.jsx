@@ -194,6 +194,7 @@ export default function AnalysisResults({
       'Tipo de desvío': normalizeCellValue(record.tipoDesvio),
       'Vinculación SGIA / ISO 22000': normalizeCellValue(record.iso22000),
       'Estado de acción': normalizeCellValue(record.estadoAccion),
+      'Refinado por IA': record.refinadoPorIA ? 'Sí' : 'No',
       'Acción inmediata': normalizeCellValue(record.accionInmediata),
       'Acción correctiva': normalizeCellValue(record.accionCorrectiva),
       'Explicación / motivo de clasificación': normalizeCellValue(record.explicacionClasificacion),

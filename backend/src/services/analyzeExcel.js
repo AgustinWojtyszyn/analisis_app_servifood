@@ -887,6 +887,40 @@ function classifyConfidence({ areaEvidenceCount, resultadoClasificado, classific
   return 'Baja';
 }
 
+function shouldRefineWithExpert({
+  confianza,
+  areaClasificada,
+  resultadoClasificado,
+  tipoDesvio,
+  iso22000,
+  accionInmediata,
+  accionCorrectiva
+}) {
+  const isGenericAction = (value = '') => {
+    const text = normalizeIncidentText(value);
+    return [
+      'revisar',
+      'mejorar control',
+      'analizar',
+      'verificar proceso',
+      'tomar medidas',
+      'realizar seguimiento',
+      'sin accion',
+      'no aplica'
+    ].some((keyword) => text.includes(keyword));
+  };
+
+  return (
+    confianza !== 'Alta' ||
+    areaClasificada === 'Área no identificada' ||
+    resultadoClasificado === 'Revisar manualmente' ||
+    tipoDesvio === '-' ||
+    iso22000 === 'Sin clasificar' ||
+    isGenericAction(accionInmediata) ||
+    isGenericAction(accionCorrectiva)
+  );
+}
+
 function buildAnalysisText(record) {
   return normalizeForMatch([
     record.hallazgoDetectado,
@@ -1130,15 +1164,43 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         accionInmediataDetectada: rawRecord.accionInmediata,
         accionCorrectivaDetectada: rawRecord.accionCorrectiva
       };
+      const preExplicacionClasificacion = buildClassificationExplanation({
+        areaClasificada,
+        resultadoClasificado,
+        iso22000,
+        areaEvidence,
+        outcomeReason
+      });
+      const preConfianza = classifyConfidence({
+        areaEvidenceCount: areaEvidence.length,
+        resultadoClasificado,
+        classificationText: textForClassification,
+        areaClasificada
+      });
 
-      const refined = refinePreClassification(preClassification);
+      const needsRefine = shouldRefineWithExpert({
+        confianza: preConfianza,
+        areaClasificada,
+        resultadoClasificado,
+        tipoDesvio,
+        iso22000,
+        accionInmediata: rawRecord.accionInmediata,
+        accionCorrectiva: rawRecord.accionCorrectiva
+      });
 
-      areaClasificada = refined.areaFinal || areaClasificada;
-      resultadoClasificado = refined.resultadoFinal || resultadoClasificado;
-      tipoDesvio = refined.tipoFinal || tipoDesvio;
-      iso22000 = refined.isoFinal || iso22000;
-      rawRecord.accionInmediata = refined.accionInmediataFinal || rawRecord.accionInmediata;
-      rawRecord.accionCorrectiva = refined.accionCorrectivaFinal || rawRecord.accionCorrectiva;
+      let refined = null;
+      let refinadoPorIA = false;
+
+      if (needsRefine) {
+        refined = refinePreClassification(preClassification);
+        refinadoPorIA = true;
+        areaClasificada = refined.areaFinal || areaClasificada;
+        resultadoClasificado = refined.resultadoFinal || resultadoClasificado;
+        tipoDesvio = refined.tipoFinal || tipoDesvio;
+        iso22000 = refined.isoFinal || iso22000;
+        rawRecord.accionInmediata = refined.accionInmediataFinal || rawRecord.accionInmediata;
+        rawRecord.accionCorrectiva = refined.accionCorrectivaFinal || rawRecord.accionCorrectiva;
+      }
 
       const estadoAccion = classifyActionStatusFromRow({
         accion: rawRecord.accion,
@@ -1150,20 +1212,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         accionCorrectiva: rawRecord.accionCorrectiva
       });
 
-      const explicacionClasificacion = refined.explicacion || buildClassificationExplanation({
-        areaClasificada,
-        resultadoClasificado,
-        iso22000,
-        areaEvidence,
-        outcomeReason
-      });
-
-      const confianza = refined.confianza || classifyConfidence({
-        areaEvidenceCount: areaEvidence.length,
-        resultadoClasificado,
-        classificationText: textForClassification,
-        areaClasificada
-      });
+      const explicacionClasificacion = refined?.explicacion || preExplicacionClasificacion;
+      const confianza = refined?.confianza || preConfianza;
 
       const analisisTexto = buildAnalysisText(rawRecord);
 
@@ -1219,6 +1269,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         tipoDesvio,
         iso22000,
         estadoAccion,
+        refinadoPorIA,
         explicacionClasificacion,
         confianza,
         analisisTexto
