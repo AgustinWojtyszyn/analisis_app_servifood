@@ -633,6 +633,13 @@ const NC_SIGNALS = [
 
 const OM_SIGNALS = [
   'capacitacion',
+  'analisis de peligros',
+  'análisis de peligros',
+  'estudio de riesgos',
+  'revision del sistema',
+  'revisión del sistema',
+  'simulacro',
+  'manual de manipuladores',
   'se trabaja en analisis de peligros',
   'se trabaja en estudio de riesgos',
   'se coordina capacitacion',
@@ -914,8 +921,21 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada }) {
   const ncMatch = countMatchedKeywords(text, NC_SIGNALS);
   const omMatch = countMatchedKeywords(text, OM_SIGNALS);
   const conformeMatch = countMatchedKeywords(text, CONFORME_SIGNALS);
+  const hasConformeControl = conformeMatch.score > 0 || containsAny(text, [
+    'control de registros',
+    'control de orden',
+    'control de historial',
+    'recorrida de planta',
+    'se controla',
+    'verificacion',
+    'verificación',
+    'revision sin hallazgo',
+    'revisión sin hallazgo'
+  ]);
+  const strongConforme = hasConformeControl && ncMatch.score === 0;
 
-  if (resultadoNorm.includes('no conforme') || desvioSi || ncMatch.score > 0) {
+  // No disparar NC automático por flags de la fila si el texto describe control normal.
+  if ((resultadoNorm.includes('no conforme') || desvioSi || ncMatch.score > 0) && !strongConforme) {
     return {
       resultadoClasificado: 'No conforme',
       tipoDesvio: 'NC',
@@ -931,17 +951,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada }) {
     };
   }
 
-  const hasConformeControl = conformeMatch.score > 0 || containsAny(text, [
-    'control de registros',
-    'control de orden',
-    'control de historial',
-    'recorrida de planta',
-    'se controla',
-    'verificacion',
-    'revision sin hallazgo'
-  ]);
-
-  if (resultadoNorm === 'conforme' || (hasConformeControl && ncMatch.score === 0)) {
+  if (resultadoNorm === 'conforme' || strongConforme) {
     return {
       resultadoClasificado: 'Conforme',
       tipoDesvio: '-',
@@ -1178,6 +1188,7 @@ function composeAreaClasificada({ areaProcesoOriginal, areaOperativaDetectada, c
     'pcc',
     'estudio de riesgos'
   ]);
+  const originalEsCalidad = normalizeForMatch(original) === normalizeForMatch('Calidad');
 
   // Prioridad: mostrar dónde ocurre realmente el evento (área operativa).
   // El área/proceso original solo se usa como fallback si no hay detección operativa.
@@ -1190,7 +1201,9 @@ function composeAreaClasificada({ areaProcesoOriginal, areaOperativaDetectada, c
     const operational = detectedParts.filter((part) => normalizeForMatch(part) !== normalizeForMatch(supportArea));
 
     const orderedOperational = sortAreasByPriorityList(operational, text);
-    const shouldAddSupport = hasSupport || supportByText;
+    // Calidad/Documentación solo agrega valor cuando el tema es documental
+    // y el área base de registro es Calidad.
+    const shouldAddSupport = hasSupport || (supportByText && originalEsCalidad);
     const finalParts = shouldAddSupport ? [...orderedOperational, supportArea] : orderedOperational;
     const finalArea = normalizeAreaParts(finalParts);
     if (finalArea) return finalArea;
