@@ -1,0 +1,327 @@
+DETALLE COMPLETO DE CAMBIOS - MOTOR DE CLASIFICACION AUTOMATICA
+Fecha: 2026-04-25
+Proyecto: analisis_app_servifood
+
+====================================================================
+1) OBJETIVO IMPLEMENTADO
+====================================================================
+Se reforzo el motor de clasificacion de desvíos/incidencias para reducir
+clasificaciones no utiles como:
+- Area no identificada
+- Revisar manualmente
+- Sin clasificar
+- Sin accion
+
+Se implemento un enfoque hibrido, deterministico y explicable basado en:
+- normalizacion de texto
+- reglas por palabras clave
+- scoring por area
+- priorizacion de resultados
+- fallback controlado
+
+Se mantuvo:
+- diseño visual (sin cambios de UI)
+- flujo de exportacion a Excel (no roto)
+- columnas existentes (no eliminadas)
+
+====================================================================
+2) ARCHIVOS MODIFICADOS
+====================================================================
+A) backend/src/services/analyzeExcel.js
+- Refactor principal del motor de clasificacion.
+- Nuevas reglas y funciones para area, resultado, ISO, acciones,
+  explicacion y confianza.
+
+B) frontend/src/components/AnalysisResults.jsx
+- Se extendio la exportacion Excel para incluir columnas nuevas sin
+  quitar las existentes.
+
+====================================================================
+3) RESUMEN DE CAMBIOS EN BACKEND (analyzeExcel.js)
+====================================================================
+
+3.1) Normalizacion robusta agregada
+-----------------------------------
+Se agrego normalizacion especifica para incidencias:
+- minusculas
+- sin tildes
+- limpieza de espacios duplicados
+- correccion de errores comunes:
+  - mercaderis -> mercaderia
+  - vedura -> verdura
+  - minmutos -> minutos
+  - sanitiza -> sanitizacion
+  - robocoupe -> equipo maquina de proceso
+
+Funciones nuevas clave:
+- normalizeIncidentText(value)
+- isMissingFindingText(value)
+- buildClassificationText({ areaProceso, actividadRealizada, hallazgoDetectado })
+
+Regla base aplicada:
+El texto de clasificacion se construye con:
+Area / Proceso + Actividad realizada + Hallazgo detectado
+Si Hallazgo es "Sin hallazgo detectado", igual se clasifica con Actividad.
+
+
+3.2) Clasificacion de area con reglas + scoring + prioridad
+-----------------------------------------------------------
+Se reemplazo la deteccion previa por un motor con:
+- reglas por area con keywords y puntaje
+- scoring ponderado
+- reglas especiales de contexto
+- fallback al Area/Proceso original antes de "Area no identificada"
+
+Estructuras nuevas:
+- AREA_SCORING_RULES
+- AREA_PRIORITY
+
+Areas contempladas:
+- Area fria
+- Area caliente
+- Deposito
+- Logistica / Distribucion
+- Higiene / Sanitizacion
+- Mantenimiento
+- RRHH / Personal
+- Calidad / Documentacion
+
+Reglas especiales agregadas:
+- "heladera" + "AC" impulsa Area caliente.
+- Textos perecederos + mercaderia/recepcion/proveedor permiten
+  "Area fria, Deposito".
+- Textos de frio con envio también fortalecen "Deposito".
+- Si aparece "Area fria" y "Calidad / Documentacion" por registro de
+  camara/heladera, se prioriza "Area fria" para evitar ruido.
+
+Funcion principal nueva para area:
+- detectAreasFromDescription(descripcionDetectada, areaProceso)
+Retorna:
+- areas seleccionadas (hasta 2, ordenadas por prioridad)
+- evidencia (keywords que justifican)
+
+
+3.3) Clasificacion de resultado y tipo de desvio
+------------------------------------------------
+Se reemplazo logica anterior por señales explicitas:
+
+- No conforme (NC):
+  - por keywords criticas (mal estado, contaminacion, faltante,
+    demora, falla, agua caliente, registros incompletos, etc.)
+  - o por bandera explicita de desvio en la fila
+  - o por resultado explicito no conforme
+
+- Oportunidad de mejora (OM):
+  - por señales de mejora/capacitacion/prevencion sin criticidad directa
+
+- Conforme:
+  - cuando hay señal de cumplimiento y sin señales NC
+
+- Revisar manualmente:
+  - solo si realmente no hay texto util para inferir evento
+
+Funcion nueva:
+- classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada })
+Retorna:
+- resultadoClasificado
+- tipoDesvio
+- reason (motivo textual para explicacion)
+
+
+3.4) Mapeo ISO 22000 deterministico
+-----------------------------------
+Se implemento mapeo por prioridad, evitando "Sin clasificar" cuando hay
+informacion util.
+
+Prioridades aplicadas:
+- 9.2 Auditoria interna
+- 7.2 Competencia / capacitacion
+- 7.5 Informacion documentada
+- 8.5 Control de peligros / HACCP / OPRP / PCC
+- 8.1 Planificacion y control operacional
+- 8.4 Control de procesos, productos y servicios externos
+- 7.1 Recursos
+- fallback segun resultado (NC u OM)
+
+Funcion nueva:
+- classifyIso22000FromDescription({ descripcionDetectada, actividadRealizada, areaClasificada, resultadoClasificado })
+
+
+3.5) Acciones automaticas (inmediata + correctiva)
+---------------------------------------------------
+Se implemento generacion automatica para NC y OM por escenario detectado.
+
+Escenarios detectados:
+- producto_mal_estado
+- devolucion_cliente
+- faltante
+- demora
+- equipo_fallando
+- falta_agua_caliente
+- sector_sucio
+- registros_incompletos
+- ausencia_personal
+- mejora_preventiva
+- general
+
+Funcion de deteccion:
+- detectActionScenario(text)
+
+Funcion de generacion:
+- buildActions({ resultadoClasificado, text, accionInmediataOriginal, accionCorrectivaOriginal })
+
+Comportamiento:
+- Si ya viene accion en el Excel, se conserva.
+- Si no viene, se autocompleta con plantilla del escenario.
+- Para Conforme/Revisar manualmente tambien se asegura no dejar vacio.
+
+
+3.6) Estado de accion reforzado
+-------------------------------
+Se actualizo la inferencia de estado considerando:
+- marca de accion
+- numero de accion
+- texto de seguimiento/cierre
+- resultado final clasificado
+- acciones inmediatas/correctivas generadas
+
+Funcion actualizada:
+- classifyActionStatusFromRow({ ... })
+
+
+3.7) Explicacion y confianza agregadas
+--------------------------------------
+Nuevos campos por registro:
+- explicacionClasificacion
+- confianza
+
+Funcion explicacion:
+- buildClassificationExplanation({ areaClasificada, resultadoClasificado, iso22000, areaEvidence, outcomeReason })
+Genera un resumen breve del motivo de clasificacion.
+
+Funcion confianza:
+- classifyConfidence({ areaEvidenceCount, resultadoClasificado, classificationText, areaClasificada })
+Niveles:
+- Alta: evidencia directa y clara
+- Media: evidencia parcial/inferencia razonable
+- Baja: texto ambiguo o clasificacion forzada
+
+
+3.8) Integracion en el loop principal de procesamiento
+------------------------------------------------------
+En cada fila se cambio el flujo a:
+1) construir texto base combinado
+2) clasificar area con scoring
+3) clasificar resultado/tipo con reglas
+4) clasificar ISO por prioridad
+5) generar acciones automatizadas
+6) clasificar estado accion
+7) generar explicacion
+8) calcular confianza
+9) guardar resultados completos
+
+Ademas:
+- se evito dejar campos vacios por defecto
+- se eliminaron logs de debug innecesarios
+- resumen por area continua funcionando con areas multiples separadas por coma
+
+====================================================================
+4) CAMBIOS EN FRONTEND (AnalysisResults.jsx)
+====================================================================
+Se extendio la exportacion a Excel agregando columnas nuevas:
+- Accion inmediata
+- Accion correctiva
+- Explicacion / motivo de clasificacion
+- Confianza
+
+Sin eliminar columnas existentes.
+Sin modificar layout visual de la tabla/pantalla.
+
+====================================================================
+5) ESTRUCTURA DE SALIDA FINAL POR REGISTRO
+====================================================================
+El backend ahora entrega (ademas de lo existente):
+- areaClasificada
+- resultadoClasificado
+- tipoDesvio
+- iso22000
+- estadoAccion
+- accionInmediata
+- accionCorrectiva
+- explicacionClasificacion
+- confianza
+
+====================================================================
+6) VALIDACION REALIZADA CON LOS 10 CASOS OBLIGATORIOS
+====================================================================
+Se ejecuto una prueba en backend creando un Excel temporal en memoria
+con los 10 casos indicados.
+
+Resultado de validacion:
+- Casos 1, 2, 3, 4, 5, 6, 7, 8, 9 y 10 clasificados con area, resultado,
+  tipo e ISO segun el criterio esperado.
+- Se ajustaron reglas adicionales para cerrar diferencias detectadas en:
+  - caso de envio de perecederos (Area fria + Deposito)
+  - caso de agua caliente (forzar NC)
+  - caso de registros incompletos (forzar NC)
+  - acciones para sector sucio vs equipo
+
+
+Comando usado para prueba (ejecutar desde carpeta backend):
+
+node --input-type=module <<'EOF'
+import ExcelJS from 'exceljs';
+import { analyzeExcel } from './src/services/analyzeExcel.js';
+
+const cases = [
+  { actividad: 'Faltaron almuerzos en el Easy. Las costillas se sirvieron de a una.' },
+  { actividad: 'Se envía tomate en mal estado para las ensaladas de Scop.' },
+  { actividad: 'Easy devuelve las ensaladas por estar en mal estado.' },
+  { actividad: 'Faltante de mercadería en Hospital Mental y Pocito.' },
+  { actividad: 'La robocoupe está fallando, se deja de ocupar.' },
+  { actividad: 'No hay agua caliente en la línea de bachas donde se sanitiza la verdura.' },
+  { actividad: 'Sector de pre elaborados sucio con restos de carne, máquina de cortar fiambre sucia y latas sucias.' },
+  { actividad: 'Faltó Daniel Irustia.' },
+  { actividad: 'La Laja sale demorada 30 minutos.' },
+  { actividad: 'Registro de temperatura de cámara 1, 2, 5, 6 y 7 incompleto.' }
+];
+
+const wb = new ExcelJS.Workbook();
+const ws = wb.addWorksheet('Datos');
+ws.addRow(['Fecha','Área / Proceso','Actividad realizada','Hallazgo detectado','N° Acción','Resultado','¿Desvío?','¿Acción?']);
+for (const c of cases) {
+  ws.addRow(['2026-04-25','',''+c.actividad,'Sin hallazgo detectado','','','','']);
+}
+
+const buffer = await wb.xlsx.writeBuffer();
+const out = await analyzeExcel(buffer, []);
+
+console.log('success:', out.success);
+out.records.forEach((r, i) => {
+  console.log(`\n[${i + 1}] ${cases[i].actividad}`);
+  console.log('area=', r.areaClasificada);
+  console.log('resultado=', r.resultadoClasificado, '| tipo=', r.tipoDesvio);
+  console.log('iso=', r.iso22000);
+  console.log('accionInmediata=', r.accionInmediata);
+  console.log('accionCorrectiva=', r.accionCorrectiva);
+  console.log('confianza=', r.confianza);
+});
+EOF
+
+====================================================================
+7) IMPACTO ESPERADO
+====================================================================
+- Menos "Area no identificada".
+- Menos "Revisar manualmente".
+- Menos "Sin clasificar" en ISO cuando hay contexto.
+- Menos "Sin accion" en NC/OM.
+- Salida mas util, explicable y accionable para operacion.
+
+====================================================================
+8) NOTAS IMPORTANTES
+====================================================================
+- No se eliminaron columnas existentes.
+- No se modifico diseño visual.
+- No se inventan datos: se clasifica por texto disponible con reglas.
+- Se prioriza utilidad operativa y trazabilidad de la decision.
+

@@ -193,7 +193,11 @@ export default function AnalysisResults({
       'Resultado clasificado': normalizeCellValue(record.resultadoClasificado),
       'Tipo de desvío': normalizeCellValue(record.tipoDesvio),
       'Vinculación SGIA / ISO 22000': normalizeCellValue(record.iso22000),
-      'Estado de acción': normalizeCellValue(record.estadoAccion)
+      'Estado de acción': normalizeCellValue(record.estadoAccion),
+      'Acción inmediata': normalizeCellValue(record.accionInmediata),
+      'Acción correctiva': normalizeCellValue(record.accionCorrectiva),
+      'Explicación / motivo de clasificación': normalizeCellValue(record.explicacionClasificacion),
+      Confianza: normalizeCellValue(record.confianza)
     }));
 
     const sheet = XLSX.utils.json_to_sheet(rows);
