@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { refinePreClassification } from './classificationRefiner.js';
 
 const OPERATIVE_AREAS = [
   'Área fría',
@@ -1120,6 +1121,25 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       rawRecord.accionInmediata = actions.accionInmediata;
       rawRecord.accionCorrectiva = actions.accionCorrectiva;
 
+      const preClassification = {
+        texto: textForClassification,
+        areaDetectada: areaClasificada,
+        resultadoDetectado: resultadoClasificado,
+        tipoDetectado: tipoDesvio,
+        isoDetectado: iso22000,
+        accionInmediataDetectada: rawRecord.accionInmediata,
+        accionCorrectivaDetectada: rawRecord.accionCorrectiva
+      };
+
+      const refined = refinePreClassification(preClassification);
+
+      areaClasificada = refined.areaFinal || areaClasificada;
+      resultadoClasificado = refined.resultadoFinal || resultadoClasificado;
+      tipoDesvio = refined.tipoFinal || tipoDesvio;
+      iso22000 = refined.isoFinal || iso22000;
+      rawRecord.accionInmediata = refined.accionInmediataFinal || rawRecord.accionInmediata;
+      rawRecord.accionCorrectiva = refined.accionCorrectivaFinal || rawRecord.accionCorrectiva;
+
       const estadoAccion = classifyActionStatusFromRow({
         accion: rawRecord.accion,
         numeroAccion: rawRecord.numeroAccion,
@@ -1130,7 +1150,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         accionCorrectiva: rawRecord.accionCorrectiva
       });
 
-      const explicacionClasificacion = buildClassificationExplanation({
+      const explicacionClasificacion = refined.explicacion || buildClassificationExplanation({
         areaClasificada,
         resultadoClasificado,
         iso22000,
@@ -1138,7 +1158,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         outcomeReason
       });
 
-      const confianza = classifyConfidence({
+      const confianza = refined.confianza || classifyConfidence({
         areaEvidenceCount: areaEvidence.length,
         resultadoClasificado,
         classificationText: textForClassification,
