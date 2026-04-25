@@ -130,7 +130,37 @@ function classifyCaseArea(consolidatedText, rows = []) {
   if (includesAny(text, ['pocito'])) add('Pocito');
   if (includesAny(text, ['la laja'])) add('La Laja');
 
-  if (areas.length > 0) return areas;
+  const supportByText = includesAny(text, [
+    'registro',
+    'registros',
+    'documentacion',
+    'documental',
+    'sistema documental',
+    'revision documental',
+    'historial',
+    'control de registros',
+    'capacitacion',
+    'manual',
+    'analisis de peligros',
+    'pcc',
+    'auditoria'
+  ]);
+  if (supportByText) add('Calidad / Documentación');
+
+  if (areas.length > 0) {
+    const support = 'Calidad / Documentación';
+    const operational = areas.filter((area) => area !== support);
+    const priority = ['Área fría', 'Área caliente', 'Depósito', 'Higiene / Sanitización', 'Mantenimiento', 'RRHH / Personal', 'Logística / Distribución', 'Planta'];
+    operational.sort((a, b) => {
+      const ia = priority.indexOf(a);
+      const ib = priority.indexOf(b);
+      const pa = ia === -1 ? 999 : ia;
+      const pb = ib === -1 ? 999 : ib;
+      return pa - pb;
+    });
+    if (areas.includes(support)) operational.push(support);
+    return operational;
+  }
 
   const inferred = normalizeText(rows.map((row) => row.areaProceso).join(' | '));
   if (includesAny(inferred, ['fria', 'frio', 'camara', 'heladera'])) return ['Área fría'];
@@ -142,21 +172,39 @@ function classifyCaseArea(consolidatedText, rows = []) {
 
 function classifyCaseOutcome(consolidatedText) {
   const text = normalizeText(consolidatedText);
-  const registroCritico = includesAny(text, ['registro de temperatura', 'registros de temperatura']) &&
-    includesAny(text, ['camara', 'heladera']);
 
   const nc = includesAny(text, [
     'mal estado', 'devolucion', 'faltante', 'demora', 'falla', 'fallando',
     'faltaron almuerzos',
     'sucio', 'suciedad', 'contaminacion', 'restos de carne', 'incompleto',
-    'incumplimiento', 'no hay agua caliente', 'sin agua caliente', 'fuera de uso'
+    'incumplimiento', 'no hay agua caliente', 'sin agua caliente', 'fuera de uso',
+    'no disponen de calzado', 'falta de registros', 'camaras sin control', 'cámaras sin control'
   ]);
-  if (nc || registroCritico) return { resultadoClasificado: 'No conforme', tipoDesvio: 'NC' };
+  if (nc) return { resultadoClasificado: 'No conforme', tipoDesvio: 'NC' };
 
   const om = includesAny(text, [
-    'capacitacion', 'prevencion', 'mejora', 'ajuste de proceso', 'documentar mejora'
+    'se trabaja en analisis de peligros',
+    'se trabaja en estudio de riesgos',
+    'se coordina capacitacion',
+    'se coordina simulacro',
+    'se trabaja en revision del sistema documental',
+    'se elabora manual para curso',
+    'se elabora y entrega manual',
+    'mejora',
+    'prevencion'
   ]);
   if (om) return { resultadoClasificado: 'Oportunidad de mejora', tipoDesvio: 'OM' };
+
+  const conforme = includesAny(text, [
+    'recorrida de planta',
+    'control de registros',
+    'control de orden limpieza y etiquetado',
+    'control de historial de coccion',
+    'se controla',
+    'verificacion',
+    'revision sin hallazgo'
+  ]);
+  if (conforme) return { resultadoClasificado: 'Conforme', tipoDesvio: '-' };
 
   return { resultadoClasificado: 'Conforme', tipoDesvio: '-' };
 }
