@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { refinePreClassification } from './classificationRefiner.js';
+import { classifyDeviationCasesFromRecords } from './caseClassifier.js';
 
 const OPERATIVE_AREAS = [
   'Área fría',
@@ -1052,6 +1053,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
 
   const summary = {
     totalRecords: 0,
+    totalCases: 0,
     totalDesvios: 0,
     totalConformes: 0,
     totalNC: 0,
@@ -1382,12 +1384,16 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       });
     });
 
+    const cases = classifyDeviationCasesFromRecords(results);
+    summary.totalCases = cases.length;
+
     progressCallback?.(95, 'Generando resumen...');
     progressCallback?.(100, 'Analisis completado');
 
     return {
       success: true,
       records: results,
+      cases,
       summary
     };
   } catch (error) {

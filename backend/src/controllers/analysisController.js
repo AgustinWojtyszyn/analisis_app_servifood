@@ -123,7 +123,8 @@ function mapAnalysisRowToApi(row) {
     processedAt,
     totalRecords: row.results?.totalRecords || 0,
     summary,
-    records: row.results?.records || []
+    records: row.results?.records || [],
+    cases: row.results?.cases || []
   };
 }
 
@@ -171,7 +172,8 @@ export async function uploadAndAnalyze(req, res) {
         totalRecords: results.length,
         processedAt: processingTimestamp
       },
-      records: results
+      records: results,
+      cases: analysisResult.cases || []
     };
 
     const archiveActiveResult = await supabaseAdmin
