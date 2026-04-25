@@ -65,8 +65,6 @@ function detectExactLocations(text) {
   if (includesAny(normalized, ['deposito'])) sectorAreas.push('Depósito');
   if (includesAny(normalized, ['pre elaborados', 'preelaborados', 'pre elaborado', 'pre-elaborados'])) sectorAreas.push('Área de pre elaborados');
   if (includesAny(normalized, ['linea de bachas', 'bachas'])) sectorAreas.push('Higiene / Sanitización');
-  if (includesAny(normalized, ['planta'])) sectorAreas.push('Planta');
-
   if (includesAny(normalized, ['easy', 'scop', 'hospital mental', 'pocito', 'la laja'])) {
     clientAreas.push('Logística / Distribución');
   }

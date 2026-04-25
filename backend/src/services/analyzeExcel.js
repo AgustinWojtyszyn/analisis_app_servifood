@@ -555,8 +555,6 @@ function detectExactLocations(text) {
   if (containsAny(normalized, ['linea de bachas', 'línea de bachas', 'bachas'])) {
     sectorAreas.push('Higiene / Sanitización');
   }
-  if (containsAny(normalized, ['planta'])) sectorAreas.push('Planta');
-
   if (containsAny(normalized, ['easy', 'scop', 'hospital mental', 'pocito', 'la laja'])) {
     clientAreas.push('Logística / Distribución');
   }
@@ -579,8 +577,8 @@ const COMMON_TEXT_FIXES = [
 ];
 
 const AREA_SCORING_RULES = [
-  { area: 'Área fría', keywords: ['camara', 'camaras', 'heladera', 'heladeras', 'refrigerado', 'refrigeracion', 'frio', ' af ', 'ensalada', 'tomate', 'verdura', 'materia prima perecedera'], score: 6 },
-  { area: 'Área caliente', keywords: ['cocina', 'coccion', 'linea caliente', 'caliente', ' ac ', 'horno', 'marmita', 'fritura', 'costilla', 'almuerzo preparado', 'produccion caliente'], score: 6 },
+  { area: 'Área fría', keywords: ['camara', 'camaras', 'heladera', 'heladeras', 'refrigerado', 'refrigeracion', 'frio', 'ensalada', 'tomate', 'verdura', 'materia prima perecedera'], score: 6 },
+  { area: 'Área caliente', keywords: ['cocina', 'coccion', 'linea caliente', 'caliente', 'horno', 'marmita', 'fritura', 'costilla', 'almuerzo preparado', 'produccion caliente'], score: 6 },
   { area: 'Depósito', keywords: ['deposito', 'recepcion', 'stock', 'mercaderia', 'materia prima', 'proveedor', 'ingreso de mercaderia', 'faltante de insumos'], score: 5 },
   { area: 'Logística / Distribución', keywords: ['faltaron almuerzos', 'faltante de mercaderia en cliente', 'demora', 'entrega', 'servicio demorado', 'cliente', 'easy', 'hospital mental', 'pocito', 'la laja', 'reparto', 'despacho', 'devolucion del cliente'], score: 7 },
   { area: 'Higiene / Sanitización', keywords: ['sucio', 'suciedad', 'restos de carne', 'maquina sucia', 'latas sucias', 'sin limpiar', 'sanitizacion', 'bachas', 'agua caliente', 'limpieza', 'poes'], score: 8 },
@@ -703,7 +701,7 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
 
   if (!text) return { areas: ['Área no identificada'], evidence: [] };
 
-  const exact = detectExactLocations(`${text} | ${areaProcesoText}`);
+  const exact = detectExactLocations(text);
   if (exact.cameraLocations.length > 0) {
     return {
       areas: exact.cameraLocations,
@@ -744,11 +742,10 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
 
   AREA_SCORING_RULES.forEach((rule) => {
     const textMatch = countMatchedKeywords(text, rule.keywords);
-    const areaMatch = countMatchedKeywords(areaProcesoText, rule.keywords);
-    const weighted = (textMatch.score * rule.score) + (areaMatch.score * 2);
+    const weighted = textMatch.score * rule.score;
     if (weighted <= 0) return;
     scores.set(rule.area, (scores.get(rule.area) || 0) + weighted);
-    evidence.set(rule.area, [...(textMatch.matches || []), ...(areaMatch.matches || [])]);
+    evidence.set(rule.area, [...(textMatch.matches || [])]);
   });
 
   if (text.includes('heladera') && /\bac\b/.test(` ${text} `)) {
@@ -769,11 +766,7 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
     evidence.set('Depósito', [...(evidence.get('Depósito') || []), 'envio de perecederos']);
   }
 
-  if (scores.size === 0) {
-    const fallback = normalizeCellValue(areaProceso).trim();
-    if (fallback) return { areas: [fallback], evidence: ['fallback por Área / Proceso original'] };
-    return { areas: ['Área no identificada'], evidence: ['sin señales directas'] };
-  }
+  if (scores.size === 0) return { areas: ['Área no identificada'], evidence: ['sin señales directas'] };
 
   const ranked = sortAreasByPriority(scores);
   const topScore = ranked[0][1];
@@ -992,6 +985,37 @@ function classifyConfidence({ areaEvidenceCount, resultadoClasificado, classific
   if (areaEvidenceCount >= 2 && (resultadoClasificado === 'No conforme' || resultadoClasificado === 'Oportunidad de mejora')) return 'Alta';
   if (areaEvidenceCount >= 1) return 'Media';
   return 'Baja';
+}
+
+function normalizeAreaParts(parts = []) {
+  const seen = new Set();
+  const noIdentificadaNorm = normalizeForMatch('Área no identificada');
+
+  return parts
+    .flatMap((part) => String(part || '').split(/[\/,]/))
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => {
+      const key = normalizeForMatch(part);
+      if (!key || key === noIdentificadaNorm || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join(' / ');
+}
+
+function composeAreaClasificada({ areaProcesoOriginal, areaOperativaDetectada }) {
+  const original = normalizeCellValue(areaProcesoOriginal || '').trim();
+  const detectedRaw = normalizeCellValue(areaOperativaDetectada || '').trim();
+  const detectedNorm = normalizeForMatch(detectedRaw);
+  const noIdentificadaNorm = normalizeForMatch('Área no identificada');
+  const isInvalidDetected = !detectedRaw || detectedNorm === noIdentificadaNorm;
+
+  if (!original && isInvalidDetected) return 'Área no identificada';
+  if (!original && !isInvalidDetected) return normalizeAreaParts([detectedRaw]) || 'Área no identificada';
+  if (original && isInvalidDetected) return normalizeAreaParts([original]) || 'Área no identificada';
+
+  return normalizeAreaParts([original, detectedRaw]) || 'Área no identificada';
 }
 
 function shouldRefineWithExpert({
@@ -1310,6 +1334,12 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         rawRecord.accionCorrectiva = refined.accionCorrectivaFinal || rawRecord.accionCorrectiva;
       }
 
+      const areaOperativaClasificada = areaClasificada;
+      const areaClasificadaFinal = composeAreaClasificada({
+        areaProcesoOriginal: rawRecord.areaProceso,
+        areaOperativaDetectada: areaOperativaClasificada
+      });
+
       const estadoAccion = classifyActionStatusFromRow({
         accion: rawRecord.accion,
         numeroAccion: rawRecord.numeroAccion,
@@ -1330,7 +1360,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       summary.totalRecords += 1;
       if (isDesvio) {
         summary.totalDesvios += 1;
-        const areasForSummary = areaClasificada
+        const areasForSummary = areaOperativaClasificada
           .split(',')
           .map((value) => value.trim())
           .filter(Boolean);
@@ -1372,7 +1402,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         accionCorrectiva: rawRecord.accionCorrectiva || 'Sin acción correctiva requerida.',
         numeroAccion: rawRecord.numeroAccion || '',
         notaTecnica: rawRecord.notaTecnica || '',
-        areaClasificada,
+        areaClasificada: areaClasificadaFinal,
         resultadoClasificado,
         tipoDesvio,
         iso22000,
