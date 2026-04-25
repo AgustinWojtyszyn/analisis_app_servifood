@@ -499,6 +499,76 @@ function extractCamaras(texto) {
   return unique.map((n) => `Cámara ${n}`);
 }
 
+function detectExactLocations(text) {
+  const normalized = normalizeIncidentText(text);
+  if (!normalized) {
+    return {
+      cameraLocations: [],
+      heladeraAreas: [],
+      hotEquipmentAreas: [],
+      sectorAreas: [],
+      clientAreas: []
+    };
+  }
+
+  const cameraLocations = extractCamaras(normalized);
+  const heladeraAreas = [];
+  const hotEquipmentAreas = [];
+  const sectorAreas = [];
+  const clientAreas = [];
+
+  const hasHeladera = normalized.includes('heladera') || normalized.includes('heladeras');
+  const hasAF = /\baf\b/.test(` ${normalized} `) || normalized.includes('area fria') || normalized.includes('área fria');
+  const hasAC = /\bac\b/.test(` ${normalized} `) || normalized.includes('area caliente') || normalized.includes('área caliente');
+  if (hasHeladera && hasAF) heladeraAreas.push('Área fría');
+  if (hasHeladera && hasAC) heladeraAreas.push('Área caliente');
+
+  if (containsAny(normalized, [
+    'horno',
+    'hornos',
+    'cocina',
+    'coccion',
+    'cocción',
+    'marmita',
+    'marmitas',
+    'freidora',
+    'freidoras',
+    'plancha',
+    'planchas',
+    'olla',
+    'ollas',
+    'preparacion caliente',
+    'preparación caliente',
+    'linea caliente',
+    'línea caliente',
+    'costillas',
+    'almuerzos calientes'
+  ])) {
+    hotEquipmentAreas.push('Área caliente');
+  }
+
+  if (containsAny(normalized, ['deposito', 'depósito'])) sectorAreas.push('Depósito');
+  if (containsAny(normalized, ['pre elaborados', 'preelaborados', 'pre elaborado', 'pre-elaborados'])) {
+    sectorAreas.push('Área de pre elaborados');
+  }
+  if (containsAny(normalized, ['linea de bachas', 'línea de bachas', 'bachas'])) {
+    sectorAreas.push('Higiene / Sanitización');
+  }
+  if (containsAny(normalized, ['planta'])) sectorAreas.push('Planta');
+
+  if (containsAny(normalized, ['easy', 'scop', 'hospital mental', 'pocito', 'la laja'])) {
+    clientAreas.push('Logística / Distribución');
+  }
+
+  return {
+    cameraLocations: [...new Set(cameraLocations)],
+    heladeraAreas: [...new Set(heladeraAreas)],
+    hotEquipmentAreas: [...new Set(hotEquipmentAreas)],
+    sectorAreas: [...new Set(sectorAreas)],
+    clientAreas: [...new Set(clientAreas)]
+  };
+}
+
 const COMMON_TEXT_FIXES = [
   { from: /\bmercaderis\b/g, to: 'mercaderia' },
   { from: /\bvedura\b/g, to: 'verdura' },
@@ -631,6 +701,42 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
   const areaProcesoText = normalizeIncidentText(areaProceso);
 
   if (!text) return { areas: ['Área no identificada'], evidence: [] };
+
+  const exact = detectExactLocations(`${text} | ${areaProcesoText}`);
+  if (exact.cameraLocations.length > 0) {
+    return {
+      areas: exact.cameraLocations,
+      evidence: ['cámaras específicas detectadas']
+    };
+  }
+
+  if (exact.heladeraAreas.length > 0) {
+    return {
+      areas: exact.heladeraAreas,
+      evidence: ['heladera mapeada por zona AF/AC']
+    };
+  }
+
+  if (exact.hotEquipmentAreas.length > 0) {
+    return {
+      areas: exact.hotEquipmentAreas,
+      evidence: ['equipos/proceso de área caliente']
+    };
+  }
+
+  if (exact.sectorAreas.length > 0) {
+    return {
+      areas: exact.sectorAreas,
+      evidence: ['sector específico detectado']
+    };
+  }
+
+  if (exact.clientAreas.length > 0) {
+    return {
+      areas: exact.clientAreas,
+      evidence: ['cliente/servicio externo detectado']
+    };
+  }
 
   const scores = new Map();
   const evidence = new Map();
