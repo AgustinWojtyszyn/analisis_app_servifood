@@ -100,6 +100,14 @@ function classifyArea(text, preDetectedArea = '') {
   if (exact.sectorAreas.length > 0) return exact.sectorAreas.join(' / ');
   if (exact.clientAreas.length > 0) return exact.clientAreas.join(' / ');
 
+  const hasHygieneSignal = includesAny(text, ['limpieza', 'sucio', 'suciedad', 'restos de carne', 'sin limpiar', 'sanitizacion', 'higiene']);
+  const hasColdSignal = includesAny(text, ['camara', 'heladera']);
+  const hasHotSignal = includesAny(text, ['horno', 'cocina', 'coccion', 'linea caliente', 'marmita', 'freidora', 'plancha', 'costillas', 'almuerzos calientes']);
+
+  if (hasHygieneSignal && hasColdSignal) return 'Higiene / Sanitización / Área fría';
+  if (hasHygieneSignal && hasHotSignal) return 'Higiene / Sanitización / Área caliente';
+  if (hasHygieneSignal) return 'Higiene / Sanitización';
+
   const scores = new Map();
   const add = (area, points) => scores.set(area, (scores.get(area) || 0) + points);
 
@@ -127,7 +135,7 @@ function classifyArea(text, preDetectedArea = '') {
     add('Depósito', 6);
   }
 
-  if (includesAny(text, ['auditoria', 'registro', 'registros incompletos', 'falta de firma', 'procedimiento', 'documentacion', 'drive', 'control de registros'])) {
+  if (includesAny(text, ['auditoria', 'registro', 'registros incompletos', 'falta de firma', 'procedimiento', 'documentacion', 'documental', 'sistema documental', 'revision documental', 'drive', 'control de registros'])) {
     add('Calidad / Documentación', 6);
   }
 
