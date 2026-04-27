@@ -64,7 +64,7 @@ function normalizeCellValue(value) {
 
 function splitAreas(areaClasificada) {
   return normalizeCellValue(areaClasificada)
-    .split(',')
+    .split(/[\/,]/)
     .map((area) => area.trim())
     .filter(Boolean);
 }
@@ -180,25 +180,15 @@ export default function AnalysisResults({
   const handleExportExcel = async () => {
     const rows = filteredRecords.map((record) => ({
       Fecha: normalizeCellValue(record.fecha),
-      'Área / Proceso': normalizeCellValue(record.areaProceso),
-      'Actividad realizada': normalizeCellValue(record.actividadRealizada),
       'Hallazgo detectado': normalizeCellValue(record.hallazgoDetectado),
-      'N° Acción': normalizeCellValue(record.numeroAccion),
-      'Tipo de actividad': normalizeCellValue(record.tipoActividad),
-      Resultado: normalizeCellValue(record.resultado),
-      '¿Desvío?': normalizeCellValue(record.desvio),
-      '¿Acción?': normalizeCellValue(record.accion),
-      'Nota técnica': normalizeCellValue(record.notaTecnica),
       'Área clasificada': normalizeCellValue(record.areaClasificada),
       'Resultado clasificado': normalizeCellValue(record.resultadoClasificado),
-      'Tipo de desvío': normalizeCellValue(record.tipoDesvio),
-      'Vinculación SGIA / ISO 22000': normalizeCellValue(record.iso22000),
-      'Estado de acción': normalizeCellValue(record.estadoAccion),
-      'Refinado por IA': record.refinadoPorIA ? 'Sí' : 'No',
-      'Acción inmediata': normalizeCellValue(record.accionInmediata),
-      'Acción correctiva': normalizeCellValue(record.accionCorrectiva),
-      'Explicación / motivo de clasificación': normalizeCellValue(record.explicacionClasificacion),
-      Confianza: normalizeCellValue(record.confianza)
+      'Tipo desvío': normalizeCellValue(record.tipoDesvio),
+      'ISO 22000': normalizeCellValue(record.iso22000),
+      'Estado acción': normalizeCellValue(record.estadoAccion),
+      'N° Acción': normalizeCellValue(record.numeroAccion),
+      'Área / Proceso': normalizeCellValue(record.areaProceso),
+      'Actividad realizada': normalizeCellValue(record.actividadRealizada)
     }));
 
     const sheet = XLSX.utils.json_to_sheet(rows);
@@ -378,15 +368,15 @@ export default function AnalysisResults({
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>Fecha</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Área / Proceso</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Actividad realizada</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Hallazgo detectado</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>N° Acción</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Área clasificada</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Resultado clasificado</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Tipo desvío</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>ISO 22000</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Estado acción</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>N° Acción</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Área / Proceso</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Actividad realizada</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -400,15 +390,8 @@ export default function AnalysisResults({
                 }}
               >
                 <TableCell>{normalizeCellValue(record.fecha)}</TableCell>
-                <TableCell>{normalizeCellValue(record.areaProceso)}</TableCell>
-                <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {normalizeCellValue(record.actividadRealizada)}
-                </TableCell>
                 <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {normalizeCellValue(record.hallazgoDetectado)}
-                </TableCell>
-                <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {normalizeCellValue(record.numeroAccion)}
                 </TableCell>
                 <TableCell>{normalizeCellValue(record.areaClasificada)}</TableCell>
                 <TableCell>
@@ -439,6 +422,13 @@ export default function AnalysisResults({
                   <Typography variant="body2">{normalizeCellValue(record.iso22000)}</Typography>
                 </TableCell>
                 <TableCell>{normalizeCellValue(record.estadoAccion).replace('_', ' ')}</TableCell>
+                <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {normalizeCellValue(record.numeroAccion)}
+                </TableCell>
+                <TableCell>{normalizeCellValue(record.areaProceso)}</TableCell>
+                <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {normalizeCellValue(record.actividadRealizada)}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

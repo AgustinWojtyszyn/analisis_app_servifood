@@ -497,7 +497,96 @@ function extractCamaras(texto) {
   }
 
   const unique = [...new Set(all.filter((n) => /^\d+$/.test(n)))];
-  return unique.map((n) => `Cámara ${n}`);
+  return unique.map((n) => Number(n))
+    .filter((n) => n >= 1 && n <= 7)
+    .map((n) => `Cámara ${n}`);
+}
+
+const OPERATIONAL_AREAS = [
+  'Área fría',
+  'Área caliente',
+  'Depósito',
+  'Cámara 1',
+  'Cámara 2',
+  'Cámara 3',
+  'Cámara 4',
+  'Cámara 5',
+  'Cámara 6',
+  'Cámara 7',
+  'Baños',
+  'Áreas comunes',
+  'Comedor',
+  'Logística',
+  'Área de residuos',
+  'Área de pre elaborados',
+  'Lavadero',
+  'Área no identificada'
+];
+
+const OPERATIONAL_AREA_PRIORITY = OPERATIONAL_AREAS.filter((area) => area !== 'Área no identificada');
+const OPERATIONAL_AREA_SET = new Set(OPERATIONAL_AREAS);
+
+function toOperationalArea(area) {
+  const raw = normalizeCellValue(area || '').trim();
+  if (!raw) return null;
+  const normalized = normalizeForMatch(raw);
+  if (!normalized) return null;
+
+  const cameraMatch = normalized.match(/camara\s*([0-9]+)/);
+  if (cameraMatch) {
+    const number = Number(cameraMatch[1]);
+    if (number >= 1 && number <= 7) return `Cámara ${number}`;
+    return 'Área fría';
+  }
+
+  if (normalized.includes('area fria')) return 'Área fría';
+  if (normalized.includes('area caliente')) return 'Área caliente';
+  if (normalized.includes('deposito')) return 'Depósito';
+  if (normalized.includes('bano') || normalized.includes('banos') || normalized.includes('sanitario')) return 'Baños';
+  if (normalized.includes('area comun') || normalized.includes('areas comunes')) return 'Áreas comunes';
+  if (normalized.includes('comedor')) return 'Comedor';
+  if (normalized.includes('logistica')) return 'Logística';
+  if (normalized.includes('residuos') || normalized.includes('desecho') || normalized.includes('basura')) return 'Área de residuos';
+  if (normalized.includes('pre elaborados') || normalized.includes('preelaborados') || normalized.includes('pre elaborado')) return 'Área de pre elaborados';
+  if (normalized.includes('lavadero') || normalized.includes('bacha')) return 'Lavadero';
+  if (normalized === normalizeForMatch('Planta') || normalized.includes('recorrida de planta')) return 'Áreas comunes';
+  if (normalized === normalizeForMatch('Área no identificada')) return 'Área no identificada';
+
+  // Áreas de soporte o no operativas no deben aparecer como área clasificada.
+  if (
+    normalized.includes('calidad')
+    || normalized.includes('documentacion')
+    || normalized.includes('rrhh')
+    || normalized.includes('personal')
+    || normalized.includes('higiene')
+    || normalized.includes('sanitizacion')
+    || normalized.includes('mantenimiento')
+  ) {
+    return null;
+  }
+
+  return null;
+}
+
+function sanitizeOperationalAreaList(parts = []) {
+  const seen = new Set();
+  const finalAreas = [];
+
+  parts
+    .flatMap((part) => String(part || '').split(','))
+    .flatMap((part) => part.split('/'))
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .forEach((part) => {
+      const operational = toOperationalArea(part);
+      if (!operational || !OPERATIONAL_AREA_SET.has(operational)) return;
+      const key = normalizeForMatch(operational);
+      if (seen.has(key)) return;
+      seen.add(key);
+      finalAreas.push(operational);
+    });
+
+  return finalAreas.length ? finalAreas : ['Área no identificada'];
 }
 
 function detectExactLocations(text) {
@@ -552,14 +641,23 @@ function detectExactLocations(text) {
   if (containsAny(normalized, ['pre elaborados', 'preelaborados', 'pre elaborado', 'pre-elaborados'])) {
     sectorAreas.push('Área de pre elaborados');
   }
-  if (containsAny(normalized, ['linea de bachas', 'línea de bachas', 'bachas'])) {
-    sectorAreas.push('Higiene / Sanitización');
+  if (containsAny(normalized, ['linea de bachas', 'línea de bachas', 'bachas', 'lavadero', 'lavado'])) {
+    sectorAreas.push('Lavadero');
   }
-  if (containsAny(normalized, ['planta', 'recorrida de planta'])) {
-    sectorAreas.push('Planta');
+  if (containsAny(normalized, ['residuo', 'residuos', 'basura', 'desechos'])) {
+    sectorAreas.push('Área de residuos');
+  }
+  if (containsAny(normalized, ['baño', 'bano', 'baños', 'banos', 'sanitario'])) {
+    sectorAreas.push('Baños');
+  }
+  if (containsAny(normalized, ['comedor'])) {
+    sectorAreas.push('Comedor');
+  }
+  if (containsAny(normalized, ['planta', 'recorrida de planta', 'area comun', 'área común', 'áreas comunes', 'pasillo'])) {
+    sectorAreas.push('Áreas comunes');
   }
   if (containsAny(normalized, ['easy', 'scop', 'hospital mental', 'pocito', 'la laja'])) {
-    clientAreas.push('Logística / Distribución');
+    clientAreas.push('Logística');
   }
 
   return {
@@ -583,24 +681,16 @@ const AREA_SCORING_RULES = [
   { area: 'Área fría', keywords: ['camara', 'camaras', 'heladera', 'heladeras', 'refrigerado', 'refrigeracion', 'frio', 'ensalada', 'tomate', 'verdura', 'materia prima perecedera'], score: 6 },
   { area: 'Área caliente', keywords: ['cocina', 'coccion', 'linea caliente', 'caliente', 'horno', 'marmita', 'fritura', 'costilla', 'almuerzo preparado', 'produccion caliente'], score: 6 },
   { area: 'Depósito', keywords: ['deposito', 'recepcion', 'stock', 'mercaderia', 'materia prima', 'proveedor', 'ingreso de mercaderia', 'faltante de insumos'], score: 5 },
-  { area: 'Logística / Distribución', keywords: ['faltaron almuerzos', 'faltante de mercaderia en cliente', 'demora', 'entrega al cliente', 'servicio demorado', 'cliente', 'easy', 'hospital mental', 'pocito', 'la laja', 'reparto', 'despacho', 'devolucion del cliente'], score: 7 },
-  { area: 'Higiene / Sanitización', keywords: ['sucio', 'suciedad', 'restos de carne', 'maquina sucia', 'latas sucias', 'sin limpiar', 'sanitizacion', 'bachas', 'agua caliente', 'limpieza', 'poes'], score: 8 },
-  { area: 'Mantenimiento', keywords: ['falla', 'fallando', 'equipo fuera de uso', 'maquina', 'equipo maquina de proceso', 'reparacion', 'mantenimiento', 'deja de ocupar'], score: 7 },
-  { area: 'RRHH / Personal', keywords: ['falto', 'ausencia', 'personal', 'persona', 'personas', 'capacitacion', 'encargado', 'responsable', 'operador', 'calzado', 'epp', 'seguridad'], score: 5 },
-  { area: 'Calidad / Documentación', keywords: ['auditoria', 'registro', 'registros incompletos', 'falta de firma', 'procedimiento', 'documentacion', 'documental', 'sistema documental', 'revision documental', 'drive', 'capacitacion documentada', 'control de registros', 'analisis de peligros', 'pcc', 'estudio de riesgos', 'manual'], score: 6 }
+  { area: 'Logística', keywords: ['faltaron almuerzos', 'faltante de mercaderia en cliente', 'demora', 'entrega al cliente', 'servicio demorado', 'cliente', 'easy', 'hospital mental', 'pocito', 'la laja', 'reparto', 'despacho', 'devolucion del cliente'], score: 7 },
+  { area: 'Baños', keywords: ['baño', 'bano', 'baños', 'banos', 'sanitario'], score: 7 },
+  { area: 'Áreas comunes', keywords: ['planta', 'recorrida de planta', 'pasillo', 'area comun', 'áreas comunes'], score: 4 },
+  { area: 'Comedor', keywords: ['comedor', 'linea de servicio', 'línea de servicio'], score: 6 },
+  { area: 'Área de residuos', keywords: ['residuo', 'residuos', 'basura', 'desecho'], score: 7 },
+  { area: 'Área de pre elaborados', keywords: ['pre elaborados', 'preelaborados', 'pre elaborado', 'pre-elaborados'], score: 6 },
+  { area: 'Lavadero', keywords: ['lavadero', 'bachas', 'linea de bachas', 'línea de bachas', 'lavado'], score: 7 }
 ];
 
-const AREA_PRIORITY = [
-  'Área fría',
-  'Área caliente',
-  'Mantenimiento',
-  'Depósito',
-  'Higiene / Sanitización',
-  'RRHH / Personal',
-  'Logística / Distribución',
-  'Planta',
-  'Calidad / Documentación'
-];
+const AREA_PRIORITY = OPERATIONAL_AREA_PRIORITY;
 
 const NC_SIGNALS = [
   'mal estado',
@@ -757,13 +847,9 @@ function sortAreasByPriority(areaScores) {
     });
 }
 
-function sortAreasByPriorityList(areaList = [], classificationText = '') {
-  const text = normalizeIncidentText(classificationText);
-  const list = [...new Set(areaList.filter(Boolean))];
-  const supportArea = 'Calidad / Documentación';
-
-  const support = list.includes(supportArea);
-  const operational = list.filter((area) => area !== supportArea);
+function sortAreasByPriorityList(areaList = []) {
+  const operational = sanitizeOperationalAreaList(areaList);
+  if (operational.length === 1 && operational[0] === 'Área no identificada') return operational;
 
   operational.sort((a, b) => {
     const ia = AREA_PRIORITY.indexOf(a);
@@ -772,18 +858,6 @@ function sortAreasByPriorityList(areaList = [], classificationText = '') {
     const pb = ib === -1 ? 999 : ib;
     return pa - pb;
   });
-
-  // Si el evento principal es de higiene, priorizar Higiene antes de área térmica.
-  if (
-    containsAny(text, ['limpieza', 'sucio', 'suciedad', 'restos de carne', 'sin limpiar', 'sanitizacion', 'higiene']) &&
-    operational.includes('Higiene / Sanitización')
-  ) {
-    const withoutHygiene = operational.filter((area) => area !== 'Higiene / Sanitización');
-    operational.length = 0;
-    operational.push('Higiene / Sanitización', ...withoutHygiene);
-  }
-
-  if (support) operational.push(supportArea);
   return operational;
 }
 
@@ -835,21 +909,21 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
 
   if (hasHygieneSignal && hasColdSignal) {
     return {
-      areas: ['Higiene / Sanitización', 'Área fría'],
+      areas: ['Área fría'],
       evidence: ['evento de higiene en área fría']
     };
   }
 
   if (hasHygieneSignal && hasHotSignal) {
     return {
-      areas: ['Higiene / Sanitización', 'Área caliente'],
+      areas: ['Área caliente'],
       evidence: ['evento de higiene en área caliente']
     };
   }
 
   if (hasHygieneSignal) {
     return {
-      areas: ['Higiene / Sanitización'],
+      areas: ['Área no identificada'],
       evidence: ['evento de higiene']
     };
   }
@@ -901,11 +975,7 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
     .slice(0, 2)
     .map(([area]) => area);
 
-  if (selected.includes('Área fría') && selected.includes('Calidad / Documentación') && containsAny(text, ['camara', 'heladera'])) {
-    selected = selected.filter((area) => area !== 'Calidad / Documentación');
-  }
-
-  selected = sortAreasByPriorityList(selected, text);
+  selected = sortAreasByPriorityList(selected);
 
   return {
     areas: selected.length ? selected : ['Área no identificada'],
@@ -1147,70 +1217,21 @@ function classifyConfidence({ areaEvidenceCount, resultadoClasificado, classific
   return 'Baja';
 }
 
-function normalizeAreaParts(parts = []) {
-  const seen = new Set();
-  const noIdentificadaNorm = normalizeForMatch('Área no identificada');
-
-  return parts
-    .flatMap((part) => String(part || '').split(','))
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .filter((part) => {
-      const key = normalizeForMatch(part);
-      if (!key || key === noIdentificadaNorm || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .join(' / ');
-}
-
-function composeAreaClasificada({ areaProcesoOriginal, areaOperativaDetectada, classificationText = '' }) {
-  const original = normalizeCellValue(areaProcesoOriginal || '').trim();
+function composeAreaClasificada({ areaProcesoOriginal, areaOperativaDetectada }) {
   const detectedRaw = normalizeCellValue(areaOperativaDetectada || '').trim();
-  const detectedNorm = normalizeForMatch(detectedRaw);
-  const noIdentificadaNorm = normalizeForMatch('Área no identificada');
-  const isInvalidDetected = !detectedRaw || detectedNorm === noIdentificadaNorm;
-  const supportArea = 'Calidad / Documentación';
-  const text = normalizeIncidentText(classificationText);
-
-  const supportByText = containsAny(text, [
-    'registro',
-    'registros',
-    'documentacion',
-    'documental',
-    'sistema documental',
-    'revision documental',
-    'historial',
-    'control de registros',
-    'capacitacion',
-    'manual',
-    'analisis de peligros',
-    'pcc',
-    'estudio de riesgos'
-  ]);
-  const originalEsCalidad = normalizeForMatch(original) === normalizeForMatch('Calidad');
-
-  // Prioridad: mostrar dónde ocurre realmente el evento (área operativa).
-  // El área/proceso original solo se usa como fallback si no hay detección operativa.
-  if (!isInvalidDetected) {
-    const detectedParts = detectedRaw
-      .split(',')
-      .map((part) => part.trim())
-      .filter(Boolean);
-    const hasSupport = detectedParts.some((part) => normalizeForMatch(part) === normalizeForMatch(supportArea));
-    const operational = detectedParts.filter((part) => normalizeForMatch(part) !== normalizeForMatch(supportArea));
-
-    const orderedOperational = sortAreasByPriorityList(operational, text);
-    // Calidad/Documentación solo agrega valor cuando el tema es documental
-    // y el área base de registro es Calidad.
-    const shouldAddSupport = hasSupport || (supportByText && originalEsCalidad);
-    const finalParts = shouldAddSupport ? [...orderedOperational, supportArea] : orderedOperational;
-    const finalArea = normalizeAreaParts(finalParts);
-    if (finalArea) return finalArea;
-    return original || 'Área no identificada';
+  const original = normalizeCellValue(areaProcesoOriginal || '').trim();
+  const detectedAreas = sanitizeOperationalAreaList([detectedRaw]);
+  const nonUnknownDetected = detectedAreas.filter((area) => area !== 'Área no identificada');
+  if (nonUnknownDetected.length > 0) {
+    return sortAreasByPriorityList(nonUnknownDetected).join(' / ');
   }
 
-  return normalizeAreaParts([original]) || 'Área no identificada';
+  const fallbackAreas = sanitizeOperationalAreaList([original]).filter((area) => area !== 'Área no identificada');
+  if (fallbackAreas.length > 0) {
+    return sortAreasByPriorityList(fallbackAreas).join(' / ');
+  }
+
+  return 'Área no identificada';
 }
 
 function shouldRefineWithExpert({
@@ -1544,8 +1565,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       const areaOperativaClasificada = areaClasificada;
       const areaClasificadaFinal = composeAreaClasificada({
         areaProcesoOriginal: rawRecord.areaProceso,
-        areaOperativaDetectada: areaOperativaClasificada,
-        classificationText: textForClassification
+        areaOperativaDetectada: areaOperativaClasificada
       });
 
       const estadoAccion = classifyActionStatusFromRow({
@@ -1569,11 +1589,12 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       summary.totalRecords += 1;
       if (isDesvio) {
         summary.totalDesvios += 1;
-        const areasForSummary = areaOperativaClasificada
+        const areasForSummary = areaClasificadaFinal
           .split(',')
+          .flatMap((value) => value.split('/'))
           .map((value) => value.trim())
           .filter(Boolean);
-        const uniqueAreasForSummary = [...new Set(areasForSummary.length ? areasForSummary : ['Área no identificada'])];
+        const uniqueAreasForSummary = [...new Set(sanitizeOperationalAreaList(areasForSummary))];
         uniqueAreasForSummary.forEach((areaItem) => {
           summary.byArea[areaItem] = (summary.byArea[areaItem] || 0) + 1;
         });
