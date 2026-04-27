@@ -1051,24 +1051,50 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   const desvioNo = isNoLike(desvio);
   const text = normalizeIncidentText(descripcionDetectada || '');
 
-  const controlSignals = [
-    'se controla',
-    'se realiza control',
-    'se verifica',
-    'registro de temperatura',
-    'se revisa',
-    'se inspecciona'
-  ];
-  const errorSignals = [
-    'falta',
-    'incompleto',
-    'incorrecto',
-    'fuera de',
-    'vencido',
+  const realNcSignals = [
+    'falta registro',
+    'registro incompleto',
+    'no se registro',
+    'sin registro',
+    'sin control',
+    'no dispone',
+    'faltante de producto',
+    'fuera de temperatura',
+    'producto en mal estado',
+    'sector sucio',
     'sucio',
-    'no cumple'
+    'falla',
+    'no funciona',
+    'fuera de uso',
+    'alarma no funciona',
+    'no cumple',
+    'vencido'
   ];
-  const hasControlSignal = containsAny(text, controlSignals);
+  const actionSignals = [
+    'reponer',
+    'se solicita',
+    'pendiente',
+    'se realizara',
+    'se coordina',
+    'se planifica',
+    'gestionar',
+    'se entrega',
+    'se pasa a'
+  ];
+  const hasRealNcSignal = containsAny(text, realNcSignals)
+    || /\bno se\s+registro\b/.test(text)
+    || /\bno se\s+registra\b/.test(text)
+    || /\bsin\s+registros?\b/.test(text)
+    || /\bfaltan?\s+registros?\b/.test(text)
+    || /\bregistros?\s+incompletos?\b/.test(text)
+    || /\bfuera\s+de\s+temperatura\b/.test(text)
+    || /\bproducto\s+en\s+mal\s+estado\b/.test(text)
+    || /\bsector\s+sucio\b/.test(text)
+    || /\bno\s+funciona\b/.test(text)
+    || /\bfalla(n|ndo|do)?\b/.test(text)
+    || /\bfuera\s+de\s+uso\b/.test(text)
+    || /\bno\s+disponen?\b/.test(text);
+  const hasActionSignal = containsAny(text, actionSignals);
   const adminNeutralSignals = [
     'cumplido',
     'se solicita',
@@ -1106,21 +1132,17 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'se trabaja en revisión del sistema documental'
   ]);
   const isMejoraContinuaByType = containsAny(tipoActividadNorm, ['mejora continua']);
-  const hasErrorSignal = containsAny(text, errorSignals)
-    || /\bno\s+disponen?\b/.test(text)
-    || (containsAny(text, ['se solicita', 'se coordina', 'se realizara', 'se realizará']) && containsAny(text, ['amurado', 'cebo', 'cebos', 'corregir', 'regularizar', 'incumplimiento']))
-    || /\bno se\s+(registro|registra|realiza|realizo|verifica|verifico|controla|controlo|revisa|reviso|inspecciona|inspecciono|cumple|completa|completo)\b/.test(text)
-    || /\bsin\s+(registro|registros|control|controles|limpieza|verificacion|verificaciones|inspeccion|inspecciones|temperatura|datos|firma)\b/.test(text);
 
-  // Prioridad 1: si hay señal de error real, es NC.
-  if (hasErrorSignal) {
+  // Prioridad 1: NC real operativo (override fuerte).
+  if (hasRealNcSignal) {
     return {
       resultadoClasificado: 'No conforme',
       tipoDesvio: 'NC',
-      reason: hasControlSignal ? 'control con incumplimiento detectado' : 'incumplimiento detectado'
+      reason: 'override por desvio operativo real'
     };
   }
-  // Prioridad 2: si origen dice No conforme o ¿Desvío? = Sí, clasificar NC.
+
+  // Prioridad 2: resultado reportado en Excel.
   if (resultadoEsNoConforme || desvioSi) {
     return {
       resultadoClasificado: 'No conforme',
@@ -1145,12 +1167,21 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     };
   }
 
+  // Prioridad 3: texto de accion/seguimiento (no NC), sin desvio real ni marca NC en origen.
+  if (hasActionSignal) {
+    return {
+      resultadoClasificado: 'Conforme',
+      tipoDesvio: '-',
+      reason: 'texto de accion o seguimiento (no NC)'
+    };
+  }
+
   // Si origen es Conforme y no hay desvío, debe quedar Conforme.
   if (resultadoEsConforme && (desvioNo || !desvioSi)) {
     return {
       resultadoClasificado: 'Conforme',
       tipoDesvio: '-',
-      reason: hasAdminNeutralSignal || hasControlSignal || hasDocSystemWorkSignal
+      reason: hasAdminNeutralSignal || hasDocSystemWorkSignal
         ? 'actividad conforme según resultado original'
         : 'resultado original conforme sin desvío'
     };
@@ -1293,6 +1324,7 @@ function buildActions({ resultadoClasificado, text, accionInmediataOriginal, acc
 }
 
 function classifyActionStatusFromRow({
+  actividadRealizada,
   accion,
   numeroAccion,
   notaTecnica,
@@ -1303,6 +1335,7 @@ function classifyActionStatusFromRow({
   fechaRegistro
 }) {
   const actionText = normalizeIncidentText([
+    actividadRealizada,
     accion,
     numeroAccion,
     notaTecnica,
@@ -1315,29 +1348,37 @@ function classifyActionStatusFromRow({
   const tieneNumeroAccion = Boolean(normalizeCellValue(numeroAccion).trim());
   const hasOpenEvidence = containsAny(actionText, ['abierta', 'abierto', 'sin iniciar', 'por hacer']);
   const hasProgressEvidence = containsAny(actionText, ['en proceso', 'en curso', 'seguimiento', 'avance', 'se realizara', 'se realizará', 'se solicita', 'pendiente']);
-  const hasClosedEvidence = containsAny(actionText, [
-    'cerrada',
-    'cerrado',
-    'finalizada',
-    'finalizado',
-    'completa',
-    'completada',
-    'implementada',
-    'verificada',
-    'cumplida',
-    'cumplido',
-    'terminado',
-    'se completo',
-    'se completó',
-    'queda terminado'
-  ]);
+  const hasProgressByManagement = containsAny(actionText, ['gestionar', 'se coordina', 'se planifica']);
+  const hasTrainingProgressEvidence = (
+    /\bse\s+coordina\s+capacitacion\b/.test(actionText)
+    || /\bse\s+planifica\s+capacitacion\b/.test(actionText)
+    || /\bcapacitacion\s+para\s+(el|la)\b/.test(actionText)
+    || /\bse\s+realizara\s+capacitacion\b/.test(actionText)
+  );
+  const hasClosedEvidence = (
+    /\bcerrad[oa]s?\b/.test(actionText)
+    || /\bfinalizad[oa]s?\b/.test(actionText)
+    || /\bcomplet(ad[oa]s?|[oa]s?)\b/.test(actionText)
+    || /\bimplementad[oa]s?\b/.test(actionText)
+    || /\bverificad[oa]s?\b/.test(actionText)
+    || /\bcumplid[oa]s?\b/.test(actionText)
+    || /\bterminad[oa]s?\b/.test(actionText)
+    || /\bse\s+complet[oó]\b/.test(actionText)
+    || /\bqueda\s+terminad[oa]\b/.test(actionText)
+  );
+  const hasTrainingClosedEvidence = (
+    /\bse\s+realiz[oó]\s+capacitacion\b/.test(actionText)
+    || /\bse\s+dict[oó]\s+capacitacion\b/.test(actionText)
+    || /\bcapacitacion\s+cumplida\b/.test(actionText)
+    || /\bcapacitacion\s+finalizada\b/.test(actionText)
+  );
 
-  if (hasClosedEvidence) return 'cerrada';
-  if (hasProgressEvidence) return 'en_proceso';
+  if (hasClosedEvidence || hasTrainingClosedEvidence) return 'cerrada';
+  if (hasProgressEvidence || hasProgressByManagement || hasTrainingProgressEvidence) return 'en_proceso';
   if (hasOpenEvidence) return 'en_proceso';
   if (!actionText || actionText === '-' || actionText === 'sin accion') return 'sin_accion';
 
-  if (resultadoClasificado === 'Conforme') return accionMarcada ? 'cerrada' : 'sin_accion';
+  if (resultadoClasificado === 'Conforme') return accionMarcada ? 'en_proceso' : 'sin_accion';
   if (resultadoClasificado === 'Revisar manualmente') return 'sin_accion';
   if (resultadoClasificado === 'Oportunidad de mejora') return tieneNumeroAccion ? 'en_proceso' : 'sin_accion';
   if (tieneNumeroAccion || accionMarcada) return 'en_proceso';
@@ -1726,6 +1767,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       });
 
       const estadoAccion = classifyActionStatusFromRow({
+        actividadRealizada: rawRecord.actividadRealizada,
         accion: rawRecord.accion,
         numeroAccion: rawRecord.numeroAccion,
         notaTecnica: rawRecord.notaTecnica,

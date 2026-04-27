@@ -271,14 +271,35 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     'se revisa',
     'se inspecciona'
   ];
-  const errorSignals = [
-    'falta',
-    'incompleto',
-    'incorrecto',
-    'fuera de',
-    'vencido',
+  const realNcSignals = [
+    'falta registro',
+    'registro incompleto',
+    'no se registro',
+    'sin registro',
+    'sin control',
+    'no dispone',
+    'faltante de producto',
+    'fuera de temperatura',
+    'producto en mal estado',
+    'sector sucio',
     'sucio',
-    'no cumple'
+    'falla',
+    'no funciona',
+    'fuera de uso',
+    'alarma no funciona',
+    'no cumple',
+    'vencido'
+  ];
+  const actionSignals = [
+    'reponer',
+    'se solicita',
+    'pendiente',
+    'se realizara',
+    'se coordina',
+    'se planifica',
+    'gestionar',
+    'se entrega',
+    'se pasa a'
   ];
   const hasControlSignal = includesAny(text, controlSignals);
   const adminNeutralSignals = [
@@ -321,18 +342,31 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     'se trabaja en revision del sistema documental'
   ]);
   const isMejoraContinuaByType = includesAny(tipoActividad, ['mejora continua']);
-  const hasErrorSignal = includesAny(text, errorSignals)
-    || /\bno\s+disponen?\b/.test(text)
-    || /\bno se\s+(registro|registra|realiza|realizo|verifica|verifico|controla|controlo|revisa|reviso|inspecciona|inspecciono|cumple|completa|completo)\b/.test(text)
-    || /\bsin\s+(registro|registros|control|controles|limpieza|verificacion|verificaciones|inspeccion|inspecciones|temperatura|datos|firma)\b/.test(text);
+  const hasRealNcSignal = includesAny(text, realNcSignals)
+    || /\bno se\s+registro\b/.test(text)
+    || /\bno se\s+registra\b/.test(text)
+    || /\bsin\s+registros?\b/.test(text)
+    || /\bfaltan?\s+registros?\b/.test(text)
+    || /\bregistros?\s+incompletos?\b/.test(text)
+    || /\bfuera\s+de\s+temperatura\b/.test(text)
+    || /\bproducto\s+en\s+mal\s+estado\b/.test(text)
+    || /\bsector\s+sucio\b/.test(text)
+    || /\bno\s+funciona\b/.test(text)
+    || /\bfalla(n|ndo|do)?\b/.test(text)
+    || /\bfuera\s+de\s+uso\b/.test(text)
+    || /\bno\s+disponen?\b/.test(text);
+  const hasActionSignal = includesAny(text, actionSignals);
 
-  if (hasErrorSignal) {
+  // Prioridad 1: NC real operativo (override fuerte).
+  if (hasRealNcSignal) {
     return {
       resultadoFinal: 'No conforme',
       tipoFinal: 'NC',
-      reason: hasControlSignal ? 'control con incumplimiento detectado' : 'incumplimiento detectado'
+      reason: hasControlSignal ? 'override NC real en actividad de control' : 'override por desvio operativo real'
     };
   }
+
+  // Prioridad 2: resultado reportado en Excel.
   if (resultadoEsNoConforme || desvioOriginalSi) {
     return { resultadoFinal: 'No conforme', tipoFinal: 'NC', reason: desvioOriginalSi ? 'desvio original marcado' : 'resultado original no conforme' };
   }
@@ -346,6 +380,15 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     )
   ) {
     return { resultadoFinal: 'Oportunidad de mejora', tipoFinal: 'OM', reason: 'mejora explicita del sistema' };
+  }
+
+  // Prioridad 3: texto de accion/seguimiento (no NC), sin desvio real ni marca NC en origen.
+  if (hasActionSignal) {
+    return {
+      resultadoFinal: 'Conforme',
+      tipoFinal: '-',
+      reason: 'texto de accion o seguimiento (no NC)'
+    };
   }
 
   if (resultadoEsConforme && (desvioOriginalNo || !desvioOriginalSi)) {
