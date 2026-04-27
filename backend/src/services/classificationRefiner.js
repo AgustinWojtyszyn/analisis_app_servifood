@@ -196,6 +196,39 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '') {
     };
   }
 
+  const controlSignals = [
+    'se controla',
+    'se realiza control',
+    'se verifica',
+    'registro de temperatura',
+    'se revisa',
+    'se inspecciona'
+  ];
+  const errorSignals = [
+    'falta',
+    'incompleto',
+    'incorrecto',
+    'fuera de',
+    'vencido',
+    'sucio',
+    'no cumple'
+  ];
+  const hasControlSignal = includesAny(text, controlSignals);
+  const hasErrorSignal = includesAny(text, errorSignals)
+    || /\bno se\s+(registro|registra|realiza|realizo|verifica|verifico|controla|controlo|revisa|reviso|inspecciona|inspecciono|cumple|completa|completo)\b/.test(text)
+    || /\bsin\s+(registro|registros|control|controles|limpieza|verificacion|verificaciones|inspeccion|inspecciones|temperatura|datos|firma)\b/.test(text);
+
+  if (hasErrorSignal) {
+    return {
+      resultadoFinal: 'No conforme',
+      tipoFinal: 'NC',
+      reason: hasControlSignal ? 'control con incumplimiento detectado' : 'incumplimiento detectado'
+    };
+  }
+  if (hasControlSignal) {
+    return { resultadoFinal: 'Conforme', tipoFinal: '-', reason: 'actividad de control sin desvio' };
+  }
+
   const ncSignal = includesAny(text, [
     'mal estado',
     'defectuoso',

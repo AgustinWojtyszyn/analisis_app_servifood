@@ -988,6 +988,45 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada }) {
   const desvioSi = isYesLike(desvio);
   const text = normalizeIncidentText(descripcionDetectada || '');
 
+  const controlSignals = [
+    'se controla',
+    'se realiza control',
+    'se verifica',
+    'registro de temperatura',
+    'se revisa',
+    'se inspecciona'
+  ];
+  const errorSignals = [
+    'falta',
+    'incompleto',
+    'incorrecto',
+    'fuera de',
+    'vencido',
+    'sucio',
+    'no cumple'
+  ];
+  const hasControlSignal = containsAny(text, controlSignals);
+  const hasErrorSignal = containsAny(text, errorSignals)
+    || /\bno se\s+(registro|registra|realiza|realizo|verifica|verifico|controla|controlo|revisa|reviso|inspecciona|inspecciono|cumple|completa|completo)\b/.test(text)
+    || /\bsin\s+(registro|registros|control|controles|limpieza|verificacion|verificaciones|inspeccion|inspecciones|temperatura|datos|firma)\b/.test(text);
+
+  // Prioridad 1: si hay señal de error real, es NC.
+  if (hasErrorSignal) {
+    return {
+      resultadoClasificado: 'No conforme',
+      tipoDesvio: 'NC',
+      reason: hasControlSignal ? 'control con incumplimiento detectado' : 'incumplimiento detectado'
+    };
+  }
+  // Prioridad 2: si solo describe controles sin error, no es desvío.
+  if (hasControlSignal) {
+    return {
+      resultadoClasificado: 'Conforme',
+      tipoDesvio: '-',
+      reason: 'actividad de control sin desvío'
+    };
+  }
+
   const ncMatch = countMatchedKeywords(text, NC_SIGNALS);
   const omMatch = countMatchedKeywords(text, OM_SIGNALS);
   const conformeMatch = countMatchedKeywords(text, CONFORME_SIGNALS);
