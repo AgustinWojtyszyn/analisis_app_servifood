@@ -1334,54 +1334,59 @@ function classifyActionStatusFromRow({
   accionCorrectiva,
   fechaRegistro
 }) {
-  const actionText = normalizeIncidentText([
+  const sourceActionText = normalizeIncidentText([
     actividadRealizada,
     accion,
     numeroAccion,
     notaTecnica,
-    accionDetectada,
-    accionInmediata,
-    accionCorrectiva
+    accionDetectada
   ].join(' | '));
 
-  const accionMarcada = isYesLike(accion);
   const tieneNumeroAccion = Boolean(normalizeCellValue(numeroAccion).trim());
-  const hasOpenEvidence = containsAny(actionText, ['abierta', 'abierto', 'sin iniciar', 'por hacer']);
-  const hasProgressEvidence = containsAny(actionText, ['en proceso', 'en curso', 'seguimiento', 'avance', 'se realizara', 'se realizará', 'se solicita', 'pendiente']);
-  const hasProgressByManagement = containsAny(actionText, ['gestionar', 'se coordina', 'se planifica']);
-  const hasTrainingProgressEvidence = (
-    /\bse\s+coordina\s+capacitacion\b/.test(actionText)
-    || /\bse\s+planifica\s+capacitacion\b/.test(actionText)
-    || /\bcapacitacion\s+para\s+(el|la)\b/.test(actionText)
-    || /\bse\s+realizara\s+capacitacion\b/.test(actionText)
-  );
-  const hasClosedEvidence = (
-    /\bcerrad[oa]s?\b/.test(actionText)
-    || /\bfinalizad[oa]s?\b/.test(actionText)
-    || /\bcomplet(ad[oa]s?|[oa]s?)\b/.test(actionText)
-    || /\bimplementad[oa]s?\b/.test(actionText)
-    || /\bverificad[oa]s?\b/.test(actionText)
-    || /\bcumplid[oa]s?\b/.test(actionText)
-    || /\bterminad[oa]s?\b/.test(actionText)
-    || /\bse\s+complet[oó]\b/.test(actionText)
-    || /\bqueda\s+terminad[oa]\b/.test(actionText)
-  );
-  const hasTrainingClosedEvidence = (
-    /\bse\s+realiz[oó]\s+capacitacion\b/.test(actionText)
-    || /\bse\s+dict[oó]\s+capacitacion\b/.test(actionText)
-    || /\bcapacitacion\s+cumplida\b/.test(actionText)
-    || /\bcapacitacion\s+finalizada\b/.test(actionText)
-  );
+  const hasImplicitActionVerb = containsAny(sourceActionText, [
+    'se solicita',
+    'se coordina',
+    'se realiza',
+    'se entrega',
+    'se pasa a',
+    'se planifica',
+    'se implementa',
+    'se coloca',
+    'se sube',
+    'se subio',
+    'se controla'
+  ]);
 
-  if (hasClosedEvidence || hasTrainingClosedEvidence) return 'cerrada';
-  if (hasProgressEvidence || hasProgressByManagement || hasTrainingProgressEvidence) return 'en_proceso';
-  if (hasOpenEvidence) return 'en_proceso';
-  if (!actionText || actionText === '-' || actionText === 'sin accion') return 'sin_accion';
+  const hasProgressEvidence = containsAny(sourceActionText, [
+    'se realizara',
+    'pendiente',
+    'se solicita',
+    'se coordina'
+  ]);
 
-  if (resultadoClasificado === 'Conforme') return accionMarcada ? 'en_proceso' : 'sin_accion';
-  if (resultadoClasificado === 'Revisar manualmente') return 'sin_accion';
-  if (resultadoClasificado === 'Oportunidad de mejora') return tieneNumeroAccion ? 'en_proceso' : 'sin_accion';
-  if (tieneNumeroAccion || accionMarcada) return 'en_proceso';
+  const hasClosedEvidence = containsAny(sourceActionText, [
+    'cumplido',
+    'terminado',
+    'finalizado',
+    'queda terminado'
+  ]);
+
+  const hasExecutedEvidence = containsAny(sourceActionText, [
+    'se realiza',
+    'se entrega',
+    'se coloca',
+    'se sube',
+    'se subio'
+  ]);
+
+  if (hasClosedEvidence) return 'cerrada';
+  if (hasProgressEvidence) return 'en_proceso';
+  if (hasExecutedEvidence) return 'cerrada';
+
+  // "sin_accion" solo cuando no hay numero y no hay verbos de accion.
+  if (!tieneNumeroAccion && !hasImplicitActionVerb) return 'sin_accion';
+
+  if (tieneNumeroAccion || hasImplicitActionVerb) return 'en_proceso';
   return 'sin_accion';
 }
 
