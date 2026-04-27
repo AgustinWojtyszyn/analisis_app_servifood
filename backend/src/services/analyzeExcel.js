@@ -959,7 +959,10 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
 function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoActividad }) {
   const resultadoNorm = normalizeIncidentText(resultado);
   const tipoActividadNorm = normalizeIncidentText(tipoActividad);
+  const resultadoEsConforme = isConformeLike(resultado);
+  const resultadoEsNoConforme = isNoConformeLike(resultado);
   const desvioSi = isYesLike(desvio);
+  const desvioNo = isNoLike(desvio);
   const text = normalizeIncidentText(descripcionDetectada || '');
 
   const controlSignals = [
@@ -1018,6 +1021,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   ]);
   const isMejoraContinuaByType = containsAny(tipoActividadNorm, ['mejora continua']);
   const hasErrorSignal = containsAny(text, errorSignals)
+    || /\bno\s+disponen?\b/.test(text)
     || /\bno se\s+(registro|registra|realiza|realizo|verifica|verifico|controla|controlo|revisa|reviso|inspecciona|inspecciono|cumple|completa|completo)\b/.test(text)
     || /\bsin\s+(registro|registros|control|controles|limpieza|verificacion|verificaciones|inspeccion|inspecciones|temperatura|datos|firma)\b/.test(text);
 
@@ -1029,73 +1033,24 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
       reason: hasControlSignal ? 'control con incumplimiento detectado' : 'incumplimiento detectado'
     };
   }
-  // Prioridad 2: si solo describe controles sin error, no es desvío.
-  if (hasControlSignal) {
-    return {
-      resultadoClasificado: 'Conforme',
-      tipoDesvio: '-',
-      reason: 'actividad de control sin desvío'
-    };
-  }
-
-  // Textos administrativos/seguimiento NO disparan OM automático.
-  if (hasAdminNeutralSignal || hasDocSystemWorkSignal) {
-    if (resultadoNorm.includes('no conforme') || desvioSi) {
-      return {
-        resultadoClasificado: 'No conforme',
-        tipoDesvio: 'NC',
-        reason: 'texto administrativo con desvío declarado en origen'
-      };
-    }
-
-    if (resultadoNorm === 'conforme' && !desvioSi) {
-      return {
-        resultadoClasificado: 'Conforme',
-        tipoDesvio: '-',
-        reason: 'texto administrativo sin desvío'
-      };
-    }
-
-    if (hasDocSystemWorkSignal && isMejoraContinuaByType) {
-      return {
-        resultadoClasificado: 'Oportunidad de mejora',
-        tipoDesvio: 'OM',
-        reason: 'mejora continua explícita en tipo de actividad'
-      };
-    }
-
-    return {
-      resultadoClasificado: 'Revisar manualmente',
-      tipoDesvio: '-',
-      reason: 'texto administrativo sin evidencia suficiente'
-    };
-  }
-
-  const ncMatch = countMatchedKeywords(text, NC_SIGNALS);
-  const conformeMatch = countMatchedKeywords(text, CONFORME_SIGNALS);
-  const hasConformeControl = conformeMatch.score > 0 || containsAny(text, [
-    'control de registros',
-    'control de orden',
-    'control de historial',
-    'recorrida de planta',
-    'se controla',
-    'verificacion',
-    'verificación',
-    'revision sin hallazgo',
-    'revisión sin hallazgo'
-  ]);
-  const strongConforme = hasConformeControl && ncMatch.score === 0;
-
-  // No disparar NC automático por flags de la fila si el texto describe control normal.
-  if ((resultadoNorm.includes('no conforme') || desvioSi || ncMatch.score > 0) && !strongConforme) {
+  // Prioridad 2: si origen dice No conforme o ¿Desvío? = Sí, clasificar NC.
+  if (resultadoEsNoConforme || desvioSi) {
     return {
       resultadoClasificado: 'No conforme',
       tipoDesvio: 'NC',
-      reason: ncMatch.matches[0] || (desvioSi ? 'marca de desvío en la fila' : 'resultado no conforme')
+      reason: desvioSi ? 'marca de desvío en la fila' : 'resultado original no conforme'
     };
   }
 
-  if (hasExplicitOmSignal || (hasDocSystemWorkSignal && isMejoraContinuaByType)) {
+  // OM solo bajo resultado original Conforme y señal explícita de mejora.
+  if (
+    resultadoEsConforme
+    && (
+      hasExplicitOmSignal
+      || isMejoraContinuaByType
+      || (hasDocSystemWorkSignal && isMejoraContinuaByType)
+    )
+  ) {
     return {
       resultadoClasificado: 'Oportunidad de mejora',
       tipoDesvio: 'OM',
@@ -1103,22 +1058,45 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     };
   }
 
-  if (resultadoNorm === 'conforme' || strongConforme) {
+  // Si origen es Conforme y no hay desvío, debe quedar Conforme.
+  if (resultadoEsConforme && (desvioNo || !desvioSi)) {
     return {
       resultadoClasificado: 'Conforme',
       tipoDesvio: '-',
-      reason: conformeMatch.matches[0] || 'actividad de control sin desvío'
+      reason: hasAdminNeutralSignal || hasControlSignal || hasDocSystemWorkSignal
+        ? 'actividad conforme según resultado original'
+        : 'resultado original conforme sin desvío'
+    };
+  }
+
+  const ncMatch = countMatchedKeywords(text, NC_SIGNALS);
+  if (ncMatch.score > 0) {
+    return {
+      resultadoClasificado: 'No conforme',
+      tipoDesvio: 'NC',
+      reason: ncMatch.matches[0] || 'señal de incumplimiento detectada'
     };
   }
 
   if (!text) {
-    return { resultadoClasificado: 'Revisar manualmente', tipoDesvio: '-', reason: 'sin texto util para inferir evento' };
+    if (!resultadoNorm) {
+      return { resultadoClasificado: 'Revisar manualmente', tipoDesvio: '-', reason: 'sin texto y resultado original vacío/ilegible' };
+    }
+    return { resultadoClasificado: 'Conforme', tipoDesvio: '-', reason: 'sin texto; se respeta resultado original informado' };
+  }
+
+  if (!resultadoNorm) {
+    return {
+      resultadoClasificado: 'Revisar manualmente',
+      tipoDesvio: '-',
+      reason: 'resultado original vacío o ilegible'
+    };
   }
 
   return {
-    resultadoClasificado: 'Revisar manualmente',
+    resultadoClasificado: 'Conforme',
     tipoDesvio: '-',
-    reason: 'texto sin señal explícita de desvío o mejora'
+    reason: 'sin señales de desvío; se respeta resultado original informado'
   };
 }
 

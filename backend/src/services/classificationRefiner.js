@@ -18,6 +18,21 @@ function isYesLike(value) {
   return ['si', 'yes', 'true', 'x', '1'].includes(text);
 }
 
+function isNoLike(value) {
+  const text = normalizeText(value);
+  if (!text) return false;
+  return ['no', 'false', '0'].includes(text);
+}
+
+function isConformeLike(value) {
+  return normalizeText(value) === 'conforme';
+}
+
+function isNoConformeLike(value) {
+  const text = normalizeText(value);
+  return text === 'no conforme' || text.includes('no conforme');
+}
+
 function extractCameraLocations(text) {
   const input = normalizeText(text || '');
   const regex = /camara\s*(n°|nº|numero)?\s*([0-9, y]+)/gi;
@@ -117,7 +132,7 @@ function classifyArea(text, preDetectedArea = '') {
   const scores = new Map();
   const add = (area, points) => scores.set(area, (scores.get(area) || 0) + points);
 
-  if (includesAny(text, ['demora', 'entrega', 'despacho', 'reparto', 'cliente', 'easy', 'hospital mental', 'pocito', 'la laja', 'faltaron almuerzos'])) {
+  if (includesAny(text, ['demora', 'entrega al cliente', 'entrega cliente', 'despacho', 'reparto', 'cliente', 'easy', 'hospital mental', 'pocito', 'la laja', 'faltaron almuerzos'])) {
     add('Logística / Distribución', 8);
   }
 
@@ -195,10 +210,27 @@ function classifyArea(text, preDetectedArea = '') {
 
 function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', context = {}) {
   if (!text) {
+    const resultadoOriginalNorm = normalizeText(context?.resultadoOriginal || '');
+    const desvioOriginalSi = isYesLike(context?.desvioOriginal || '');
+    if (resultadoOriginalNorm === 'no conforme' || resultadoOriginalNorm.includes('no conforme') || desvioOriginalSi) {
+      return {
+        resultadoFinal: 'No conforme',
+        tipoFinal: 'NC',
+        reason: desvioOriginalSi ? 'desvio original marcado' : 'resultado original no conforme'
+      };
+    }
+    const resultadoOriginalVacio = !resultadoOriginalNorm;
+    if (resultadoOriginalVacio) {
+      return {
+        resultadoFinal: 'Revisar manualmente',
+        tipoFinal: '-',
+        reason: 'texto vacio y resultado original vacio/ilegible'
+      };
+    }
     return {
-      resultadoFinal: 'Revisar manualmente',
+      resultadoFinal: 'Conforme',
       tipoFinal: '-',
-      reason: 'texto vacio'
+      reason: 'texto vacio; se respeta resultado original informado'
     };
   }
 
@@ -247,8 +279,12 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     'incorporar mejora preventiva'
   ];
   const tipoActividad = normalizeText(context?.tipoActividad || '');
-  const resultadoOriginal = normalizeText(context?.resultadoOriginal || '');
+  const resultadoOriginal = context?.resultadoOriginal || '';
+  const resultadoOriginalNorm = normalizeText(resultadoOriginal);
+  const resultadoEsConforme = isConformeLike(resultadoOriginal);
+  const resultadoEsNoConforme = isNoConformeLike(resultadoOriginal);
   const desvioOriginalSi = isYesLike(context?.desvioOriginal || '');
+  const desvioOriginalNo = isNoLike(context?.desvioOriginal || '');
   const hasAdminNeutralSignal = includesAny(text, adminNeutralSignals);
   const hasExplicitOmSignal = includesAny(text, explicitOmSignals);
   const hasDocSystemWorkSignal = includesAny(text, [
@@ -257,6 +293,7 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
   ]);
   const isMejoraContinuaByType = includesAny(tipoActividad, ['mejora continua']);
   const hasErrorSignal = includesAny(text, errorSignals)
+    || /\bno\s+disponen?\b/.test(text)
     || /\bno se\s+(registro|registra|realiza|realizo|verifica|verifico|controla|controlo|revisa|reviso|inspecciona|inspecciono|cumple|completa|completo)\b/.test(text)
     || /\bsin\s+(registro|registros|control|controles|limpieza|verificacion|verificaciones|inspeccion|inspecciones|temperatura|datos|firma)\b/.test(text);
 
@@ -267,21 +304,30 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
       reason: hasControlSignal ? 'control con incumplimiento detectado' : 'incumplimiento detectado'
     };
   }
-  if (hasControlSignal) {
-    return { resultadoFinal: 'Conforme', tipoFinal: '-', reason: 'actividad de control sin desvio' };
+  if (resultadoEsNoConforme || desvioOriginalSi) {
+    return { resultadoFinal: 'No conforme', tipoFinal: 'NC', reason: desvioOriginalSi ? 'desvio original marcado' : 'resultado original no conforme' };
   }
 
-  if (hasAdminNeutralSignal || hasDocSystemWorkSignal) {
-    if (resultadoOriginal.includes('no conforme') || desvioOriginalSi) {
-      return { resultadoFinal: 'No conforme', tipoFinal: 'NC', reason: 'texto administrativo con desvio declarado en origen' };
+  if (
+    resultadoEsConforme
+    && (
+      hasExplicitOmSignal
+      || isMejoraContinuaByType
+      || (hasDocSystemWorkSignal && isMejoraContinuaByType)
+    )
+  ) {
+    return { resultadoFinal: 'Oportunidad de mejora', tipoFinal: 'OM', reason: 'mejora explicita del sistema' };
+  }
+
+  if (resultadoEsConforme && (desvioOriginalNo || !desvioOriginalSi)) {
+    return { resultadoFinal: 'Conforme', tipoFinal: '-', reason: 'resultado original conforme sin desvio' };
+  }
+
+  if (hasControlSignal || hasAdminNeutralSignal || hasDocSystemWorkSignal) {
+    if (!resultadoOriginalNorm) {
+      return { resultadoFinal: 'Revisar manualmente', tipoFinal: '-', reason: 'resultado original vacio o ilegible' };
     }
-    if (resultadoOriginal === 'conforme' && !desvioOriginalSi) {
-      return { resultadoFinal: 'Conforme', tipoFinal: '-', reason: 'texto administrativo sin desvio' };
-    }
-    if (hasDocSystemWorkSignal && isMejoraContinuaByType) {
-      return { resultadoFinal: 'Oportunidad de mejora', tipoFinal: 'OM', reason: 'mejora continua explicita en tipo de actividad' };
-    }
-    return { resultadoFinal: 'Revisar manualmente', tipoFinal: '-', reason: 'texto administrativo sin evidencia suficiente' };
+    return { resultadoFinal: 'Conforme', tipoFinal: '-', reason: 'actividad administrativa/control sin desvio explicito' };
   }
 
   const ncSignal = includesAny(text, [
@@ -309,10 +355,6 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     return { resultadoFinal: 'No conforme', tipoFinal: 'NC', reason: 'impacta inocuidad/cliente/operacion' };
   }
 
-  if (hasExplicitOmSignal || (hasDocSystemWorkSignal && isMejoraContinuaByType)) {
-    return { resultadoFinal: 'Oportunidad de mejora', tipoFinal: 'OM', reason: 'mejora explicita del sistema' };
-  }
-
   const conformeSignal = includesAny(text, [
     'se crea respaldo documental',
     'se dicta capacitacion',
@@ -326,16 +368,20 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     return { resultadoFinal: 'Conforme', tipoFinal: '-', reason: 'no se observa desvio operativo' };
   }
 
-  return { resultadoFinal: 'Revisar manualmente', tipoFinal: '-', reason: 'texto sin señal explicita de desvio o mejora' };
+  if (!resultadoOriginalNorm) {
+    return { resultadoFinal: 'Revisar manualmente', tipoFinal: '-', reason: 'resultado original vacio o ilegible' };
+  }
+
+  return { resultadoFinal: 'Conforme', tipoFinal: '-', reason: 'sin senales de desvio; se respeta resultado original informado' };
 }
 
 function classifyIso(text, areaFinal, resultadoFinal, preDetectedIso = '') {
   if (!text) return preDetectedIso || 'Sin clasificar';
   if (includesAny(text, ['auditoria interna', 'auditoria', 'cumplimiento bajo'])) return '9.2 Auditoría interna';
-  if (includesAny(text, ['capacitacion', 'competencia', 'formacion', 'entrenamiento'])) return '7.2 Competencia / capacitación';
+  if (includesAny(text, ['capacitacion', 'competencia', 'formacion', 'entrenamiento', 'curso', 'manual de manipuladores', 'manual de manipulador'])) return '7.2 Competencia / capacitación';
   if (includesAny(text, ['registro', 'planilla', 'falta de firma', 'documentacion', 'drive'])) return '7.5 Información documentada';
   if (includesAny(text, ['mal estado', 'contaminacion', 'limpieza', 'sanitizacion', 'camara', 'heladera', 'agua caliente', 'poes', 'sucio', 'suciedad', 'restos de carne'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
-  if (includesAny(text, ['entrega', 'despacho', 'faltante', 'demora', 'cliente', 'reparto'])) return '8.1 Planificación y control operacional';
+  if (includesAny(text, ['entrega al cliente', 'entrega cliente', 'despacho', 'faltante', 'demora', 'cliente', 'reparto'])) return '8.1 Planificación y control operacional';
   if (includesAny(text, ['proveedor', 'recepcion', 'materia prima', 'ingreso de mercaderia'])) return '8.4 Control de procesos, productos y servicios externos';
   if (includesAny(text, ['equipo', 'maquina', 'mantenimiento', 'personal', 'ausencia'])) return '7.1 Recursos';
 
