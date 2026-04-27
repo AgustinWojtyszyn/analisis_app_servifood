@@ -12,6 +12,12 @@ function includesAny(text, terms = []) {
   return terms.some((term) => text.includes(normalizeText(term)));
 }
 
+function isYesLike(value) {
+  const text = normalizeText(value);
+  if (!text) return false;
+  return ['si', 'yes', 'true', 'x', '1'].includes(text);
+}
+
 function extractCameraLocations(text) {
   const input = normalizeText(text || '');
   const regex = /camara\s*(n°|nº|numero)?\s*([0-9, y]+)/gi;
@@ -187,7 +193,7 @@ function classifyArea(text, preDetectedArea = '') {
   return selected.join(' / ');
 }
 
-function classifyOutcome(text, preDetectedResult = '', preDetectedType = '') {
+function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', context = {}) {
   if (!text) {
     return {
       resultadoFinal: 'Revisar manualmente',
@@ -214,6 +220,42 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '') {
     'no cumple'
   ];
   const hasControlSignal = includesAny(text, controlSignals);
+  const adminNeutralSignals = [
+    'cumplido',
+    'se solicita',
+    'se colocan',
+    'se realiza check',
+    'se entrega',
+    'se controla',
+    'se revisa',
+    'se sube al drive',
+    'se coordina',
+    'se planifica',
+    'plan de accion',
+    'seguimiento',
+    'renovacion',
+    'listado actualizado'
+  ];
+  const explicitOmSignals = [
+    'oportunidad de mejora',
+    'mejora continua',
+    'propuesta de mejora',
+    'optimizar',
+    'implementar mejora',
+    'fortalecer el sistema',
+    'actualizar procedimiento para mejorar',
+    'incorporar mejora preventiva'
+  ];
+  const tipoActividad = normalizeText(context?.tipoActividad || '');
+  const resultadoOriginal = normalizeText(context?.resultadoOriginal || '');
+  const desvioOriginalSi = isYesLike(context?.desvioOriginal || '');
+  const hasAdminNeutralSignal = includesAny(text, adminNeutralSignals);
+  const hasExplicitOmSignal = includesAny(text, explicitOmSignals);
+  const hasDocSystemWorkSignal = includesAny(text, [
+    'se trabaja en revision del sistema de gestion documental',
+    'se trabaja en revision del sistema documental'
+  ]);
+  const isMejoraContinuaByType = includesAny(tipoActividad, ['mejora continua']);
   const hasErrorSignal = includesAny(text, errorSignals)
     || /\bno se\s+(registro|registra|realiza|realizo|verifica|verifico|controla|controlo|revisa|reviso|inspecciona|inspecciono|cumple|completa|completo)\b/.test(text)
     || /\bsin\s+(registro|registros|control|controles|limpieza|verificacion|verificaciones|inspeccion|inspecciones|temperatura|datos|firma)\b/.test(text);
@@ -227,6 +269,19 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '') {
   }
   if (hasControlSignal) {
     return { resultadoFinal: 'Conforme', tipoFinal: '-', reason: 'actividad de control sin desvio' };
+  }
+
+  if (hasAdminNeutralSignal || hasDocSystemWorkSignal) {
+    if (resultadoOriginal.includes('no conforme') || desvioOriginalSi) {
+      return { resultadoFinal: 'No conforme', tipoFinal: 'NC', reason: 'texto administrativo con desvio declarado en origen' };
+    }
+    if (resultadoOriginal === 'conforme' && !desvioOriginalSi) {
+      return { resultadoFinal: 'Conforme', tipoFinal: '-', reason: 'texto administrativo sin desvio' };
+    }
+    if (hasDocSystemWorkSignal && isMejoraContinuaByType) {
+      return { resultadoFinal: 'Oportunidad de mejora', tipoFinal: 'OM', reason: 'mejora continua explicita en tipo de actividad' };
+    }
+    return { resultadoFinal: 'Revisar manualmente', tipoFinal: '-', reason: 'texto administrativo sin evidencia suficiente' };
   }
 
   const ncSignal = includesAny(text, [
@@ -254,18 +309,8 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '') {
     return { resultadoFinal: 'No conforme', tipoFinal: 'NC', reason: 'impacta inocuidad/cliente/operacion' };
   }
 
-  const omSignal = includesAny(text, [
-    'capacitacion',
-    'mejora documental',
-    'creacion de drive',
-    'reorganizacion',
-    'prevencion',
-    'ajustes de proceso',
-    'acciones preventivas'
-  ]);
-
-  if (omSignal) {
-    return { resultadoFinal: 'Oportunidad de mejora', tipoFinal: 'OM', reason: 'mejora sin impacto critico directo' };
+  if (hasExplicitOmSignal || (hasDocSystemWorkSignal && isMejoraContinuaByType)) {
+    return { resultadoFinal: 'Oportunidad de mejora', tipoFinal: 'OM', reason: 'mejora explicita del sistema' };
   }
 
   const conformeSignal = includesAny(text, [
@@ -281,7 +326,7 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '') {
     return { resultadoFinal: 'Conforme', tipoFinal: '-', reason: 'no se observa desvio operativo' };
   }
 
-  return { resultadoFinal: 'Oportunidad de mejora', tipoFinal: 'OM', reason: 'texto util sin criticidad explicita' };
+  return { resultadoFinal: 'Revisar manualmente', tipoFinal: '-', reason: 'texto sin señal explicita de desvio o mejora' };
 }
 
 function classifyIso(text, areaFinal, resultadoFinal, preDetectedIso = '') {
@@ -399,7 +444,11 @@ function compareNormalized(a, b) {
 export function refinePreClassification(input) {
   const text = normalizeText(input?.texto || '');
   const areaFinal = classifyArea(text, input?.areaDetectada || '');
-  const outcome = classifyOutcome(text, input?.resultadoDetectado || '', input?.tipoDetectado || '');
+  const outcome = classifyOutcome(text, input?.resultadoDetectado || '', input?.tipoDetectado || '', {
+    tipoActividad: input?.tipoActividad || '',
+    resultadoOriginal: input?.resultadoOriginal || '',
+    desvioOriginal: input?.desvioOriginal || ''
+  });
   const resultadoFinal = outcome.resultadoFinal;
   const tipoFinal = outcome.tipoFinal;
   const isoFinal = classifyIso(text, areaFinal, resultadoFinal, input?.isoDetectado || '');

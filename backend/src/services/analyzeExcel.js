@@ -721,33 +721,6 @@ const NC_SIGNALS = [
   'cámaras sin control'
 ];
 
-const OM_SIGNALS = [
-  'capacitacion',
-  'analisis de peligros',
-  'análisis de peligros',
-  'estudio de riesgos',
-  'revision del sistema',
-  'revisión del sistema',
-  'simulacro',
-  'manual de manipuladores',
-  'se trabaja en analisis de peligros',
-  'se trabaja en estudio de riesgos',
-  'se coordina capacitacion',
-  'se coordina simulacro',
-  'se trabaja en revision del sistema documental',
-  'se elabora manual para curso',
-  'se elabora y entrega manual',
-  'mejora documental',
-  'creacion de drive',
-  'reorganizacion',
-  'prevencion',
-  'ajustes de proceso',
-  'ausencia de personal',
-  'acciones preventivas',
-  'implementa mejora',
-  'se actualiza procedimiento'
-];
-
 const CONFORME_SIGNALS = [
   'sin hallazgo',
   'recorrida de planta',
@@ -983,8 +956,9 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
   };
 }
 
-function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada }) {
+function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoActividad }) {
   const resultadoNorm = normalizeIncidentText(resultado);
+  const tipoActividadNorm = normalizeIncidentText(tipoActividad);
   const desvioSi = isYesLike(desvio);
   const text = normalizeIncidentText(descripcionDetectada || '');
 
@@ -1006,6 +980,43 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada }) {
     'no cumple'
   ];
   const hasControlSignal = containsAny(text, controlSignals);
+  const adminNeutralSignals = [
+    'cumplido',
+    'se solicita',
+    'se colocan',
+    'se realiza check',
+    'se entrega',
+    'se controla',
+    'se revisa',
+    'se sube al drive',
+    'se coordina',
+    'se planifica',
+    'plan de accion',
+    'plan de acción',
+    'seguimiento',
+    'renovacion',
+    'renovación',
+    'listado actualizado'
+  ];
+  const explicitOmSignals = [
+    'oportunidad de mejora',
+    'mejora continua',
+    'propuesta de mejora',
+    'optimizar',
+    'implementar mejora',
+    'fortalecer el sistema',
+    'actualizar procedimiento para mejorar',
+    'incorporar mejora preventiva'
+  ];
+  const hasAdminNeutralSignal = containsAny(text, adminNeutralSignals);
+  const hasExplicitOmSignal = containsAny(text, explicitOmSignals);
+  const hasDocSystemWorkSignal = containsAny(text, [
+    'se trabaja en revision del sistema de gestion documental',
+    'se trabaja en revisión del sistema de gestión documental',
+    'se trabaja en revision del sistema documental',
+    'se trabaja en revisión del sistema documental'
+  ]);
+  const isMejoraContinuaByType = containsAny(tipoActividadNorm, ['mejora continua']);
   const hasErrorSignal = containsAny(text, errorSignals)
     || /\bno se\s+(registro|registra|realiza|realizo|verifica|verifico|controla|controlo|revisa|reviso|inspecciona|inspecciono|cumple|completa|completo)\b/.test(text)
     || /\bsin\s+(registro|registros|control|controles|limpieza|verificacion|verificaciones|inspeccion|inspecciones|temperatura|datos|firma)\b/.test(text);
@@ -1027,8 +1038,40 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada }) {
     };
   }
 
+  // Textos administrativos/seguimiento NO disparan OM automático.
+  if (hasAdminNeutralSignal || hasDocSystemWorkSignal) {
+    if (resultadoNorm.includes('no conforme') || desvioSi) {
+      return {
+        resultadoClasificado: 'No conforme',
+        tipoDesvio: 'NC',
+        reason: 'texto administrativo con desvío declarado en origen'
+      };
+    }
+
+    if (resultadoNorm === 'conforme' && !desvioSi) {
+      return {
+        resultadoClasificado: 'Conforme',
+        tipoDesvio: '-',
+        reason: 'texto administrativo sin desvío'
+      };
+    }
+
+    if (hasDocSystemWorkSignal && isMejoraContinuaByType) {
+      return {
+        resultadoClasificado: 'Oportunidad de mejora',
+        tipoDesvio: 'OM',
+        reason: 'mejora continua explícita en tipo de actividad'
+      };
+    }
+
+    return {
+      resultadoClasificado: 'Revisar manualmente',
+      tipoDesvio: '-',
+      reason: 'texto administrativo sin evidencia suficiente'
+    };
+  }
+
   const ncMatch = countMatchedKeywords(text, NC_SIGNALS);
-  const omMatch = countMatchedKeywords(text, OM_SIGNALS);
   const conformeMatch = countMatchedKeywords(text, CONFORME_SIGNALS);
   const hasConformeControl = conformeMatch.score > 0 || containsAny(text, [
     'control de registros',
@@ -1052,11 +1095,11 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada }) {
     };
   }
 
-  if (omMatch.score > 0) {
+  if (hasExplicitOmSignal || (hasDocSystemWorkSignal && isMejoraContinuaByType)) {
     return {
       resultadoClasificado: 'Oportunidad de mejora',
       tipoDesvio: 'OM',
-      reason: omMatch.matches[0] || 'texto orientado a mejora'
+      reason: 'mejora explícita del sistema'
     };
   }
 
@@ -1073,9 +1116,9 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada }) {
   }
 
   return {
-    resultadoClasificado: 'Oportunidad de mejora',
-    tipoDesvio: 'OM',
-    reason: 'texto util pero sin señal critica explicita'
+    resultadoClasificado: 'Revisar manualmente',
+    tipoDesvio: '-',
+    reason: 'texto sin señal explícita de desvío o mejora'
   };
 }
 
@@ -1499,7 +1542,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       let { resultadoClasificado, tipoDesvio, reason: outcomeReason } = classifyOutcomeFromRow({
         resultado: rawRecord.resultado,
         desvio: rawRecord.desvio,
-        descripcionDetectada: textForClassification
+        descripcionDetectada: textForClassification,
+        tipoActividad: rawRecord.tipoActividad
       });
       let iso22000 = classifyIso22000FromDescription({
         areaClasificada,
@@ -1555,6 +1599,9 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
 
       const preClassification = {
         texto: textForClassification,
+        tipoActividad: rawRecord.tipoActividad,
+        resultadoOriginal: rawRecord.resultado,
+        desvioOriginal: rawRecord.desvio,
         areaDetectada: areaClasificada,
         resultadoDetectado: resultadoClasificado,
         tipoDetectado: tipoDesvio,
