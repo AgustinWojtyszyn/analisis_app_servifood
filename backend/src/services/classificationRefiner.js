@@ -86,6 +86,9 @@ function detectExactLocations(text) {
   if (includesAny(normalized, ['deposito'])) sectorAreas.push('Depósito');
   if (includesAny(normalized, ['pre elaborados', 'preelaborados', 'pre elaborado', 'pre-elaborados'])) sectorAreas.push('Área de pre elaborados');
   if (includesAny(normalized, ['linea de bachas', 'bachas'])) sectorAreas.push('Higiene / Sanitización');
+  if (includesAny(normalized, ['cebro exterior', 'cebros exteriores', 'cebo', 'cebos', 'exterior', 'residuo', 'residuos', 'basura', 'desecho'])) {
+    sectorAreas.push('Área de residuos');
+  }
   if (includesAny(normalized, ['easy', 'scop', 'hospital mental', 'pocito', 'la laja'])) {
     clientAreas.push('Logística / Distribución');
   }
@@ -121,6 +124,32 @@ function classifyArea(text, preDetectedArea = '') {
   if (exact.sectorAreas.length > 0) return exact.sectorAreas.join(' / ');
   if (exact.clientAreas.length > 0) return exact.clientAreas.join(' / ');
 
+  if (includesAny(text, ['cebro exterior', 'cebros exteriores', 'cebo', 'cebos', 'exterior'])) {
+    return 'Área de residuos';
+  }
+
+  const nonPhysicalSignals = includesAny(text, [
+    'proveedor',
+    'evaluacion de proveedor',
+    'drive',
+    'documentacion',
+    'evaluaciones',
+    'capacitacion',
+    'curso',
+    'formacion'
+  ]);
+  const depositoPhysicalSignals = includesAny(text, [
+    'deposito',
+    'stock',
+    'mercaderia',
+    'almacenamiento',
+    'almacenar',
+    'bodega'
+  ]);
+  if (nonPhysicalSignals && !depositoPhysicalSignals && !includesAny(text, ['camara', 'heladera', 'cocina', 'residuo', 'basura', 'lavadero', 'comedor'])) {
+    return 'Área no identificada';
+  }
+
   const hasHygieneSignal = includesAny(text, ['limpieza', 'sucio', 'suciedad', 'restos de carne', 'sin limpiar', 'sanitizacion', 'higiene']);
   const hasColdSignal = includesAny(text, ['camara', 'heladera']);
   const hasHotSignal = includesAny(text, ['horno', 'cocina', 'coccion', 'linea caliente', 'marmita', 'freidora', 'plancha', 'costillas', 'almuerzos calientes']);
@@ -152,7 +181,7 @@ function classifyArea(text, preDetectedArea = '') {
     add('Área caliente', 6);
   }
 
-  if (includesAny(text, ['deposito', 'recepcion', 'stock', 'mercaderia', 'materia prima', 'proveedor', 'ingreso de mercaderia', 'faltante de insumos'])) {
+  if (includesAny(text, ['deposito', 'recepcion', 'stock', 'mercaderia', 'almacenamiento', 'almacenar', 'ingreso de mercaderia', 'faltante de insumos'])) {
     add('Depósito', 6);
   }
 

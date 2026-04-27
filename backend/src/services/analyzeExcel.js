@@ -263,12 +263,56 @@ function esTextoAccion(texto) {
   const t = normalizeForMatch(texto || '');
   return (
     t.startsWith('se controla') ||
+    t.startsWith('se solicita') ||
+    t.startsWith('se coordina') ||
+    t.startsWith('se realizara') ||
+    t.startsWith('se realizará') ||
+    t.startsWith('se planifica') ||
+    t.startsWith('se entrega') ||
+    t.startsWith('se pasa a gerencia') ||
     t.startsWith('se evalu') ||
     t.startsWith('se incorpora') ||
     t.startsWith('se realiza seguimiento') ||
     t.includes('plan de accion') ||
     t.includes('cumplimiento')
   );
+}
+
+function normalizeDetectedAction(text) {
+  const raw = normalizeCellValue(text || '').trim();
+  if (!raw) return '';
+  const norm = normalizeForMatch(raw);
+
+  const cleanTail = (value) => value
+    .replace(/^[\s,:;-]+/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (norm.startsWith('se solicita')) {
+    const tail = cleanTail(raw.replace(/^\s*se solicita(\s+a\s+\w+)?\s*/i, ''));
+    return tail ? `Solicitar ${tail}` : 'Solicitar acción';
+  }
+  if (norm.startsWith('se coordina')) {
+    const tail = cleanTail(raw.replace(/^\s*se coordina\s*/i, ''));
+    return tail ? `Coordinar ${tail}` : 'Coordinar acción';
+  }
+  if (norm.startsWith('se realizara') || norm.startsWith('se realizará')) {
+    const tail = cleanTail(raw.replace(/^\s*se realizar[áa]\s*/i, ''));
+    return tail ? `Realizar ${tail}` : 'Realizar acción';
+  }
+  if (norm.startsWith('se planifica')) {
+    const tail = cleanTail(raw.replace(/^\s*se planifica\s*/i, ''));
+    return tail ? `Planificar ${tail}` : 'Planificar acción';
+  }
+  if (norm.startsWith('se entrega')) {
+    const tail = cleanTail(raw.replace(/^\s*se entrega\s*/i, ''));
+    return tail ? `Entregar ${tail}` : 'Entregar acción';
+  }
+  if (norm.startsWith('se pasa a gerencia')) {
+    const tail = cleanTail(raw.replace(/^\s*se pasa a gerencia\s*/i, ''));
+    return tail ? `Elevar a gerencia ${tail}` : 'Elevar a gerencia';
+  }
+  return raw;
 }
 
 function splitHallazgos(textoBase) {
@@ -382,13 +426,13 @@ function getTextoAccion(row) {
   const porHeader = candidatos.filter((item) => headerAccionRegex.test(item.keyNorm));
   if (porHeader.length > 0) {
     porHeader.sort((a, b) => b.value.length - a.value.length);
-    return porHeader[0].value;
+    return normalizeDetectedAction(porHeader[0].value);
   }
 
   const porTexto = candidatos.filter((item) => esTextoAccion(item.valueNorm));
   if (porTexto.length > 0) {
     porTexto.sort((a, b) => b.value.length - a.value.length);
-    return porTexto[0].value;
+    return normalizeDetectedAction(porTexto[0].value);
   }
 
   return '';
@@ -647,6 +691,9 @@ function detectExactLocations(text) {
   if (containsAny(normalized, ['residuo', 'residuos', 'basura', 'desechos'])) {
     sectorAreas.push('Área de residuos');
   }
+  if (containsAny(normalized, ['cebro exterior', 'cebros exteriores', 'cebo', 'cebos', 'exterior'])) {
+    sectorAreas.push('Área de residuos');
+  }
   if (containsAny(normalized, ['baño', 'bano', 'baños', 'banos', 'sanitario'])) {
     sectorAreas.push('Baños');
   }
@@ -680,7 +727,7 @@ const COMMON_TEXT_FIXES = [
 const AREA_SCORING_RULES = [
   { area: 'Área fría', keywords: ['camara', 'camaras', 'heladera', 'heladeras', 'refrigerado', 'refrigeracion', 'frio', 'ensalada', 'tomate', 'verdura', 'materia prima perecedera'], score: 6 },
   { area: 'Área caliente', keywords: ['cocina', 'coccion', 'linea caliente', 'caliente', 'horno', 'marmita', 'fritura', 'costilla', 'almuerzo preparado', 'produccion caliente'], score: 6 },
-  { area: 'Depósito', keywords: ['deposito', 'recepcion', 'stock', 'mercaderia', 'materia prima', 'proveedor', 'ingreso de mercaderia', 'faltante de insumos'], score: 5 },
+  { area: 'Depósito', keywords: ['deposito', 'recepcion', 'stock', 'mercaderia', 'almacenamiento', 'almacenar', 'ingreso de mercaderia', 'faltante de insumos'], score: 5 },
   { area: 'Logística', keywords: ['faltaron almuerzos', 'faltante de mercaderia en cliente', 'demora', 'entrega al cliente', 'servicio demorado', 'cliente', 'easy', 'hospital mental', 'pocito', 'la laja', 'reparto', 'despacho', 'devolucion del cliente'], score: 7 },
   { area: 'Baños', keywords: ['baño', 'bano', 'baños', 'banos', 'sanitario'], score: 7 },
   { area: 'Áreas comunes', keywords: ['planta', 'recorrida de planta', 'pasillo', 'area comun', 'áreas comunes'], score: 4 },
@@ -839,6 +886,45 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
   const areaProcesoText = normalizeIncidentText(areaProceso);
 
   if (!text) return { areas: ['Área no identificada'], evidence: [] };
+
+  const hasExternalBaitSignal = containsAny(text, ['cebro exterior', 'cebros exteriores', 'cebo', 'cebos', 'exterior']);
+  if (hasExternalBaitSignal) {
+    return {
+      areas: ['Área de residuos'],
+      evidence: ['cebos/exterior asociado a control de residuos']
+    };
+  }
+
+  const nonPhysicalSignals = containsAny(text, [
+    'proveedor',
+    'evaluacion de proveedor',
+    'evaluación de proveedor',
+    'drive',
+    'documentacion',
+    'documentación',
+    'evaluaciones',
+    'capacitacion',
+    'capacitación',
+    'curso',
+    'formacion',
+    'formación'
+  ]);
+  const depositoPhysicalSignals = containsAny(text, [
+    'deposito',
+    'depósito',
+    'stock',
+    'mercaderia',
+    'mercadería',
+    'almacenamiento',
+    'almacenar',
+    'bodega'
+  ]);
+  if (nonPhysicalSignals && !depositoPhysicalSignals && !containsAny(text, ['camara', 'heladera', 'cocina', 'residuo', 'basura', 'lavadero', 'comedor'])) {
+    return {
+      areas: ['Área no identificada'],
+      evidence: ['texto administrativo/no físico']
+    };
+  }
 
   const exact = detectExactLocations(text);
   if (exact.cameraLocations.length > 0) {
@@ -1022,6 +1108,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   const isMejoraContinuaByType = containsAny(tipoActividadNorm, ['mejora continua']);
   const hasErrorSignal = containsAny(text, errorSignals)
     || /\bno\s+disponen?\b/.test(text)
+    || (containsAny(text, ['se solicita', 'se coordina', 'se realizara', 'se realizará']) && containsAny(text, ['amurado', 'cebo', 'cebos', 'corregir', 'regularizar', 'incumplimiento']))
     || /\bno se\s+(registro|registra|realiza|realizo|verifica|verifico|controla|controlo|revisa|reviso|inspecciona|inspecciono|cumple|completa|completo)\b/.test(text)
     || /\bsin\s+(registro|registros|control|controles|limpieza|verificacion|verificaciones|inspeccion|inspecciones|temperatura|datos|firma)\b/.test(text);
 
@@ -1226,29 +1313,35 @@ function classifyActionStatusFromRow({
 
   const accionMarcada = isYesLike(accion);
   const tieneNumeroAccion = Boolean(normalizeCellValue(numeroAccion).trim());
-  const isPastDate = isPastRecordDate(fechaRegistro);
-  const hasOpenEvidence = containsAny(actionText, ['abierta', 'abierto', 'pendiente', 'sin iniciar', 'por hacer']);
-  const hasProgressEvidence = containsAny(actionText, ['en proceso', 'en curso', 'seguimiento', 'avance']);
-  const hasClosedEvidence = containsAny(actionText, ['cerrada', 'cerrado', 'finalizada', 'finalizado', 'completa', 'completada', 'implementada', 'verificada', 'cumplida']);
+  const hasOpenEvidence = containsAny(actionText, ['abierta', 'abierto', 'sin iniciar', 'por hacer']);
+  const hasProgressEvidence = containsAny(actionText, ['en proceso', 'en curso', 'seguimiento', 'avance', 'se realizara', 'se realizará', 'se solicita', 'pendiente']);
+  const hasClosedEvidence = containsAny(actionText, [
+    'cerrada',
+    'cerrado',
+    'finalizada',
+    'finalizado',
+    'completa',
+    'completada',
+    'implementada',
+    'verificada',
+    'cumplida',
+    'cumplido',
+    'terminado',
+    'se completo',
+    'se completó',
+    'queda terminado'
+  ]);
 
   if (hasClosedEvidence) return 'cerrada';
-
-  if (isPastDate) {
-    if (hasOpenEvidence) return 'abierta';
-    if (resultadoClasificado === 'Conforme') return accionMarcada ? 'cerrada' : 'sin_accion';
-    if (resultadoClasificado === 'Oportunidad de mejora') return 'cerrada';
-    if (resultadoClasificado === 'No conforme') return tieneNumeroAccion ? 'en_proceso' : 'abierta';
-    return 'sin_accion';
-  }
-
   if (hasProgressEvidence) return 'en_proceso';
-  if (hasOpenEvidence) return 'abierta';
+  if (hasOpenEvidence) return 'en_proceso';
+  if (!actionText || actionText === '-' || actionText === 'sin accion') return 'sin_accion';
 
   if (resultadoClasificado === 'Conforme') return accionMarcada ? 'cerrada' : 'sin_accion';
   if (resultadoClasificado === 'Revisar manualmente') return 'sin_accion';
-  if (resultadoClasificado === 'Oportunidad de mejora') return tieneNumeroAccion ? 'en_proceso' : 'abierta';
+  if (resultadoClasificado === 'Oportunidad de mejora') return tieneNumeroAccion ? 'en_proceso' : 'sin_accion';
   if (tieneNumeroAccion || accionMarcada) return 'en_proceso';
-  return 'abierta';
+  return 'sin_accion';
 }
 
 function buildClassificationExplanation({
