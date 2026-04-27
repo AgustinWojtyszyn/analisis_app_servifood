@@ -5,6 +5,7 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
+    "build": "npm run prisma:generate",
     "dev": "node --watch src/bootstrap.js",
     "start": "node src/bootstrap.js",
     "prisma:generate": "prisma generate",
