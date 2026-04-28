@@ -1033,6 +1033,13 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
 
   if (!text) return { areas: ['Área no identificada'], evidence: [] };
 
+  if (containsAny(text, ['auditoria interna'])) {
+    return {
+      areas: ['Área no identificada'],
+      evidence: ['actividad de auditoría interna']
+    };
+  }
+
   const hasExternalBaitSignal = containsAny(text, ['cebro exterior', 'cebros exteriores', 'cebo', 'cebos', 'exterior']);
   if (hasExternalBaitSignal) {
     return {
@@ -1219,10 +1226,9 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'falta',
     'faltante',
     'incompleto',
-    'no se',
-    'sin',
-    'no dispone',
-    'fuera de',
+    'sin registro',
+    'sin rotular',
+    'fuera de rango',
     'mal estado',
     'producto defectuoso',
     'defectuoso',
@@ -1234,6 +1240,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'ausencia de personal',
     'sin personal',
     'no funciona',
+    'no cumple',
     'sucio',
     'vencido'
   ];
@@ -1251,13 +1258,13 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   const hasRealNcSignal = containsAny(text, realNcSignals)
     || /\bfaltan?\b/.test(text)
     || /\bincompleto(s)?\b/.test(text)
-    || /\bno\s+se\b/.test(text)
-    || /\bsin\s+[a-z0-9]/.test(text)
-    || /\bno\s+dispone(n)?\b/.test(text)
-    || /\bfuera\s+de\b/.test(text)
+    || /\bsin\s+registro(s)?\b/.test(text)
+    || /\bsin\s+rotular\b/.test(text)
+    || /\bfuera\s+de\s+rango\b/.test(text)
     || /\bmal\s+estado\b/.test(text)
     || /\bproducto\s+defectuoso\b/.test(text)
     || /\bproveedor\s+no\s+cumple\b/.test(text)
+    || /\bno\s+cumple\b/.test(text)
     || /\bno\s+funciona(n)?\b/.test(text)
     || /\bsucio(s)?\b/.test(text)
     || /\bvencido(s)?\b/.test(text);
@@ -1401,6 +1408,7 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
   const text = normalizeIncidentText([descripcionDetectada, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
 
+  if (containsAny(text, ['drive', 'documentacion', 'documentación', 'respaldo', 'informacion disponible', 'información disponible'])) return '7.5 Información documentada';
   if (containsAny(text, ['falta de personal', 'falto personal', 'faltó personal', 'ausencia de personal', 'sin personal'])) return '7.1 Recursos';
   if (containsAny(text, ['mal estado', 'ensalada', 'ensaladas', 'tomate'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
   if (containsAny(text, ['agua caliente', 'bachas', 'sanitiza', 'sanitizacion'])) return '8.2 Programas prerrequisito / POES / BPM';
