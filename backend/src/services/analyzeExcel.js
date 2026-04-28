@@ -1228,6 +1228,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'faltante',
     'incompleto',
     'sin registro',
+    'sin temperatura',
     'sin rotular',
     'fuera de rango',
     'mal estado',
@@ -1259,6 +1260,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   const hasRealNcSignal = containsAny(text, realNcSignals)
     || /\bfaltan?\b/.test(text)
     || /\bincompleto(s)?\b/.test(text)
+    || /\bsin\s+temperatura\b/.test(text)
     || /\bsin\s+registro(s)?\b/.test(text)
     || /\bsin\s+rotular\b/.test(text)
     || /\bfuera\s+de\s+rango\b/.test(text)
@@ -1418,6 +1420,7 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
   const text = normalizeIncidentText([descripcionDetectada, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
 
+  if (containsAny(text, ['capacitacion', 'curso', 'formacion'])) return '7.2 Competencia / capacitación';
   if (containsAny(text, ['drive', 'documentacion', 'documentación', 'respaldo', 'informacion disponible', 'información disponible'])) return '7.5 Información documentada';
   if (containsAny(text, ['falta de personal', 'falto personal', 'faltó personal', 'ausencia de personal', 'sin personal'])) return '7.1 Recursos';
   if (containsAny(text, ['mal estado', 'ensalada', 'ensaladas', 'tomate'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
@@ -1426,7 +1429,6 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
   if (containsAny(text, ['cebos', 'plagas', 'exterior'])) return '8.2 Programas prerrequisito / POES / BPM';
   if (containsAny(text, ['no conformidad', 'accion correctiva'])) return '10.2 No conformidad y accion correctiva';
   if (containsAny(text, ['auditoria'])) return '9.2 Auditoría interna';
-  if (containsAny(text, ['capacitacion', 'curso', 'formacion'])) return '7.2 Competencia / capacitación';
   if (containsAny(text, ['registro', 'planilla', 'documentacion', 'drive'])) return '7.5 Información documentada';
   if (containsAny(text, ['proveedor', 'proveedores'])) return '8.4 Control de procesos, productos y servicios externos';
   if (containsAny(text, ['epp', 'recursos'])) return '7.1 Recursos';
@@ -1440,6 +1442,7 @@ function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadR
   if (normalizeIncidentText(iso22000) && normalizeIncidentText(iso22000) !== 'revisar manualmente') return iso22000;
   const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
+  if (containsAny(text, ['capacitacion', 'curso', 'formacion'])) return '7.2 Competencia / capacitación';
   if (containsAny(text, ['drive', 'documentacion', 'documentación', 'respaldo', 'informacion disponible', 'información disponible', 'registro', 'planilla'])) {
     return '7.5 Información documentada';
   }
