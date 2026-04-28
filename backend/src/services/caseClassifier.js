@@ -218,10 +218,10 @@ function classifyCaseIso(consolidatedText) {
   if (includesAny(text, ['capacitacion', 'competencia', 'formacion'])) return '7.2 Competencia / capacitación';
   if (includesAny(text, ['registro', 'registros', 'planilla', 'documentacion', 'falta de firma'])) return '7.5 Información documentada';
   if (includesAny(text, ['mal estado', 'camara', 'heladera', 'higiene', 'sanitizacion', 'agua caliente', 'contaminacion', 'sucio'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
-  if (includesAny(text, ['demora', 'entrega', 'despacho', 'cliente', 'faltante de mercaderia', 'faltaron almuerzos'])) return '8.1 Planificación y control operacional';
+  if (includesAny(text, ['demora', 'entrega', 'despacho', 'cliente', 'faltante de mercaderia', 'faltaron almuerzos'])) return 'Revisar manualmente';
   if (includesAny(text, ['proveedor', 'materia prima', 'recepcion', 'ingreso de mercaderia'])) return '8.4 Control de procesos, productos y servicios externos';
   if (includesAny(text, ['equipo', 'maquina', 'robocoupe', 'mantenimiento', 'ausencia de personal', 'personal'])) return '7.1 Recursos';
-  return '8.1 Planificación y control operacional';
+  return 'Revisar manualmente';
 }
 
 function detectCaseScenario(consolidatedText) {

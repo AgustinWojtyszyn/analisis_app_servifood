@@ -412,6 +412,19 @@ function shouldUseAreaProcesoAsHallazgo({ actividadRealizada, areaProceso, halla
   return !actividad && hallazgoVacio && hasOperationalDeviationSignal(area);
 }
 
+function isRepeatedHeaderRow(rawRecord = {}) {
+  const fecha = normalizeIncidentText(rawRecord.fecha || '');
+  const hallazgo = normalizeIncidentText(rawRecord.hallazgoDetectado || '');
+  const descripcion = normalizeIncidentText(rawRecord.descripcion || '');
+  const actividad = normalizeIncidentText(rawRecord.actividadRealizada || '');
+  const area = normalizeIncidentText(rawRecord.areaProceso || '');
+  if (fecha === 'fecha') return true;
+  if (hallazgo === 'descripcion del desvio' || hallazgo === 'descripción del desvío') return true;
+  if (descripcion === 'descripcion del desvio' || descripcion === 'descripción del desvío') return true;
+  if (actividad === 'actividad realizada' || area === 'area / proceso' || area === 'area / sector') return true;
+  return false;
+}
+
 function applyOperationalOverrides({ hallazgoDetectado, areaClasificada, resultadoClasificado, tipoDesvio, iso22000 }) {
   const hallazgoText = normalizeIncidentText(hallazgoDetectado || '');
   let areaFinal = areaClasificada;
@@ -448,6 +461,8 @@ function applyOperationalOverrides({ hallazgoDetectado, areaClasificada, resulta
   if (containsAny(hallazgoText, ['fallando', 'no funciona', 'no hay agua caliente'])) {
     resultadoFinal = 'No conforme';
     tipoFinal = 'NC';
+    if (containsAny(hallazgoText, ['fallando', 'no funciona'])) isoFinal = '7.1 Recursos';
+    if (containsAny(hallazgoText, ['no hay agua caliente'])) isoFinal = '8.2 Programas prerrequisito / POES / BPM';
   }
 
   if (containsAny(hallazgoText, ['sucio', 'sin limpiar', 'restos de carne'])) {
@@ -460,8 +475,14 @@ function applyOperationalOverrides({ hallazgoDetectado, areaClasificada, resulta
     isoFinal = '8.5 Control de peligros / HACCP / OPRP / PCC';
   }
 
+  if (containsAny(hallazgoText, ['falta de personal', 'falto personal', 'faltó personal', 'sin personal'])) {
+    resultadoFinal = 'No conforme';
+    tipoFinal = 'NC';
+    isoFinal = '7.1 Recursos';
+  }
+
   if (containsAny(hallazgoText, ['faltante', 'faltaron', 'demora de entrega'])) {
-    isoFinal = '8.1 Planificación y control operacional';
+    isoFinal = 'Revisar manualmente';
   }
 
   if (hasOperationalDeviationSignal(hallazgoText) && resultadoFinal !== 'No conforme') {
@@ -1016,6 +1037,20 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
     };
   }
 
+  if (containsAny(text, ['cliente', 'easy', 'scop', 'hospital', 'pocito', 'la laja', 'demora', 'faltaron almuerzos', 'faltante de mercaderia'])) {
+    return {
+      areas: ['Logística / Distribución'],
+      evidence: ['evento asociado a cliente/logística']
+    };
+  }
+
+  if (containsAny(text, ['agua caliente', 'bachas', 'sanitiza', 'sanitizacion'])) {
+    return {
+      areas: ['Lavadero'],
+      evidence: ['evento de agua/sanitización en lavadero']
+    };
+  }
+
   const nonPhysicalSignals = containsAny(text, [
     'proveedor',
     'evaluacion de proveedor',
@@ -1189,6 +1224,10 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'defectuoso',
     'proveedor no cumple',
     'incumplimiento de proveedor',
+    'falta de personal',
+    'falto personal',
+    'faltó personal',
+    'sin personal',
     'no funciona',
     'sucio',
     'vencido'
@@ -1357,6 +1396,10 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
   const text = normalizeIncidentText([descripcionDetectada, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
 
+  if (containsAny(text, ['falta de personal', 'falto personal', 'faltó personal', 'sin personal'])) return '7.1 Recursos';
+  if (containsAny(text, ['mal estado', 'ensalada', 'ensaladas', 'tomate'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
+  if (containsAny(text, ['agua caliente', 'bachas', 'sanitiza', 'sanitizacion'])) return '8.2 Programas prerrequisito / POES / BPM';
+  if (containsAny(text, ['equipo fallando', 'robocoupe fallando', 'no funciona equipo'])) return '7.1 Recursos';
   if (containsAny(text, ['cebos', 'plagas', 'exterior'])) return '8.2 Programas prerrequisito / POES / BPM';
   if (containsAny(text, ['no conformidad', 'accion correctiva'])) return '10.2 No conformidad y accion correctiva';
   if (containsAny(text, ['auditoria'])) return '9.2 Auditoría interna';
@@ -1855,6 +1898,10 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         'Acción correctiva',
         'Accion correctiva'
       ]) || '';
+
+      if (isRepeatedHeaderRow(rawRecord)) {
+        return;
+      }
 
       const actividadLimpia = normalizeCellValue(rawRecord.actividadRealizada).trim();
       const notaLimpia = normalizeCellValue(rawRecord.notaTecnica).trim();
