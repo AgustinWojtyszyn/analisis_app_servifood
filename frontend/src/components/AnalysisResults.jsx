@@ -23,7 +23,8 @@ import whatsappIcon from '../assets/whatsappicon.png';
 const resultColors = {
   'Conforme': { bg: 'rgba(22, 163, 74, 0.12)', text: '#166534' },
   'No conforme': { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
-  'Oportunidad de mejora': { bg: 'rgba(234, 88, 12, 0.12)', text: '#9a3412' }
+  'Oportunidad de mejora': { bg: 'rgba(234, 88, 12, 0.12)', text: '#9a3412' },
+  'Observación': { bg: 'rgba(245, 158, 11, 0.15)', text: '#92400e' }
 };
 
 const typeColors = {
@@ -185,8 +186,10 @@ export default function AnalysisResults({
       'Resultado clasificado': normalizeCellValue(record.resultadoClasificado),
       'Tipo desvío': normalizeCellValue(record.tipoDesvio),
       'ISO 22000': normalizeCellValue(record.iso22000),
+      'Acción inmediata': normalizeCellValue(record.accionInmediata),
+      'Acción correctiva': normalizeCellValue(record.accionCorrectiva),
       'Estado acción': normalizeCellValue(record.estadoAccion),
-      'N° Acción': normalizeCellValue(record.numeroAccion),
+      Responsable: normalizeCellValue(record.responsable),
       'Área / Proceso': normalizeCellValue(record.areaProceso),
       'Actividad realizada': normalizeCellValue(record.actividadRealizada)
     }));
@@ -373,8 +376,10 @@ export default function AnalysisResults({
               <TableCell sx={{ fontWeight: 600 }}>Resultado clasificado</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Tipo desvío</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>ISO 22000</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Acción inmediata</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Acción correctiva</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Estado acción</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>N° Acción</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Responsable</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Área / Proceso</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Actividad realizada</TableCell>
             </TableRow>
@@ -421,9 +426,15 @@ export default function AnalysisResults({
                 <TableCell sx={{ maxWidth: 260 }}>
                   <Typography variant="body2">{normalizeCellValue(record.iso22000)}</Typography>
                 </TableCell>
+                <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {normalizeCellValue(record.accionInmediata)}
+                </TableCell>
+                <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {normalizeCellValue(record.accionCorrectiva)}
+                </TableCell>
                 <TableCell>{normalizeCellValue(record.estadoAccion).replace('_', ' ')}</TableCell>
                 <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {normalizeCellValue(record.numeroAccion)}
+                  {normalizeCellValue(record.responsable)}
                 </TableCell>
                 <TableCell>{normalizeCellValue(record.areaProceso)}</TableCell>
                 <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>

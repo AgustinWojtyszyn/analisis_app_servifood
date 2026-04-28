@@ -1051,25 +1051,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   const desvioNo = isNoLike(desvio);
   const text = normalizeIncidentText(descripcionDetectada || '');
 
-  const realNcSignals = [
-    'falta registro',
-    'registro incompleto',
-    'no se registro',
-    'sin registro',
-    'sin control',
-    'no dispone',
-    'faltante de producto',
-    'fuera de temperatura',
-    'producto en mal estado',
-    'sector sucio',
-    'sucio',
-    'falla',
-    'no funciona',
-    'fuera de uso',
-    'alarma no funciona',
-    'no cumple',
-    'vencido'
-  ];
+  const realNcSignals = ['falta', 'faltante', 'incompleto', 'no se', 'sin', 'no dispone', 'fuera de', 'mal estado', 'no funciona', 'sucio', 'vencido'];
   const actionSignals = [
     'reponer',
     'se solicita',
@@ -1082,18 +1064,16 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'se pasa a'
   ];
   const hasRealNcSignal = containsAny(text, realNcSignals)
-    || /\bno se\s+registro\b/.test(text)
-    || /\bno se\s+registra\b/.test(text)
-    || /\bsin\s+registros?\b/.test(text)
-    || /\bfaltan?\s+registros?\b/.test(text)
-    || /\bregistros?\s+incompletos?\b/.test(text)
-    || /\bfuera\s+de\s+temperatura\b/.test(text)
-    || /\bproducto\s+en\s+mal\s+estado\b/.test(text)
-    || /\bsector\s+sucio\b/.test(text)
-    || /\bno\s+funciona\b/.test(text)
-    || /\bfalla(n|ndo|do)?\b/.test(text)
-    || /\bfuera\s+de\s+uso\b/.test(text)
-    || /\bno\s+disponen?\b/.test(text);
+    || /\bfaltan?\b/.test(text)
+    || /\bincompleto(s)?\b/.test(text)
+    || /\bno\s+se\b/.test(text)
+    || /\bsin\s+[a-z0-9]/.test(text)
+    || /\bno\s+dispone(n)?\b/.test(text)
+    || /\bfuera\s+de\b/.test(text)
+    || /\bmal\s+estado\b/.test(text)
+    || /\bno\s+funciona(n)?\b/.test(text)
+    || /\bsucio(s)?\b/.test(text)
+    || /\bvencido(s)?\b/.test(text);
   const hasActionSignal = containsAny(text, actionSignals);
   const adminNeutralSignals = [
     'cumplido',
@@ -1116,12 +1096,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   const explicitOmSignals = [
     'oportunidad de mejora',
     'mejora continua',
-    'propuesta de mejora',
-    'optimizar',
-    'implementar mejora',
-    'fortalecer el sistema',
-    'actualizar procedimiento para mejorar',
-    'incorporar mejora preventiva'
+    'propuesta de mejora'
   ];
   const hasAdminNeutralSignal = containsAny(text, adminNeutralSignals);
   const hasExplicitOmSignal = containsAny(text, explicitOmSignals);
@@ -1170,9 +1145,9 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   // Prioridad 3: texto de accion/seguimiento (no NC), sin desvio real ni marca NC en origen.
   if (hasActionSignal) {
     return {
-      resultadoClasificado: 'Conforme',
-      tipoDesvio: '-',
-      reason: 'texto de accion o seguimiento (no NC)'
+      resultadoClasificado: 'Observación',
+      tipoDesvio: 'OBS',
+      reason: 'observacion leve sin incumplimiento'
     };
   }
 
@@ -1198,15 +1173,15 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
 
   if (!text) {
     if (!resultadoNorm) {
-      return { resultadoClasificado: 'Revisar manualmente', tipoDesvio: '-', reason: 'sin texto y resultado original vacío/ilegible' };
+      return { resultadoClasificado: 'Observación', tipoDesvio: 'OBS', reason: 'sin texto y resultado original vacío/ilegible' };
     }
     return { resultadoClasificado: 'Conforme', tipoDesvio: '-', reason: 'sin texto; se respeta resultado original informado' };
   }
 
   if (!resultadoNorm) {
-    return {
-      resultadoClasificado: 'Revisar manualmente',
-      tipoDesvio: '-',
+      return {
+      resultadoClasificado: 'Observación',
+      tipoDesvio: 'OBS',
       reason: 'resultado original vacío o ilegible'
     };
   }
@@ -1220,21 +1195,39 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
 
 function classifyIso22000FromDescription({ descripcionDetectada, actividadRealizada, areaClasificada, resultadoClasificado }) {
   const text = normalizeIncidentText([descripcionDetectada, actividadRealizada, areaClasificada].join(' | '));
-  if (!text) return 'Sin clasificar';
+  if (!text) return 'Revisar manualmente';
 
-  if (containsAny(text, ['auditoria interna', 'auditoria', 'cumplimiento bajo'])) return '9.2 Auditoría interna';
-  if (containsAny(text, ['analisis de peligros', 'análisis de peligros', 'pcc', 'oprp', 'haccp'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
-  if (containsAny(text, ['capacitacion', 'competencia', 'formacion', 'entrenamiento', 'curso', 'manual de manipuladores', 'manual de manipulador'])) return '7.2 Competencia / capacitación';
-  if (containsAny(text, ['registro', 'registros incompletos', 'falta de firma', 'documentacion', 'documental', 'historial', 'planilla', 'drive', 'control de registros'])) return '7.5 Información documentada';
-  if (containsAny(text, ['mal estado', 'limpieza', 'contaminacion', 'higiene', 'sanitizacion', 'camara', 'heladera', 'agua caliente', 'poes'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
-  if (containsAny(text, ['distribucion', 'entrega', 'despacho', 'faltante', 'demora', 'cliente', 'reparto'])) return '8.1 Planificación y control operacional';
-  if (containsAny(text, ['materia prima', 'recepcion', 'proveedor', 'mercaderia', 'ingreso de mercaderia'])) return '8.4 Control de procesos, productos y servicios externos';
-  if (containsAny(text, ['equipo', 'maquina', 'mantenimiento', 'fuera de uso'])) return '7.1 Recursos';
-  if (containsAny(text, ['personal', 'ausencia', 'reemplazo', 'operador'])) return '7.1 Recursos';
-  if (resultadoClasificado === 'Conforme') return '-';
-  if (resultadoClasificado === 'No conforme') return '8.1 Planificación y control operacional';
-  if (resultadoClasificado === 'Oportunidad de mejora') return '7.5 Información documentada';
-  return '7.5 Información documentada';
+  if (containsAny(text, ['no conformidad', 'accion correctiva'])) return '10.2 No conformidad y accion correctiva';
+  if (containsAny(text, ['auditoria'])) return '9.2 Auditoría interna';
+  if (containsAny(text, ['capacitacion', 'curso', 'formacion'])) return '7.2 Competencia / capacitación';
+  if (containsAny(text, ['registro', 'planilla', 'documentacion', 'drive'])) return '7.5 Información documentada';
+  if (containsAny(text, ['proveedor', 'proveedores'])) return '8.4 Control de procesos, productos y servicios externos';
+  if (containsAny(text, ['epp', 'recursos'])) return '7.1 Recursos';
+  if (containsAny(text, ['limpieza', 'poes', 'bpm', 'plagas'])) return '8.2 Programas prerrequisito / POES / BPM';
+  if (containsAny(text, ['camara', 'temperatura', 'conservacion'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
+  if (resultadoClasificado === 'No conforme') return 'Revisar manualmente';
+  return 'Revisar manualmente';
+}
+
+function extractImmediateAction(text) {
+  const source = normalizeCellValue(text).trim();
+  if (!source) return '';
+  const sentences = source.split(/[.\n;]/).map((part) => part.trim()).filter(Boolean);
+  const trigger = ['se solicita', 'se realiza', 'se coordina', 'se entrega', 'se implementa'];
+  const matched = sentences.find((sentence) => containsAny(normalizeIncidentText(sentence), trigger));
+  return matched || '';
+}
+
+function classifyResponsibleByArea(areaClasificada = '') {
+  const area = normalizeIncidentText(areaClasificada);
+  if (containsAny(area, ['area fria', 'camara'])) return 'Jefe de cocina';
+  if (containsAny(area, ['area caliente'])) return 'Jefe de cocina';
+  if (containsAny(area, ['deposito'])) return 'Encargado de depósito';
+  if (containsAny(area, ['logistica'])) return 'Responsable de logística';
+  if (containsAny(area, ['banos', 'areas comunes'])) return 'Mantenimiento';
+  if (containsAny(area, ['area de residuos'])) return 'Higiene / Sanitización';
+  if (containsAny(area, ['lavadero'])) return 'Encargado de limpieza';
+  return 'Responsable a definir';
 }
 
 function detectActionScenario(text) {
@@ -1255,6 +1248,7 @@ function buildActions({ resultadoClasificado, text, accionInmediataOriginal, acc
   const immediateExisting = normalizeCellValue(accionInmediataOriginal).trim();
   const correctiveExisting = normalizeCellValue(accionCorrectivaOriginal).trim();
   const scenario = detectActionScenario(text);
+  const detectedImmediate = extractImmediateAction(text);
 
   const byScenario = {
     producto_mal_estado: {
@@ -1305,21 +1299,21 @@ function buildActions({ resultadoClasificado, text, accionInmediataOriginal, acc
 
   if (resultadoClasificado === 'Conforme') {
     return {
-      accionInmediata: immediateExisting || 'Sin acción inmediata requerida.',
-      accionCorrectiva: correctiveExisting || 'Sin acción correctiva requerida.'
+      accionInmediata: immediateExisting || detectedImmediate || '',
+      accionCorrectiva: ''
     };
   }
 
-  if (resultadoClasificado === 'Revisar manualmente') {
+  if (resultadoClasificado !== 'No conforme') {
     return {
-      accionInmediata: immediateExisting || 'Relevar información adicional para definir acción inmediata.',
-      accionCorrectiva: correctiveExisting || 'Pendiente de clasificación para definir acción correctiva.'
+      accionInmediata: immediateExisting || detectedImmediate || '',
+      accionCorrectiva: ''
     };
   }
 
   return {
-    accionInmediata: immediateExisting || byScenario[scenario].immediate,
-    accionCorrectiva: correctiveExisting || byScenario[scenario].corrective
+    accionInmediata: immediateExisting || detectedImmediate || byScenario[scenario].immediate,
+    accionCorrectiva: correctiveExisting || byScenario[scenario].corrective || 'Implementar control diario. Capacitar personal. Actualizar procedimiento. Reforzar control.'
   };
 }
 
@@ -1443,39 +1437,7 @@ function shouldRefineWithExpert({
   accionCorrectiva,
   fechaRegistro
 }) {
-  const isGenericAction = (value = '') => {
-    const text = normalizeIncidentText(value);
-    return [
-      'revisar',
-      'mejorar control',
-      'analizar',
-      'verificar proceso',
-      'tomar medidas',
-      'realizar seguimiento',
-      'sin accion',
-      'no aplica'
-    ].some((keyword) => text.includes(keyword));
-  };
-
-  const isPastDate = isPastRecordDate(fechaRegistro);
-
-  if (resultadoClasificado === 'Conforme') {
-    return areaClasificada === 'Área no identificada' || iso22000 === 'Sin clasificar';
-  }
-
-  if (isPastDate && resultadoClasificado === 'Oportunidad de mejora') {
-    return areaClasificada === 'Área no identificada' || iso22000 === 'Sin clasificar';
-  }
-
-  return (
-    confianza !== 'Alta' ||
-    areaClasificada === 'Área no identificada' ||
-    resultadoClasificado === 'Revisar manualmente' ||
-    tipoDesvio === '-' ||
-    iso22000 === 'Sin clasificar' ||
-    isGenericAction(accionInmediata) ||
-    isGenericAction(accionCorrectiva)
-  );
+  return false;
 }
 
 function buildAnalysisText(record) {
@@ -1700,7 +1662,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         areaClasificada = 'Área no identificada';
         resultadoClasificado = 'Revisar manualmente';
         tipoDesvio = '-';
-        iso22000 = 'Sin clasificar';
+        iso22000 = 'Revisar manualmente';
         areaEvidence = ['texto vacío'];
         outcomeReason = 'sin información suficiente';
       }
@@ -1770,6 +1732,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         areaProcesoOriginal: rawRecord.areaProceso,
         areaOperativaDetectada: areaOperativaClasificada
       });
+      const responsable = classifyResponsibleByArea(areaClasificadaFinal);
 
       const estadoAccion = classifyActionStatusFromRow({
         actividadRealizada: rawRecord.actividadRealizada,
@@ -1832,14 +1795,15 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         resultado: rawRecord.resultado || '',
         desvio: rawRecord.desvio || '',
         accion: rawRecord.accion || '',
-        accionInmediata: rawRecord.accionInmediata || 'Sin acción inmediata requerida.',
-        accionCorrectiva: rawRecord.accionCorrectiva || 'Sin acción correctiva requerida.',
+        accionInmediata: rawRecord.accionInmediata || '',
+        accionCorrectiva: rawRecord.accionCorrectiva || '',
         numeroAccion: rawRecord.numeroAccion || '',
         notaTecnica: rawRecord.notaTecnica || '',
         areaClasificada: areaClasificadaFinal,
         resultadoClasificado,
         tipoDesvio,
         iso22000,
+        responsable,
         estadoAccion,
         refinadoPorIA,
         explicacionClasificacion,
