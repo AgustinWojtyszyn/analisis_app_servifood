@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { Fragment, useState } from 'react';
 import {
   Box,
   Paper,
@@ -14,8 +14,13 @@ import {
   Typography,
   Button,
   Tabs,
-  Tab
+  Tab,
+  Tooltip,
+  Collapse,
+  IconButton
 } from '@mui/material';
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
+import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded';
 import CleaningServicesRoundedIcon from '@mui/icons-material/CleaningServicesRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import * as XLSX from 'xlsx';
@@ -25,14 +30,22 @@ import whatsappIcon from '../assets/whatsappicon.png';
 const resultColors = {
   Conforme: { bg: 'rgba(22, 163, 74, 0.12)', text: '#166534' },
   'No conforme': { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
-  'Oportunidad de mejora': { bg: 'rgba(234, 88, 12, 0.12)', text: '#9a3412' },
+  'Oportunidad de mejora': { bg: 'rgba(139, 92, 246, 0.14)', text: '#5b21b6' },
   Observación: { bg: 'rgba(245, 158, 11, 0.15)', text: '#92400e' }
 };
 
 const typeColors = {
   NC: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
   OBS: { bg: 'rgba(245, 158, 11, 0.15)', text: '#92400e' },
-  OM: { bg: 'rgba(14, 165, 233, 0.12)', text: '#0c4a6e' }
+  OM: { bg: 'rgba(139, 92, 246, 0.14)', text: '#5b21b6' }
+};
+
+const tabStyleByCategory = {
+  todos: { bg: 'rgba(100, 116, 139, 0.16)', color: '#334155' },
+  nc: { bg: 'rgba(220, 38, 38, 0.15)', color: '#991b1b' },
+  conformes: { bg: 'rgba(22, 163, 74, 0.15)', color: '#166534' },
+  obs: { bg: 'rgba(245, 158, 11, 0.18)', color: '#92400e' },
+  om: { bg: 'rgba(139, 92, 246, 0.16)', color: '#5b21b6' }
 };
 
 function normalizeCellValue(value) {
@@ -84,6 +97,7 @@ export default function AnalysisResults({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterArea, setFilterArea] = useState('all');
   const [activeCategory, setActiveCategory] = useState('todos');
+  const [expandedRows, setExpandedRows] = useState({});
 
   const resetLocalState = () => {
     setPage(0);
@@ -91,6 +105,7 @@ export default function AnalysisResults({
     setSearchTerm('');
     setFilterArea('all');
     setActiveCategory('todos');
+    setExpandedRows({});
   };
 
   if (!records || records.length === 0) {
@@ -107,11 +122,11 @@ export default function AnalysisResults({
   }
 
   const categories = [
-    { key: 'todos', label: 'Todos' },
-    { key: 'nc', label: 'No conformidades' },
-    { key: 'conformes', label: 'Conformes' },
-    { key: 'obs', label: 'Observaciones' },
-    { key: 'om', label: 'Oportunidades de mejora' }
+    { key: 'todos', label: 'Todos', short: 'Todos' },
+    { key: 'nc', label: 'No conformidades', short: 'NC' },
+    { key: 'conformes', label: 'Conformes', short: 'Conformes' },
+    { key: 'obs', label: 'Observaciones', short: 'OBS' },
+    { key: 'om', label: 'Oportunidades de mejora', short: 'OM' }
   ];
 
   const availableAreas = [...new Set(records.flatMap((record) => splitAreas(record.areaClasificada)).filter(Boolean))];
@@ -137,7 +152,9 @@ export default function AnalysisResults({
       record.notaTecnica,
       record.areaClasificada,
       record.iso22000,
-      record.hallazgoDetectado
+      record.hallazgoDetectado,
+      record.responsable,
+      record.estadoAccion
     ].map((value) => normalizeCellValue(value).toLowerCase()).join(' | ');
 
     const areaParts = splitAreas(record.areaClasificada);
@@ -157,16 +174,6 @@ export default function AnalysisResults({
 
     return matchesSearch && matchesArea && matchesCategory;
   });
-
-  const filteredKpis = filteredRecords.reduce((acc, record) => {
-    const tipo = normalizeCellValue(record.tipoDesvio);
-    const resultado = normalizeCellValue(record.resultadoClasificado);
-    if (tipo === 'NC') acc.nc += 1;
-    if (tipo === 'OBS') acc.obs += 1;
-    if (tipo === 'OM') acc.om += 1;
-    if (resultado === 'Conforme' || tipo === '-') acc.conformes += 1;
-    return acc;
-  }, { nc: 0, conformes: 0, obs: 0, om: 0 });
 
   const exportConfigByFilter = {
     todos: { label: 'Exportar todos', fileName: 'analisis_todos.xlsx' },
@@ -189,6 +196,10 @@ export default function AnalysisResults({
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
+  };
+
+  const toggleExpandedRow = (rowKey) => {
+    setExpandedRows((prev) => ({ ...prev, [rowKey]: !prev[rowKey] }));
   };
 
   const handleShareWhatsApp = async () => {
@@ -269,48 +280,11 @@ export default function AnalysisResults({
 
   return (
     <Paper sx={{ p: { xs: 2, md: 2.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)' }}>
-      <Box sx={{ display: { xs: 'block', md: 'none' }, mb: 2 }}>
-        <Tabs
-          value={activeCategory}
-          onChange={(_event, value) => {
-            setActiveCategory(value);
-            setPage(0);
-          }}
-          variant="scrollable"
-          scrollButtons="auto"
-          allowScrollButtonsMobile
-        >
-          {categories.map((category) => (
-            <Tab
-              key={category.key}
-              value={category.key}
-              label={`${category.label} (${countsByCategory[category.key] || 0})`}
-            />
-          ))}
-        </Tabs>
-      </Box>
-
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', md: 'center' },
-          flexDirection: { xs: 'column', md: 'row' },
-          gap: 1.5,
-          mb: 2.5
-        }}
-      >
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 1.5, mb: 1.5, flexWrap: 'wrap' }}>
         <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: 19, md: 21 } }}>
           Registros procesados ({filteredRecords.length})
         </Typography>
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: 1.25
-          }}
-        >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.25 }}>
           <Button
             variant="text"
             startIcon={<CleaningServicesRoundedIcon />}
@@ -330,198 +304,184 @@ export default function AnalysisResults({
           >
             Eliminar análisis actual
           </Button>
-          <Button
-            variant="contained"
-            onClick={handleExportExcel}
-            disabled={filteredRecords.length === 0}
-            size="small"
-            sx={{
-              backgroundColor: '#1d6f42',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              borderRadius: 2,
-              px: 1.75,
-              py: 0.75,
-              boxShadow: '0 2px 8px rgba(29, 111, 66, 0.25)',
-              '&:hover': {
-                backgroundColor: '#155c36',
-                boxShadow: '0 6px 12px rgba(21, 92, 54, 0.32)',
-                transform: 'translateY(-1px)'
-              },
-              '&.Mui-disabled': {
-                backgroundColor: '#9ca3af',
-                color: '#f3f4f6',
-                boxShadow: 'none'
-              }
-            }}
-          >
-            <img src={excelIcon} alt="" width={16} height={16} />
-            {activeExportConfig.label}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleShareWhatsApp}
-            size="small"
-            sx={{
-              backgroundColor: '#25d366',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              borderRadius: 2,
-              px: 1.75,
-              py: 0.75,
-              boxShadow: '0 2px 8px rgba(37, 211, 102, 0.24)',
-              '&:hover': {
-                backgroundColor: '#1ebc59',
-                boxShadow: '0 6px 12px rgba(30, 188, 89, 0.30)',
-                transform: 'translateY(-1px)'
-              }
-            }}
-          >
-            <img src={whatsappIcon} alt="" width={16} height={16} />
-            Exportar por WhatsApp
-          </Button>
         </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', gap: 2 }}>
-        <Box
+      <Box sx={{ mb: 1.5 }}>
+        <Tabs
+          value={activeCategory}
+          onChange={(_event, value) => {
+            setActiveCategory(value);
+            setPage(0);
+          }}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           sx={{
-            display: { xs: 'none', md: 'flex' },
-            flexDirection: 'column',
-            gap: 1,
-            minWidth: 260,
-            backgroundColor: '#111827',
-            borderRadius: 2,
-            p: 1.25,
-            height: 'fit-content'
+            minHeight: 44,
+            '.MuiTabs-indicator': { display: 'none' },
+            '.MuiTabs-flexContainer': { gap: 1 }
           }}
         >
           {categories.map((category) => {
+            const palette = tabStyleByCategory[category.key];
             const isActive = activeCategory === category.key;
             return (
-              <Button
+              <Tab
                 key={category.key}
-                onClick={() => {
-                  setActiveCategory(category.key);
-                  setPage(0);
-                }}
+                value={category.key}
+                label={`${category.short} (${countsByCategory[category.key] || 0})`}
                 sx={{
-                  justifyContent: 'space-between',
-                  color: '#f9fafb',
-                  textTransform: 'none',
-                  borderRadius: 1.5,
+                  minHeight: 36,
+                  height: 36,
+                  borderRadius: 999,
                   px: 1.5,
-                  py: 1,
-                  fontWeight: 600,
-                  backgroundColor: isActive ? 'rgba(59,130,246,0.25)' : 'transparent',
-                  border: isActive ? '1px solid rgba(96,165,250,0.8)' : '1px solid transparent',
-                  '&:hover': { backgroundColor: isActive ? 'rgba(59,130,246,0.30)' : 'rgba(255,255,255,0.08)' }
+                  py: 0.5,
+                  minWidth: 0,
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  color: isActive ? palette.color : '#475569',
+                  backgroundColor: isActive ? palette.bg : 'rgba(148,163,184,0.12)',
+                  border: isActive ? `1px solid ${palette.color}33` : '1px solid rgba(148,163,184,0.22)'
                 }}
-              >
-                <span>{category.label}</span>
-                <span>{countsByCategory[category.key] || 0}</span>
-              </Button>
+              />
             );
           })}
-        </Box>
+        </Tabs>
+      </Box>
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: '1fr 220px' },
-              gap: 1.5,
-              mb: 1.5
-            }}
-          >
-            <TextField
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setPage(0);
-              }}
-              size="small"
-              fullWidth
-            />
-            <TextField
-              select
-              label="Área clasificada"
-              value={filterArea}
-              onChange={(e) => {
-                setFilterArea(e.target.value);
-                setPage(0);
-              }}
-              size="small"
-              fullWidth
-              SelectProps={{ native: true }}
-            >
-              <option value="all">Todas</option>
-              {availableAreas.map((area) => (
-                <option key={area} value={area}>{area}</option>
-              ))}
-            </TextField>
-          </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 240px auto auto' }, gap: 1.25, mb: 2 }}>
+        <TextField
+          placeholder="Buscar..."
+          value={searchTerm}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setPage(0);
+          }}
+          size="small"
+          fullWidth
+        />
+        <TextField
+          select
+          label="Área clasificada"
+          value={filterArea}
+          onChange={(e) => {
+            setFilterArea(e.target.value);
+            setPage(0);
+          }}
+          size="small"
+          fullWidth
+          SelectProps={{ native: true }}
+        >
+          <option value="all">Todas</option>
+          {availableAreas.map((area) => (
+            <option key={area} value={area}>{area}</option>
+          ))}
+        </TextField>
+        <Button
+          variant="contained"
+          onClick={handleExportExcel}
+          disabled={filteredRecords.length === 0}
+          size="small"
+          sx={{
+            backgroundColor: '#1d6f42',
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            borderRadius: 2,
+            px: 1.75,
+            py: 0.75,
+            boxShadow: '0 2px 8px rgba(29, 111, 66, 0.25)',
+            '&:hover': {
+              backgroundColor: '#155c36',
+              boxShadow: '0 6px 12px rgba(21, 92, 54, 0.32)',
+              transform: 'translateY(-1px)'
+            },
+            '&.Mui-disabled': {
+              backgroundColor: '#9ca3af',
+              color: '#f3f4f6',
+              boxShadow: 'none'
+            }
+          }}
+        >
+          <img src={excelIcon} alt="" width={16} height={16} />
+          {activeExportConfig.label}
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleShareWhatsApp}
+          size="small"
+          sx={{
+            backgroundColor: '#25d366',
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            borderRadius: 2,
+            px: 1.75,
+            py: 0.75,
+            boxShadow: '0 2px 8px rgba(37, 211, 102, 0.24)',
+            '&:hover': {
+              backgroundColor: '#1ebc59',
+              boxShadow: '0 6px 12px rgba(30, 188, 89, 0.30)',
+              transform: 'translateY(-1px)'
+            }
+          }}
+        >
+          <img src={whatsappIcon} alt="" width={16} height={16} />
+          Exportar por WhatsApp
+        </Button>
+      </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1, mb: 2 }}>
-            <Paper sx={{ p: 1.25, backgroundColor: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)' }}>
-              <Typography variant="caption" color="text.secondary">NC</Typography>
-              <Typography sx={{ fontWeight: 800 }}>{filteredKpis.nc}</Typography>
-            </Paper>
-            <Paper sx={{ p: 1.25, backgroundColor: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.2)' }}>
-              <Typography variant="caption" color="text.secondary">Conformes</Typography>
-              <Typography sx={{ fontWeight: 800 }}>{filteredKpis.conformes}</Typography>
-            </Paper>
-            <Paper sx={{ p: 1.25, backgroundColor: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.25)' }}>
-              <Typography variant="caption" color="text.secondary">Observaciones</Typography>
-              <Typography sx={{ fontWeight: 800 }}>{filteredKpis.obs}</Typography>
-            </Paper>
-            <Paper sx={{ p: 1.25, backgroundColor: 'rgba(14,165,233,0.10)', border: '1px solid rgba(14,165,233,0.25)' }}>
-              <Typography variant="caption" color="text.secondary">OM</Typography>
-              <Typography sx={{ fontWeight: 800 }}>{filteredKpis.om}</Typography>
-            </Paper>
-          </Box>
-
-          <TableContainer sx={{ overflowX: 'auto', backgroundColor: 'transparent' }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Fecha</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Hallazgo detectado</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Área clasificada</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Resultado clasificado</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Tipo desvío</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>ISO 22000</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Acción inmediata</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Acción correctiva</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Estado acción</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Responsable</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Área / Proceso</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Actividad realizada</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {displayedRecords.map((record, index) => (
-                  <TableRow
-                    key={index}
-                    hover
-                    sx={{
-                      '&:last-child td': { border: 0 },
-                      '&:hover': { backgroundColor: 'rgba(29, 78, 216, 0.025)' }
-                    }}
-                  >
-                    <TableCell>{normalizeCellValue(record.fecha)}</TableCell>
-                    <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {normalizeCellValue(record.hallazgoDetectado)}
+      <TableContainer sx={{ overflowX: 'auto', backgroundColor: 'transparent' }}>
+        <Table sx={{ minWidth: 1100 }}>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 700, width: 52 }} />
+              <TableCell sx={{ fontWeight: 700 }}>Fecha</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 300 }}>Hallazgo detectado</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Área</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Resultado</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Tipo</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>ISO</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Responsable</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {displayedRecords.map((record, index) => {
+              const rowKey = `${page}-${index}-${normalizeCellValue(record.fecha)}-${normalizeCellValue(record.hallazgoDetectado).slice(0, 20)}`;
+              const isExpanded = Boolean(expandedRows[rowKey]);
+              const fullHallazgo = normalizeCellValue(record.hallazgoDetectado);
+              return (
+                <Fragment key={rowKey}>
+                  <TableRow hover sx={{ '&:hover': { backgroundColor: 'rgba(29, 78, 216, 0.025)' } }}>
+                    <TableCell>
+                      <IconButton size="small" onClick={() => toggleExpandedRow(rowKey)} aria-label="ver detalle">
+                        {isExpanded ? <KeyboardArrowUpRoundedIcon fontSize="small" /> : <KeyboardArrowDownRoundedIcon fontSize="small" />}
+                      </IconButton>
                     </TableCell>
-                    <TableCell>{normalizeCellValue(record.areaClasificada)}</TableCell>
+                    <TableCell>{normalizeCellValue(record.fecha)}</TableCell>
+                    <TableCell>
+                      <Tooltip title={fullHallazgo || '-'} arrow placement="top-start">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          {fullHallazgo || '-'}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>{normalizeCellValue(record.areaClasificada) || '-'}</TableCell>
                     <TableCell>
                       <Chip
-                        label={normalizeCellValue(record.resultadoClasificado)}
+                        label={normalizeCellValue(record.resultadoClasificado) || '-'}
                         size="small"
                         sx={{
                           backgroundColor: (resultColors[record.resultadoClasificado] || resultColors['No conforme']).bg,
@@ -543,40 +503,61 @@ export default function AnalysisResults({
                         <Typography variant="body2" color="text.secondary">-</Typography>
                       )}
                     </TableCell>
-                    <TableCell sx={{ maxWidth: 260 }}>
-                      <Typography variant="body2">{normalizeCellValue(record.iso22000)}</Typography>
+                    <TableCell sx={{ maxWidth: 250 }}>
+                      <Typography variant="body2">{normalizeCellValue(record.iso22000) || '-'}</Typography>
                     </TableCell>
-                    <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {normalizeCellValue(record.accionInmediata)}
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {normalizeCellValue(record.accionCorrectiva)}
-                    </TableCell>
-                    <TableCell>{normalizeCellValue(record.estadoAccion).replace('_', ' ')}</TableCell>
-                    <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {normalizeCellValue(record.responsable)}
-                    </TableCell>
-                    <TableCell>{normalizeCellValue(record.areaProceso)}</TableCell>
-                    <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {normalizeCellValue(record.actividadRealizada)}
+                    <TableCell>{normalizeCellValue(record.estadoAccion).replace('_', ' ') || '-'}</TableCell>
+                    <TableCell sx={{ maxWidth: 220 }}>
+                      <Typography variant="body2">{normalizeCellValue(record.responsable) || '-'}</Typography>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                  <TableRow>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={9}>
+                      <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                        <Box sx={{ px: 2, py: 1.5, backgroundColor: 'rgba(148,163,184,0.08)', borderRadius: 1, mb: 1.25 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Detalle del registro</Typography>
+                          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.25 }}>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">Acción inmediata</Typography>
+                              <Typography variant="body2">{normalizeCellValue(record.accionInmediata) || '-'}</Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">Acción correctiva</Typography>
+                              <Typography variant="body2">{normalizeCellValue(record.accionCorrectiva) || '-'}</Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">Área / Proceso original</Typography>
+                              <Typography variant="body2">{normalizeCellValue(record.areaProceso) || '-'}</Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">Actividad realizada original</Typography>
+                              <Typography variant="body2">{normalizeCellValue(record.actividadRealizada) || '-'}</Typography>
+                            </Box>
+                            <Box sx={{ gridColumn: { xs: 'auto', md: '1 / span 2' } }}>
+                              <Typography variant="caption" color="text.secondary">Hallazgo completo</Typography>
+                              <Typography variant="body2">{fullHallazgo || '-'}</Typography>
+                            </Box>
+                          </Box>
+                        </Box>
+                      </Collapse>
+                    </TableCell>
+                  </TableRow>
+                </Fragment>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            component="div"
-            count={filteredRecords.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-          />
-        </Box>
-      </Box>
+      <TablePagination
+        rowsPerPageOptions={[5, 10, 25, 50]}
+        component="div"
+        count={filteredRecords.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={handleChangePage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+      />
     </Paper>
   );
 }
