@@ -279,7 +279,7 @@ export default function AnalysisResults({
   };
 
   return (
-    <Paper sx={{ p: { xs: 2, md: 2.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)' }}>
+    <Paper sx={{ p: { xs: 1.25, md: 1.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 1.5, mb: 1.5, flexWrap: 'wrap' }}>
         <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: 19, md: 21 } }}>
           Registros procesados ({filteredRecords.length})
@@ -434,7 +434,7 @@ export default function AnalysisResults({
         </Button>
       </Box>
 
-      <TableContainer sx={{ overflowX: 'auto', backgroundColor: 'transparent' }}>
+      <TableContainer sx={{ overflowX: 'auto', backgroundColor: 'transparent', mx: { xs: -0.5, md: 0 } }}>
         <Table sx={{ minWidth: 1100 }}>
           <TableHead>
             <TableRow>
