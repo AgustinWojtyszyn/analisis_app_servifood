@@ -4,5 +4,11 @@
   "scripts": {
     "build": "cd frontend && npm install && npm run build && cd ../backend && npm install",
     "start": "node backend/src/server.js"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
   }
 }
