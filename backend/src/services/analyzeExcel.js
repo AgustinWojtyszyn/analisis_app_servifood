@@ -2,6 +2,8 @@ import ExcelJS from 'exceljs';
 import { refinePreClassification } from './classificationRefiner.js';
 import { classifyDeviationCasesFromRecords } from './caseClassifier.js';
 
+const ENABLE_CLASSIFICATION_TRACE = process.env.CLASSIFICATION_TRACE === '1';
+
 const OPERATIVE_AREAS = [
   'Área fría',
   'Área caliente',
@@ -1645,6 +1647,8 @@ function shouldRefineWithExpert({
   accionCorrectiva,
   fechaRegistro
 }) {
+  // Fuente de verdad: clasificación principal de analyzeExcel.js.
+  // El refinador queda deshabilitado para evitar que pise resultados finales.
   return false;
 }
 
@@ -1847,6 +1851,9 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         actividadRealizada: rawRecord.actividadRealizada,
         hallazgoDetectado: rawRecord.hallazgoDetectado
       });
+      if (ENABLE_CLASSIFICATION_TRACE) {
+        console.log('INPUT:', textForClassification);
+      }
       const explicitAreaFromExcel = normalizeBrunoArea(rawRecord.areaProceso, textForClassification);
 
       let areaResult = detectAreasFromDescription(textForClassification, rawRecord.areaProceso);
@@ -1947,6 +1954,15 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       });
       rawRecord.accionInmediata = actions.accionInmediata;
       rawRecord.accionCorrectiva = actions.accionCorrectiva;
+      if (ENABLE_CLASSIFICATION_TRACE) {
+        console.log('RESULTADO CLASIFICADO:', {
+          row: index + 1,
+          resultadoClasificado,
+          tipoDesvio,
+          areaClasificada,
+          iso22000
+        });
+      }
 
       const preClassification = {
         texto: textForClassification,
@@ -2082,6 +2098,9 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         confianza,
         analisisTexto
       });
+      if (ENABLE_CLASSIFICATION_TRACE) {
+        console.log('FINAL:', results[results.length - 1]);
+      }
     });
 
     const cases = classifyDeviationCasesFromRecords(results);
