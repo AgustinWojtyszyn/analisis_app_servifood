@@ -480,6 +480,11 @@ function applyOperationalOverrides({ hallazgoDetectado, areaClasificada, resulta
     tipoFinal = 'NC';
     isoFinal = '7.1 Recursos';
   }
+  if (containsAny(hallazgoText, ['ausencia de personal'])) {
+    resultadoFinal = 'No conforme';
+    tipoFinal = 'NC';
+    isoFinal = '7.1 Recursos';
+  }
 
   if (containsAny(hallazgoText, ['faltante', 'faltaron', 'demora de entrega'])) {
     isoFinal = 'Revisar manualmente';
@@ -1227,6 +1232,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'falta de personal',
     'falto personal',
     'faltó personal',
+    'ausencia de personal',
     'sin personal',
     'no funciona',
     'sucio',
@@ -1396,7 +1402,7 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
   const text = normalizeIncidentText([descripcionDetectada, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
 
-  if (containsAny(text, ['falta de personal', 'falto personal', 'faltó personal', 'sin personal'])) return '7.1 Recursos';
+  if (containsAny(text, ['falta de personal', 'falto personal', 'faltó personal', 'ausencia de personal', 'sin personal'])) return '7.1 Recursos';
   if (containsAny(text, ['mal estado', 'ensalada', 'ensaladas', 'tomate'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
   if (containsAny(text, ['agua caliente', 'bachas', 'sanitiza', 'sanitizacion'])) return '8.2 Programas prerrequisito / POES / BPM';
   if (containsAny(text, ['equipo fallando', 'robocoupe fallando', 'no funciona equipo'])) return '7.1 Recursos';

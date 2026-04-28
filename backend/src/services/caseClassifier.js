@@ -183,6 +183,7 @@ function classifyCaseOutcome(consolidatedText) {
     'sucio', 'suciedad', 'contaminacion', 'restos de carne', 'incompleto',
     'incumplimiento', 'no hay agua caliente', 'sin agua caliente', 'fuera de uso',
     'no funciona', 'producto defectuoso', 'defectuoso', 'proveedor no cumple',
+    'falta de personal', 'faltó personal', 'ausencia de personal', 'sin personal',
     'no disponen de calzado', 'falta de registros', 'camaras sin control', 'cámaras sin control'
   ]);
   if (nc) return { resultadoClasificado: 'No conforme', tipoDesvio: 'NC' };
