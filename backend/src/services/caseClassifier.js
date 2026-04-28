@@ -176,10 +176,12 @@ function classifyCaseOutcome(consolidatedText) {
   const proveedorConformeSignals = ['se realiza contacto con proveedor', 'contacto con proveedor'];
 
   const nc = includesAny(text, [
+    'cebos', 'plagas',
     'mal estado', 'devolucion', 'faltante', 'demora', 'falla', 'fallando',
     'faltaron almuerzos',
     'sucio', 'suciedad', 'contaminacion', 'restos de carne', 'incompleto',
     'incumplimiento', 'no hay agua caliente', 'sin agua caliente', 'fuera de uso',
+    'no funciona', 'producto defectuoso', 'defectuoso', 'proveedor no cumple',
     'no disponen de calzado', 'falta de registros', 'camaras sin control', 'cámaras sin control'
   ]);
   if (nc) return { resultadoClasificado: 'No conforme', tipoDesvio: 'NC' };

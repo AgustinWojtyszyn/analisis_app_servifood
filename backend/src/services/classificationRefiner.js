@@ -288,6 +288,8 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     'se inspecciona'
   ];
   const realNcSignals = [
+    'cebos',
+    'plagas',
     'falta registro',
     'registro incompleto',
     'no se registro',
@@ -297,6 +299,8 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     'faltante de producto',
     'fuera de temperatura',
     'producto en mal estado',
+    'producto defectuoso',
+    'defectuoso',
     'sector sucio',
     'sucio',
     'falla',
@@ -304,6 +308,8 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     'fuera de uso',
     'alarma no funciona',
     'no cumple',
+    'proveedor no cumple',
+    'incumplimiento de proveedor',
     'vencido'
   ];
   const actionSignals = [

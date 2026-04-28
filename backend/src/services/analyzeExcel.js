@@ -1163,7 +1163,25 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   const desvioNo = isNoLike(desvio);
   const text = normalizeIncidentText(descripcionDetectada || '');
 
-  const realNcSignals = ['falta', 'faltante', 'incompleto', 'no se', 'sin', 'no dispone', 'fuera de', 'mal estado', 'no funciona', 'sucio', 'vencido'];
+  const realNcSignals = [
+    'cebos',
+    'plagas',
+    'falta',
+    'faltante',
+    'incompleto',
+    'no se',
+    'sin',
+    'no dispone',
+    'fuera de',
+    'mal estado',
+    'producto defectuoso',
+    'defectuoso',
+    'proveedor no cumple',
+    'incumplimiento de proveedor',
+    'no funciona',
+    'sucio',
+    'vencido'
+  ];
   const actionSignals = [
     'reponer',
     'se solicita',
@@ -1183,6 +1201,8 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     || /\bno\s+dispone(n)?\b/.test(text)
     || /\bfuera\s+de\b/.test(text)
     || /\bmal\s+estado\b/.test(text)
+    || /\bproducto\s+defectuoso\b/.test(text)
+    || /\bproveedor\s+no\s+cumple\b/.test(text)
     || /\bno\s+funciona(n)?\b/.test(text)
     || /\bsucio(s)?\b/.test(text)
     || /\bvencido(s)?\b/.test(text);
@@ -1254,12 +1274,12 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     };
   }
 
-  // Prioridad 3: texto de accion/seguimiento (no NC), sin desvio real ni marca NC en origen.
+  // Prioridad 3: texto de accion/seguimiento sin problema real.
   if (hasActionSignal) {
     return {
-      resultadoClasificado: 'Observación',
-      tipoDesvio: 'OBS',
-      reason: 'observacion leve sin incumplimiento'
+      resultadoClasificado: 'Conforme',
+      tipoDesvio: '-',
+      reason: 'acción/seguimiento sin problema explícito'
     };
   }
 
