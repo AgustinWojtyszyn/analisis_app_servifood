@@ -381,6 +381,94 @@ function sanitizeHallazgo(hallazgo) {
   return cleaned || 'Sin hallazgo detectado';
 }
 
+function hasOperationalDeviationSignal(text) {
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized || normalized.length <= 20) return false;
+  const signals = [
+    'falta',
+    'faltaron',
+    'faltante',
+    'mal estado',
+    'devuelve',
+    'fallando',
+    'no hay',
+    'sucio',
+    'demora',
+    'demorada',
+    'no funciona',
+    'sin',
+    'problema'
+  ];
+  return containsAny(normalized, signals);
+}
+
+function shouldUseAreaProcesoAsHallazgo({ actividadRealizada, areaProceso, hallazgoDetectado }) {
+  const actividad = normalizeCellValue(actividadRealizada || '').trim();
+  const area = normalizeCellValue(areaProceso || '').trim();
+  const hallazgo = normalizeForMatch(hallazgoDetectado || '');
+  const hallazgoVacio = !hallazgo || hallazgo === normalizeForMatch('Sin hallazgo detectado');
+  return !actividad && hallazgoVacio && hasOperationalDeviationSignal(area);
+}
+
+function applyOperationalOverrides({ hallazgoDetectado, areaClasificada, resultadoClasificado, tipoDesvio, iso22000 }) {
+  const hallazgoText = normalizeIncidentText(hallazgoDetectado || '');
+  let areaFinal = areaClasificada;
+  let resultadoFinal = resultadoClasificado;
+  let tipoFinal = tipoDesvio;
+  let isoFinal = iso22000;
+
+  if (containsAny(hallazgoText, [
+    'faltaron almuerzos',
+    'faltante de mercaderia',
+    'demora de entrega',
+    'cliente',
+    'servicio',
+    'scop',
+    'easy',
+    'hospital',
+    'pocito',
+    'la laja'
+  ])) {
+    areaFinal = 'Logística / Distribución';
+  }
+
+  if (containsAny(hallazgoText, ['mal estado', 'devuelve', 'ensaladas'])) {
+    resultadoFinal = 'No conforme';
+    tipoFinal = 'NC';
+  }
+
+  if (containsAny(hallazgoText, ['fallando', 'no funciona', 'no hay agua caliente'])) {
+    resultadoFinal = 'No conforme';
+    tipoFinal = 'NC';
+  }
+
+  if (containsAny(hallazgoText, ['sucio', 'sin limpiar', 'restos de carne'])) {
+    resultadoFinal = 'No conforme';
+    tipoFinal = 'NC';
+    isoFinal = '8.2 Programas prerrequisito / POES / BPM';
+  }
+
+  if (containsAny(hallazgoText, ['tomate en mal estado', 'ensaladas en mal estado'])) {
+    isoFinal = '8.5 Control de peligros / HACCP / OPRP / PCC';
+  }
+
+  if (containsAny(hallazgoText, ['faltante', 'faltaron', 'demora de entrega'])) {
+    isoFinal = '8.1 Planificación y control operacional';
+  }
+
+  if (hasOperationalDeviationSignal(hallazgoText) && resultadoFinal !== 'No conforme') {
+    resultadoFinal = 'No conforme';
+    tipoFinal = 'NC';
+  }
+
+  return {
+    areaClasificada: areaFinal,
+    resultadoClasificado: resultadoFinal,
+    tipoDesvio: tipoFinal,
+    iso22000: isoFinal
+  };
+}
+
 function removeDuplicateActionChunks(text) {
   const parts = String(text || '')
     .split(/[|.;\n]/)
@@ -1666,6 +1754,15 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       const notaNoAporta = !notaLimpia || notaLimpia.length <= 10 || esTextoAccion(notaLimpia);
       const casoVacio = !actividadLimpia && notaNoAporta;
 
+      if (shouldUseAreaProcesoAsHallazgo({
+        actividadRealizada: rawRecord.actividadRealizada,
+        areaProceso: rawRecord.areaProceso,
+        hallazgoDetectado: rawRecord.hallazgoDetectado
+      })) {
+        rawRecord.hallazgoDetectado = sanitizeHallazgo(rawRecord.areaProceso);
+        rawRecord.areaProceso = 'Sin área/proceso original';
+      }
+
       const textForClassification = buildClassificationText({
         areaProceso: rawRecord.areaProceso,
         actividadRealizada: rawRecord.actividadRealizada,
@@ -1714,7 +1811,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         }
       }
 
-      if (casoVacio) {
+      const keepAsOperationalFinding = hasOperationalDeviationSignal(rawRecord.hallazgoDetectado);
+      if (casoVacio && !keepAsOperationalFinding) {
         rawRecord.hallazgoDetectado = 'Sin hallazgo detectado';
         areaClasificada = 'Área no identificada';
         resultadoClasificado = 'Revisar manualmente';
@@ -1723,6 +1821,18 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         areaEvidence = ['texto vacío'];
         outcomeReason = 'sin información suficiente';
       }
+
+      const operationalOverride = applyOperationalOverrides({
+        hallazgoDetectado: rawRecord.hallazgoDetectado,
+        areaClasificada,
+        resultadoClasificado,
+        tipoDesvio,
+        iso22000
+      });
+      areaClasificada = operationalOverride.areaClasificada;
+      resultadoClasificado = operationalOverride.resultadoClasificado;
+      tipoDesvio = operationalOverride.tipoDesvio;
+      iso22000 = operationalOverride.iso22000;
 
       const actions = buildActions({
         resultadoClasificado,
