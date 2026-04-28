@@ -12,7 +12,9 @@ import {
   Chip,
   TextField,
   Typography,
-  Button
+  Button,
+  Tabs,
+  Tab
 } from '@mui/material';
 import CleaningServicesRoundedIcon from '@mui/icons-material/CleaningServicesRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
@@ -21,10 +23,10 @@ import excelIcon from '../assets/excel.png';
 import whatsappIcon from '../assets/whatsappicon.png';
 
 const resultColors = {
-  'Conforme': { bg: 'rgba(22, 163, 74, 0.12)', text: '#166534' },
+  Conforme: { bg: 'rgba(22, 163, 74, 0.12)', text: '#166534' },
   'No conforme': { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
   'Oportunidad de mejora': { bg: 'rgba(234, 88, 12, 0.12)', text: '#9a3412' },
-  'Observación': { bg: 'rgba(245, 158, 11, 0.15)', text: '#92400e' }
+  Observación: { bg: 'rgba(245, 158, 11, 0.15)', text: '#92400e' }
 };
 
 const typeColors = {
@@ -81,14 +83,14 @@ export default function AnalysisResults({
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterArea, setFilterArea] = useState('all');
-  const [filterTipo, setFilterTipo] = useState('all');
+  const [activeCategory, setActiveCategory] = useState('todos');
 
   const resetLocalState = () => {
     setPage(0);
     setRowsPerPage(10);
     setSearchTerm('');
     setFilterArea('all');
-    setFilterTipo('all');
+    setActiveCategory('todos');
   };
 
   if (!records || records.length === 0) {
@@ -104,8 +106,27 @@ export default function AnalysisResults({
     );
   }
 
+  const categories = [
+    { key: 'todos', label: 'Todos' },
+    { key: 'nc', label: 'No conformidades' },
+    { key: 'conformes', label: 'Conformes' },
+    { key: 'obs', label: 'Observaciones' },
+    { key: 'om', label: 'Oportunidades de mejora' }
+  ];
+
   const availableAreas = [...new Set(records.flatMap((record) => splitAreas(record.areaClasificada)).filter(Boolean))];
-  const hasOm = records.some((record) => normalizeCellValue(record.tipoDesvio) === 'OM');
+
+  const countsByCategory = {
+    todos: records.length,
+    nc: records.filter((record) => normalizeCellValue(record.tipoDesvio) === 'NC').length,
+    conformes: records.filter((record) => {
+      const tipo = normalizeCellValue(record.tipoDesvio);
+      const resultado = normalizeCellValue(record.resultadoClasificado);
+      return resultado === 'Conforme' || tipo === '-';
+    }).length,
+    obs: records.filter((record) => normalizeCellValue(record.tipoDesvio) === 'OBS').length,
+    om: records.filter((record) => normalizeCellValue(record.tipoDesvio) === 'OM').length
+  };
 
   const filteredRecords = records.filter((record) => {
     const textSearch = [
@@ -115,36 +136,51 @@ export default function AnalysisResults({
       record.resultado,
       record.notaTecnica,
       record.areaClasificada,
-      record.iso22000
+      record.iso22000,
+      record.hallazgoDetectado
     ].map((value) => normalizeCellValue(value).toLowerCase()).join(' | ');
 
-    const area = normalizeCellValue(record.areaClasificada);
-    const areaParts = splitAreas(area);
+    const areaParts = splitAreas(record.areaClasificada);
     const tipo = normalizeCellValue(record.tipoDesvio);
     const resultadoClasificado = normalizeCellValue(record.resultadoClasificado);
 
     const matchesSearch = textSearch.includes(searchTerm.toLowerCase());
     const matchesArea = filterArea === 'all' || areaParts.includes(filterArea);
-    const matchesTipo = (() => {
-      if (filterTipo === 'all') return true;
-      if (filterTipo === 'nc') return tipo === 'NC';
-      if (filterTipo === 'conformes') return resultadoClasificado === 'Conforme';
-      if (filterTipo === 'obs') return tipo === 'OBS' || resultadoClasificado === 'Observación';
-      if (filterTipo === 'om') return tipo === 'OM' || resultadoClasificado === 'Oportunidad de mejora';
+    const matchesCategory = (() => {
+      if (activeCategory === 'todos') return true;
+      if (activeCategory === 'nc') return tipo === 'NC';
+      if (activeCategory === 'conformes') return resultadoClasificado === 'Conforme' || tipo === '-';
+      if (activeCategory === 'obs') return tipo === 'OBS';
+      if (activeCategory === 'om') return tipo === 'OM';
       return true;
     })();
 
-    return matchesSearch && matchesArea && matchesTipo;
+    return matchesSearch && matchesArea && matchesCategory;
   });
 
+  const filteredKpis = filteredRecords.reduce((acc, record) => {
+    const tipo = normalizeCellValue(record.tipoDesvio);
+    const resultado = normalizeCellValue(record.resultadoClasificado);
+    if (tipo === 'NC') acc.nc += 1;
+    if (tipo === 'OBS') acc.obs += 1;
+    if (tipo === 'OM') acc.om += 1;
+    if (resultado === 'Conforme' || tipo === '-') acc.conformes += 1;
+    return acc;
+  }, { nc: 0, conformes: 0, obs: 0, om: 0 });
+
   const exportConfigByFilter = {
-    all: { label: 'Exportar todos', fileName: 'analisis_todos.xlsx' },
+    todos: { label: 'Exportar todos', fileName: 'analisis_todos.xlsx' },
     nc: { label: 'Exportar no conformidades', fileName: 'analisis_no_conformidades.xlsx' },
     conformes: { label: 'Exportar conformes', fileName: 'analisis_conformes.xlsx' },
     obs: { label: 'Exportar observaciones', fileName: 'analisis_observaciones.xlsx' },
     om: { label: 'Exportar oportunidades de mejora', fileName: 'analisis_oportunidades_mejora.xlsx' }
   };
-  const activeExportConfig = exportConfigByFilter[filterTipo] || exportConfigByFilter.all;
+  const activeExportConfig = exportConfigByFilter[activeCategory] || exportConfigByFilter.todos;
+
+  const displayedRecords = filteredRecords.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage
+  );
 
   const handleChangePage = (_event, newPage) => {
     setPage(newPage);
@@ -154,11 +190,6 @@ export default function AnalysisResults({
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
-
-  const displayedRecords = filteredRecords.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
 
   const handleShareWhatsApp = async () => {
     const byTipo = filteredRecords.reduce((acc, record) => {
@@ -238,6 +269,27 @@ export default function AnalysisResults({
 
   return (
     <Paper sx={{ p: { xs: 2, md: 2.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)' }}>
+      <Box sx={{ display: { xs: 'block', md: 'none' }, mb: 2 }}>
+        <Tabs
+          value={activeCategory}
+          onChange={(_event, value) => {
+            setActiveCategory(value);
+            setPage(0);
+          }}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+        >
+          {categories.map((category) => (
+            <Tab
+              key={category.key}
+              value={category.key}
+              label={`${category.label} (${countsByCategory[category.key] || 0})`}
+            />
+          ))}
+        </Tabs>
+      </Box>
+
       <Box
         sx={{
           display: 'flex',
@@ -335,150 +387,196 @@ export default function AnalysisResults({
         </Box>
       </Box>
 
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 220px 170px' },
-          gap: 1.5,
-          mb: 2.5
-        }}
-      >
-        <TextField
-          placeholder="Buscar..."
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setPage(0);
+      <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box
+          sx={{
+            display: { xs: 'none', md: 'flex' },
+            flexDirection: 'column',
+            gap: 1,
+            minWidth: 260,
+            backgroundColor: '#111827',
+            borderRadius: 2,
+            p: 1.25,
+            height: 'fit-content'
           }}
-          size="small"
-          fullWidth
-        />
-        <TextField
-          select
-          label="Área clasificada"
-          value={filterArea}
-          onChange={(e) => {
-            setFilterArea(e.target.value);
-            setPage(0);
-          }}
-          size="small"
-          fullWidth
-          SelectProps={{ native: true }}
         >
-          <option value="all">Todas</option>
-          {availableAreas.map((area) => (
-            <option key={area} value={area}>{area}</option>
-          ))}
-        </TextField>
-        <TextField
-          select
-          label="Categoría"
-          value={filterTipo}
-          onChange={(e) => {
-            setFilterTipo(e.target.value);
-            setPage(0);
-          }}
-          size="small"
-          fullWidth
-          SelectProps={{ native: true }}
-        >
-          <option value="all">Todos</option>
-          <option value="nc">No conformidades</option>
-          <option value="conformes">Conformes</option>
-          <option value="obs">Observaciones</option>
-          {hasOm ? <option value="om">Oportunidades de mejora</option> : null}
-        </TextField>
-      </Box>
-
-      <TableContainer sx={{ overflowX: 'auto', backgroundColor: 'transparent' }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Fecha</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Hallazgo detectado</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Área clasificada</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Resultado clasificado</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Tipo desvío</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>ISO 22000</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Acción inmediata</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Acción correctiva</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Estado acción</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Responsable</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Área / Proceso</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Actividad realizada</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {displayedRecords.map((record, index) => (
-              <TableRow
-                key={index}
-                hover
+          {categories.map((category) => {
+            const isActive = activeCategory === category.key;
+            return (
+              <Button
+                key={category.key}
+                onClick={() => {
+                  setActiveCategory(category.key);
+                  setPage(0);
+                }}
                 sx={{
-                  '&:last-child td': { border: 0 },
-                  '&:hover': { backgroundColor: 'rgba(29, 78, 216, 0.025)' }
+                  justifyContent: 'space-between',
+                  color: '#f9fafb',
+                  textTransform: 'none',
+                  borderRadius: 1.5,
+                  px: 1.5,
+                  py: 1,
+                  fontWeight: 600,
+                  backgroundColor: isActive ? 'rgba(59,130,246,0.25)' : 'transparent',
+                  border: isActive ? '1px solid rgba(96,165,250,0.8)' : '1px solid transparent',
+                  '&:hover': { backgroundColor: isActive ? 'rgba(59,130,246,0.30)' : 'rgba(255,255,255,0.08)' }
                 }}
               >
-                <TableCell>{normalizeCellValue(record.fecha)}</TableCell>
-                <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {normalizeCellValue(record.hallazgoDetectado)}
-                </TableCell>
-                <TableCell>{normalizeCellValue(record.areaClasificada)}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={normalizeCellValue(record.resultadoClasificado)}
-                    size="small"
-                    sx={{
-                      backgroundColor: (resultColors[record.resultadoClasificado] || resultColors['No conforme']).bg,
-                      color: (resultColors[record.resultadoClasificado] || resultColors['No conforme']).text
-                    }}
-                  />
-                </TableCell>
-                <TableCell>
-                  {normalizeCellValue(record.tipoDesvio) ? (
-                    <Chip
-                      label={normalizeCellValue(record.tipoDesvio)}
-                      size="small"
-                      sx={{
-                        backgroundColor: (typeColors[record.tipoDesvio] || typeColors.OBS).bg,
-                        color: (typeColors[record.tipoDesvio] || typeColors.OBS).text
-                      }}
-                    />
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">-</Typography>
-                  )}
-                </TableCell>
-                <TableCell sx={{ maxWidth: 260 }}>
-                  <Typography variant="body2">{normalizeCellValue(record.iso22000)}</Typography>
-                </TableCell>
-                <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {normalizeCellValue(record.accionInmediata)}
-                </TableCell>
-                <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {normalizeCellValue(record.accionCorrectiva)}
-                </TableCell>
-                <TableCell>{normalizeCellValue(record.estadoAccion).replace('_', ' ')}</TableCell>
-                <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {normalizeCellValue(record.responsable)}
-                </TableCell>
-                <TableCell>{normalizeCellValue(record.areaProceso)}</TableCell>
-                <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {normalizeCellValue(record.actividadRealizada)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                <span>{category.label}</span>
+                <span>{countsByCategory[category.key] || 0}</span>
+              </Button>
+            );
+          })}
+        </Box>
 
-      <TablePagination
-        rowsPerPageOptions={[5, 10, 25, 50]}
-        component="div"
-        count={filteredRecords.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-      />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 220px' },
+              gap: 1.5,
+              mb: 1.5
+            }}
+          >
+            <TextField
+              placeholder="Buscar..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(0);
+              }}
+              size="small"
+              fullWidth
+            />
+            <TextField
+              select
+              label="Área clasificada"
+              value={filterArea}
+              onChange={(e) => {
+                setFilterArea(e.target.value);
+                setPage(0);
+              }}
+              size="small"
+              fullWidth
+              SelectProps={{ native: true }}
+            >
+              <option value="all">Todas</option>
+              {availableAreas.map((area) => (
+                <option key={area} value={area}>{area}</option>
+              ))}
+            </TextField>
+          </Box>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 1, mb: 2 }}>
+            <Paper sx={{ p: 1.25, backgroundColor: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.2)' }}>
+              <Typography variant="caption" color="text.secondary">NC</Typography>
+              <Typography sx={{ fontWeight: 800 }}>{filteredKpis.nc}</Typography>
+            </Paper>
+            <Paper sx={{ p: 1.25, backgroundColor: 'rgba(22,163,74,0.08)', border: '1px solid rgba(22,163,74,0.2)' }}>
+              <Typography variant="caption" color="text.secondary">Conformes</Typography>
+              <Typography sx={{ fontWeight: 800 }}>{filteredKpis.conformes}</Typography>
+            </Paper>
+            <Paper sx={{ p: 1.25, backgroundColor: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.25)' }}>
+              <Typography variant="caption" color="text.secondary">Observaciones</Typography>
+              <Typography sx={{ fontWeight: 800 }}>{filteredKpis.obs}</Typography>
+            </Paper>
+            <Paper sx={{ p: 1.25, backgroundColor: 'rgba(14,165,233,0.10)', border: '1px solid rgba(14,165,233,0.25)' }}>
+              <Typography variant="caption" color="text.secondary">OM</Typography>
+              <Typography sx={{ fontWeight: 800 }}>{filteredKpis.om}</Typography>
+            </Paper>
+          </Box>
+
+          <TableContainer sx={{ overflowX: 'auto', backgroundColor: 'transparent' }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Fecha</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Hallazgo detectado</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Área clasificada</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Resultado clasificado</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Tipo desvío</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>ISO 22000</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Acción inmediata</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Acción correctiva</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Estado acción</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Responsable</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Área / Proceso</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Actividad realizada</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {displayedRecords.map((record, index) => (
+                  <TableRow
+                    key={index}
+                    hover
+                    sx={{
+                      '&:last-child td': { border: 0 },
+                      '&:hover': { backgroundColor: 'rgba(29, 78, 216, 0.025)' }
+                    }}
+                  >
+                    <TableCell>{normalizeCellValue(record.fecha)}</TableCell>
+                    <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {normalizeCellValue(record.hallazgoDetectado)}
+                    </TableCell>
+                    <TableCell>{normalizeCellValue(record.areaClasificada)}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={normalizeCellValue(record.resultadoClasificado)}
+                        size="small"
+                        sx={{
+                          backgroundColor: (resultColors[record.resultadoClasificado] || resultColors['No conforme']).bg,
+                          color: (resultColors[record.resultadoClasificado] || resultColors['No conforme']).text
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {normalizeCellValue(record.tipoDesvio) ? (
+                        <Chip
+                          label={normalizeCellValue(record.tipoDesvio)}
+                          size="small"
+                          sx={{
+                            backgroundColor: (typeColors[record.tipoDesvio] || typeColors.OBS).bg,
+                            color: (typeColors[record.tipoDesvio] || typeColors.OBS).text
+                          }}
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">-</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 260 }}>
+                      <Typography variant="body2">{normalizeCellValue(record.iso22000)}</Typography>
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {normalizeCellValue(record.accionInmediata)}
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {normalizeCellValue(record.accionCorrectiva)}
+                    </TableCell>
+                    <TableCell>{normalizeCellValue(record.estadoAccion).replace('_', ' ')}</TableCell>
+                    <TableCell sx={{ maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {normalizeCellValue(record.responsable)}
+                    </TableCell>
+                    <TableCell>{normalizeCellValue(record.areaProceso)}</TableCell>
+                    <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {normalizeCellValue(record.actividadRealizada)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            component="div"
+            count={filteredRecords.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </Box>
+      </Box>
     </Paper>
   );
 }
