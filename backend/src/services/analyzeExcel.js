@@ -381,6 +381,22 @@ function sanitizeHallazgo(hallazgo) {
   return cleaned || 'Sin hallazgo detectado';
 }
 
+function removeDuplicateActionChunks(text) {
+  const parts = String(text || '')
+    .split(/[|.;\n]/)
+    .map((part) => normalizeDetectedAction(part).trim())
+    .filter(Boolean);
+  const unique = [];
+  const seen = new Set();
+  parts.forEach((part) => {
+    const norm = normalizeIncidentText(part);
+    if (!norm || seen.has(norm)) return;
+    seen.add(norm);
+    unique.push(part);
+  });
+  return unique.join('. ');
+}
+
 function getHallazgo(row, context = {}) {
   const nota = normalizeCellValue(context.notaTecnica || row?.['Nota técnica'] || '').trim();
   const actividad = normalizeCellValue(context.actividadRealizada || row?.['Actividad realizada'] || '').trim();
@@ -392,7 +408,7 @@ function getHallazgo(row, context = {}) {
   const actividadTieneArea = contieneArea(actividad);
   const esNcODetectado = isNoConformeLike(resultado) || isYesLike(desvio);
   const notaEsEstado = /\b(cumplido|pendiente)\b/i.test(nota);
-  const actividadValidaNoAccion = actividadValida && !isTextoAccion(actividad) && !isGestionSgiaText(actividad);
+  const actividadValidaNoAccion = actividadValida && !esTextoAccion(actividad) && !isGestionSgiaText(actividad);
 
   if (notaEsEstado && actividadValidaNoAccion) return actividad;
 
@@ -1053,7 +1069,6 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
 
 function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoActividad }) {
   const resultadoNorm = normalizeIncidentText(resultado);
-  const tipoActividadNorm = normalizeIncidentText(tipoActividad);
   const resultadoEsConforme = isConformeLike(resultado);
   const resultadoEsNoConforme = isNoConformeLike(resultado);
   const desvioSi = isYesLike(desvio);
@@ -1102,10 +1117,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'renovación',
     'listado actualizado'
   ];
-  const explicitOmSignals = [
-    'oportunidad de mejora',
-    'mejora continua'
-  ];
+  const explicitOmSignals = ['oportunidad de mejora', 'mejora continua'];
   const controlSignals = ['se realiza control', 'se controla', 'orden y limpieza', 'se verifica'];
   const proveedorConformeSignals = ['se realiza contacto con proveedor', 'contacto con proveedor'];
   const hasControlSignal = containsAny(text, controlSignals);
@@ -1118,7 +1130,6 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'se trabaja en revision del sistema documental',
     'se trabaja en revisión del sistema documental'
   ]);
-  const isMejoraContinuaByType = containsAny(tipoActividadNorm, ['mejora continua']);
 
   // Prioridad 1: NC real operativo (override fuerte).
   if (hasRealNcSignal) {
@@ -1146,15 +1157,8 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     };
   }
 
-  // OM solo bajo resultado original Conforme y señal explícita de mejora.
-  if (
-    resultadoEsConforme
-    && (
-      hasExplicitOmSignal
-      || isMejoraContinuaByType
-      || (hasDocSystemWorkSignal && isMejoraContinuaByType)
-    )
-  ) {
+  // OM estricto: solo con texto explícito de mejora.
+  if (resultadoEsConforme && hasExplicitOmSignal) {
     return {
       resultadoClasificado: 'Oportunidad de mejora',
       tipoDesvio: 'OM',
@@ -1241,7 +1245,7 @@ function extractImmediateAction(text) {
     .replace(/\bcalidad\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
-  return cleaned;
+  return removeDuplicateActionChunks(cleaned);
 }
 
 function buildCorrectiveActionFromProblem(text) {
@@ -1293,10 +1297,11 @@ function detectActionScenario(text) {
 }
 
 function buildActions({ resultadoClasificado, text, accionInmediataOriginal, accionCorrectivaOriginal }) {
-  const immediateExisting = normalizeCellValue(accionInmediataOriginal).trim();
+  const immediateExisting = normalizeCellValue(accionInmediataOriginal).replace(/\bcalidad\b/gi, '').trim();
   const correctiveExisting = normalizeCellValue(accionCorrectivaOriginal).trim();
   const scenario = detectActionScenario(text);
   const detectedImmediate = extractImmediateAction(text);
+  const normalizedText = normalizeIncidentText(text);
 
   const byScenario = {
     producto_mal_estado: {
@@ -1347,21 +1352,25 @@ function buildActions({ resultadoClasificado, text, accionInmediataOriginal, acc
 
   if (resultadoClasificado === 'Conforme') {
     return {
-      accionInmediata: immediateExisting || detectedImmediate || '',
+      accionInmediata: removeDuplicateActionChunks(immediateExisting || detectedImmediate || ''),
       accionCorrectiva: ''
     };
   }
 
   if (resultadoClasificado !== 'No conforme') {
     return {
-      accionInmediata: immediateExisting || detectedImmediate || '',
+      accionInmediata: removeDuplicateActionChunks(immediateExisting || detectedImmediate || ''),
       accionCorrectiva: ''
     };
   }
 
+  const specificCorrective = buildCorrectiveActionFromProblem(normalizedText);
+  const correctiveBase = correctiveExisting || specificCorrective || byScenario[scenario].corrective;
+  const immediateBase = immediateExisting || detectedImmediate || byScenario[scenario].immediate;
+
   return {
-    accionInmediata: immediateExisting || detectedImmediate || byScenario[scenario].immediate,
-    accionCorrectiva: correctiveExisting || byScenario[scenario].corrective || buildCorrectiveActionFromProblem(text)
+    accionInmediata: removeDuplicateActionChunks(immediateBase),
+    accionCorrectiva: removeDuplicateActionChunks(correctiveBase)
   };
 }
 

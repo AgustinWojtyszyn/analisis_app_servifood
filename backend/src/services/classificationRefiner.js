@@ -116,6 +116,22 @@ function isGenericAction(value) {
   ]) && text.length < 80;
 }
 
+function dedupeActionText(value) {
+  const chunks = String(value || '')
+    .split(/[|.;\n]/)
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+  const unique = [];
+  const seen = new Set();
+  chunks.forEach((chunk) => {
+    const norm = normalizeText(chunk);
+    if (!norm || seen.has(norm)) return;
+    seen.add(norm);
+    unique.push(chunk);
+  });
+  return unique.join('. ');
+}
+
 function classifyArea(text, preDetectedArea = '') {
   const exact = detectExactLocations(text);
   if (exact.cameraLocations.length > 0) return exact.cameraLocations.join(' / ');
@@ -318,17 +334,7 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     'renovacion',
     'listado actualizado'
   ];
-  const explicitOmSignals = [
-    'oportunidad de mejora',
-    'mejora continua',
-    'propuesta de mejora',
-    'optimizar',
-    'implementar mejora',
-    'fortalecer el sistema',
-    'actualizar procedimiento para mejorar',
-    'incorporar mejora preventiva'
-  ];
-  const tipoActividad = normalizeText(context?.tipoActividad || '');
+  const explicitOmSignals = ['oportunidad de mejora', 'mejora continua'];
   const resultadoOriginal = context?.resultadoOriginal || '';
   const resultadoOriginalNorm = normalizeText(resultadoOriginal);
   const resultadoEsConforme = isConformeLike(resultadoOriginal);
@@ -341,7 +347,7 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     'se trabaja en revision del sistema de gestion documental',
     'se trabaja en revision del sistema documental'
   ]);
-  const isMejoraContinuaByType = includesAny(tipoActividad, ['mejora continua']);
+  const hasProveedorConformeSignal = includesAny(text, ['se realiza contacto con proveedor', 'contacto con proveedor']);
   const hasRealNcSignal = includesAny(text, realNcSignals)
     || /\bno se\s+registro\b/.test(text)
     || /\bno se\s+registra\b/.test(text)
@@ -366,19 +372,16 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     };
   }
 
+  if (hasControlSignal || hasProveedorConformeSignal) {
+    return { resultadoFinal: 'Conforme', tipoFinal: '-', reason: hasProveedorConformeSignal ? 'gestion con proveedor sin problema explicito' : 'control operativo sin error' };
+  }
+
   // Prioridad 2: resultado reportado en Excel.
   if (resultadoEsNoConforme || desvioOriginalSi) {
     return { resultadoFinal: 'No conforme', tipoFinal: 'NC', reason: desvioOriginalSi ? 'desvio original marcado' : 'resultado original no conforme' };
   }
 
-  if (
-    resultadoEsConforme
-    && (
-      hasExplicitOmSignal
-      || isMejoraContinuaByType
-      || (hasDocSystemWorkSignal && isMejoraContinuaByType)
-    )
-  ) {
+  if (resultadoEsConforme && hasExplicitOmSignal) {
     return { resultadoFinal: 'Oportunidad de mejora', tipoFinal: 'OM', reason: 'mejora explicita del sistema' };
   }
 
@@ -449,6 +452,7 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
 
 function classifyIso(text, areaFinal, resultadoFinal, preDetectedIso = '') {
   if (!text) return preDetectedIso || 'Sin clasificar';
+  if (includesAny(text, ['cebos', 'plagas', 'exterior'])) return '8.2 Programas prerrequisito / POES / BPM';
   if (includesAny(text, ['auditoria interna', 'auditoria', 'cumplimiento bajo'])) return '9.2 Auditoría interna';
   if (includesAny(text, ['capacitacion', 'competencia', 'formacion', 'entrenamiento', 'curso', 'manual de manipuladores', 'manual de manipulador'])) return '7.2 Competencia / capacitación';
   if (includesAny(text, ['registro', 'planilla', 'falta de firma', 'documentacion', 'drive'])) return '7.5 Información documentada';
@@ -528,8 +532,8 @@ function buildActions(text, resultadoFinal, accionInmediataDetectada, accionCorr
 
   if (resultadoFinal === 'Conforme') {
     return {
-      accionInmediataFinal: accionInmediataDetectada || 'Sin accion inmediata requerida.',
-      accionCorrectivaFinal: accionCorrectivaDetectada || 'Sin accion correctiva requerida.'
+      accionInmediataFinal: dedupeActionText(String(accionInmediataDetectada || '').replace(/\bcalidad\b/gi, '').trim()),
+      accionCorrectivaFinal: ''
     };
   }
 
@@ -537,9 +541,19 @@ function buildActions(text, resultadoFinal, accionInmediataDetectada, accionCorr
   const keepImmediate = accionInmediataDetectada && !isGenericAction(accionInmediataDetectada);
   const keepCorrective = accionCorrectivaDetectada && !isGenericAction(accionCorrectivaDetectada);
 
+  const correctiveFromProblem = (() => {
+    if (includesAny(text, ['falta registro', 'registro incompleto', 'sin registro', 'planilla'])) return 'Implementar control diario de registros.';
+    if (includesAny(text, ['temperatura', 'camara', 'conservacion', 'fuera de'])) return 'Implementar monitoreo diario de temperatura y verificación por turno.';
+    if (includesAny(text, ['sucio', 'limpieza', 'poes', 'plagas', 'cebos'])) return 'Reforzar POES con checklist diario y verificación de cierre.';
+    if (includesAny(text, ['mal estado', 'vencido'])) return 'Reforzar control de recepción y segregación de producto no conforme.';
+    if (includesAny(text, ['no funciona', 'falla', 'equipo'])) return 'Programar mantenimiento correctivo y control de funcionamiento previo al uso.';
+    if (includesAny(text, ['faltante'])) return 'Implementar doble verificación diaria de stock y despacho.';
+    return 'Definir acción correctiva específica según causa raíz del incumplimiento.';
+  })();
+
   return {
-    accionInmediataFinal: keepImmediate ? accionInmediataDetectada : templates[scenario].inmediata,
-    accionCorrectivaFinal: keepCorrective ? accionCorrectivaDetectada : templates[scenario].correctiva
+    accionInmediataFinal: dedupeActionText((keepImmediate ? accionInmediataDetectada : templates[scenario].inmediata || '').replace(/\bcalidad\b/gi, '').trim()),
+    accionCorrectivaFinal: dedupeActionText((keepCorrective ? accionCorrectivaDetectada : correctiveFromProblem || templates[scenario].correctiva || '').trim())
   };
 }
 
@@ -594,8 +608,8 @@ export function refinePreClassification(input) {
     resultadoFinal: resultadoFinal || 'Revisar manualmente',
     tipoFinal: tipoFinal || '-',
     isoFinal: isoFinal || 'Sin clasificar',
-    accionInmediataFinal: actions.accionInmediataFinal || 'Contener el evento y registrar evidencia.',
-    accionCorrectivaFinal: actions.accionCorrectivaFinal || 'Definir accion correctiva con causa raiz.',
+    accionInmediataFinal: actions.accionInmediataFinal || '',
+    accionCorrectivaFinal: actions.accionCorrectivaFinal || '',
     cambioRealizado,
     explicacion,
     confianza

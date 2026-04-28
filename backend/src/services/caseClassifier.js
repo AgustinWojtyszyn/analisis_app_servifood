@@ -172,6 +172,8 @@ function classifyCaseArea(consolidatedText, rows = []) {
 
 function classifyCaseOutcome(consolidatedText) {
   const text = normalizeText(consolidatedText);
+  const controlSignals = ['se realiza control', 'se controla', 'orden y limpieza', 'se verifica'];
+  const proveedorConformeSignals = ['se realiza contacto con proveedor', 'contacto con proveedor'];
 
   const nc = includesAny(text, [
     'mal estado', 'devolucion', 'faltante', 'demora', 'falla', 'fallando',
@@ -182,16 +184,13 @@ function classifyCaseOutcome(consolidatedText) {
   ]);
   if (nc) return { resultadoClasificado: 'No conforme', tipoDesvio: 'NC' };
 
+  if (includesAny(text, controlSignals) || includesAny(text, proveedorConformeSignals)) {
+    return { resultadoClasificado: 'Conforme', tipoDesvio: '-' };
+  }
+
   const om = includesAny(text, [
-    'se trabaja en analisis de peligros',
-    'se trabaja en estudio de riesgos',
-    'se coordina capacitacion',
-    'se coordina simulacro',
-    'se trabaja en revision del sistema documental',
-    'se elabora manual para curso',
-    'se elabora y entrega manual',
-    'mejora',
-    'prevencion'
+    'oportunidad de mejora',
+    'mejora continua'
   ]);
   if (om) return { resultadoClasificado: 'Oportunidad de mejora', tipoDesvio: 'OM' };
 
@@ -211,6 +210,7 @@ function classifyCaseOutcome(consolidatedText) {
 
 function classifyCaseIso(consolidatedText) {
   const text = normalizeText(consolidatedText);
+  if (includesAny(text, ['cebos', 'plagas', 'exterior'])) return '8.2 Programas prerrequisito / POES / BPM';
   if (includesAny(text, ['auditoria interna', 'auditoria'])) return '9.2 Auditoría interna';
   if (includesAny(text, ['capacitacion', 'competencia', 'formacion'])) return '7.2 Competencia / capacitación';
   if (includesAny(text, ['registro', 'registros', 'planilla', 'documentacion', 'falta de firma'])) return '7.5 Información documentada';
@@ -238,8 +238,8 @@ function detectCaseScenario(consolidatedText) {
 function buildCaseActions(consolidatedText, resultadoClasificado) {
   if (resultadoClasificado === 'Conforme') {
     return {
-      accionInmediata: 'Mantener el control operativo y registrar conformidad.',
-      accionCorrectiva: 'No requiere acción correctiva; sostener el estándar actual.'
+      accionInmediata: '',
+      accionCorrectiva: ''
     };
   }
 
