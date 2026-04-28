@@ -599,9 +599,17 @@ export function refinePreClassification(input) {
     resultadoOriginal: input?.resultadoOriginal || '',
     desvioOriginal: input?.desvioOriginal || ''
   });
-  const resultadoFinal = outcome.resultadoFinal;
-  const tipoFinal = outcome.tipoFinal;
-  const isoFinal = classifyIso(text, areaFinal, resultadoFinal, input?.isoDetectado || '');
+  const hasResultadoDetectado = Boolean(normalizeText(input?.resultadoDetectado || ''));
+  const hasTipoDetectado = Boolean(normalizeText(input?.tipoDetectado || ''));
+  const hasIsoDetectado = Boolean(normalizeText(input?.isoDetectado || ''));
+
+  const resultadoComputed = outcome.resultadoFinal;
+  const tipoComputed = outcome.tipoFinal;
+  const resultadoFinal = hasResultadoDetectado ? input?.resultadoDetectado : resultadoComputed;
+  const tipoFinal = hasTipoDetectado ? input?.tipoDetectado : tipoComputed;
+
+  const isoComputed = classifyIso(text, areaFinal, resultadoComputed, input?.isoDetectado || '');
+  const isoFinal = hasIsoDetectado ? input?.isoDetectado : isoComputed;
   const actions = buildActions(
     text,
     resultadoFinal,
