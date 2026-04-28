@@ -105,7 +105,7 @@ export default function AnalysisResults({
   }
 
   const availableAreas = [...new Set(records.flatMap((record) => splitAreas(record.areaClasificada)).filter(Boolean))];
-  const availableTipos = [...new Set(records.map((record) => normalizeCellValue(record.tipoDesvio)).filter(Boolean))];
+  const hasOm = records.some((record) => normalizeCellValue(record.tipoDesvio) === 'OM');
 
   const filteredRecords = records.filter((record) => {
     const textSearch = [
@@ -121,13 +121,30 @@ export default function AnalysisResults({
     const area = normalizeCellValue(record.areaClasificada);
     const areaParts = splitAreas(area);
     const tipo = normalizeCellValue(record.tipoDesvio);
+    const resultadoClasificado = normalizeCellValue(record.resultadoClasificado);
 
     const matchesSearch = textSearch.includes(searchTerm.toLowerCase());
     const matchesArea = filterArea === 'all' || areaParts.includes(filterArea);
-    const matchesTipo = filterTipo === 'all' || tipo === filterTipo;
+    const matchesTipo = (() => {
+      if (filterTipo === 'all') return true;
+      if (filterTipo === 'nc') return tipo === 'NC';
+      if (filterTipo === 'conformes') return resultadoClasificado === 'Conforme';
+      if (filterTipo === 'obs') return tipo === 'OBS' || resultadoClasificado === 'Observación';
+      if (filterTipo === 'om') return tipo === 'OM' || resultadoClasificado === 'Oportunidad de mejora';
+      return true;
+    })();
 
     return matchesSearch && matchesArea && matchesTipo;
   });
+
+  const exportConfigByFilter = {
+    all: { label: 'Exportar todos', fileName: 'analisis_todos.xlsx' },
+    nc: { label: 'Exportar no conformidades', fileName: 'analisis_no_conformidades.xlsx' },
+    conformes: { label: 'Exportar conformes', fileName: 'analisis_conformes.xlsx' },
+    obs: { label: 'Exportar observaciones', fileName: 'analisis_observaciones.xlsx' },
+    om: { label: 'Exportar oportunidades de mejora', fileName: 'analisis_oportunidades_mejora.xlsx' }
+  };
+  const activeExportConfig = exportConfigByFilter[filterTipo] || exportConfigByFilter.all;
 
   const handleChangePage = (_event, newPage) => {
     setPage(newPage);
@@ -197,7 +214,7 @@ export default function AnalysisResults({
     const sheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, 'Resultados');
-    XLSX.writeFile(workbook, `analysis-${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(workbook, activeExportConfig.fileName);
 
     resetLocalState();
     await onExportSuccess?.(analysisId);
@@ -264,6 +281,7 @@ export default function AnalysisResults({
           <Button
             variant="contained"
             onClick={handleExportExcel}
+            disabled={filteredRecords.length === 0}
             size="small"
             sx={{
               backgroundColor: '#1d6f42',
@@ -279,11 +297,16 @@ export default function AnalysisResults({
                 backgroundColor: '#155c36',
                 boxShadow: '0 6px 12px rgba(21, 92, 54, 0.32)',
                 transform: 'translateY(-1px)'
+              },
+              '&.Mui-disabled': {
+                backgroundColor: '#9ca3af',
+                color: '#f3f4f6',
+                boxShadow: 'none'
               }
             }}
           >
             <img src={excelIcon} alt="" width={16} height={16} />
-            Exportar Excel
+            {activeExportConfig.label}
           </Button>
           <Button
             variant="contained"
@@ -349,7 +372,7 @@ export default function AnalysisResults({
         </TextField>
         <TextField
           select
-          label="Tipo desvío"
+          label="Categoría"
           value={filterTipo}
           onChange={(e) => {
             setFilterTipo(e.target.value);
@@ -360,9 +383,10 @@ export default function AnalysisResults({
           SelectProps={{ native: true }}
         >
           <option value="all">Todos</option>
-          {availableTipos.map((tipo) => (
-            <option key={tipo} value={tipo}>{tipo}</option>
-          ))}
+          <option value="nc">No conformidades</option>
+          <option value="conformes">Conformes</option>
+          <option value="obs">Observaciones</option>
+          {hasOm ? <option value="om">Oportunidades de mejora</option> : null}
         </TextField>
       </Box>
 
