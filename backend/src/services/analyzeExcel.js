@@ -1419,6 +1419,19 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
   return 'Revisar manualmente';
 }
 
+function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadRealizada, areaClasificada, resultadoClasificado }) {
+  if (normalizeIncidentText(iso22000) && normalizeIncidentText(iso22000) !== 'revisar manualmente') return iso22000;
+  const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada, areaClasificada].join(' | '));
+  if (!text) return 'Revisar manualmente';
+  if (containsAny(text, ['falta de personal', 'falto personal', 'faltó personal', 'ausencia de personal', 'sin personal'])) return '7.1 Recursos';
+  if (containsAny(text, ['equipo fallando', 'robocoupe fallando', 'no funciona equipo', 'no funciona', 'fallando'])) return '7.1 Recursos';
+  if (containsAny(text, ['mal estado', 'ensalada', 'ensaladas', 'tomate'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
+  if (containsAny(text, ['sucio', 'suciedad', 'sin limpiar', 'limpieza', 'agua caliente', 'bachas', 'sanitiza', 'sanitizacion', 'plagas', 'cebos', 'cucarachas'])) {
+    return '8.2 Programas prerrequisito / POES / BPM';
+  }
+  return 'Revisar manualmente';
+}
+
 function extractImmediateAction(text) {
   const source = normalizeCellValue(text).trim();
   if (!source) return '';
@@ -2024,6 +2037,13 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       if (normalizeCellValue(rawRecord.iso22000Original).trim()) {
         iso22000 = normalizeCellValue(rawRecord.iso22000Original).trim();
       }
+      iso22000 = resolveIsoWithContextFallback({
+        iso22000,
+        hallazgoDetectado: rawRecord.hallazgoDetectado,
+        actividadRealizada: rawRecord.actividadRealizada,
+        areaClasificada,
+        resultadoClasificado
+      });
 
       const actions = buildActions({
         resultadoClasificado,
