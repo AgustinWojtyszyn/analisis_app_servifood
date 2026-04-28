@@ -1218,6 +1218,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   const text = normalizeIncidentText(descripcionDetectada || '');
   const isSinHallazgoText = text === 'sin hallazgo detectado';
   const detectionLeadSignals = ['se detecta', 'se encuentran', 'se observa'];
+  const technicalMentionSignals = ['registro de temperatura', 'registro', 'camaras', 'cámaras', 'heladeras', 'heladera', 'control', 'verificacion', 'verificación', 'temperatura', 'af', 'ac'];
 
   const realNcSignals = [
     'cebos',
@@ -1270,6 +1271,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     || /\bvencido(s)?\b/.test(text);
   const hasActionSignal = containsAny(text, actionSignals);
   const hasDetectionLeadSignal = containsAny(text, detectionLeadSignals);
+  const hasTechnicalMentionSignal = containsAny(text, technicalMentionSignals);
   const adminNeutralSignals = [
     'cumplido',
     'se solicita',
@@ -1315,6 +1317,14 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
       resultadoClasificado: 'No conforme',
       tipoDesvio: 'NC',
       reason: 'detección explícita de problema real'
+    };
+  }
+
+  if (hasTechnicalMentionSignal && !hasRealNcSignal && !resultadoEsNoConforme && !desvioSi) {
+    return {
+      resultadoClasificado: 'Conforme',
+      tipoDesvio: '-',
+      reason: 'mención técnica/control sin problema explícito'
     };
   }
 
@@ -1430,6 +1440,9 @@ function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadR
   if (normalizeIncidentText(iso22000) && normalizeIncidentText(iso22000) !== 'revisar manualmente') return iso22000;
   const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
+  if (containsAny(text, ['drive', 'documentacion', 'documentación', 'respaldo', 'informacion disponible', 'información disponible', 'registro', 'planilla'])) {
+    return '7.5 Información documentada';
+  }
   if (containsAny(text, ['falta de personal', 'falto personal', 'faltó personal', 'ausencia de personal', 'sin personal'])) return '7.1 Recursos';
   if (containsAny(text, ['equipo fallando', 'robocoupe fallando', 'no funciona equipo', 'no funciona', 'fallando'])) return '7.1 Recursos';
   if (containsAny(text, ['mal estado', 'ensalada', 'ensaladas', 'tomate'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
