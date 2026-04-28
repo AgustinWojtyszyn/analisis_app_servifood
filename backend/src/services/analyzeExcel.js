@@ -439,6 +439,12 @@ function applyOperationalOverrides({ hallazgoDetectado, areaClasificada, resulta
     tipoFinal = 'NC';
   }
 
+  if (containsAny(hallazgoText, ['cucarachas', 'plagas', 'cebos'])) {
+    resultadoFinal = 'No conforme';
+    tipoFinal = 'NC';
+    isoFinal = '8.2 Programas prerrequisito / POES / BPM';
+  }
+
   if (containsAny(hallazgoText, ['fallando', 'no funciona', 'no hay agua caliente'])) {
     resultadoFinal = 'No conforme';
     tipoFinal = 'NC';
@@ -1164,10 +1170,13 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   const desvioSi = isYesLike(desvio);
   const desvioNo = isNoLike(desvio);
   const text = normalizeIncidentText(descripcionDetectada || '');
+  const isSinHallazgoText = text === 'sin hallazgo detectado';
+  const detectionLeadSignals = ['se detecta', 'se encuentran', 'se observa'];
 
   const realNcSignals = [
     'cebos',
     'plagas',
+    'cucarachas',
     'falta',
     'faltante',
     'incompleto',
@@ -1209,6 +1218,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     || /\bsucio(s)?\b/.test(text)
     || /\bvencido(s)?\b/.test(text);
   const hasActionSignal = containsAny(text, actionSignals);
+  const hasDetectionLeadSignal = containsAny(text, detectionLeadSignals);
   const adminNeutralSignals = [
     'cumplido',
     'se solicita',
@@ -1240,6 +1250,22 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'se trabaja en revision del sistema documental',
     'se trabaja en revisión del sistema documental'
   ]);
+
+  if (isSinHallazgoText) {
+    return {
+      resultadoClasificado: 'Revisar manualmente',
+      tipoDesvio: '-',
+      reason: 'texto explícito sin hallazgo'
+    };
+  }
+
+  if (hasDetectionLeadSignal && hasRealNcSignal) {
+    return {
+      resultadoClasificado: 'No conforme',
+      tipoDesvio: 'NC',
+      reason: 'detección explícita de problema real'
+    };
+  }
 
   // Prioridad 1: NC real operativo (override fuerte).
   if (hasRealNcSignal) {

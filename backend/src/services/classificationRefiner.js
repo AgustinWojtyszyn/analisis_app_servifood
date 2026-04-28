@@ -254,6 +254,8 @@ function classifyArea(text, preDetectedArea = '') {
 }
 
 function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', context = {}) {
+  const isSinHallazgoText = text === 'sin hallazgo detectado';
+  const detectionLeadSignals = ['se detecta', 'se encuentran', 'se observa'];
   if (!text) {
     const resultadoOriginalNorm = normalizeText(context?.resultadoOriginal || '');
     const desvioOriginalSi = isYesLike(context?.desvioOriginal || '');
@@ -290,6 +292,7 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
   const realNcSignals = [
     'cebos',
     'plagas',
+    'cucarachas',
     'falta registro',
     'registro incompleto',
     'no se registro',
@@ -324,6 +327,7 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     'se pasa a'
   ];
   const hasControlSignal = includesAny(text, controlSignals);
+  const hasDetectionLeadSignal = includesAny(text, detectionLeadSignals);
   const adminNeutralSignals = [
     'cumplido',
     'se solicita',
@@ -368,6 +372,14 @@ function classifyOutcome(text, preDetectedResult = '', preDetectedType = '', con
     || /\bfuera\s+de\s+uso\b/.test(text)
     || /\bno\s+disponen?\b/.test(text);
   const hasActionSignal = includesAny(text, actionSignals);
+
+  if (isSinHallazgoText) {
+    return { resultadoFinal: 'Revisar manualmente', tipoFinal: '-', reason: 'texto explícito sin hallazgo' };
+  }
+
+  if (hasDetectionLeadSignal && hasRealNcSignal) {
+    return { resultadoFinal: 'No conforme', tipoFinal: 'NC', reason: 'detección explícita de problema real' };
+  }
 
   // Prioridad 1: NC real operativo (override fuerte).
   if (hasRealNcSignal) {

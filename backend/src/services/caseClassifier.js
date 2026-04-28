@@ -172,11 +172,12 @@ function classifyCaseArea(consolidatedText, rows = []) {
 
 function classifyCaseOutcome(consolidatedText) {
   const text = normalizeText(consolidatedText);
+  if (text === 'sin hallazgo detectado') return { resultadoClasificado: 'Revisar manualmente', tipoDesvio: '-' };
   const controlSignals = ['se realiza control', 'se controla', 'orden y limpieza', 'se verifica'];
   const proveedorConformeSignals = ['se realiza contacto con proveedor', 'contacto con proveedor'];
 
   const nc = includesAny(text, [
-    'cebos', 'plagas',
+    'cebos', 'plagas', 'cucarachas',
     'mal estado', 'devolucion', 'faltante', 'demora', 'falla', 'fallando',
     'faltaron almuerzos',
     'sucio', 'suciedad', 'contaminacion', 'restos de carne', 'incompleto',
