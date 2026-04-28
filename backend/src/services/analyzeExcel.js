@@ -1572,6 +1572,49 @@ function composeAreaClasificada({ areaProcesoOriginal, areaOperativaDetectada })
   return 'Área no identificada';
 }
 
+function normalizeBrunoArea(areaValue, contextText = '') {
+  const raw = normalizeCellValue(areaValue || '').trim();
+  const area = normalizeIncidentText(raw);
+  const context = normalizeIncidentText(contextText || '');
+  if (!area || containsAny(area, ['n/a', 'na', 'sin area', 'sin sector', 'no aplica'])) return '';
+
+  if (containsAny(area, ['areas comunes', 'áreas comunes'])) return 'Áreas comunes';
+  if (containsAny(area, ['zona fria', 'área fria', 'area fria'])) return 'Área fría';
+  if (containsAny(area, ['zona caliente', 'área caliente', 'area caliente'])) return 'Área caliente';
+  if (containsAny(area, ['area lavadero', 'lavadero'])) return 'Lavadero';
+  if (containsAny(area, ['deposito', 'depósito'])) return 'Depósito';
+  if (containsAny(area, ['vestuarios', 'banos', 'baños', 'vestuarios/baños'])) return 'Baños';
+  if (containsAny(area, ['area residuos', 'área residuos', 'residuos'])) return 'Área de residuos';
+  if (containsAny(area, ['area pre elaborado', 'pre elaborado', 'preelaborado'])) return 'Área de pre elaborados';
+  if (containsAny(area, ['logistica', 'logística'])) return 'Logística / Distribución';
+  if (containsAny(area, ['callia'])) return 'Logística / Cliente externo';
+  if (containsAny(area, ['comedor'])) return 'Comedor';
+  if (containsAny(area, ['armarios', 'armario'])) {
+    if (containsAny(`${area} ${context}`, ['armario de banos', 'armario de baños', 'baños'])) return 'Baños';
+    return 'Áreas comunes';
+  }
+  if (containsAny(area, ['camaras 1 y 2', 'cámaras 1 y 2'])) return 'Cámara 1 / Cámara 2';
+  if (containsAny(area, ['camaras 3,4,5,6', 'cámaras 3,4,5,6', 'camaras 3 4 5 6', 'cámaras 3 4 5 6'])) {
+    return 'Cámara 3 / Cámara 4 / Cámara 5 / Cámara 6';
+  }
+  const cameraNumbers = [...new Set((area.match(/\b[1-6]\b/g) || []))];
+  if (containsAny(area, ['camara', 'cámara']) && cameraNumbers.length > 0) {
+    return cameraNumbers.map((n) => `Cámara ${n}`).join(' / ');
+  }
+
+  return '';
+}
+
+function parseOriginalTipoDesvio(value) {
+  const text = normalizeIncidentText(value || '');
+  if (!text) return '';
+  if (containsAny(text, ['n/a', 'na'])) return 'NA';
+  if (containsAny(text, ['no conforme', 'nc'])) return 'NC';
+  if (containsAny(text, ['obs', 'observacion', 'observación'])) return 'OBS';
+  if (containsAny(text, ['om', 'oportunidad de mejora'])) return 'OM';
+  return '';
+}
+
 function shouldRefineWithExpert({
   confianza,
   areaClasificada,
@@ -1688,8 +1731,12 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       const areaProceso = getRowValueByCandidates(row, rowKeyMap, [
         'Área / Proceso',
         'Area / Proceso',
+        'Área / Sector',
+        'Area / Sector',
         'Área/Proceso',
-        'Area/Proceso'
+        'Area/Proceso',
+        'Sector',
+        'Area'
       ]) || normalizeCellValue(getValue(headerIndexes.areaProceso, 2));
 
       const resultado = getRowValueByCandidates(row, rowKeyMap, [
@@ -1737,6 +1784,9 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         observaciones: normalizeCellValue(getValue(headerIndexes.observaciones, 11)),
         accionInmediata: normalizeCellValue(getValue(headerIndexes.accionInmediata, 12)),
         accionCorrectiva: normalizeCellValue(getValue(headerIndexes.accionCorrectiva, 13)),
+        responsableOriginal: getRowValueByCandidates(row, rowKeyMap, ['Responsable', 'Responsable asignado']) || '',
+        iso22000Original: getRowValueByCandidates(row, rowKeyMap, ['ISO 22000', 'Iso 22000', 'ISO', 'Clausula ISO', 'Cláusula ISO']) || '',
+        tipoDesvioOriginal: getRowValueByCandidates(row, rowKeyMap, ['Tipo desvio', 'Tipo desvío', 'Tipo', 'Clasificación', 'Clasificacion']) || '',
         textoBase: actividadRealizada,
         hallazgoDetectado: getTextoHallazgo(row, {
           actividadRealizada,
@@ -1746,6 +1796,15 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         }),
         accionDetectada
       };
+      rawRecord.accionInmediata = rawRecord.accionInmediata || getRowValueByCandidates(row, rowKeyMap, ['Acción inmediata', 'Accion inmediata']) || '';
+      rawRecord.accionCorrectiva = rawRecord.accionCorrectiva || getRowValueByCandidates(row, rowKeyMap, [
+        'Acción Correctiva Propuesta',
+        'Accion Correctiva Propuesta',
+        'Acción correctiva propuesta',
+        'Accion correctiva propuesta',
+        'Acción correctiva',
+        'Accion correctiva'
+      ]) || '';
 
       const actividadLimpia = normalizeCellValue(rawRecord.actividadRealizada).trim();
       const notaLimpia = normalizeCellValue(rawRecord.notaTecnica).trim();
@@ -1768,6 +1827,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         actividadRealizada: rawRecord.actividadRealizada,
         hallazgoDetectado: rawRecord.hallazgoDetectado
       });
+      const explicitAreaFromExcel = normalizeBrunoArea(rawRecord.areaProceso, textForClassification);
 
       let areaResult = detectAreasFromDescription(textForClassification, rawRecord.areaProceso);
       let areaClasificada = areaResult.areas.join(', ');
@@ -1784,6 +1844,10 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         resultadoClasificado,
         actividadRealizada: rawRecord.actividadRealizada
       });
+      if (explicitAreaFromExcel) {
+        areaClasificada = explicitAreaFromExcel;
+        areaEvidence = ['área/sector explícito informado en Excel'];
+      }
 
       if (hallazgoSinInfo) {
         const actividadUtil = normalizeCellValue(rawRecord.actividadRealizada).trim();
@@ -1833,6 +1897,27 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       resultadoClasificado = operationalOverride.resultadoClasificado;
       tipoDesvio = operationalOverride.tipoDesvio;
       iso22000 = operationalOverride.iso22000;
+      if (explicitAreaFromExcel) {
+        areaClasificada = explicitAreaFromExcel;
+      }
+
+      const tipoOriginal = parseOriginalTipoDesvio(rawRecord.tipoDesvioOriginal || rawRecord.resultado);
+      if (tipoOriginal === 'NC') {
+        resultadoClasificado = 'No conforme';
+        tipoDesvio = 'NC';
+      } else if (tipoOriginal === 'OBS') {
+        resultadoClasificado = 'Observación';
+        tipoDesvio = 'OBS';
+      } else if (tipoOriginal === 'OM') {
+        resultadoClasificado = 'Oportunidad de mejora';
+        tipoDesvio = 'OM';
+      } else if (tipoOriginal === 'NA') {
+        resultadoClasificado = 'Conforme';
+        tipoDesvio = '-';
+      }
+      if (normalizeCellValue(rawRecord.iso22000Original).trim()) {
+        iso22000 = normalizeCellValue(rawRecord.iso22000Original).trim();
+      }
 
       const actions = buildActions({
         resultadoClasificado,
@@ -1899,7 +1984,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         areaProcesoOriginal: rawRecord.areaProceso,
         areaOperativaDetectada: areaOperativaClasificada
       });
-      const responsable = classifyResponsibleByArea(areaClasificadaFinal);
+      const responsable = normalizeCellValue(rawRecord.responsableOriginal).trim() || classifyResponsibleByArea(areaClasificadaFinal);
 
       const estadoAccion = classifyActionStatusFromRow({
         actividadRealizada: rawRecord.actividadRealizada,
