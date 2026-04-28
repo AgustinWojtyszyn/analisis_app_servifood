@@ -373,7 +373,12 @@ function sanitizeHallazgo(hallazgo) {
   const value = normalizeCellValue(hallazgo || '').trim();
   if (!value || isTextoNoValidoHallazgo(value)) return 'Sin hallazgo detectado';
   if (isGestionSgiaText(value)) return 'Sin hallazgo detectado';
-  return value;
+  const cleaned = value
+    .replace(/\bcumplido\b/gi, '')
+    .replace(/\bpendiente\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || 'Sin hallazgo detectado';
 }
 
 function getHallazgo(row, context = {}) {
@@ -386,6 +391,10 @@ function getHallazgo(row, context = {}) {
   const notaTieneArea = contieneArea(nota);
   const actividadTieneArea = contieneArea(actividad);
   const esNcODetectado = isNoConformeLike(resultado) || isYesLike(desvio);
+  const notaEsEstado = /\b(cumplido|pendiente)\b/i.test(nota);
+  const actividadValidaNoAccion = actividadValida && !isTextoAccion(actividad) && !isGestionSgiaText(actividad);
+
+  if (notaEsEstado && actividadValidaNoAccion) return actividad;
 
   // PRIORIDAD 1: texto que contiene área real
   if (actividadValida && actividadTieneArea && !isGestionSgiaText(actividad)) return actividad;
@@ -1095,9 +1104,12 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   ];
   const explicitOmSignals = [
     'oportunidad de mejora',
-    'mejora continua',
-    'propuesta de mejora'
+    'mejora continua'
   ];
+  const controlSignals = ['se realiza control', 'se controla', 'orden y limpieza', 'se verifica'];
+  const proveedorConformeSignals = ['se realiza contacto con proveedor', 'contacto con proveedor'];
+  const hasControlSignal = containsAny(text, controlSignals);
+  const hasProveedorConformeSignal = containsAny(text, proveedorConformeSignals);
   const hasAdminNeutralSignal = containsAny(text, adminNeutralSignals);
   const hasExplicitOmSignal = containsAny(text, explicitOmSignals);
   const hasDocSystemWorkSignal = containsAny(text, [
@@ -1114,6 +1126,14 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
       resultadoClasificado: 'No conforme',
       tipoDesvio: 'NC',
       reason: 'override por desvio operativo real'
+    };
+  }
+
+  if (hasControlSignal || hasProveedorConformeSignal) {
+    return {
+      resultadoClasificado: 'Conforme',
+      tipoDesvio: '-',
+      reason: hasProveedorConformeSignal ? 'gestion con proveedor sin problema explicito' : 'control operativo sin error'
     };
   }
 
@@ -1197,6 +1217,7 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
   const text = normalizeIncidentText([descripcionDetectada, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
 
+  if (containsAny(text, ['cebos', 'plagas', 'exterior'])) return '8.2 Programas prerrequisito / POES / BPM';
   if (containsAny(text, ['no conformidad', 'accion correctiva'])) return '10.2 No conformidad y accion correctiva';
   if (containsAny(text, ['auditoria'])) return '9.2 Auditoría interna';
   if (containsAny(text, ['capacitacion', 'curso', 'formacion'])) return '7.2 Competencia / capacitación';
@@ -1215,7 +1236,34 @@ function extractImmediateAction(text) {
   const sentences = source.split(/[.\n;]/).map((part) => part.trim()).filter(Boolean);
   const trigger = ['se solicita', 'se realiza', 'se coordina', 'se entrega', 'se implementa'];
   const matched = sentences.find((sentence) => containsAny(normalizeIncidentText(sentence), trigger));
-  return matched || '';
+  if (!matched) return '';
+  const cleaned = normalizeDetectedAction(matched)
+    .replace(/\bcalidad\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned;
+}
+
+function buildCorrectiveActionFromProblem(text) {
+  if (containsAny(text, ['falta registro', 'registro incompleto', 'sin registro', 'planilla'])) {
+    return 'Implementar control diario de registros.';
+  }
+  if (containsAny(text, ['temperatura', 'camara', 'conservacion', 'fuera de'])) {
+    return 'Implementar monitoreo diario de temperatura y verificación por turno.';
+  }
+  if (containsAny(text, ['sucio', 'limpieza', 'poes', 'plagas', 'cebos'])) {
+    return 'Reforzar POES con checklist diario y verificación de cierre.';
+  }
+  if (containsAny(text, ['mal estado', 'vencido'])) {
+    return 'Reforzar control de recepción y segregación de producto no conforme.';
+  }
+  if (containsAny(text, ['no funciona', 'falla', 'equipo'])) {
+    return 'Programar mantenimiento correctivo y control de funcionamiento previo al uso.';
+  }
+  if (containsAny(text, ['faltante'])) {
+    return 'Implementar doble verificación diaria de stock y despacho.';
+  }
+  return 'Definir acción correctiva específica según causa raíz del incumplimiento.';
 }
 
 function classifyResponsibleByArea(areaClasificada = '') {
@@ -1313,7 +1361,7 @@ function buildActions({ resultadoClasificado, text, accionInmediataOriginal, acc
 
   return {
     accionInmediata: immediateExisting || detectedImmediate || byScenario[scenario].immediate,
-    accionCorrectiva: correctiveExisting || byScenario[scenario].corrective || 'Implementar control diario. Capacitar personal. Actualizar procedimiento. Reforzar control.'
+    accionCorrectiva: correctiveExisting || byScenario[scenario].corrective || buildCorrectiveActionFromProblem(text)
   };
 }
 
