@@ -90,6 +90,10 @@ function groupRowsIntoCases(records = []) {
       areaProceso: String(record?.areaProceso || '').trim(),
       actividadRealizada: String(record?.actividadRealizada || '').trim(),
       hallazgoDetectado: String(record?.hallazgoDetectado || '').trim(),
+      areaClasificada: String(record?.areaClasificada || '').trim(),
+      resultadoClasificado: String(record?.resultadoClasificado || '').trim(),
+      tipoDesvio: String(record?.tipoDesvio || '').trim(),
+      iso22000: String(record?.iso22000 || '').trim(),
       usefulText: useful
     });
   });
@@ -308,6 +312,10 @@ export function classifyDeviationCase(input = {}) {
   const rows = Array.isArray(input?.filas) ? input.filas : [];
   const usefulTexts = rows.map((row) => buildRowUsefulText(row)).filter(Boolean);
   const consolidatedText = usefulTexts.join(' | ');
+  const existingArea = rows.find((r) => String(r?.areaClasificada || '').trim())?.areaClasificada || '';
+  const existingResult = rows.find((r) => String(r?.resultadoClasificado || '').trim())?.resultadoClasificado || '';
+  const existingTipo = rows.find((r) => String(r?.tipoDesvio || '').trim())?.tipoDesvio || '';
+  const existingIso = rows.find((r) => String(r?.iso22000 || '').trim())?.iso22000 || '';
 
   if (!consolidatedText) {
     return {
@@ -323,9 +331,11 @@ export function classifyDeviationCase(input = {}) {
     };
   }
 
-  const areaList = classifyCaseArea(consolidatedText, rows);
-  const { resultadoClasificado, tipoDesvio } = classifyCaseOutcome(consolidatedText);
-  const iso22000 = classifyCaseIso(consolidatedText);
+  const areaList = existingArea ? [existingArea] : classifyCaseArea(consolidatedText, rows);
+  const classifiedOutcome = classifyCaseOutcome(consolidatedText);
+  const resultadoClasificado = existingResult || classifiedOutcome.resultadoClasificado;
+  const tipoDesvio = existingTipo || classifiedOutcome.tipoDesvio;
+  const iso22000 = existingIso || classifyCaseIso(consolidatedText);
   const actions = buildCaseActions(consolidatedText, resultadoClasificado);
   const confianza = buildCaseConfidence(consolidatedText, areaList, resultadoClasificado);
 

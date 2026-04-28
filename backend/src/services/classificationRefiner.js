@@ -592,52 +592,16 @@ function compareNormalized(a, b) {
 }
 
 export function refinePreClassification(input) {
-  const text = normalizeText(input?.texto || '');
-  const areaFinal = classifyArea(text, input?.areaDetectada || '');
-  const outcome = classifyOutcome(text, input?.resultadoDetectado || '', input?.tipoDetectado || '', {
-    tipoActividad: input?.tipoActividad || '',
-    resultadoOriginal: input?.resultadoOriginal || '',
-    desvioOriginal: input?.desvioOriginal || ''
-  });
-  const hasResultadoDetectado = Boolean(normalizeText(input?.resultadoDetectado || ''));
-  const hasTipoDetectado = Boolean(normalizeText(input?.tipoDetectado || ''));
-  const hasIsoDetectado = Boolean(normalizeText(input?.isoDetectado || ''));
-
-  const resultadoComputed = outcome.resultadoFinal;
-  const tipoComputed = outcome.tipoFinal;
-  const resultadoFinal = hasResultadoDetectado ? input?.resultadoDetectado : resultadoComputed;
-  const tipoFinal = hasTipoDetectado ? input?.tipoDetectado : tipoComputed;
-
-  const isoComputed = classifyIso(text, areaFinal, resultadoComputed, input?.isoDetectado || '');
-  const isoFinal = hasIsoDetectado ? input?.isoDetectado : isoComputed;
-  const actions = buildActions(
-    text,
-    resultadoFinal,
-    input?.accionInmediataDetectada || '',
-    input?.accionCorrectivaDetectada || ''
-  );
-
-  const confianza = classifyConfidence(text, areaFinal, resultadoFinal);
-  const explicacion = `Area priorizada por evento real; resultado ${resultadoFinal} por impacto operativo; ISO asignado por especificidad (${isoFinal}).`;
-
-  const cambioRealizado = !(
-    compareNormalized(areaFinal, input?.areaDetectada || '') &&
-    compareNormalized(resultadoFinal, input?.resultadoDetectado || '') &&
-    compareNormalized(tipoFinal, input?.tipoDetectado || '') &&
-    compareNormalized(isoFinal, input?.isoDetectado || '') &&
-    compareNormalized(actions.accionInmediataFinal, input?.accionInmediataDetectada || '') &&
-    compareNormalized(actions.accionCorrectivaFinal, input?.accionCorrectivaDetectada || '')
-  );
-
+  // Modo seguro: no reclasificar. Solo completar campos vacíos.
   return {
-    areaFinal: areaFinal || 'Área no identificada',
-    resultadoFinal: resultadoFinal || 'Revisar manualmente',
-    tipoFinal: tipoFinal || '-',
-    isoFinal: isoFinal || 'Sin clasificar',
-    accionInmediataFinal: actions.accionInmediataFinal || '',
-    accionCorrectivaFinal: actions.accionCorrectivaFinal || '',
-    cambioRealizado,
-    explicacion,
-    confianza
+    areaFinal: input?.areaDetectada || 'Área no identificada',
+    resultadoFinal: input?.resultadoDetectado || 'Revisar manualmente',
+    tipoFinal: input?.tipoDetectado || '-',
+    isoFinal: input?.isoDetectado || 'Sin clasificar',
+    accionInmediataFinal: input?.accionInmediataDetectada || '',
+    accionCorrectivaFinal: input?.accionCorrectivaDetectada || '',
+    cambioRealizado: false,
+    explicacion: 'Refinador en modo sin override.',
+    confianza: 'Media'
   };
 }

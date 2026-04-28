@@ -1,5 +1,4 @@
 import ExcelJS from 'exceljs';
-import { refinePreClassification } from './classificationRefiner.js';
 import { classifyDeviationCasesFromRecords } from './caseClassifier.js';
 
 const ENABLE_CLASSIFICATION_TRACE = process.env.CLASSIFICATION_TRACE === '1';
@@ -1432,6 +1431,33 @@ function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadR
   return 'Revisar manualmente';
 }
 
+function ensureSingleArea(areaClasificada = '') {
+  const normalized = normalizeCellValue(areaClasificada).split('/').map((part) => part.trim()).filter(Boolean);
+  if (normalized.length <= 1) return normalized[0] || 'Área no identificada';
+  return normalized[0];
+}
+
+function validateFinalRecord(record = {}) {
+  const validated = { ...record };
+  const hallazgo = normalizeIncidentText(validated.hallazgoDetectado || '');
+
+  if (hallazgo === 'sin hallazgo detectado') {
+    validated.resultadoClasificado = 'Revisar manualmente';
+    validated.tipoDesvio = '-';
+  }
+
+  validated.areaClasificada = ensureSingleArea(validated.areaClasificada);
+  validated.iso22000 = resolveIsoWithContextFallback({
+    iso22000: validated.iso22000,
+    hallazgoDetectado: validated.hallazgoDetectado,
+    actividadRealizada: validated.actividadRealizada,
+    areaClasificada: validated.areaClasificada,
+    resultadoClasificado: validated.resultadoClasificado
+  });
+
+  return validated;
+}
+
 function extractImmediateAction(text) {
   const source = normalizeCellValue(text).trim();
   if (!source) return '';
@@ -2063,18 +2089,6 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         });
       }
 
-      const preClassification = {
-        texto: textForClassification,
-        tipoActividad: rawRecord.tipoActividad,
-        resultadoOriginal: rawRecord.resultado,
-        desvioOriginal: rawRecord.desvio,
-        areaDetectada: areaClasificada,
-        resultadoDetectado: resultadoClasificado,
-        tipoDetectado: tipoDesvio,
-        isoDetectado: iso22000,
-        accionInmediataDetectada: rawRecord.accionInmediata,
-        accionCorrectivaDetectada: rawRecord.accionCorrectiva
-      };
       const preExplicacionClasificacion = buildClassificationExplanation({
         areaClasificada,
         resultadoClasificado,
@@ -2089,30 +2103,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         areaClasificada
       });
 
-      const needsRefine = shouldRefineWithExpert({
-        confianza: preConfianza,
-        areaClasificada,
-        resultadoClasificado,
-        tipoDesvio,
-        iso22000,
-        accionInmediata: rawRecord.accionInmediata,
-        accionCorrectiva: rawRecord.accionCorrectiva,
-        fechaRegistro: rawRecord.fecha
-      });
-
-      let refined = null;
-      let refinadoPorIA = false;
-
-      if (needsRefine) {
-        refined = refinePreClassification(preClassification);
-        refinadoPorIA = true;
-        areaClasificada = refined.areaFinal || areaClasificada;
-        resultadoClasificado = refined.resultadoFinal || resultadoClasificado;
-        tipoDesvio = refined.tipoFinal || tipoDesvio;
-        iso22000 = refined.isoFinal || iso22000;
-        rawRecord.accionInmediata = refined.accionInmediataFinal || rawRecord.accionInmediata;
-        rawRecord.accionCorrectiva = refined.accionCorrectivaFinal || rawRecord.accionCorrectiva;
-      }
+      const refinadoPorIA = false;
 
       const areaOperativaClasificada = areaClasificada;
       const areaClasificadaFinal = composeAreaClasificada({
@@ -2133,8 +2124,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         fechaRegistro: rawRecord.fecha
       });
 
-      const explicacionClasificacion = refined?.explicacion || preExplicacionClasificacion;
-      const confianza = refined?.confianza || preConfianza;
+      const explicacionClasificacion = preExplicacionClasificacion;
+      const confianza = preConfianza;
 
       const analisisTexto = buildAnalysisText(rawRecord);
 
@@ -2170,7 +2161,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       if (estadoAccion === 'en_proceso') summary.actions.enProceso += 1;
       if (estadoAccion === 'sin_accion') summary.actions.sinAccion += 1;
 
-      results.push({
+      const finalRecord = validateFinalRecord({
         fecha: rawRecord.fecha || '',
         areaProceso: rawRecord.areaProceso || 'N/A',
         actividadRealizada: rawRecord.actividadRealizada || '',
@@ -2197,9 +2188,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         confianza,
         analisisTexto
       });
-      if (ENABLE_CLASSIFICATION_TRACE) {
-        console.log('FINAL:', results[results.length - 1]);
-      }
+      results.push(finalRecord);
+      console.log('FINAL RECORD:', finalRecord);
     });
 
     const cases = classifyDeviationCasesFromRecords(results);
