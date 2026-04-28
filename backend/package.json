@@ -8,7 +8,7 @@
     "build": "npm run prisma:generate",
     "dev": "node --watch src/bootstrap.js",
     "start": "node src/bootstrap.js",
-    "prisma:generate": "npx prisma generate",
+    "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
   },
@@ -27,15 +27,15 @@
     "express-fileupload": "^1.4.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^1.4.5-lts.1",
-    "pdfkit": "^0.13.0"
+    "pdfkit": "^0.13.0",
+    "prisma": "5.22.0"
   },
   "engines": {
     "node": "20.x"
   },
   "devDependencies": {
     "@types/express": "^4.17.17",
-    "@types/node": "^20.0.0",
-    "prisma": "^5.22.0"
+    "@types/node": "^20.0.0"
   },
   "overrides": {
     "exceljs": {
