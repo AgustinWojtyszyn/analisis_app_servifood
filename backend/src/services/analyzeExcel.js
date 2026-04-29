@@ -934,6 +934,9 @@ const CONFORME_SIGNALS = [
   'cumple'
 ];
 
+const AUDIT_LOW_THRESHOLD = 70;
+const AUDIT_MID_THRESHOLD = 85;
+
 function normalizeIncidentText(value) {
   let text = normalizeForMatch(value || '');
   if (!text) return '';
@@ -942,6 +945,138 @@ function normalizeIncidentText(value) {
     text = text.replace(fix.from, fix.to);
   });
   return text.replace(/\s+/g, ' ').trim();
+}
+
+function parseCompliancePercentage(text) {
+  const raw = normalizeCellValue(text || '').toLowerCase();
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized && !raw) return null;
+  const match = raw.match(/(\d{1,3})\s*%/) || normalized.match(/cumplimiento(?:\s+del|\s+de)?\s*(\d{1,3})\b/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  if (!Number.isFinite(value) || value < 0 || value > 100) return null;
+  return value;
+}
+
+function classifyAuditCompliance(text) {
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized) return null;
+  const isAudit = containsAny(normalized, ['auditoria', 'auditoría']);
+  const hasComplianceSignal = containsAny(normalized, ['cumplimiento']);
+  if (!isAudit || !hasComplianceSignal) return null;
+
+  const percentage = parseCompliancePercentage(normalized);
+  if (percentage == null) {
+    return { percentage: null, classification: 'Revisar manualmente', tipoDesvio: '-', reason: 'auditoria con cumplimiento sin porcentaje claro' };
+  }
+  if (percentage < AUDIT_LOW_THRESHOLD) {
+    return { percentage, classification: 'No conforme', tipoDesvio: 'NC', reason: `auditoria con cumplimiento bajo (${percentage}%)` };
+  }
+  if (percentage < AUDIT_MID_THRESHOLD) {
+    return { percentage, classification: 'Revisar manualmente', tipoDesvio: '-', reason: `auditoria con cumplimiento intermedio (${percentage}%)` };
+  }
+  return { percentage, classification: 'Conforme', tipoDesvio: '-', reason: `auditoria con cumplimiento aceptable (${percentage}%)` };
+}
+
+function hasExplicitNegativeSignal(text) {
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized) return false;
+  const explicitTerms = [
+    'falta de',
+    'falta registro',
+    'falta de registro',
+    'falta de orden',
+    'falta de etiquetado',
+    'incompleto',
+    'incompleta',
+    'incompletos',
+    'sin registro',
+    'sin evidencia',
+    'fuera de rango',
+    'vencido',
+    'vencida',
+    'no funciona',
+    'mal estado',
+    'sucio',
+    'sucia',
+    'contaminado',
+    'contaminada',
+    'incumplimiento',
+    'no cumple',
+    'ausencia de',
+    'desvio',
+    'desvío'
+  ];
+
+  return containsAny(normalized, explicitTerms)
+    || /\bfalta\s+de\b/.test(normalized)
+    || /\bfalta\s+registro(s)?\b/.test(normalized)
+    || /\bregistros?\s+incompleto(s)?\b/.test(normalized)
+    || /\bsin\s+registro(s)?\b/.test(normalized)
+    || /\bsin\s+evidencia\b/.test(normalized)
+    || /\bfuera\s+de\s+rango\b/.test(normalized)
+    || /\bno\s+funciona(n)?\b/.test(normalized)
+    || /\bmal\s+estado\b/.test(normalized)
+    || /\bincumplimiento\b/.test(normalized)
+    || /\bno\s+cumple\b/.test(normalized)
+    || /\bausencia\s+de\b/.test(normalized)
+    || /\bdesvi[oó]\b/.test(normalized);
+}
+
+function isNeutralTechnicalMention(text) {
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized) return false;
+  if (hasExplicitNegativeSignal(normalized)) return false;
+
+  const neutralSignals = [
+    'registro de temperatura',
+    'control de camaras',
+    'control de cámaras',
+    'control de heladeras',
+    'heladera',
+    'heladeras',
+    'verificacion de registros',
+    'verificación de registros',
+    'control de documentacion',
+    'control de documentación',
+    'recorrido de planta',
+    'control de registros',
+    'control de temperatura',
+    'registro de camara',
+    'registro de cámara'
+  ];
+  return containsAny(normalized, neutralSignals);
+}
+
+function hasRowContinuationSignal(text) {
+  const raw = normalizeCellValue(text || '').trim();
+  if (!raw) return false;
+  const normalized = normalizeIncidentText(raw);
+  const strongTail = /[;:,]\s*$/.test(raw);
+  const explicitContinuation = containsAny(normalized, [
+    'falta',
+    'se solicita',
+    'los mismos completos',
+    'completar a cada area',
+    'completar a cada área'
+  ]);
+  return strongTail || explicitContinuation;
+}
+
+function isExplicitNoFindingText(text) {
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized) return false;
+  return containsAny(normalized, [
+    'sin hallazgo detectado',
+    'sin hallazgo',
+    'sin hallazgos',
+    'sin observaciones',
+    'sin desvios',
+    'sin desvio',
+    'no se detectan hallazgos',
+    'no se observan desvios',
+    'no se observan desvíos'
+  ]);
 }
 
 function parseRecordDate(value) {
@@ -1033,7 +1168,7 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
 
   if (!text) return { areas: ['Área no identificada'], evidence: [] };
 
-  if (containsAny(text, ['auditoria interna'])) {
+  if (containsAny(text, ['auditoria interna', 'auditoría interna', 'auditoria'])) {
     return {
       areas: ['Área no identificada'],
       evidence: ['actividad de auditoría interna']
@@ -1209,14 +1344,14 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
   };
 }
 
-function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoActividad }) {
+function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoActividad, context = {} }) {
   const resultadoNorm = normalizeIncidentText(resultado);
   const resultadoEsConforme = isConformeLike(resultado);
   const resultadoEsNoConforme = isNoConformeLike(resultado);
   const desvioSi = isYesLike(desvio);
   const desvioNo = isNoLike(desvio);
   const text = normalizeIncidentText(descripcionDetectada || '');
-  const isSinHallazgoText = text === 'sin hallazgo detectado';
+  const isSinHallazgoText = isExplicitNoFindingText(text);
   const detectionLeadSignals = ['se detecta', 'se encuentran', 'se observa'];
   const technicalMentionSignals = ['registro de temperatura', 'registro', 'camaras', 'cámaras', 'heladeras', 'heladera', 'control', 'verificacion', 'verificación', 'temperatura', 'af', 'ac'];
 
@@ -1224,7 +1359,6 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'cebos',
     'plagas',
     'cucarachas',
-    'falta',
     'faltante',
     'incompleto',
     'sin registro',
@@ -1258,7 +1392,8 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'se pasa a'
   ];
   const hasRealNcSignal = containsAny(text, realNcSignals)
-    || /\bfaltan?\b/.test(text)
+    || hasExplicitNegativeSignal(text)
+    || /\bfaltan?\s+(registros?|insumos?|productos?)\b/.test(text)
     || /\bincompleto(s)?\b/.test(text)
     || /\bsin\s+temperatura\b/.test(text)
     || /\bsin\s+registro(s)?\b/.test(text)
@@ -1273,7 +1408,8 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     || /\bvencido(s)?\b/.test(text);
   const hasActionSignal = containsAny(text, actionSignals);
   const hasDetectionLeadSignal = containsAny(text, detectionLeadSignals);
-  const hasTechnicalMentionSignal = containsAny(text, technicalMentionSignals);
+  const hasTechnicalMentionSignal = containsAny(text, technicalMentionSignals) || isNeutralTechnicalMention(text);
+  const inheritedNegativeContext = Boolean(context?.inheritedNegativeContext);
   const adminNeutralSignals = [
     'cumplido',
     'se solicita',
@@ -1308,9 +1444,18 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
 
   if (isSinHallazgoText) {
     return {
-      resultadoClasificado: 'Revisar manualmente',
+      resultadoClasificado: 'Conforme',
       tipoDesvio: '-',
       reason: 'texto explícito sin hallazgo'
+    };
+  }
+
+  const auditCompliance = classifyAuditCompliance(text);
+  if (auditCompliance) {
+    return {
+      resultadoClasificado: auditCompliance.classification,
+      tipoDesvio: auditCompliance.tipoDesvio,
+      reason: auditCompliance.reason
     };
   }
 
@@ -1319,6 +1464,14 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
       resultadoClasificado: 'No conforme',
       tipoDesvio: 'NC',
       reason: 'detección explícita de problema real'
+    };
+  }
+
+  if (inheritedNegativeContext && hasTechnicalMentionSignal && !hasRealNcSignal) {
+    return {
+      resultadoClasificado: 'No conforme',
+      tipoDesvio: 'NC',
+      reason: 'contexto negativo heredado en detalle técnico'
     };
   }
 
@@ -1429,6 +1582,7 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
   if (containsAny(text, ['cebos', 'plagas', 'exterior'])) return '8.2 Programas prerrequisito / POES / BPM';
   if (containsAny(text, ['no conformidad', 'accion correctiva'])) return '10.2 No conformidad y accion correctiva';
   if (containsAny(text, ['auditoria'])) return '9.2 Auditoría interna';
+  if (isExplicitNoFindingText(text)) return '-';
   if (containsAny(text, ['registro', 'planilla', 'documentacion', 'drive'])) return '7.5 Información documentada';
   if (containsAny(text, ['proveedor', 'proveedores'])) return '8.4 Control de procesos, productos y servicios externos';
   if (containsAny(text, ['epp', 'recursos'])) return '7.1 Recursos';
@@ -1465,19 +1619,28 @@ function validateFinalRecord(record = {}) {
   const validated = { ...record };
   const hallazgo = normalizeIncidentText(validated.hallazgoDetectado || '');
 
-  if (hallazgo === 'sin hallazgo detectado') {
-    validated.resultadoClasificado = 'Revisar manualmente';
+  const explicitNoFinding = isExplicitNoFindingText(hallazgo);
+  if (explicitNoFinding) {
+    validated.resultadoClasificado = 'Conforme';
     validated.tipoDesvio = '-';
+    validated.iso22000 = '-';
+    validated.estadoAccion = 'sin_accion';
+    validated.responsable = 'Responsable a definir';
+    validated.accionInmediata = '';
+    validated.accionCorrectiva = '';
+    validated.areaClasificada = 'Área no identificada';
   }
 
   validated.areaClasificada = ensureSingleArea(validated.areaClasificada);
-  validated.iso22000 = resolveIsoWithContextFallback({
-    iso22000: validated.iso22000,
-    hallazgoDetectado: validated.hallazgoDetectado,
-    actividadRealizada: validated.actividadRealizada,
-    areaClasificada: validated.areaClasificada,
-    resultadoClasificado: validated.resultadoClasificado
-  });
+  if (!explicitNoFinding) {
+    validated.iso22000 = resolveIsoWithContextFallback({
+      iso22000: validated.iso22000,
+      hallazgoDetectado: validated.hallazgoDetectado,
+      actividadRealizada: validated.actividadRealizada,
+      areaClasificada: validated.areaClasificada,
+      resultadoClasificado: validated.resultadoClasificado
+    });
+  }
 
   return validated;
 }
@@ -1864,6 +2027,12 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
 
     const totalRows = rows.length;
 
+    const contextState = {
+      negativeLeadWindow: 0,
+      leadTopicText: '',
+      maxLeadWindow: 3
+    };
+
     rows.forEach((rowValues, index) => {
       progressCallback?.(
         40 + Math.floor((index / totalRows) * 40),
@@ -1993,6 +2162,10 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         actividadRealizada: rawRecord.actividadRealizada,
         hallazgoDetectado: rawRecord.hallazgoDetectado
       });
+      const explicitNegativeInRow = hasExplicitNegativeSignal(textForClassification);
+      const neutralTechnicalRow = isNeutralTechnicalMention(textForClassification);
+      const explicitNoFindingRow = isExplicitNoFindingText(textForClassification);
+      const inheritedNegativeContext = contextState.negativeLeadWindow > 0 && neutralTechnicalRow && !explicitNoFindingRow;
       if (ENABLE_CLASSIFICATION_TRACE) {
         console.log('INPUT:', textForClassification);
       }
@@ -2005,7 +2178,10 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         resultado: rawRecord.resultado,
         desvio: rawRecord.desvio,
         descripcionDetectada: textForClassification,
-        tipoActividad: rawRecord.tipoActividad
+        tipoActividad: rawRecord.tipoActividad,
+        context: {
+          inheritedNegativeContext
+        }
       });
       let iso22000 = classifyIso22000FromDescription({
         areaClasificada,
@@ -2071,9 +2247,16 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       }
 
       const tipoOriginal = parseOriginalTipoDesvio(rawRecord.tipoDesvioOriginal || rawRecord.resultado);
+      const hasStrongNeutralEvidence = neutralTechnicalRow && !explicitNegativeInRow && !inheritedNegativeContext;
       if (tipoOriginal === 'NC') {
-        resultadoClasificado = 'No conforme';
-        tipoDesvio = 'NC';
+        if (explicitNegativeInRow || inheritedNegativeContext || !hasStrongNeutralEvidence) {
+          resultadoClasificado = 'No conforme';
+          tipoDesvio = 'NC';
+        } else {
+          resultadoClasificado = 'Conforme';
+          tipoDesvio = '-';
+          outcomeReason = 'texto técnico neutro; se evita override NC ambiguo del Excel';
+        }
       } else if (tipoOriginal === 'OBS') {
         resultadoClasificado = 'Observación';
         tipoDesvio = 'OBS';
@@ -2130,10 +2313,14 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       const refinadoPorIA = false;
 
       const areaOperativaClasificada = areaClasificada;
-      const areaClasificadaFinal = composeAreaClasificada({
+      let areaClasificadaFinal = composeAreaClasificada({
         areaProcesoOriginal: rawRecord.areaProceso,
         areaOperativaDetectada: areaOperativaClasificada
       });
+      const isAuditText = containsAny(normalizeIncidentText(textForClassification), ['auditoria', 'auditoría']);
+      if (isAuditText) {
+        areaClasificadaFinal = 'Área no identificada';
+      }
       const responsable = normalizeCellValue(rawRecord.responsableOriginal).trim() || classifyResponsibleByArea(areaClasificadaFinal);
 
       const estadoAccion = classifyActionStatusFromRow({
@@ -2214,6 +2401,24 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       });
       results.push(finalRecord);
       console.log('FINAL RECORD:', finalRecord);
+
+      const shouldOpenNegativeLead = hasRowContinuationSignal(rawRecord.hallazgoDetectado)
+        && (explicitNegativeInRow || /falta\s*[;:,]?\s*$/i.test(normalizeCellValue(rawRecord.hallazgoDetectado)));
+      if (explicitNoFindingRow) {
+        contextState.negativeLeadWindow = 0;
+        contextState.leadTopicText = '';
+      } else if (shouldOpenNegativeLead) {
+        contextState.negativeLeadWindow = contextState.maxLeadWindow;
+        contextState.leadTopicText = normalizeIncidentText(textForClassification);
+      } else if (contextState.negativeLeadWindow > 0) {
+        const rowHasOwnCompleteSignal = explicitNegativeInRow || !neutralTechnicalRow;
+        if (rowHasOwnCompleteSignal) {
+          contextState.negativeLeadWindow = 0;
+          contextState.leadTopicText = '';
+        } else {
+          contextState.negativeLeadWindow -= 1;
+        }
+      }
     });
 
     const cases = classifyDeviationCasesFromRecords(results);
