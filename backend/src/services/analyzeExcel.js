@@ -1042,6 +1042,85 @@ function hasExplicitNegativeSignal(text) {
     || /\bdesvi[oó]\b/.test(normalized);
 }
 
+function detectCriticalNegativeSignal(text) {
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized || isExplicitNoFindingText(normalized)) return null;
+
+  const criticalTerms = [
+    'sin rotular',
+    'sin rotulacion',
+    'sin rotulación',
+    'falta rotular',
+    'falta rotulacion',
+    'falta rotulación',
+    'falta de rotulacion',
+    'falta de rotulación',
+    'falta carteleria',
+    'falta cartelería',
+    'falta de carteleria',
+    'falta de cartelería',
+    'registro incompleto',
+    'registros incompletos',
+    'incompleto',
+    'incompleta',
+    'incompletos',
+    'incompletas',
+    'sin registro',
+    'sin evidencia',
+    'no dispone',
+    'no disponen',
+    'no cuenta con',
+    'no cuentan con',
+    'carece de',
+    'carecen de',
+    'sin epp',
+    'sin calzado',
+    'sin ropa de trabajo',
+    'no limpias',
+    'no limpia',
+    'no se encuentran limpias',
+    'sucio',
+    'sucia',
+    'sucios',
+    'sucias',
+    'contaminado',
+    'contaminada',
+    'contaminados',
+    'contaminadas',
+    'fuera de rango',
+    'vencido',
+    'vencida',
+    'vencidos',
+    'vencidas',
+    'no cumple',
+    'incumplimiento'
+  ];
+
+  const found = criticalTerms.find((term) => normalized.includes(normalizeIncidentText(term)));
+  if (found) return found;
+  return null;
+}
+
+function hasCriticalNegativeSignal(text) {
+  return Boolean(detectCriticalNegativeSignal(text));
+}
+
+function hasMildObservationSignal(text) {
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized || hasCriticalNegativeSignal(normalized) || isExplicitNoFindingText(normalized)) return false;
+  return containsAny(normalized, [
+    'desorden',
+    'desordenado',
+    'desordenada',
+    'desordenados',
+    'desordenadas',
+    'bines',
+    'ocupando espacios',
+    'objetos ajenos',
+    'fuera de lugar'
+  ]);
+}
+
 function isNeutralTechnicalMention(text) {
   const normalized = normalizeIncidentText(text || '');
   if (!normalized) return false;
@@ -1372,7 +1451,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   const text = normalizeIncidentText(descripcionDetectada || '');
   const isSinHallazgoText = isExplicitNoFindingText(text);
   const detectionLeadSignals = ['se detecta', 'se encuentran', 'se observa'];
-  const technicalMentionSignals = ['registro de temperatura', 'registro', 'camaras', 'cámaras', 'heladeras', 'heladera', 'control', 'verificacion', 'verificación', 'temperatura', 'af', 'ac'];
+  const technicalMentionSignals = ['registro de temperatura', 'registro', 'camaras', 'cámaras', 'heladeras', 'heladera', 'control', 'verificacion', 'verificación', 'temperatura'];
 
   const realNcSignals = [
     'cebos',
@@ -1427,8 +1506,10 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     || /\bvencido(s)?\b/.test(text);
   const hasActionSignal = containsAny(text, actionSignals);
   const hasDetectionLeadSignal = containsAny(text, detectionLeadSignals);
-  const hasTechnicalMentionSignal = containsAny(text, technicalMentionSignals) || isNeutralTechnicalMention(text);
+  const hasAfOrAcMention = /\baf\b/.test(` ${text} `) || /\bac\b/.test(` ${text} `);
+  const hasTechnicalMentionSignal = containsAny(text, technicalMentionSignals) || hasAfOrAcMention || isNeutralTechnicalMention(text);
   const inheritedNegativeContext = Boolean(context?.inheritedNegativeContext);
+  const criticalNegativeSignal = detectCriticalNegativeSignal(text);
   const adminNeutralSignals = [
     'cumplido',
     'se solicita',
@@ -1486,11 +1567,27 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     };
   }
 
+  if (criticalNegativeSignal) {
+    return {
+      resultadoClasificado: 'No conforme',
+      tipoDesvio: 'NC',
+      reason: `NC por señal crítica: ${criticalNegativeSignal}`
+    };
+  }
+
   if (inheritedNegativeContext && hasTechnicalMentionSignal && !hasRealNcSignal) {
     return {
       resultadoClasificado: 'No conforme',
       tipoDesvio: 'NC',
       reason: 'contexto negativo heredado en detalle técnico'
+    };
+  }
+
+  if (hasMildObservationSignal(text)) {
+    return {
+      resultadoClasificado: 'Observación',
+      tipoDesvio: 'OBS',
+      reason: 'OBS por señal leve'
     };
   }
 
@@ -1574,6 +1671,13 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
   }
 
   if (!resultadoNorm) {
+      if (hasMildObservationSignal(text)) {
+      return {
+        resultadoClasificado: 'Observación',
+        tipoDesvio: 'OBS',
+        reason: 'OBS por señal leve'
+      };
+    }
       return {
       resultadoClasificado: 'Observación',
       tipoDesvio: 'OBS',
@@ -2184,6 +2288,9 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       const auditComplianceRule = classifyAuditCompliance(textForClassification);
       const explicitNegativeInRow = hasExplicitNegativeSignal(textForClassification);
       const neutralTechnicalRow = isNeutralTechnicalMention(textForClassification);
+      const criticalSignalFromClassificationText = detectCriticalNegativeSignal(textForClassification);
+      const criticalSignalFromHallazgo = detectCriticalNegativeSignal(rawRecord.hallazgoDetectado);
+      const criticalSignal = criticalSignalFromClassificationText || criticalSignalFromHallazgo;
       const explicitNoFindingRow = isExplicitNoFindingText(textForClassification);
       const inheritedNegativeContext = contextState.negativeLeadWindow > 0 && neutralTechnicalRow && !explicitNoFindingRow;
       if (ENABLE_CLASSIFICATION_TRACE) {
@@ -2278,14 +2385,22 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
           outcomeReason = 'texto técnico neutro; se evita override NC ambiguo del Excel';
         }
       } else if (tipoOriginal === 'OBS') {
-        resultadoClasificado = 'Observación';
-        tipoDesvio = 'OBS';
+        if (!criticalSignal) {
+          resultadoClasificado = 'Observación';
+          tipoDesvio = 'OBS';
+        } else {
+          outcomeReason = `NC por señal crítica: ${criticalSignal}`;
+        }
       } else if (tipoOriginal === 'OM') {
         resultadoClasificado = 'Oportunidad de mejora';
         tipoDesvio = 'OM';
       } else if (tipoOriginal === 'NA') {
-        resultadoClasificado = 'Conforme';
-        tipoDesvio = '-';
+        if (!criticalSignal) {
+          resultadoClasificado = 'Conforme';
+          tipoDesvio = '-';
+        } else {
+          outcomeReason = `NC por señal crítica: ${criticalSignal}`;
+        }
       }
 
       // Prioridad obligatoria: auditoría + cumplimiento porcentual prevalece sobre overrides del Excel.
@@ -2293,6 +2408,12 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         resultadoClasificado = auditComplianceRule.classification;
         tipoDesvio = auditComplianceRule.tipoDesvio;
         outcomeReason = auditComplianceRule.reason;
+      }
+
+      if (criticalSignal && !explicitNoFindingRow) {
+        resultadoClasificado = 'No conforme';
+        tipoDesvio = 'NC';
+        outcomeReason = `NC por señal crítica: ${criticalSignal}`;
       }
 
       if (normalizeCellValue(rawRecord.iso22000Original).trim()) {
@@ -2322,6 +2443,18 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
           areaClasificada,
           iso22000
         });
+      }
+
+      const finalAuditRule = classifyAuditCompliance([
+        textForClassification,
+        rawRecord.hallazgoDetectado,
+        rawRecord.actividadRealizada
+      ].join(' | '));
+      if (finalAuditRule && finalAuditRule.classification === 'No conforme') {
+        resultadoClasificado = 'No conforme';
+        tipoDesvio = 'NC';
+        iso22000 = '9.2 Auditoría interna';
+        outcomeReason = 'NC por auditoría con cumplimiento menor a 70%';
       }
 
       const preExplicacionClasificacion = buildClassificationExplanation({

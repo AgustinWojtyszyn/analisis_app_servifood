@@ -1,0 +1,403 @@
+1. Resumen ejecutivo
+- Alcance: auditoría técnica estática del flujo de clasificación Excel -> records/cases en backend, sin modificar código.
+- Estado: el motor principal de clasificación está en backend/src/services/analyzeExcel.js. Hay un segundo motor para “casos” en backend/src/services/caseClassifier.js.
+- Arquitectura de decisión: determinística por reglas/keywords + regex + overrides por columnas originales del Excel + post-procesado final.
+- Hallazgo estructural: existen múltiples puntos de override que pueden pisar decisiones previas (resultado, tipo, ISO, área).
+- Hallazgo crítico: la app mezcla señales de operación, documentación y acción en el mismo texto de clasificación, lo que aumenta falsos positivos/negativos.
+- Limitación de esta auditoría: no se contó con el Excel real para reproducir fila a fila A-J; los casos A-J se analizan como hipótesis trazadas contra reglas de código.
+
+2. Flujo completo del Excel a la tabla
+- Entrada HTTP:
+  - POST /api/upload-excel (alias) y POST /api/analysis/upload.
+  - Rutas: backend/src/server.js:35-39, backend/src/routes/analysis.js:22-24.
+- Controlador:
+  - uploadAndAnalyze() valida extensión .xlsx/.xls y llama analyzeExcel(req.file.buffer, activeRules).
+  - Referencia: backend/src/controllers/analysisController.js:134-152.
+- Motor principal:
+  - analyzeExcel() en backend/src/services/analyzeExcel.js:1995.
+  - Carga workbook ExcelJS, selecciona hoja, detecta header row, detecta encabezados, recorre filas, clasifica, arma summary, devuelve records + cases.
+- Persistencia:
+  - controller guarda payload en analysis_history (Supabase), incluyendo records y cases.
+- Render frontend:
+  - tabla usa records; categorías usan resultado/tipo.
+  - Referencia: frontend/src/components/AnalysisResults.jsx:134-143 y 166-173.
+
+3. Archivos involucrados
+- backend/src/server.js
+- backend/src/routes/analysis.js
+- backend/src/controllers/analysisController.js
+- backend/src/services/analyzeExcel.js (motor principal)
+- backend/src/services/caseClassifier.js (consolidación de casos)
+- frontend/src/components/AnalysisResults.jsx (interpretación visual de categorías)
+
+4. Funciones involucradas
+- Entrada/parseo Excel:
+  - selectBestWorksheet, detectHeaderRowIndex, detectHeaders, buildRowObjectFromExcel, getRowValueByCandidates.
+- Construcción de hallazgo/texto:
+  - getHallazgo, getTextoHallazgo, sanitizeHallazgo, splitHallazgos, buildClassificationText.
+- Clasificación:
+  - detectAreasFromDescription, classifyOutcomeFromRow, classifyIso22000FromDescription.
+- Overrides/post:
+  - applyOperationalOverrides, parseOriginalTipoDesvio, resolveIsoWithContextFallback, validateFinalRecord.
+- Responsable/estado:
+  - classifyResponsibleByArea, classifyActionStatusFromRow.
+- Contexto entre filas (records):
+  - hasRowContinuationSignal + contextState dentro de analyzeExcel.
+- Casos consolidados:
+  - classifyDeviationCasesFromRecords en caseClassifier.js.
+
+5. Orden exacto de ejecución
+Dentro de analyzeExcel(), por fila, orden real (resumen):
+1) Extraer columnas (actividad, área, resultado original, desvío original, etc.).
+2) Construir rawRecord y detectar hallazgo (getTextoHallazgo).
+3) Sanitizar hallazgo y fallbacks de vacío.
+4) buildClassificationText(area + actividad + hallazgo).
+5) Detectar señales auxiliares (auditComplianceRule, explicitNegativeInRow, neutralTechnicalRow, contexto heredado).
+6) Detectar área (detectAreasFromDescription).
+7) Clasificar resultado/tipo (classifyOutcomeFromRow).
+8) Clasificar ISO inicial (classifyIso22000FromDescription).
+9) Aplicar área explícita de Excel (normalizeBrunoArea) si existe.
+10) Aplicar fallback de hallazgo vacío con actividad.
+11) Aplicar override operativo (applyOperationalOverrides).
+12) Aplicar override por tipo original Excel (parseOriginalTipoDesvio).
+13) Reaplicar prioridad de auditoría con % (auditComplianceRule) sobre overrides.
+14) Aplicar ISO original del Excel si viene.
+15) Aplicar fallback ISO (resolveIsoWithContextFallback).
+16) Armar acciones (buildActions).
+17) Componer área final operativa (composeAreaClasificada) + regla especial auditoría.
+18) Responsable final (responsableOriginal || classifyResponsibleByArea).
+19) Estado de acción (classifyActionStatusFromRow).
+20) validateFinalRecord() (post final).
+21) Push a results y actualizar summary.
+22) Actualizar contextState para fila siguiente.
+Al final:
+23) Generar cases con classifyDeviationCasesFromRecords(results).
+
+6. Normalización de texto
+Funciones: normalizeForMatch() y normalizeIncidentText().
+- Sí hace:
+  - minúsculas.
+  - elimina tildes (NFD + remove diacríticos).
+  - reemplaza caracteres no [a-z0-9\s] por espacio.
+  - colapsa espacios.
+- Impacto símbolos:
+  - %, |, -, ;, :, / se pierden en normalizeForMatch/normalizeIncidentText como delimitadores semánticos generales.
+  - Excepción parcial: splitHallazgos opera sobre string crudo y usa ;, ., \n para separar dentro de celda.
+- Ejemplos:
+  - “No conforme” -> “no conforme”.
+  - “45 %” y “45%” -> parseCompliancePercentage lo detecta por raw y por patrón de “cumplimiento 45”.
+  - “sin rotular” se conserva como tokens “sin rotular” (detectable).
+- Riesgo:
+  - la palabra “No conforme” dentro del texto puede activar lógica de desvío aunque sea mención contextual.
+
+7. Construcción del texto usado para clasificar
+- Texto principal de clasificación por fila:
+  - buildClassificationText concatena areaProceso + actividadRealizada + hallazgoDetectado útil.
+  - Si hallazgo está en “sin hallazgo”, se excluye de la concatenación.
+- Hallazgo detectado se obtiene por prioridad en getHallazgo:
+  - actividad o nota técnica según reglas, desvío/resultado original y señales de área.
+- Texto visible en tabla no siempre es el único usado:
+  - para clasificar también se usan columnas: área/proceso, resultado, desvío, tipo original, ISO original, responsable original, acción, etc.
+- buildAnalysisText (campo analisisTexto) concatena aún más campos y puede incluir contenido no visible principal.
+
+8. Clasificación de resultado
+Función principal: classifyOutcomeFromRow().
+Decisiones:
+- “Sin hallazgo” explícito -> Conforme/-.
+- Auditoría + cumplimiento + porcentaje:
+  - <70 -> No conforme/NC.
+  - 70-84 -> Revisar manualmente/-.
+  - >=85 -> Conforme/-.
+- Detección explícita + señal NC real -> NC.
+- Contexto heredado + mención técnica neutra -> NC.
+- Mención técnica neutra aislada sin problema explícito -> Conforme.
+- hasRealNcSignal (keywords + regex + hasExplicitNegativeSignal) -> NC.
+- Control/proveedor sin problema -> Conforme.
+- Resultado/desvío original Excel puede forzar NC.
+- Resultado original conforme sin desvío -> Conforme.
+- Si resultado original vacío y sin texto fuerte -> Observación/OBS.
+- Fallback final -> Conforme.
+Prioridad práctica: varias reglas tempranas retornan antes que el resto.
+
+9. Clasificación de tipo
+- Tipo nace junto al resultado en classifyOutcomeFromRow (NC, OM, OBS, -).
+- Luego parseOriginalTipoDesvio puede pisar:
+  - NC, OBS, OM, NA.
+- Regla especial actual:
+  - Si tipoOriginal NC pero texto es técnicamente neutro fuerte y sin señal negativa/contexto, evita pisado a NC.
+- Auditoría con % vuelve a imponerse después del override de tipo original.
+- validateFinalRecord puede forzar “-” para “sin hallazgo”.
+
+10. Clasificación ISO
+Funciones: classifyIso22000FromDescription + resolveIsoWithContextFallback + iso22000Original override.
+- 7.1 Recursos: personal/epp/equipo en varias rutas.
+- 7.2 Competencia: capacitación/curso/formación.
+- 7.5 Información documentada: registro/planilla/documentación/drive.
+- 8.2 PRP/BPM/POES: limpieza/sanitización/plagas/cebos/agua caliente.
+- 8.5 HACCP: mal estado, cámara/temperatura/conservación.
+- 8.7: no hay regla explícita “8.7” en analyzeExcel.js; si aparece en app probablemente viene de iso22000Original del Excel.
+- 9.2 Auditoría interna: keyword auditoría.
+- Prioridad: primer match por orden if-return.
+- ISO original del Excel pisa ISO calculada si la celda trae valor.
+- Luego resolveIsoWithContextFallback vuelve a completar si quedó Revisar manualmente o vacío.
+
+11. Clasificación de área
+Funciones: detectAreasFromDescription, normalizeBrunoArea, composeAreaClasificada, toOperationalArea.
+- Señales directas:
+  - cámaras -> Cámara N.
+  - heladera+AF/AC -> Área fría/caliente.
+  - cocina/horno/etc -> Área caliente.
+  - depósito/lavadero/baños/comedor/residuos.
+- Scoring por keywords y pesos (AREA_SCORING_RULES).
+- Reglas especiales:
+  - auditoría -> Área no identificada.
+  - área explícita del Excel (normalizeBrunoArea) puede pisar detección.
+  - composeAreaClasificada filtra a catálogo operativo y fallback a área original.
+- Contexto entre filas NO hereda área; solo resultado NC heredado para técnicas neutras.
+- Sobre “Cámara 3 sin verse en texto visible”: posible origen en columna área/proceso original del Excel o texto completo no visible.
+
+12. Clasificación de responsable
+- Prioridad:
+  - responsableOriginal del Excel si existe.
+  - si no, classifyResponsibleByArea(areaClasificadaFinal).
+- Mapeos por área:
+  - Área fría/cámara/área caliente -> Jefe de cocina.
+  - Depósito -> Encargado de depósito.
+  - Logística -> Responsable de logística.
+  - Baños/Áreas comunes -> Mantenimiento.
+  - Residuos -> Higiene / Sanitización.
+  - Lavadero -> Encargado de limpieza.
+  - fallback -> Responsable a definir.
+- Códigos cortos (NG, JT, CS, IG, F, PA) parecen venir del Excel (responsableOriginal).
+
+13. Clasificación de estado
+Función: classifyActionStatusFromRow.
+- cerrada: evidencia “cumplido/terminado/finalizado” o verbos ejecutados.
+- en_proceso: “se realizará/pendiente/se solicita/se coordina” o número de acción/verbos implícitos.
+- sin_accion: sin número y sin verbos.
+- Estado no influye en resultado (se calcula después de resultado).
+- “sin hallazgo” en validateFinalRecord fuerza sin_accion.
+
+14. Contexto entre filas
+- Sí existe en records (analyzeExcel) mediante contextState:
+  - negativeLeadWindow (máx 3).
+  - se abre por hasRowContinuationSignal + señal negativa o “falta;”.
+  - se aplica solo si la fila actual es mención técnica neutra.
+  - se corta por “sin hallazgo” o por fila con señal propia no neutra.
+- Hereda: solo resultado/tipo (NC por contexto).
+- No hereda: ISO, área, responsable.
+- Riesgo: puede crear falsos NC en filas neutras consecutivas si padre se detecta de forma agresiva.
+
+15. Splitting de hallazgos múltiples
+- splitHallazgos:
+  - reemplaza “falta;” por “falta. ”
+  - reemplaza saltos de línea y ; por puntos
+  - separa por “.|”
+  - dedup por normalización.
+- Sí hay separación interna, pero luego se vuelve a unir con “ | ” en hallazgo detectado final.
+- “Viandas... | - Falta cartelería...” se procesa como texto compuesto (no dos incidencias separadas en records).
+- Riesgo: señales positivas/negativas mezcladas en una sola fila compiten y pueden degradar severidad.
+
+16. Overrides y post-procesado
+Puntos que pisan clasificación previa:
+- applyOperationalOverrides (resultado/tipo/ISO/área parcial).
+- parseOriginalTipoDesvio (resultado/tipo).
+- auditComplianceRule reaplicado (resultado/tipo).
+- iso22000Original (ISO).
+- resolveIsoWithContextFallback (ISO).
+- explicitAreaFromExcel (área).
+- composeAreaClasificada + regla auditoría (área final).
+- responsableOriginal (responsable).
+- validateFinalRecord (resultado/tipo/ISO/estado/responsable/acciones/área en sin hallazgo).
+Consecuencias posibles:
+- NC -> Conforme: tipoOriginal NA, neutralidad técnica, o sin hallazgo.
+- Conforme -> NC: applyOperationalOverrides/hasRealNc/contexto heredado/tipoOriginal NC.
+- NC -> OBS: tipoOriginal OBS puede pisar.
+- OBS -> NC: tipoOriginal NC o applyOperationalOverrides/contexto heredado.
+
+17. Auditorías y porcentajes de cumplimiento
+- Detección:
+  - classifyAuditCompliance requiere auditoría + palabra cumplimiento.
+  - parseCompliancePercentage detecta “45%”, “45 %”, o “cumplimiento 45”.
+- Umbrales:
+  - <70 NC.
+  - 70-84 Revisar manualmente.
+  - >=85 Conforme.
+- Prioridad actual:
+  - se evalúa en classifyOutcomeFromRow y también se reimpone al final del bloque de overrides.
+- Sobre “45% Conforme” observado:
+  - con código actual, esa salida debería quedar NC si el texto entra en textForClassification y contiene “auditoria” + “cumplimiento” + porcentaje.
+  - hipótesis si sigue ocurriendo en app: diferencia de branch/deploy, texto real distinto al visible, o columna usada no contiene ese porcentaje en la fila procesada.
+
+18. Diagnóstico caso por caso A-J
+Nota: sin Excel real no se puede confirmar columna por columna; se documenta hipótesis trazable por reglas.
+
+Caso A: “piso sucio en zona de circulación” -> Observación/OBS (actual)
+- Regla esperable por código: “sucio” tiende a NC en classifyOutcome/applyOperationalOverrides.
+- Si quedó OBS, hipótesis:
+  - tipoOriginal OBS del Excel pisó resultado.
+  - o texto real clasificado no contenía “sucio” en campo usado.
+- Riesgo de corrección: alto, porque “sucio” impacta muchos flujos.
+
+Caso B: “Alimentos sin rotular en heladeras zona fría” -> Conforme (actual)
+- Código actual tiene “sin rotular” en realNcSignals y regex, por lo que debería tender a NC.
+- Hipótesis de Conforme:
+  - neutralidad técnica activada por texto real sin “sin rotular” (truncado/columna distinta), o
+  - override posterior por tipoOriginal NA/resultado original/otro pisado en versión desplegada.
+
+Caso C: “Objetos ajenos...” -> NC
+- No hay keyword explícita “objetos ajenos”, pero puede entrar por:
+  - tipoOriginal NC,
+  - desvío original sí,
+  - o señales adyacentes en texto real completo.
+- ISO 8.2 higiene personal sugiere posible iso original del Excel o fallback por higiene.
+
+Caso D: “Desorden en heladeras...” -> OBS
+- “desorden” no está explícito como NC en hasExplicitNegativeSignal.
+- Si Excel trae tipo OBS, quedará OBS.
+- Diferencia “desorden OBS” vs “falta de orden NC”: “falta de orden” sí está explícito en hasExplicitNegativeSignal.
+
+Caso E: “Bines blancos...” -> Área caliente (actual)
+- Con texto visible, no hay señal clara de caliente.
+- Hipótesis:
+  - área original Excel (normalizeBrunoArea/composeAreaClasificada) está pisando,
+  - o campo actividad/nota tenía señales de cocina/cocción no visibles en el resumen.
+
+Caso F: “desordenado + sin rotular + no limpias” -> OBS (actual)
+- Código tendería a NC por “sin rotular” y “limpias/sucio” según rama.
+- Hipótesis:
+  - tipoOriginal OBS pisando,
+  - o combinación de texto partida donde la porción con señal NC no quedó en hallazgo útil.
+
+Caso G: “pisos sucios, charcos...” -> OBS y Lavadero
+- Lavadero puede venir por keywords de “lavado/bachas/agua” en texto real adicional, o área original Excel.
+- OBS vs NC: probable pisado por tipoOriginal OBS.
+
+Caso H: “Viandas... | Falta cartelería...” -> OBS
+- Falta cartelería no está explícita en hasExplicitNegativeSignal (sí falta de etiquetado).
+- “producto no conforme” puede activar ISO 10.2 en algunas rutas, pero en analyzeExcel ISO depende de reglas actuales o iso original.
+- El separador | no crea dos incidencias independientes; compite todo en una sola fila.
+
+Caso I: “Registros de temperatura... incompletos” -> NC
+- Coherente con hasExplicitNegativeSignal + regex incompleto + registros.
+- ISO 7.5 coherente por “registro/planilla/documentación”.
+
+Caso J: “Falta rotulación...” -> NC
+- Coherente por “falta de ...”/no conformidad operativa.
+- Cámara 3 sin verse en texto: hipótesis fuerte de areaProceso original Excel o texto no visible en UI.
+
+19. Tabla de reglas detectadas
+- Resultado NC:
+  - hasExplicitNegativeSignal, realNcSignals, regex de incompleto/sin registro/sin rotular/no cumple.
+- Resultado Conforme:
+  - mención técnica neutra sin señal negativa,
+  - control/proveedor sin problema,
+  - resultado original conforme sin desvío.
+- Resultado OBS:
+  - resultado original vacío/ilegible en ciertas ramas.
+  - override tipoOriginal OBS.
+- Revisar manualmente:
+  - auditoría 70-84,
+  - casos vacíos específicos,
+  - fallbacks ISO.
+- Tipo:
+  - atado a resultado inicial + parseOriginalTipoDesvio override.
+- ISO:
+  - cadenas de if/keywords + iso original del Excel + fallback contextual.
+- Área:
+  - reglas exactas + scoring + override área original + compose final.
+- Responsable:
+  - original Excel o mapping por área.
+- Estado:
+  - verbos/indicios de acción.
+
+20. Qué hace la app
+- Sí realiza parseo robusto de encabezados con aliases.
+- Sí clasifica por reglas determinísticas y regex.
+- Sí aplica contexto entre filas (records) para hijas técnicas.
+- Sí admite override por datos originales del Excel.
+- Sí guarda explicación textual de clasificación.
+- Sí calcula summary por tipo/área/ISO.
+
+21. Qué NO hace la app
+- No hace NLP semántico profundo ni modelo probabilístico.
+- No hace scoring de severidad de inocuidad explícito (más allá de reglas binarias y algunos pesos de área).
+- No separa records en múltiples incidencias independientes por cada subhallazgo dentro de una celda.
+- No valida consistencia global entre múltiples señales negativas acumuladas como severidad incremental formal.
+- No hereda ISO/área/responsable por contexto de fila padre.
+- No expone en UI todos los campos usados para clasificar (se usan columnas adicionales).
+
+22. Causas raíz probables
+- Falsos Conforme:
+  - neutral technical mention activada por texto incompleto/parcial.
+  - overrides de tipoOriginal NA o resultado original.
+  - pérdida de señales por extracción de hallazgo desde columnas no esperadas.
+- Falsos NC:
+  - contexto heredado abre por señales de continuidad y contagia hijas neutras.
+  - applyOperationalOverrides con señales genéricas.
+- Falsos OBS:
+  - tipoOriginal OBS pisando señal NC.
+  - ruta de resultado original vacío.
+- Áreas incorrectas:
+  - composeAreaClasificada/normalizeBrunoArea usando área original no visible.
+  - scoring con keywords ambiguas.
+- Responsables incorrectos:
+  - derivados automáticamente de área posiblemente errónea.
+- ISO incorrecta:
+  - prioridad lineal de ifs + pisado por iso original.
+- Auditoría 45% Conforme (si persiste):
+  - hipótesis de entorno/versionado o texto real sin cumplimiento porcentual en campo analizado.
+- “sin rotular” Conforme:
+  - probable pisado de overrides o texto real distinto al visible.
+
+23. Riesgos del sistema actual
+- Alta sensibilidad al origen de texto (actividad/nota/área) y al orden de overrides.
+- Dependencia fuerte de columnas originales del Excel, a veces invisibles en UI.
+- Doble motor (records vs cases) con criterios no idénticos puede generar mensajes contradictorios.
+- Difícil trazabilidad de decisiones sin logs por paso por fila en producción.
+
+24. Recomendaciones futuras sin refactor
+- Cambios mínimos recomendados (no aplicados aquí):
+  1) Instrumentar trazas por fila en backend (motivos y overrides aplicados).
+  2) Agregar “audit trail” estructurado en record (campos debug) para explicar pisados.
+  3) Congelar prioridad explícita de señales críticas (sin rotular, no limpio, incompleto).
+  4) Reducir ambigüedad en parse de hallazgo cuando hay múltiples columnas candidatas.
+  5) Diferenciar regla de severidad “OBS vs NC” con criterio explícito y testeable.
+- Tests sugeridos:
+  - Unitarios para classifyOutcomeFromRow, parseOriginalTipoDesvio interplay, applyOperationalOverrides.
+  - Matriz de overrides: [resultado original x tipo original x texto visible x texto real].
+  - Casos con pipes, saltos de línea, “falta;” y textos compuestos.
+- Reglas a no tocar primero:
+  - parseo de headers (ya robusto).
+  - persistencia/salida API.
+
+25. Evidencias de código con archivo, función y línea aproximada
+- Endpoint upload: backend/src/routes/analysis.js:22-24
+- Alias endpoint: backend/src/server.js:35-37
+- Llamada al motor: backend/src/controllers/analysisController.js:150-152
+- Carga Excel: backend/src/services/analyzeExcel.js:2021-2023
+- Selección hoja/header: analyzeExcel.js:2028-2035 + 643-675 + 613-641
+- Detección headers: analyzeExcel.js:2478-2527
+- Construcción hallazgo: analyzeExcel.js:521-558
+- Splitting hallazgos: analyzeExcel.js:319-344
+- Normalización base: analyzeExcel.js:166-174, 940-948
+- Resultado/tipo principal: analyzeExcel.js:1366-1589
+- Señales negativas explícitas: analyzeExcel.js:981-1043
+- Mención técnica neutra: analyzeExcel.js:1045-1068
+- Auditoría por porcentaje: analyzeExcel.js:950-979
+- Área: analyzeExcel.js:1184-1364
+- ISO: analyzeExcel.js:1591-1612
+- Override operativo: analyzeExcel.js:427-503
+- Override tipo original: analyzeExcel.js:2269-2289
+- Repriorización auditoría: analyzeExcel.js:2291-2296
+- Override ISO original/fallback: analyzeExcel.js:2298-2307
+- Responsable: analyzeExcel.js:1703-1713 y 2352
+- Estado: analyzeExcel.js:1807-1872 y 2354-2364
+- Validate final: analyzeExcel.js:1637-1665
+- Contexto entre filas: analyzeExcel.js:2049-2053 y 2433-2449
+- Motor de casos separado: backend/src/services/caseClassifier.js:72-102, 177-217, 355-360
+- Frontend “Conformes = resultado Conforme OR tipo -”: frontend/src/components/AnalysisResults.jsx:137-141 y 169
+
+Anexo de validación pendiente
+- Falta validación fila-a-fila con el Excel real de auditoría (67 registros) para confirmar causalidad exacta A-J en datos productivos.
+- Esta auditoría identifica trazabilidad de código y causas probables, pero no sustituye replay completo del archivo fuente real.
