@@ -1295,6 +1295,20 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
     };
   }
 
+  const isCirculationSignal = containsAny(text, ['zona de circulacion', 'zona de circulación', 'circulacion', 'circulación']);
+  const hasStrongOperationalAreaSignal = containsAny(text, [
+    'camara', 'heladera', 'af', 'ac',
+    'cocina', 'coccion', 'horno', 'marmita', 'freidora',
+    'deposito', 'depósito',
+    'lavadero', 'bachas', 'lavado'
+  ]);
+  if (isCirculationSignal && !hasStrongOperationalAreaSignal) {
+    return {
+      areas: ['Áreas comunes'],
+      evidence: ['zona de circulación sin señal operativa fuerte']
+    };
+  }
+
   const nonPhysicalSignals = containsAny(text, [
     'proveedor',
     'evaluacion de proveedor',
@@ -1542,14 +1556,16 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     'se trabaja en revisión del sistema documental'
   ]);
 
+  // Prioridad 1: ausencia explícita de hallazgo.
   if (isSinHallazgoText) {
     return {
       resultadoClasificado: 'Conforme',
       tipoDesvio: '-',
-      reason: 'texto explícito sin hallazgo'
+      reason: 'Conforme por sin hallazgo explícito'
     };
   }
 
+  // Prioridad 2: auditoría con cumplimiento porcentual.
   const auditCompliance = classifyAuditCompliance(text);
   if (auditCompliance) {
     return {
@@ -1567,6 +1583,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     };
   }
 
+  // Prioridad 3: señal crítica explícita.
   if (criticalNegativeSignal) {
     return {
       resultadoClasificado: 'No conforme',
@@ -1575,14 +1592,16 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     };
   }
 
+  // Prioridad 4: contexto heredado controlado.
   if (inheritedNegativeContext && hasTechnicalMentionSignal && !hasRealNcSignal) {
     return {
       resultadoClasificado: 'No conforme',
       tipoDesvio: 'NC',
-      reason: 'contexto negativo heredado en detalle técnico'
+      reason: 'NC por contexto heredado de fila anterior'
     };
   }
 
+  // Prioridad 5: señal leve de observación (sin señal crítica).
   if (hasMildObservationSignal(text)) {
     return {
       resultadoClasificado: 'Observación',
@@ -1591,15 +1610,16 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     };
   }
 
+  // Prioridad 6: mención técnica neutra sin desvío explícito.
   if (hasTechnicalMentionSignal && !hasRealNcSignal && !resultadoEsNoConforme && !desvioSi) {
     return {
       resultadoClasificado: 'Conforme',
       tipoDesvio: '-',
-      reason: 'mención técnica/control sin problema explícito'
+      reason: 'Conforme por mención técnica neutra sin señal negativa'
     };
   }
 
-  // Prioridad 1: NC real operativo (override fuerte).
+  // Prioridad 7: NC operativo estándar.
   if (hasRealNcSignal) {
     return {
       resultadoClasificado: 'No conforme',
@@ -1616,7 +1636,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     };
   }
 
-  // Prioridad 2: resultado reportado en Excel.
+  // Prioridad 8: resultado reportado en Excel.
   if (resultadoEsNoConforme || desvioSi) {
     return {
       resultadoClasificado: 'No conforme',
@@ -1634,7 +1654,7 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     };
   }
 
-  // Prioridad 3: texto de accion/seguimiento sin problema real.
+  // Prioridad 9: texto de acción/seguimiento sin problema real.
   if (hasActionSignal) {
     return {
       resultadoClasificado: 'Conforme',
@@ -2379,6 +2399,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         if (explicitNegativeInRow || inheritedNegativeContext || !hasStrongNeutralEvidence) {
           resultadoClasificado = 'No conforme';
           tipoDesvio = 'NC';
+          outcomeReason = 'Resultado original del Excel aplicado (NC)';
         } else {
           resultadoClasificado = 'Conforme';
           tipoDesvio = '-';
@@ -2388,18 +2409,21 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         if (!criticalSignal) {
           resultadoClasificado = 'Observación';
           tipoDesvio = 'OBS';
+          outcomeReason = 'OBS por tipo original y señal leve';
         } else {
-          outcomeReason = `NC por señal crítica: ${criticalSignal}`;
+          outcomeReason = `Tipo original del Excel ignorado por señal crítica: ${criticalSignal}`;
         }
       } else if (tipoOriginal === 'OM') {
         resultadoClasificado = 'Oportunidad de mejora';
         tipoDesvio = 'OM';
+        outcomeReason = 'Resultado original del Excel aplicado (OM)';
       } else if (tipoOriginal === 'NA') {
         if (!criticalSignal) {
           resultadoClasificado = 'Conforme';
           tipoDesvio = '-';
+          outcomeReason = 'Resultado original del Excel aplicado (NA)';
         } else {
-          outcomeReason = `NC por señal crítica: ${criticalSignal}`;
+          outcomeReason = `Tipo original del Excel ignorado por señal crítica: ${criticalSignal}`;
         }
       }
 
@@ -2418,6 +2442,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
 
       if (normalizeCellValue(rawRecord.iso22000Original).trim()) {
         iso22000 = normalizeCellValue(rawRecord.iso22000Original).trim();
+        if (!outcomeReason) outcomeReason = 'ISO original del Excel aplicado';
       }
       iso22000 = resolveIsoWithContextFallback({
         iso22000,
