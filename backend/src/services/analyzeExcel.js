@@ -1004,6 +1004,19 @@ function hasExplicitNegativeSignal(text) {
     'incumplimiento',
     'no cumple',
     'ausencia de',
+    'ausencia de epp',
+    'falta de epp',
+    'falta de calzado',
+    'falta de ropa de trabajo',
+    'no dispone',
+    'no disponen',
+    'no cuenta con',
+    'no cuentan con',
+    'carece de',
+    'carecen de',
+    'sin epp',
+    'sin calzado',
+    'sin ropa de trabajo',
     'desvio',
     'desvío'
   ];
@@ -1019,6 +1032,12 @@ function hasExplicitNegativeSignal(text) {
     || /\bmal\s+estado\b/.test(normalized)
     || /\bincumplimiento\b/.test(normalized)
     || /\bno\s+cumple\b/.test(normalized)
+    || /\bno\s+disponen?\b/.test(normalized)
+    || /\bno\s+cuentan?\s+con\b/.test(normalized)
+    || /\bcarece(n)?\s+de\b/.test(normalized)
+    || /\bsin\s+epp\b/.test(normalized)
+    || /\bsin\s+calzado\b/.test(normalized)
+    || /\bsin\s+ropa\s+de\s+trabajo\b/.test(normalized)
     || /\bausencia\s+de\b/.test(normalized)
     || /\bdesvi[oó]\b/.test(normalized);
 }
