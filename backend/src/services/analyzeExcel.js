@@ -2181,6 +2181,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         actividadRealizada: rawRecord.actividadRealizada,
         hallazgoDetectado: rawRecord.hallazgoDetectado
       });
+      const auditComplianceRule = classifyAuditCompliance(textForClassification);
       const explicitNegativeInRow = hasExplicitNegativeSignal(textForClassification);
       const neutralTechnicalRow = isNeutralTechnicalMention(textForClassification);
       const explicitNoFindingRow = isExplicitNoFindingText(textForClassification);
@@ -2286,6 +2287,14 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         resultadoClasificado = 'Conforme';
         tipoDesvio = '-';
       }
+
+      // Prioridad obligatoria: auditoría + cumplimiento porcentual prevalece sobre overrides del Excel.
+      if (auditComplianceRule) {
+        resultadoClasificado = auditComplianceRule.classification;
+        tipoDesvio = auditComplianceRule.tipoDesvio;
+        outcomeReason = auditComplianceRule.reason;
+      }
+
       if (normalizeCellValue(rawRecord.iso22000Original).trim()) {
         iso22000 = normalizeCellValue(rawRecord.iso22000Original).trim();
       }
