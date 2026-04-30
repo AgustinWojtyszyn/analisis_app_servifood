@@ -354,6 +354,11 @@ function isTextoNoValidoHallazgo(texto) {
   return !t || t === 'n a' || t === 'na' || t === 'n d' || t === '-';
 }
 
+function isInvalidDetectedFinding(texto) {
+  const t = normalizeForMatch(texto || '');
+  return !t || t === '-' || t === 'sin hallazgo detectado' || t === 'sin hallazgo';
+}
+
 function contieneArea(texto) {
   const t = normalizeForMatch(texto || '');
   if (!t) return false;
@@ -2307,6 +2312,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         'Detalle del desvío',
         'Detalle del desvio'
       ]) || '').trim();
+      const areaOriginal = normalizeCellValue(areaProcesoRaw).trim();
 
       const fecha = fechaRaw || fillDownState.fecha;
       const areaProceso = normalizeCellValue(areaProcesoRaw).trim() || fillDownState.areaProceso;
@@ -2330,18 +2336,24 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       if (tipoDesvioOriginal) fillDownState.tipoDesvioOriginal = tipoDesvioOriginal;
 
       // Logging temporal bajo flag para validar fill down sin ensuciar producción.
-      if (ENABLE_FILLDOWN_TRACE) {
-        console.log('[fill-down-row]', {
-          index: index + 1,
-          fecha,
-          areaProceso,
-          actividadRealizada,
-          desvioDetectadoOriginal
-        });
-      }
+      const hasRealRowSignal = Boolean(
+        normalizeCellValue(desvioDetectadoOriginal).trim() ||
+        normalizeCellValue(areaOriginal).trim() ||
+        normalizeCellValue(tipoDesvioOriginalRaw).trim()
+      );
+      const invalidDetectedFinding = isInvalidDetectedFinding(desvioDetectadoOriginal);
 
-      // No crear registro si no existe desvío detectado en la fila.
-      if (!desvioDetectadoOriginal) {
+      // Regla dura: descartar filas vacías/ruido antes de construir registro.
+      if (!hasRealRowSignal || invalidDetectedFinding) {
+        if (ENABLE_FILLDOWN_TRACE) {
+          console.log('[fill-down-discarded]', {
+            index: index + 1,
+            motivo: !hasRealRowSignal ? 'sin_senales_reales' : 'desvio_detectado_invalido',
+            desvioDetectadoOriginal,
+            areaOriginal,
+            tipoDesvioOriginal: tipoDesvioOriginalRaw
+          });
+        }
         return;
       }
 
@@ -2385,13 +2397,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         tipoDesvioOriginal,
         columnasOriginales: row || {},
         textoBase: actividadRealizada,
-        hallazgoDetectado: getTextoHallazgo(row, {
-          hallazgoDirecto: desvioDetectadoOriginal,
-          actividadRealizada,
-          notaTecnica,
-          desvio,
-          resultado
-        }),
+        // Evitamos fallback automático: si pasó validación, usamos el desvío detectado original.
+        hallazgoDetectado: sanitizeHallazgo(desvioDetectadoOriginal),
         accionDetectada
       };
       rawRecord.accionInmediata = rawRecord.accionInmediata || getRowValueByCandidates(row, rowKeyMap, ['Acción inmediata', 'Accion inmediata']) || '';
