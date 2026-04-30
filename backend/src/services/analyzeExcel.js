@@ -2194,8 +2194,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         `Clasificando registro ${index + 1} de ${totalRows}...`
       );
 
-      const getValue = (headerIndex, fallbackIndex) => {
-        const indexToUse = Number.isInteger(headerIndex) ? headerIndex : fallbackIndex;
+      const getValue = (headerIndex) => {
+        const indexToUse = Number.isInteger(headerIndex) ? headerIndex : null;
         return indexToUse == null ? '' : rowValues?.[indexToUse];
       };
 
@@ -2207,12 +2207,12 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         'Actividad realizada',
         'Actividad realizada / Descripción',
         'Actividad realizada / Descripcion'
-      ]) || normalizeCellValue(getValue(headerIndexes.actividadRealizada, 3));
+      ]) || normalizeCellValue(getValue(headerIndexes.actividadRealizada));
 
       const tipoActividad = getRowValueByCandidates(row, rowKeyMap, [
         'Tipo de actividad',
         'Tipo actividad'
-      ]) || normalizeCellValue(getValue(headerIndexes.tipoActividad, 5));
+      ]) || normalizeCellValue(getValue(headerIndexes.tipoActividad));
 
       const areaProceso = getRowValueByCandidates(row, rowKeyMap, [
         'Área / Proceso',
@@ -2223,25 +2223,25 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         'Area/Proceso',
         'Sector',
         'Area'
-      ]) || normalizeCellValue(getValue(headerIndexes.areaProceso, 2));
+      ]) || normalizeCellValue(getValue(headerIndexes.areaProceso));
 
       const resultado = getRowValueByCandidates(row, rowKeyMap, [
         'Resultado'
-      ]) || normalizeCellValue(getValue(headerIndexes.resultado, 6));
+      ]) || normalizeCellValue(getValue(headerIndexes.resultado));
 
       const desvio = getRowValueByCandidates(row, rowKeyMap, [
         '¿Desvío?',
         '¿Desvio?',
         'Desvío',
         'Desvio'
-      ]) || normalizeCellValue(getValue(headerIndexes.desvio, 7));
+      ]) || normalizeCellValue(getValue(headerIndexes.desvio));
 
       const accion = getRowValueByCandidates(row, rowKeyMap, [
         '¿Acción?',
         '¿Accion?',
         'Acción',
         'Accion'
-      ]) || normalizeCellValue(getValue(headerIndexes.accion, 8));
+      ]) || normalizeCellValue(getValue(headerIndexes.accion));
 
       const numeroAccion = getRowValueByCandidates(row, rowKeyMap, [
         'N° Acción',
@@ -2249,27 +2249,48 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         'Nro Acción',
         'Nro Accion',
         'Numero accion'
-      ]) || normalizeCellValue(getValue(headerIndexes.numeroAccion, 9));
+      ]) || normalizeCellValue(getValue(headerIndexes.numeroAccion));
 
       const notaTecnica = getRowValueByCandidates(row, rowKeyMap, [
         'Nota técnica',
         'Nota tecnica'
-      ]) || normalizeCellValue(getValue(headerIndexes.notaTecnica, 10));
+      ]) || normalizeCellValue(getValue(headerIndexes.notaTecnica));
 
       const rawRecord = {
-        fecha: normalizeCellValue(getValue(headerIndexes.fecha, 1)),
+        fecha: normalizeCellValue(getValue(headerIndexes.fecha)),
         areaProceso,
         actividadRealizada,
-        descripcion: normalizeCellValue(getValue(headerIndexes.descripcion, 4)),
+        descripcion: getRowValueByCandidates(row, rowKeyMap, [
+          'Descripción',
+          'Descripcion',
+          'Descripción del desvío',
+          'Descripcion del desvio',
+          'Detalle del desvío',
+          'Detalle del desvio'
+        ]) || normalizeCellValue(getValue(headerIndexes.descripcion)),
         tipoActividad,
         resultado,
         desvio,
         accion,
         numeroAccion,
         notaTecnica,
-        observaciones: normalizeCellValue(getValue(headerIndexes.observaciones, 11)),
-        accionInmediata: normalizeCellValue(getValue(headerIndexes.accionInmediata, 12)),
-        accionCorrectiva: normalizeCellValue(getValue(headerIndexes.accionCorrectiva, 13)),
+        observaciones: getRowValueByCandidates(row, rowKeyMap, [
+          'Observaciones',
+          'Observación',
+          'Observacion'
+        ]) || normalizeCellValue(getValue(headerIndexes.observaciones)),
+        accionInmediata: getRowValueByCandidates(row, rowKeyMap, [
+          'Acción inmediata',
+          'Accion inmediata'
+        ]) || normalizeCellValue(getValue(headerIndexes.accionInmediata)),
+        accionCorrectiva: getRowValueByCandidates(row, rowKeyMap, [
+          'Acción Correctiva Propuesta',
+          'Accion Correctiva Propuesta',
+          'Acción correctiva propuesta',
+          'Accion correctiva propuesta',
+          'Acción correctiva',
+          'Accion correctiva'
+        ]) || normalizeCellValue(getValue(headerIndexes.accionCorrectiva)),
         responsableOriginal: getRowValueByCandidates(row, rowKeyMap, ['Responsable', 'Responsable asignado']) || '',
         iso22000Original: getRowValueByCandidates(row, rowKeyMap, ['ISO 22000', 'Iso 22000', 'ISO', 'Clausula ISO', 'Cláusula ISO']) || '',
         tipoDesvioOriginal: getRowValueByCandidates(row, rowKeyMap, ['Tipo desvio', 'Tipo desvío', 'Tipo', 'Clasificación', 'Clasificacion']) || '',

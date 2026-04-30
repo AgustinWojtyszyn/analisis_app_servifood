@@ -1,4 +1,4 @@
-import React, { Fragment, useState } from 'react';
+import React, { Fragment, useEffect, useRef, useState } from 'react';
 import {
   Box,
   Paper,
@@ -115,6 +115,9 @@ export default function AnalysisResults({
   const [filterArea, setFilterArea] = useState('all');
   const [activeCategory, setActiveCategory] = useState('todos');
   const [expandedRows, setExpandedRows] = useState({});
+  const topScrollRef = useRef(null);
+  const tableContainerRef = useRef(null);
+  const [scrollContentWidth, setScrollContentWidth] = useState(1600);
 
   const resetLocalState = () => {
     setPage(0);
@@ -292,10 +295,17 @@ export default function AnalysisResults({
         Responsable: normalizeCellValue(record.responsable),
         'Área / Proceso': normalizeCellValue(record.areaProceso),
         'Actividad realizada': normalizeCellValue(record.actividadRealizada),
-        Descripción: normalizeCellValue(record.descripcion),
-        Observaciones: normalizeCellValue(record.observaciones),
-        'N° Acción': normalizeCellValue(record.numeroAccion),
-        'Nota técnica': normalizeCellValue(record.notaTecnica)
+        Descripción: findOriginalValueByAliases(record, [
+          'Descripción',
+          'Descripcion',
+          'Descripción del desvío',
+          'Descripcion del desvio',
+          'Detalle del desvío',
+          'Detalle del desvio'
+        ]) || normalizeCellValue(record.descripcion),
+        Observaciones: findOriginalValueByAliases(record, ['Observaciones', 'Observación', 'Observacion']) || normalizeCellValue(record.observaciones),
+        'N° Acción': findOriginalValueByAliases(record, ['N° Acción', 'N° Accion', 'Nro Acción', 'Nro Accion', 'Numero accion']) || normalizeCellValue(record.numeroAccion),
+        'Nota técnica': findOriginalValueByAliases(record, ['Nota técnica', 'Nota tecnica']) || normalizeCellValue(record.notaTecnica)
       };
 
       const originals = getOriginalColumns(record);
@@ -329,6 +339,45 @@ export default function AnalysisResults({
     resetLocalState();
     await onDeleteCurrent?.();
   };
+
+  useEffect(() => {
+    const topEl = topScrollRef.current;
+    const tableEl = tableContainerRef.current;
+    if (!topEl || !tableEl) return;
+
+    const computeWidth = () => {
+      const innerTable = tableEl.querySelector('table');
+      if (innerTable) {
+        setScrollContentWidth(innerTable.scrollWidth || 1600);
+      }
+    };
+
+    computeWidth();
+    window.addEventListener('resize', computeWidth);
+
+    let syncing = false;
+    const syncFromTop = () => {
+      if (syncing) return;
+      syncing = true;
+      tableEl.scrollLeft = topEl.scrollLeft;
+      syncing = false;
+    };
+    const syncFromTable = () => {
+      if (syncing) return;
+      syncing = true;
+      topEl.scrollLeft = tableEl.scrollLeft;
+      syncing = false;
+    };
+
+    topEl.addEventListener('scroll', syncFromTop);
+    tableEl.addEventListener('scroll', syncFromTable);
+
+    return () => {
+      window.removeEventListener('resize', computeWidth);
+      topEl.removeEventListener('scroll', syncFromTop);
+      tableEl.removeEventListener('scroll', syncFromTable);
+    };
+  }, [filteredRecords.length, rowsPerPage, page]);
 
   return (
     <Paper sx={{ p: { xs: 1.25, md: 1.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)', overflowX: 'auto' }}>
@@ -486,7 +535,11 @@ export default function AnalysisResults({
         </Button>
       </Box>
 
-      <TableContainer sx={{ overflowX: 'auto', backgroundColor: 'transparent', mx: { xs: -0.5, md: 0 }, width: '100%' }}>
+      <Box ref={topScrollRef} sx={{ overflowX: 'auto', overflowY: 'hidden', mb: 0.75 }}>
+        <Box sx={{ width: scrollContentWidth, height: 1 }} />
+      </Box>
+
+      <TableContainer ref={tableContainerRef} sx={{ overflowX: 'auto', backgroundColor: 'transparent', mx: { xs: -0.5, md: 0 }, width: '100%' }}>
         <Table sx={{ minWidth: 1600 }}>
           <TableHead>
             <TableRow>
@@ -567,14 +620,35 @@ export default function AnalysisResults({
                       <Typography variant="body2">{normalizeCellValue(record.responsable) || '-'}</Typography>
                     </TableCell>
                     <TableCell sx={{ maxWidth: 280 }}>
-                      <Typography variant="body2">{normalizeCellValue(record.descripcion) || '-'}</Typography>
+                      <Typography variant="body2">
+                        {findOriginalValueByAliases(record, [
+                          'Descripción',
+                          'Descripcion',
+                          'Descripción del desvío',
+                          'Descripcion del desvio',
+                          'Detalle del desvío',
+                          'Detalle del desvio'
+                        ]) || normalizeCellValue(record.descripcion) || '-'}
+                      </Typography>
                     </TableCell>
                     <TableCell sx={{ maxWidth: 240 }}>
-                      <Typography variant="body2">{normalizeCellValue(record.observaciones) || '-'}</Typography>
+                      <Typography variant="body2">
+                        {findOriginalValueByAliases(record, ['Observaciones', 'Observación', 'Observacion']) || normalizeCellValue(record.observaciones) || '-'}
+                      </Typography>
                     </TableCell>
-                    <TableCell>{normalizeCellValue(record.numeroAccion) || '-'}</TableCell>
+                    <TableCell>
+                      {findOriginalValueByAliases(record, [
+                        'N° Acción',
+                        'N° Accion',
+                        'Nro Acción',
+                        'Nro Accion',
+                        'Numero accion'
+                      ]) || normalizeCellValue(record.numeroAccion) || '-'}
+                    </TableCell>
                     <TableCell sx={{ maxWidth: 240 }}>
-                      <Typography variant="body2">{normalizeCellValue(record.notaTecnica) || '-'}</Typography>
+                      <Typography variant="body2">
+                        {findOriginalValueByAliases(record, ['Nota técnica', 'Nota tecnica']) || normalizeCellValue(record.notaTecnica) || '-'}
+                      </Typography>
                     </TableCell>
                   </TableRow>
                   <TableRow>
