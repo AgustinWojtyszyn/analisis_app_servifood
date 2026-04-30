@@ -85,6 +85,23 @@ function splitAreas(areaClasificada) {
     .filter(Boolean);
 }
 
+function getOriginalColumns(record) {
+  const source = record?.columnasOriginales;
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
+  return source;
+}
+
+function findOriginalValueByAliases(record, aliases = []) {
+  const original = getOriginalColumns(record);
+  const entries = Object.entries(original);
+  for (const alias of aliases) {
+    const aliasNorm = normalizeCellValue(alias).toLowerCase().trim();
+    const match = entries.find(([key]) => normalizeCellValue(key).toLowerCase().trim() === aliasNorm);
+    if (match) return normalizeCellValue(match[1]);
+  }
+  return '';
+}
+
 export default function AnalysisResults({
   records,
   analysisId,
@@ -238,22 +255,57 @@ export default function AnalysisResults({
   };
 
   const handleExportExcel = async () => {
-    const rows = filteredRecords.map((record) => ({
-      Fecha: normalizeCellValue(record.fecha),
-      'Hallazgo detectado': normalizeCellValue(record.hallazgoDetectado),
-      'Área clasificada': normalizeCellValue(record.areaClasificada),
-      'Resultado clasificado': normalizeCellValue(record.resultadoClasificado),
-      'Tipo desvío': normalizeCellValue(record.tipoDesvio),
-      'ISO 22000': normalizeCellValue(record.iso22000),
-      'Acción inmediata': normalizeCellValue(record.accionInmediata),
-      'Acción correctiva': normalizeCellValue(record.accionCorrectiva),
-      'Estado acción': normalizeCellValue(record.estadoAccion),
-      Responsable: normalizeCellValue(record.responsable),
-      'Área / Proceso': normalizeCellValue(record.areaProceso),
-      'Actividad realizada': normalizeCellValue(record.actividadRealizada)
-    }));
+    const baseHeaders = [
+      'Fecha',
+      'Hallazgo detectado',
+      'Área clasificada',
+      'Resultado clasificado',
+      'Tipo desvío',
+      'ISO 22000',
+      'Acción inmediata',
+      'Acción correctiva',
+      'Estado acción',
+      'Responsable',
+      'Área / Proceso',
+      'Actividad realizada',
+      'Descripción',
+      'Observaciones',
+      'N° Acción',
+      'Nota técnica'
+    ];
 
-    const sheet = XLSX.utils.json_to_sheet(rows);
+    const originalHeaders = [...new Set(
+      filteredRecords.flatMap((record) => Object.keys(getOriginalColumns(record)))
+    )];
+
+    const rows = filteredRecords.map((record) => {
+      const base = {
+        Fecha: normalizeCellValue(record.fecha),
+        'Hallazgo detectado': normalizeCellValue(record.hallazgoDetectado),
+        'Área clasificada': normalizeCellValue(record.areaClasificada),
+        'Resultado clasificado': normalizeCellValue(record.resultadoClasificado),
+        'Tipo desvío': normalizeCellValue(record.tipoDesvio),
+        'ISO 22000': normalizeCellValue(record.iso22000),
+        'Acción inmediata': normalizeCellValue(record.accionInmediata),
+        'Acción correctiva': normalizeCellValue(record.accionCorrectiva),
+        'Estado acción': normalizeCellValue(record.estadoAccion),
+        Responsable: normalizeCellValue(record.responsable),
+        'Área / Proceso': normalizeCellValue(record.areaProceso),
+        'Actividad realizada': normalizeCellValue(record.actividadRealizada),
+        Descripción: normalizeCellValue(record.descripcion),
+        Observaciones: normalizeCellValue(record.observaciones),
+        'N° Acción': normalizeCellValue(record.numeroAccion),
+        'Nota técnica': normalizeCellValue(record.notaTecnica)
+      };
+
+      const originals = getOriginalColumns(record);
+      originalHeaders.forEach((key) => {
+        base[key] = normalizeCellValue(originals[key]);
+      });
+      return base;
+    });
+
+    const sheet = XLSX.utils.json_to_sheet(rows, { header: [...baseHeaders, ...originalHeaders] });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, 'Resultados');
     XLSX.writeFile(workbook, activeExportConfig.fileName);
@@ -279,7 +331,7 @@ export default function AnalysisResults({
   };
 
   return (
-    <Paper sx={{ p: { xs: 1.25, md: 1.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)' }}>
+    <Paper sx={{ p: { xs: 1.25, md: 1.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)', overflowX: 'auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 1.5, mb: 1.5, flexWrap: 'wrap' }}>
         <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: 19, md: 21 } }}>
           Registros procesados ({filteredRecords.length})
@@ -434,8 +486,8 @@ export default function AnalysisResults({
         </Button>
       </Box>
 
-      <TableContainer sx={{ overflowX: 'auto', backgroundColor: 'transparent', mx: { xs: -0.5, md: 0 } }}>
-        <Table sx={{ minWidth: 1100 }}>
+      <TableContainer sx={{ overflowX: 'auto', backgroundColor: 'transparent', mx: { xs: -0.5, md: 0 }, width: '100%' }}>
+        <Table sx={{ minWidth: 1600 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 700, width: 52 }} />
@@ -447,6 +499,10 @@ export default function AnalysisResults({
               <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>ISO</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Responsable</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 240 }}>Descripción</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 220 }}>Observaciones</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 130 }}>N° Acción</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 220 }}>Nota técnica</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -510,9 +566,19 @@ export default function AnalysisResults({
                     <TableCell sx={{ maxWidth: 220 }}>
                       <Typography variant="body2">{normalizeCellValue(record.responsable) || '-'}</Typography>
                     </TableCell>
+                    <TableCell sx={{ maxWidth: 280 }}>
+                      <Typography variant="body2">{normalizeCellValue(record.descripcion) || '-'}</Typography>
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 240 }}>
+                      <Typography variant="body2">{normalizeCellValue(record.observaciones) || '-'}</Typography>
+                    </TableCell>
+                    <TableCell>{normalizeCellValue(record.numeroAccion) || '-'}</TableCell>
+                    <TableCell sx={{ maxWidth: 240 }}>
+                      <Typography variant="body2">{normalizeCellValue(record.notaTecnica) || '-'}</Typography>
+                    </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={9}>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={13}>
                       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                         <Box sx={{ px: 2, py: 1.5, backgroundColor: 'rgba(148,163,184,0.08)', borderRadius: 1, mb: 1.25 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Detalle del registro</Typography>
@@ -537,6 +603,42 @@ export default function AnalysisResults({
                               <Typography variant="caption" color="text.secondary">Hallazgo completo</Typography>
                               <Typography variant="body2">{fullHallazgo || '-'}</Typography>
                             </Box>
+                            <Box sx={{ gridColumn: { xs: 'auto', md: '1 / span 2' } }}>
+                              <Typography variant="caption" color="text.secondary">Desvío interno/externo (origen)</Typography>
+                              <Typography variant="body2">
+                                {findOriginalValueByAliases(record, ['Desvío interno/externo', 'Desvio interno/externo', 'Origen', 'origen']) || '-'}
+                              </Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">Acción inmediata (origen)</Typography>
+                              <Typography variant="body2">
+                                {findOriginalValueByAliases(record, ['Acción inmediata', 'Accion inmediata']) || '-'}
+                              </Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" color="text.secondary">Acción correctiva propuesta (origen)</Typography>
+                              <Typography variant="body2">
+                                {findOriginalValueByAliases(record, ['Acción correctiva propuesta', 'Accion correctiva propuesta', 'Acción Correctiva Propuesta']) || '-'}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ gridColumn: { xs: 'auto', md: '1 / span 2' } }}>
+                              <Typography variant="caption" color="text.secondary">Observaciones (origen)</Typography>
+                              <Typography variant="body2">
+                                {findOriginalValueByAliases(record, ['Observaciones', 'Observación', 'Observacion']) || '-'}
+                              </Typography>
+                            </Box>
+                            {Object.keys(getOriginalColumns(record)).length > 0 && (
+                              <Box sx={{ gridColumn: { xs: 'auto', md: '1 / span 2' } }}>
+                                <Typography variant="caption" color="text.secondary">Datos originales</Typography>
+                                <Box sx={{ mt: 0.5, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 0.6 }}>
+                                  {Object.entries(getOriginalColumns(record)).map(([key, value]) => (
+                                    <Typography key={`${rowKey}-${key}`} variant="body2">
+                                      <strong>{key}:</strong> {normalizeCellValue(value) || '-'}
+                                    </Typography>
+                                  ))}
+                                </Box>
+                              </Box>
+                            )}
                           </Box>
                         </Box>
                       </Collapse>

@@ -1850,12 +1850,24 @@ function detectActionScenario(text) {
   return 'general';
 }
 
-function buildActions({ resultadoClasificado, text, accionInmediataOriginal, accionCorrectivaOriginal }) {
+function hasSubstantialOverlap(baseText, candidateText) {
+  const base = normalizeIncidentText(baseText || '');
+  const candidate = normalizeIncidentText(candidateText || '');
+  if (!base || !candidate) return false;
+  if (base === candidate) return true;
+  if (candidate.includes(base) || base.includes(candidate)) return true;
+  return false;
+}
+
+function buildActions({ resultadoClasificado, text, hallazgoDetectado, accionInmediataOriginal, accionCorrectivaOriginal }) {
   const immediateExisting = normalizeCellValue(accionInmediataOriginal).replace(/\bcalidad\b/gi, '').trim();
-  const correctiveExisting = normalizeCellValue(accionCorrectivaOriginal).trim();
+  const correctiveExistingRaw = normalizeCellValue(accionCorrectivaOriginal).trim();
   const scenario = detectActionScenario(text);
   const detectedImmediate = extractImmediateAction(text);
   const normalizedText = normalizeIncidentText(text);
+  const hallazgoText = normalizeCellValue(hallazgoDetectado).trim();
+  const looksCopiedFromFinding = hasSubstantialOverlap(hallazgoText, correctiveExistingRaw) || hasSubstantialOverlap(text, correctiveExistingRaw);
+  const correctiveExisting = looksCopiedFromFinding ? '' : correctiveExistingRaw;
 
   const byScenario = {
     producto_mal_estado: {
@@ -1900,7 +1912,7 @@ function buildActions({ resultadoClasificado, text, accionInmediataOriginal, acc
     },
     general: {
       immediate: 'Contener el desvío identificado y registrar evidencia del evento.',
-      corrective: 'Aplicar análisis de causa raíz y planificar acción correctiva con seguimiento.'
+      corrective: 'Aplicar análisis de causa raíz, definir responsable y establecer seguimiento documentado.'
     }
   };
 
@@ -2261,6 +2273,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         responsableOriginal: getRowValueByCandidates(row, rowKeyMap, ['Responsable', 'Responsable asignado']) || '',
         iso22000Original: getRowValueByCandidates(row, rowKeyMap, ['ISO 22000', 'Iso 22000', 'ISO', 'Clausula ISO', 'Cláusula ISO']) || '',
         tipoDesvioOriginal: getRowValueByCandidates(row, rowKeyMap, ['Tipo desvio', 'Tipo desvío', 'Tipo', 'Clasificación', 'Clasificacion']) || '',
+        columnasOriginales: row || {},
         textoBase: actividadRealizada,
         hallazgoDetectado: getTextoHallazgo(row, {
           actividadRealizada,
@@ -2455,6 +2468,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       const actions = buildActions({
         resultadoClasificado,
         text: textForClassification,
+        hallazgoDetectado: rawRecord.hallazgoDetectado,
         accionInmediataOriginal: rawRecord.accionInmediata,
         accionCorrectivaOriginal: rawRecord.accionCorrectiva
       });
@@ -2574,6 +2588,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         accionCorrectiva: rawRecord.accionCorrectiva || '',
         numeroAccion: rawRecord.numeroAccion || '',
         notaTecnica: rawRecord.notaTecnica || '',
+        columnasOriginales: rawRecord.columnasOriginales || {},
         areaClasificada: areaClasificadaFinal,
         resultadoClasificado,
         tipoDesvio,
