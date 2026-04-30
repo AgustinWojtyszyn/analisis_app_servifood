@@ -23,6 +23,7 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import HealthAndSafetyRoundedIcon from '@mui/icons-material/HealthAndSafetyRounded';
+import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
@@ -39,7 +40,9 @@ const sectionIcons = {
   profile: <PersonRoundedIcon />,
   tutorial: <SchoolRoundedIcon />,
   adminUsers: <AdminPanelSettingsRoundedIcon />,
-  declaration: <HealthAndSafetyRoundedIcon />
+  declaration: <HealthAndSafetyRoundedIcon />,
+  policies: <DescriptionRoundedIcon />,
+  declarationHistory: <HistoryRoundedIcon />
 };
 
 export default function AppLayout({ user, onLogout, sections, currentSection, onSelectSection, children }) {
@@ -85,6 +88,14 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     declaration: {
       title: 'Declaración de Salud',
       subtitle: 'Registro diario de salud del personal'
+    },
+    policies: {
+      title: 'Políticas',
+      subtitle: 'Lectura y aceptación de políticas internas'
+    },
+    declarationHistory: {
+      title: 'Mi Historial',
+      subtitle: 'Declaraciones de salud registradas'
     }
   }), []);
 

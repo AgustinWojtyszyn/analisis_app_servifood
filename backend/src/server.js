@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import analysisRoutes from './routes/analysis.js';
 import rulesRoutes from './routes/rules.js';
+import healthDeclarationsRoutes from './routes/healthDeclarations.js';
 import { authenticateToken, requireAdmin } from './middlewares/auth.js';
 import { uploadAndAnalyze } from './controllers/analysisController.js';
 
@@ -38,6 +39,7 @@ app.post('/api/upload-excel', authenticateToken, requireAdmin, upload.single('ex
 // Rutas API
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/rules', rulesRoutes);
+app.use('/api', healthDeclarationsRoutes);
 
 // Servir frontend build (Vite)
 const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');

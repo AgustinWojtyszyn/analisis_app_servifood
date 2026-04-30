@@ -14,6 +14,8 @@ import AdminUsersPage from './components/AdminUsersPage';
 import AppLayout from './components/AppLayout';
 import PublicLanding from './components/PublicLanding';
 import HealthDeclarationPage from './components/HealthDeclarationPage';
+import HealthPoliciesPage from './components/HealthPoliciesPage';
+import HealthDeclarationHistoryPage from './components/HealthDeclarationHistoryPage';
 import { supabase } from './lib/supabaseClient';
 import { useAuth } from './hooks/useAuth';
 import { deleteAnalysis, getAnalysisById, updateAnalysisStatus } from './services/analysis';
@@ -27,7 +29,9 @@ const sectionPathMap = {
   profile: '/perfil',
   tutorial: '/tutorial',
   adminUsers: '/admin-usuarios',
-  declaration: '/declaracion-salud'
+  declaration: '/declaracion-salud',
+  policies: '/politicas',
+  declarationHistory: '/mi-declaraciones'
 };
 
 const publicAuthPathMap = {
@@ -66,7 +70,11 @@ function MainApp({ user, onLogout }) {
 
   const sidebarSections = useMemo(() => {
     if (!isAdmin) {
-      return [{ id: 'declaration', label: 'Declaración de Salud' }];
+      return [
+        { id: 'declaration', label: 'Declaración de Salud' },
+        { id: 'policies', label: 'Políticas' },
+        { id: 'declarationHistory', label: 'Mi Historial' }
+      ];
     }
 
     return [
@@ -76,7 +84,9 @@ function MainApp({ user, onLogout }) {
       { id: 'profile', label: 'Mi Perfil' },
       { id: 'tutorial', label: 'Ver Tutorial' },
       { id: 'rules', label: 'Configurar Reglas' },
-      { id: 'adminUsers', label: 'Gestión de usuarios' }
+      { id: 'adminUsers', label: 'Gestión de usuarios' },
+      { id: 'declaration', label: 'Declaraciones Salud' },
+      { id: 'policies', label: 'Políticas' }
     ];
   }, [isAdmin]);
 
@@ -121,7 +131,9 @@ function MainApp({ user, onLogout }) {
 
   useEffect(() => {
     if (!isAdmin) {
-      navigateToSection('declaration');
+      if (!['/declaracion-salud', '/politicas', '/mi-declaraciones'].includes(window.location.pathname)) {
+        navigateToSection('declaration');
+      }
       return;
     }
 
@@ -222,12 +234,24 @@ function MainApp({ user, onLogout }) {
   };
 
   const renderSection = () => {
-    if (!isAdmin) {
-      return <HealthDeclarationPage />;
-    }
-
     if (window.location.pathname.startsWith('/analisis/')) {
       return renderDetailById();
+    }
+
+    if (currentSection === 'declaration') {
+      return <HealthDeclarationPage isAdmin={isAdmin} onOpenPolicies={() => navigateToSection('policies')} />;
+    }
+
+    if (currentSection === 'policies') {
+      return <HealthPoliciesPage />;
+    }
+
+    if (currentSection === 'declarationHistory') {
+      return <HealthDeclarationHistoryPage />;
+    }
+
+    if (!isAdmin) {
+      return <HealthDeclarationPage isAdmin={false} onOpenPolicies={() => navigateToSection('policies')} />;
     }
 
     if (currentSection === 'panel' || currentSection === 'history') {
