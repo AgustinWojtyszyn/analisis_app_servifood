@@ -37,7 +37,7 @@ export async function uploadExcel(file, onProgress) {
         } else {
           reject(new Error(parsed.error || 'Error cargando archivo'));
         }
-      } catch (error) {
+      } catch {
         reject(new Error('Respuesta invalida del servidor'));
       }
     };
@@ -49,17 +49,43 @@ export async function uploadExcel(file, onProgress) {
   return xhrResult;
 }
 
+export async function uploadMultipleAnalysis(files) {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error('No hay sesion activa');
+  }
+
+  const formData = new FormData();
+  files.forEach((file) => formData.append('files', file));
+
+  const response = await fetch(`${API_BASE_URL}/analysis/upload-multiple`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    body: formData
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || 'Error en carga múltiple');
+  }
+
+  return payload;
+}
+
 async function authorizedFetch(path, options = {}) {
   const token = await getAccessToken();
   if (!token) {
     throw new Error('No hay sesion activa');
   }
 
+  const hasBody = options.body !== undefined;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
       ...(options.headers || {})
     }
   });
@@ -72,8 +98,15 @@ async function authorizedFetch(path, options = {}) {
   return payload;
 }
 
-export async function getAnalysisHistory() {
-  const data = await authorizedFetch('/analysis/user/history');
+export async function getAnalysisHistory(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value));
+    }
+  });
+
+  const data = await authorizedFetch(`/analysis/history${query.toString() ? `?${query.toString()}` : ''}`);
   return { data, error: null };
 }
 
@@ -90,6 +123,53 @@ export async function deleteAnalysis(id) {
   }
 }
 
+export async function deleteAnalysesBulk(ids = []) {
+  return await authorizedFetch('/analysis/bulk', {
+    method: 'DELETE',
+    body: JSON.stringify({ ids })
+  });
+}
+
+export async function deleteAllAnalyses(confirmText = 'BORRAR') {
+  return await authorizedFetch('/analysis/all', {
+    method: 'DELETE',
+    body: JSON.stringify({ confirmText })
+  });
+}
+
+export async function exportAnalysesBulk(ids = []) {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error('No hay sesion activa');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/analysis/export/bulk`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ ids })
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || 'Error exportando en lote');
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `analisis_bulk_${Date.now()}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+
+  return { success: true };
+}
+
 export async function deleteActiveAnalysis() {
   return await authorizedFetch('/analysis/user/active', { method: 'DELETE' });
 }
@@ -102,9 +182,5 @@ export async function updateAnalysisStatus(id, status) {
 }
 
 export async function getAnalysisById(id) {
-  return await authorizedFetch(`/analysis/${id}`, {
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  });
+  return await authorizedFetch(`/analysis/${id}`);
 }

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import multer from 'multer';
 import analysisRoutes from './routes/analysis.js';
 import rulesRoutes from './routes/rules.js';
-import { authenticateToken } from './middlewares/auth.js';
+import { authenticateToken, requireAdmin } from './middlewares/auth.js';
 import { uploadAndAnalyze } from './controllers/analysisController.js';
 
 const app = express();
@@ -33,7 +33,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Alias compatible con frontend: POST /api/upload-excel
-app.post('/api/upload-excel', authenticateToken, upload.single('excel'), uploadAndAnalyze);
+app.post('/api/upload-excel', authenticateToken, requireAdmin, upload.single('excel'), uploadAndAnalyze);
 
 // Rutas API
 app.use('/api/analysis', analysisRoutes);

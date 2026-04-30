@@ -1,27 +1,57 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Typography,
-  Button,
-  LinearProgress,
-  Alert,
-  CircularProgress,
-  Paper
+  Paper,
+  Typography
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { uploadExcel } from '../services/analysis';
+import { uploadMultipleAnalysis } from '../services/analysis';
+
+const MAX_FILES = 10;
+
+function isExcel(file) {
+  const name = String(file?.name || '').toLowerCase();
+  return name.endsWith('.xlsx') || name.endsWith('.xls');
+}
 
 export default function FileUpload({ onUploadSuccess, showHeader = true }) {
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [files, setFiles] = useState([]);
+  const [fileStatuses, setFileStatuses] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+
+  const counterLabel = `${files.length}/${MAX_FILES} archivos`;
+
+  const canProcess = useMemo(() => files.length > 0 && !uploading, [files.length, uploading]);
+
+  const resetStatuses = (nextFiles) => {
+    setFileStatuses(nextFiles.map((file) => ({ filename: file.name, status: 'pendiente' })));
+  };
+
+  const applyFiles = (incoming) => {
+    const list = Array.from(incoming || []);
+    if (!list.length) return;
+
+    if (list.length > MAX_FILES) {
+      setError(`Máximo ${MAX_FILES} archivos por carga`);
+      return;
+    }
+
+    const invalid = list.find((file) => !isExcel(file));
+    if (invalid) {
+      setError(`Archivo inválido: ${invalid.name}. Solo .xlsx/.xls`);
+      return;
+    }
+
+    setError('');
+    setFiles(list);
+    resetStatuses(list);
+  };
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -37,56 +67,45 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-
-    const files = e.dataTransfer?.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        setSelectedFile(file);
-        setError('');
-      } else {
-        setError('Solo se aceptan archivos .xlsx o .xls');
-      }
-    }
+    applyFiles(e.dataTransfer?.files);
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        setSelectedFile(file);
-        setError('');
-      } else {
-        setError('Solo se aceptan archivos .xlsx o .xls');
-      }
-    }
+    applyFiles(e.target.files);
+  };
+
+  const handleRemove = (filename) => {
+    const nextFiles = files.filter((file) => file.name !== filename);
+    setFiles(nextFiles);
+    resetStatuses(nextFiles);
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) {
-      setError('Selecciona un archivo primero');
+    if (!files.length) {
+      setError('Selecciona archivos primero');
       return;
     }
 
     setUploading(true);
-    setProgress(0);
-    setStatus('Validando archivo...');
     setError('');
-    setSuccess(false);
+
+    setFileStatuses((prev) => prev.map((item) => ({ ...item, status: 'procesando' })));
 
     try {
-      const response = await uploadExcel(selectedFile, (nextProgress) => {
-        setProgress(nextProgress);
-      });
+      const response = await uploadMultipleAnalysis(files);
+      const resultMap = new Map((response?.results || []).map((r) => [r.filename, r]));
 
-      setStatus('Procesando datos...');
-      setProgress(100);
-      setStatus('Analisis completado exitosamente');
-      setSuccess(true);
-      onUploadSuccess(response.analysis);
+      setFileStatuses((prev) => prev.map((item) => {
+        const result = resultMap.get(item.filename);
+        if (!result) return { ...item, status: 'error', error: 'Sin respuesta del servidor' };
+        if (result.success) return { ...item, status: 'listo', analysisId: result.analysisId };
+        return { ...item, status: 'error', error: result.error || 'Error procesando' };
+      }));
+
+      onUploadSuccess?.(response);
     } catch (err) {
-      setError(err.message || 'Error cargando archivo');
-      setProgress(0);
+      setError(err.message || 'Error cargando archivos');
+      setFileStatuses((prev) => prev.map((item) => ({ ...item, status: 'error', error: err.message || 'Error general' })));
     } finally {
       setUploading(false);
     }
@@ -99,10 +118,10 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
           {showHeader && (
             <>
               <Typography variant="h5" sx={{ mb: 0.5, fontWeight: 800, fontSize: { xs: 24, md: 28 } }}>
-                Cargar Archivo Excel
+                Cargar Archivos Excel
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-                Subí un archivo para clasificar incidencias y generar métricas automáticamente.
+                Podés subir hasta 10 archivos por lote. Cada archivo se procesa como un análisis independiente.
               </Typography>
             </>
           )}
@@ -125,24 +144,23 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
               cursor: 'pointer',
               transition: 'all 0.3s ease',
               mb: 2.5,
-              borderRadius: 3,
-              '&:hover': {
-                borderColor: 'primary.main',
-                transform: 'translateY(-1px)',
-                boxShadow: '0 10px 20px rgba(37, 99, 235, 0.12)'
-              }
+              borderRadius: 3
             }}
           >
             <CloudUploadIcon sx={{ fontSize: 54, mb: 2, color: 'primary.main' }} />
             <Typography variant="h6" sx={{ mb: 1, fontWeight: 700, fontSize: { xs: 19, md: 21 } }}>
-              Arrastra tu archivo aqui o haz clic para seleccionar
+              Arrastra archivos aquí o haz clic para seleccionar
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Formatos soportados: .xlsx, .xls
             </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, fontWeight: 700 }}>
+              {counterLabel}
+            </Typography>
 
             <input
               type="file"
+              multiple
               accept=".xlsx,.xls"
               onChange={handleFileChange}
               style={{ display: 'none' }}
@@ -150,69 +168,36 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
             />
           </Paper>
 
-          {selectedFile && !success && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Archivo seleccionado: <strong>{selectedFile.name}</strong>
-            </Alert>
-          )}
-
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-          {success && (
-            <Alert severity="success" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-              <CheckCircleIcon sx={{ mr: 1 }} />
-              {status}
-            </Alert>
+          {fileStatuses.length > 0 && (
+            <Paper variant="outlined" sx={{ mb: 2, p: 1.5 }}>
+              {fileStatuses.map((item) => (
+                <Box key={item.filename} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0.5, borderBottom: '1px solid #eef2f7' }}>
+                  <Typography variant="body2">{item.filename}</Typography>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 700 }}>
+                      {item.status}
+                    </Typography>
+                    {item.status === 'pendiente' && (
+                      <Button size="small" color="error" onClick={() => handleRemove(item.filename)}>Quitar</Button>
+                    )}
+                  </Box>
+                </Box>
+              ))}
+            </Paper>
           )}
 
-          {uploading && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                {status}
-              </Typography>
-              <LinearProgress variant="determinate" value={progress} sx={{ mb: 1 }} />
-              <Typography variant="caption" color="textSecondary">
-                {progress}%
-              </Typography>
-            </Box>
-          )}
-
-          {!success && (
-            <Button
-              variant="contained"
-              size="large"
-              onClick={handleUpload}
-              disabled={!selectedFile || uploading}
-              fullWidth
-              sx={{ py: 1.4, boxShadow: '0 10px 20px rgba(29, 78, 216, 0.24)' }}
-            >
-              {uploading ? (
-                <>
-                  <CircularProgress size={20} sx={{ mr: 1 }} />
-                  Procesando...
-                </>
-              ) : (
-                'Subir y Analizar'
-              )}
-            </Button>
-          )}
-
-          {success && (
-            <Button
-              variant="outlined"
-              size="large"
-              onClick={() => {
-                setSelectedFile(null);
-                setProgress(0);
-                setStatus('');
-                setSuccess(false);
-              }}
-              fullWidth
-              sx={{ py: 1.5 }}
-            >
-              Cargar Otro Archivo
-            </Button>
-          )}
+          <Button
+            variant="contained"
+            size="large"
+            onClick={handleUpload}
+            disabled={!canProcess}
+            fullWidth
+            sx={{ py: 1.4 }}
+          >
+            {uploading ? 'Procesando archivos...' : 'Procesar archivos'}
+          </Button>
         </CardContent>
       </Card>
     </Box>

@@ -22,6 +22,7 @@ import PieChartRoundedIcon from '@mui/icons-material/PieChartRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
+import HealthAndSafetyRoundedIcon from '@mui/icons-material/HealthAndSafetyRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
@@ -37,7 +38,8 @@ const sectionIcons = {
   charts: <PieChartRoundedIcon />,
   profile: <PersonRoundedIcon />,
   tutorial: <SchoolRoundedIcon />,
-  adminUsers: <AdminPanelSettingsRoundedIcon />
+  adminUsers: <AdminPanelSettingsRoundedIcon />,
+  declaration: <HealthAndSafetyRoundedIcon />
 };
 
 export default function AppLayout({ user, onLogout, sections, currentSection, onSelectSection, children }) {
@@ -79,6 +81,10 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     adminUsers: {
       title: 'Gestión de usuarios',
       subtitle: 'Controlá roles y estado de acceso del equipo'
+    },
+    declaration: {
+      title: 'Declaración de Salud',
+      subtitle: 'Registro diario de salud del personal'
     }
   }), []);
 

@@ -2,45 +2,37 @@ import express from 'express';
 import multer from 'multer';
 import {
   uploadAndAnalyze,
+  uploadAndAnalyzeMultiple,
   getAnalysis,
   getHistory,
   deleteAnalysis,
+  deleteAnalysisBulk,
+  deleteAllAnalyses,
+  exportBulkAnalyses,
   getActiveAnalysis,
   deleteActiveAnalysis,
   updateAnalysisStatus
 } from '../controllers/analysisController.js';
-import { authenticateToken } from '../middlewares/auth.js';
+import { authenticateToken, requireAdmin } from '../middlewares/auth.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-/**
- * POST /api/analysis/upload
- * POST /api/upload-excel
- * Subir y procesar un archivo Excel
- */
-router.post('/upload', authenticateToken, upload.single('file'), uploadAndAnalyze);
-router.post('/upload-excel', authenticateToken, upload.single('excel'), uploadAndAnalyze);
+router.post('/upload', authenticateToken, requireAdmin, upload.single('file'), uploadAndAnalyze);
+router.post('/upload-excel', authenticateToken, requireAdmin, upload.single('excel'), uploadAndAnalyze);
+router.post('/upload-multiple', authenticateToken, requireAdmin, upload.array('files', 10), uploadAndAnalyzeMultiple);
 
-/**
- * GET /api/analysis/user/history
- * Obtener historial de análisis del usuario actual
- */
-router.get('/user/history', authenticateToken, getHistory);
-router.get('/user/active', authenticateToken, getActiveAnalysis);
-router.delete('/user/active', authenticateToken, deleteActiveAnalysis);
+router.get('/history', authenticateToken, requireAdmin, getHistory);
+router.get('/user/history', authenticateToken, requireAdmin, getHistory);
+router.get('/user/active', authenticateToken, requireAdmin, getActiveAnalysis);
+router.delete('/user/active', authenticateToken, requireAdmin, deleteActiveAnalysis);
 
-/**
- * GET /api/analysis/:id
- * Obtener un análisis específico
- */
-router.get('/:id', authenticateToken, getAnalysis);
+router.post('/export/bulk', authenticateToken, requireAdmin, exportBulkAnalyses);
+router.delete('/bulk', authenticateToken, requireAdmin, deleteAnalysisBulk);
+router.delete('/all', authenticateToken, requireAdmin, deleteAllAnalyses);
 
-/**
- * DELETE /api/analysis/:id
- * Eliminar un análisis del usuario actual
- */
-router.delete('/:id', authenticateToken, deleteAnalysis);
-router.patch('/:id/status', authenticateToken, updateAnalysisStatus);
+router.get('/:id', authenticateToken, requireAdmin, getAnalysis);
+router.delete('/:id', authenticateToken, requireAdmin, deleteAnalysis);
+router.patch('/:id/status', authenticateToken, requireAdmin, updateAnalysisStatus);
 
 export default router;
