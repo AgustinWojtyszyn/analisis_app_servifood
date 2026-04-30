@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import { classifyDeviationCasesFromRecords } from './caseClassifier.js';
 
 const ENABLE_CLASSIFICATION_TRACE = process.env.CLASSIFICATION_TRACE === '1';
+const ENABLE_FILLDOWN_TRACE = process.env.EXCEL_FILLDOWN_TRACE === '1';
 
 const OPERATIVE_AREAS = [
   'Área fría',
@@ -549,6 +550,11 @@ function getHallazgo(row, context = {}) {
 }
 
 function getTextoHallazgo(_row, context = {}) {
+  const hallazgoDirecto = normalizeCellValue(context.hallazgoDirecto || '').trim();
+  if (hallazgoDirecto && !isTextoNoValidoHallazgo(hallazgoDirecto) && !isGestionSgiaText(hallazgoDirecto)) {
+    return sanitizeHallazgo(hallazgoDirecto);
+  }
+
   const hallazgo = sanitizeHallazgo(getHallazgo(_row, context));
   if (!hallazgo || isGestionSgiaText(hallazgo)) return 'Sin hallazgo detectado';
   const hallazgos = splitHallazgos(hallazgo);
@@ -2187,6 +2193,15 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       leadTopicText: '',
       maxLeadWindow: 3
     };
+    const fillDownState = {
+      fecha: '',
+      areaProceso: '',
+      actividadRealizada: '',
+      tipoActividad: '',
+      responsableOriginal: '',
+      iso22000Original: '',
+      tipoDesvioOriginal: ''
+    };
 
     rows.forEach((rowValues, index) => {
       progressCallback?.(
@@ -2203,18 +2218,18 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       const rowKeyMap = buildNormalizedRowKeyMap(row);
       const accionDetectada = getTextoAccion(row);
 
-      const actividadRealizada = getRowValueByCandidates(row, rowKeyMap, [
+      const actividadRealizadaRaw = getRowValueByCandidates(row, rowKeyMap, [
         'Actividad realizada',
         'Actividad realizada / Descripción',
         'Actividad realizada / Descripcion'
       ]) || normalizeCellValue(getValue(headerIndexes.actividadRealizada));
 
-      const tipoActividad = getRowValueByCandidates(row, rowKeyMap, [
+      const tipoActividadRaw = getRowValueByCandidates(row, rowKeyMap, [
         'Tipo de actividad',
         'Tipo actividad'
       ]) || normalizeCellValue(getValue(headerIndexes.tipoActividad));
 
-      const areaProceso = getRowValueByCandidates(row, rowKeyMap, [
+      const areaProcesoRaw = getRowValueByCandidates(row, rowKeyMap, [
         'Área / Proceso',
         'Area / Proceso',
         'Área / Sector',
@@ -2225,25 +2240,25 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         'Area'
       ]) || normalizeCellValue(getValue(headerIndexes.areaProceso));
 
-      const resultado = getRowValueByCandidates(row, rowKeyMap, [
+      const resultadoRaw = getRowValueByCandidates(row, rowKeyMap, [
         'Resultado'
       ]) || normalizeCellValue(getValue(headerIndexes.resultado));
 
-      const desvio = getRowValueByCandidates(row, rowKeyMap, [
+      const desvioRaw = getRowValueByCandidates(row, rowKeyMap, [
         '¿Desvío?',
         '¿Desvio?',
         'Desvío',
         'Desvio'
       ]) || normalizeCellValue(getValue(headerIndexes.desvio));
 
-      const accion = getRowValueByCandidates(row, rowKeyMap, [
+      const accionRaw = getRowValueByCandidates(row, rowKeyMap, [
         '¿Acción?',
         '¿Accion?',
         'Acción',
         'Accion'
       ]) || normalizeCellValue(getValue(headerIndexes.accion));
 
-      const numeroAccion = getRowValueByCandidates(row, rowKeyMap, [
+      const numeroAccionRaw = getRowValueByCandidates(row, rowKeyMap, [
         'N° Acción',
         'N° Accion',
         'Nro Acción',
@@ -2251,13 +2266,87 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         'Numero accion'
       ]) || normalizeCellValue(getValue(headerIndexes.numeroAccion));
 
-      const notaTecnica = getRowValueByCandidates(row, rowKeyMap, [
+      const notaTecnicaRaw = getRowValueByCandidates(row, rowKeyMap, [
         'Nota técnica',
         'Nota tecnica'
       ]) || normalizeCellValue(getValue(headerIndexes.notaTecnica));
 
+      const fechaRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
+        'Fecha',
+        'Fecha del desvío',
+        'Fecha del desvio',
+        'Fecha de registro'
+      ]) || getValue(headerIndexes.fecha)).trim();
+
+      const responsableOriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, ['Responsable', 'Responsable asignado']) || '').trim();
+      const iso22000OriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
+        'ISO 22000',
+        'Iso 22000',
+        'ISO',
+        'Clausula ISO',
+        'Cláusula ISO'
+      ]) || '').trim();
+      const tipoDesvioOriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
+        'Clasificacion del desvio',
+        'Clasificación del desvío',
+        'Clasificacion del desvío',
+        'Clasificación del desvio',
+        'Tipo desvio',
+        'Tipo desvío',
+        'Tipo',
+        'Clasificación',
+        'Clasificacion'
+      ]) || '').trim();
+
+      const desvioDetectadoOriginal = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
+        'Desvío detectado',
+        'Desvio detectado',
+        'Hallazgo detectado',
+        'Descripción del desvío',
+        'Descripcion del desvio',
+        'Detalle del desvío',
+        'Detalle del desvio'
+      ]) || '').trim();
+
+      const fecha = fechaRaw || fillDownState.fecha;
+      const areaProceso = normalizeCellValue(areaProcesoRaw).trim() || fillDownState.areaProceso;
+      const actividadRealizada = normalizeCellValue(actividadRealizadaRaw).trim() || fillDownState.actividadRealizada;
+      const tipoActividad = normalizeCellValue(tipoActividadRaw).trim() || fillDownState.tipoActividad;
+      const resultado = normalizeCellValue(resultadoRaw).trim();
+      const desvio = normalizeCellValue(desvioRaw).trim();
+      const accion = normalizeCellValue(accionRaw).trim();
+      const numeroAccion = normalizeCellValue(numeroAccionRaw).trim();
+      const notaTecnica = normalizeCellValue(notaTecnicaRaw).trim();
+      const responsableOriginal = responsableOriginalRaw || fillDownState.responsableOriginal;
+      const iso22000Original = iso22000OriginalRaw || fillDownState.iso22000Original;
+      const tipoDesvioOriginal = tipoDesvioOriginalRaw || fillDownState.tipoDesvioOriginal;
+
+      if (fecha) fillDownState.fecha = fecha;
+      if (areaProceso) fillDownState.areaProceso = areaProceso;
+      if (actividadRealizada) fillDownState.actividadRealizada = actividadRealizada;
+      if (tipoActividad) fillDownState.tipoActividad = tipoActividad;
+      if (responsableOriginal) fillDownState.responsableOriginal = responsableOriginal;
+      if (iso22000Original) fillDownState.iso22000Original = iso22000Original;
+      if (tipoDesvioOriginal) fillDownState.tipoDesvioOriginal = tipoDesvioOriginal;
+
+      // Logging temporal bajo flag para validar fill down sin ensuciar producción.
+      if (ENABLE_FILLDOWN_TRACE) {
+        console.log('[fill-down-row]', {
+          index: index + 1,
+          fecha,
+          areaProceso,
+          actividadRealizada,
+          desvioDetectadoOriginal
+        });
+      }
+
+      // No crear registro si no existe desvío detectado en la fila.
+      if (!desvioDetectadoOriginal) {
+        return;
+      }
+
       const rawRecord = {
-        fecha: normalizeCellValue(getValue(headerIndexes.fecha)),
+        fecha,
         areaProceso,
         actividadRealizada,
         descripcion: getRowValueByCandidates(row, rowKeyMap, [
@@ -2291,12 +2380,13 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
           'Acción correctiva',
           'Accion correctiva'
         ]) || normalizeCellValue(getValue(headerIndexes.accionCorrectiva)),
-        responsableOriginal: getRowValueByCandidates(row, rowKeyMap, ['Responsable', 'Responsable asignado']) || '',
-        iso22000Original: getRowValueByCandidates(row, rowKeyMap, ['ISO 22000', 'Iso 22000', 'ISO', 'Clausula ISO', 'Cláusula ISO']) || '',
-        tipoDesvioOriginal: getRowValueByCandidates(row, rowKeyMap, ['Tipo desvio', 'Tipo desvío', 'Tipo', 'Clasificación', 'Clasificacion']) || '',
+        responsableOriginal,
+        iso22000Original,
+        tipoDesvioOriginal,
         columnasOriginales: row || {},
         textoBase: actividadRealizada,
         hallazgoDetectado: getTextoHallazgo(row, {
+          hallazgoDirecto: desvioDetectadoOriginal,
           actividadRealizada,
           notaTecnica,
           desvio,
