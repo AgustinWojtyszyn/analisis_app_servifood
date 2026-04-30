@@ -13,6 +13,8 @@ const supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey)
   : null;
 
+const EDIT_WINDOW_MINUTES = 15;
+
 function startAndEndOfToday() {
   const now = new Date();
   const start = new Date(now);
@@ -22,11 +24,21 @@ function startAndEndOfToday() {
   return { start: start.toISOString(), end: end.toISOString(), date: start.toISOString().slice(0, 10) };
 }
 
-function mapDeclaration(row) {
+function canManageWithinWindow(row) {
+  const base = row?.declared_at || row?.created_at;
+  if (!base) return false;
+  const diffMs = Date.now() - new Date(base).getTime();
+  return diffMs >= 0 && diffMs <= EDIT_WINDOW_MINUTES * 60 * 1000;
+}
+
+function mapDeclaration(row, profileByUserId = new Map()) {
   if (!row) return null;
+  const profile = profileByUserId.get(row.user_id) || null;
   return {
     id: row.id,
     userId: row.user_id,
+    userName: profile?.full_name || profile?.email || row.user_id,
+    userEmail: profile?.email || null,
     declarationDate: row.declaration_date || null,
     declaredAt: row.declared_at || row.created_at || null,
     hasSymptoms: Boolean(row.has_symptoms),
@@ -35,8 +47,23 @@ function mapDeclaration(row) {
     commitInform: Boolean(row.commit_inform),
     policyAccepted: Boolean(row.policy_accepted),
     policyId: row.policy_id || null,
-    createdAt: row.created_at || null
+    createdAt: row.created_at || null,
+    editableUntil: row.declared_at || row.created_at || null,
+    canEditOrDelete: canManageWithinWindow(row)
   };
+}
+
+async function loadProfilesMap(userIds = []) {
+  const validIds = [...new Set((userIds || []).filter(Boolean))];
+  if (!validIds.length) return new Map();
+
+  const { data, error } = await supabaseAdmin
+    .from('profiles')
+    .select('id, full_name, email')
+    .in('id', validIds);
+
+  if (error || !Array.isArray(data)) return new Map();
+  return new Map(data.map((row) => [row.id, row]));
 }
 
 async function getTodayDeclaration(userId) {
@@ -83,7 +110,7 @@ router.get('/health-policies/active', authenticateToken, async (_req, res) => {
     }
 
     return res.json(data || null);
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'Error interno consultando política activa' });
   }
 });
@@ -101,8 +128,9 @@ router.get('/health-declarations/today', authenticateToken, async (req, res) => 
     }
 
     const row = data?.[0] || null;
-    return res.json({ completed: Boolean(row), declaration: mapDeclaration(row) });
-  } catch (error) {
+    const profileMap = row ? await loadProfilesMap([row.user_id]) : new Map();
+    return res.json({ completed: Boolean(row), declaration: mapDeclaration(row, profileMap) });
+  } catch {
     return res.status(500).json({ error: 'Error interno consultando declaración diaria' });
   }
 });
@@ -111,6 +139,10 @@ router.post('/health-declarations', authenticateToken, async (req, res) => {
   try {
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+    }
+
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'user_id')) {
+      return res.status(400).json({ error: 'No se permite enviar user_id en el body' });
     }
 
     const {
@@ -168,9 +200,103 @@ router.post('/health-declarations', authenticateToken, async (req, res) => {
     }
 
     const risk = Boolean(hasSymptoms || hasFever || recentContact);
-    return res.status(201).json({ success: true, risk, declaration: mapDeclaration(data) });
-  } catch (error) {
+    const profileMap = await loadProfilesMap([data.user_id]);
+    return res.status(201).json({ success: true, risk, declaration: mapDeclaration(data, profileMap) });
+  } catch {
     return res.status(500).json({ error: 'Error interno guardando declaración' });
+  }
+});
+
+router.put('/health-declarations/:id/me', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      hasSymptoms,
+      hasFever,
+      recentContact,
+      commitInform,
+      policyAccepted,
+      policyId = null
+    } = req.body || {};
+
+    const requiredBooleans = [hasSymptoms, hasFever, recentContact, commitInform, policyAccepted];
+    if (requiredBooleans.some((value) => typeof value !== 'boolean')) {
+      return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+    }
+
+    const existing = await supabaseAdmin
+      .from('health_declarations')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (existing.error || !existing.data) {
+      return res.status(404).json({ error: 'Declaración no encontrada' });
+    }
+
+    if (!canManageWithinWindow(existing.data)) {
+      return res.status(403).json({ error: 'Solo puedes editar dentro de los primeros 15 minutos' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('health_declarations')
+      .update({
+        has_symptoms: hasSymptoms,
+        has_fever: hasFever,
+        recent_contact: recentContact,
+        commit_inform: commitInform,
+        policy_accepted: policyAccepted,
+        policy_id: policyId
+      })
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .select('*')
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'No se pudo actualizar la declaración' });
+    }
+
+    const profileMap = await loadProfilesMap([data.user_id]);
+    return res.json({ success: true, declaration: mapDeclaration(data, profileMap) });
+  } catch {
+    return res.status(500).json({ error: 'Error interno actualizando declaración' });
+  }
+});
+
+router.delete('/health-declarations/:id/me', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await supabaseAdmin
+      .from('health_declarations')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (existing.error || !existing.data) {
+      return res.status(404).json({ error: 'Declaración no encontrada' });
+    }
+
+    if (!canManageWithinWindow(existing.data)) {
+      return res.status(403).json({ error: 'Solo puedes eliminar dentro de los primeros 15 minutos' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('health_declarations')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', req.user.id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Error eliminando declaración' });
+    }
+
+    return res.json({ success: true });
+  } catch {
+    return res.status(500).json({ error: 'Error interno eliminando declaración' });
   }
 });
 
@@ -190,8 +316,9 @@ router.get('/health-declarations/me', authenticateToken, async (req, res) => {
       return res.status(500).json({ error: error.message || 'Error consultando historial' });
     }
 
-    return res.json((data || []).map(mapDeclaration));
-  } catch (error) {
+    const profileMap = await loadProfilesMap([req.user.id]);
+    return res.json((data || []).map((row) => mapDeclaration(row, profileMap)));
+  } catch {
     return res.status(500).json({ error: 'Error interno consultando historial' });
   }
 });
@@ -211,8 +338,9 @@ router.get('/health-declarations/admin', authenticateToken, requireAdmin, async 
       return res.status(500).json({ error: error.message || 'Error consultando declaraciones' });
     }
 
-    return res.json((data || []).map(mapDeclaration));
-  } catch (error) {
+    const profileMap = await loadProfilesMap((data || []).map((item) => item.user_id));
+    return res.json((data || []).map((row) => mapDeclaration(row, profileMap)));
+  } catch {
     return res.status(500).json({ error: 'Error interno consultando declaraciones' });
   }
 });
@@ -234,7 +362,7 @@ router.delete('/health-declarations/:id', authenticateToken, requireAdmin, async
     }
 
     return res.json({ success: true });
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'Error interno eliminando declaración' });
   }
 });
@@ -254,11 +382,14 @@ router.post('/health-declarations/export', authenticateToken, requireAdmin, asyn
       return res.status(500).json({ error: error.message || 'Error exportando declaraciones' });
     }
 
+    const profileMap = await loadProfilesMap((data || []).map((item) => item.user_id));
+
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Declaraciones');
 
     sheet.columns = [
-      { header: 'usuario', key: 'usuario', width: 40 },
+      { header: 'usuario', key: 'usuario', width: 45 },
+      { header: 'email', key: 'email', width: 40 },
       { header: 'fecha', key: 'fecha', width: 15 },
       { header: 'sintomas', key: 'sintomas', width: 12 },
       { header: 'fiebre', key: 'fiebre', width: 12 },
@@ -268,10 +399,12 @@ router.post('/health-declarations/export', authenticateToken, requireAdmin, asyn
     ];
 
     for (const row of data || []) {
+      const profile = profileMap.get(row.user_id) || null;
       const declaredAt = row.declared_at || row.created_at || null;
       const dateObj = declaredAt ? new Date(declaredAt) : null;
       sheet.addRow({
-        usuario: row.user_id,
+        usuario: profile?.full_name || profile?.email || row.user_id,
+        email: profile?.email || '',
         fecha: row.declaration_date || (dateObj ? dateObj.toISOString().slice(0, 10) : ''),
         sintomas: row.has_symptoms ? 'si' : 'no',
         fiebre: row.has_fever ? 'si' : 'no',
@@ -285,7 +418,7 @@ router.post('/health-declarations/export', authenticateToken, requireAdmin, asyn
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="health_declarations_${Date.now()}.xlsx"`);
     return res.send(Buffer.from(buffer));
-  } catch (error) {
+  } catch {
     return res.status(500).json({ error: 'Error interno exportando declaraciones' });
   }
 });

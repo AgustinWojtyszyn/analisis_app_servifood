@@ -16,6 +16,7 @@ import PublicLanding from './components/PublicLanding';
 import HealthDeclarationPage from './components/HealthDeclarationPage';
 import HealthPoliciesPage from './components/HealthPoliciesPage';
 import HealthDeclarationHistoryPage from './components/HealthDeclarationHistoryPage';
+import HealthDeclarationsAdminPage from './components/HealthDeclarationsAdminPage';
 import { supabase } from './lib/supabaseClient';
 import { useAuth } from './hooks/useAuth';
 import { deleteAnalysis, getAnalysisById, updateAnalysisStatus } from './services/analysis';
@@ -31,7 +32,8 @@ const sectionPathMap = {
   adminUsers: '/admin-usuarios',
   declaration: '/declaracion-salud',
   policies: '/politicas',
-  declarationHistory: '/mi-declaraciones'
+  declarationHistory: '/mi-declaraciones',
+  adminHealthDeclarations: '/admin-declaraciones-salud'
 };
 
 const publicAuthPathMap = {
@@ -85,7 +87,8 @@ function MainApp({ user, onLogout }) {
       { id: 'tutorial', label: 'Ver Tutorial' },
       { id: 'rules', label: 'Configurar Reglas' },
       { id: 'adminUsers', label: 'Gestión de usuarios' },
-      { id: 'declaration', label: 'Declaraciones Salud' },
+      { id: 'declaration', label: 'Mi Declaración Salud' },
+      { id: 'adminHealthDeclarations', label: 'Gestor Declaraciones' },
       { id: 'policies', label: 'Políticas' }
     ];
   }, [isAdmin]);
@@ -239,7 +242,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'declaration') {
-      return <HealthDeclarationPage isAdmin={isAdmin} onOpenPolicies={() => navigateToSection('policies')} />;
+      return <HealthDeclarationPage onOpenPolicies={() => navigateToSection('policies')} onAfterDelete={() => navigateToSection(isAdmin ? 'panel' : 'declaration')} />;
     }
 
     if (currentSection === 'policies') {
@@ -250,8 +253,13 @@ function MainApp({ user, onLogout }) {
       return <HealthDeclarationHistoryPage />;
     }
 
+    if (currentSection === 'adminHealthDeclarations') {
+      if (!isAdmin) return null;
+      return <HealthDeclarationsAdminPage />;
+    }
+
     if (!isAdmin) {
-      return <HealthDeclarationPage isAdmin={false} onOpenPolicies={() => navigateToSection('policies')} />;
+      return <HealthDeclarationPage onOpenPolicies={() => navigateToSection('policies')} onAfterDelete={() => navigateToSection('declaration')} />;
     }
 
     if (currentSection === 'panel' || currentSection === 'history') {

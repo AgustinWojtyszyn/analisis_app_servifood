@@ -37,6 +37,19 @@ export async function submitHealthDeclaration(body) {
   });
 }
 
+export async function updateMyHealthDeclaration(id, body) {
+  return await authFetch(`/health-declarations/${id}/me`, {
+    method: 'PUT',
+    body: JSON.stringify(body)
+  });
+}
+
+export async function deleteMyHealthDeclaration(id) {
+  return await authFetch(`/health-declarations/${id}/me`, {
+    method: 'DELETE'
+  });
+}
+
 export async function getMyHealthDeclarations() {
   return await authFetch('/health-declarations/me');
 }

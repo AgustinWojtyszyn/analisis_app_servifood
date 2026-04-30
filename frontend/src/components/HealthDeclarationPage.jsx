@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -21,12 +21,11 @@ import {
   Typography
 } from '@mui/material';
 import {
-  deleteHealthDeclarationById,
-  exportHealthDeclarations,
-  getAdminHealthDeclarations,
+  deleteMyHealthDeclaration,
   getMyHealthDeclarations,
   getTodayHealthDeclaration,
-  submitHealthDeclaration
+  submitHealthDeclaration,
+  updateMyHealthDeclaration
 } from '../services/healthDeclarations';
 
 function yesNoValue(value) {
@@ -35,20 +34,24 @@ function yesNoValue(value) {
   return null;
 }
 
+function boolToYesNo(value) {
+  return value ? 'si' : 'no';
+}
+
 function renderBoolean(value) {
   return value ? 'Sí' : 'No';
 }
 
-export default function HealthDeclarationPage({ isAdmin = false, onOpenPolicies }) {
+export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [warning, setWarning] = useState('');
   const [completedToday, setCompletedToday] = useState(false);
   const [todayDeclaration, setTodayDeclaration] = useState(null);
   const [history, setHistory] = useState([]);
-  const [adminRows, setAdminRows] = useState([]);
 
   const [form, setForm] = useState({
     hasSymptoms: '',
@@ -60,7 +63,9 @@ export default function HealthDeclarationPage({ isAdmin = false, onOpenPolicies 
 
   useEffect(() => {
     bootstrap();
-  }, [isAdmin]);
+  }, []);
+
+  const editableNow = useMemo(() => Boolean(todayDeclaration?.canEditOrDelete), [todayDeclaration]);
 
   const bootstrap = async () => {
     try {
@@ -77,13 +82,6 @@ export default function HealthDeclarationPage({ isAdmin = false, onOpenPolicies 
       setCompletedToday(Boolean(today?.completed));
       setTodayDeclaration(today?.declaration || null);
       setHistory(Array.isArray(myHistory) ? myHistory : []);
-
-      if (isAdmin) {
-        const rows = await getAdminHealthDeclarations();
-        setAdminRows(Array.isArray(rows) ? rows : []);
-      } else {
-        setAdminRows([]);
-      }
     } catch (err) {
       setError(err.message || 'No se pudo cargar la declaración');
     } finally {
@@ -121,6 +119,17 @@ export default function HealthDeclarationPage({ isAdmin = false, onOpenPolicies 
     };
   };
 
+  const resetForm = () => {
+    setForm({
+      hasSymptoms: '',
+      hasFever: '',
+      recentContact: '',
+      commitInform: '',
+      policyAccepted: false
+    });
+    setEditingId(null);
+  };
+
   const submit = async () => {
     const check = validate();
     if (!check.valid) {
@@ -133,21 +142,22 @@ export default function HealthDeclarationPage({ isAdmin = false, onOpenPolicies 
       setError('');
       setSuccess('');
       setWarning('');
-      const response = await submitHealthDeclaration(check.payload);
+
+      const response = editingId
+        ? await updateMyHealthDeclaration(editingId, check.payload)
+        : await submitHealthDeclaration(check.payload);
+
       setCompletedToday(true);
       setTodayDeclaration(response?.declaration || null);
-      setSuccess('Declaración completada correctamente.');
+      setSuccess(editingId ? 'Declaración actualizada correctamente.' : 'Declaración completada correctamente.');
 
-      if (response?.risk) {
+      if (check.payload.hasSymptoms || check.payload.hasFever || check.payload.recentContact) {
         setWarning('Declaración con indicadores de riesgo. Notificá al responsable inmediatamente.');
       }
 
       const myHistory = await getMyHealthDeclarations();
       setHistory(Array.isArray(myHistory) ? myHistory : []);
-      if (isAdmin) {
-        const rows = await getAdminHealthDeclarations();
-        setAdminRows(Array.isArray(rows) ? rows : []);
-      }
+      resetForm();
     } catch (err) {
       setError(err.message || 'No se pudo guardar la declaración');
     } finally {
@@ -155,11 +165,30 @@ export default function HealthDeclarationPage({ isAdmin = false, onOpenPolicies 
     }
   };
 
-  const deleteAdminRow = async (id) => {
+  const startEdit = () => {
+    if (!todayDeclaration) return;
+    setEditingId(todayDeclaration.id);
+    setForm({
+      hasSymptoms: boolToYesNo(todayDeclaration.hasSymptoms),
+      hasFever: boolToYesNo(todayDeclaration.hasFever),
+      recentContact: boolToYesNo(todayDeclaration.recentContact),
+      commitInform: boolToYesNo(todayDeclaration.commitInform),
+      policyAccepted: Boolean(todayDeclaration.policyAccepted)
+    });
+  };
+
+  const deleteMine = async () => {
+    if (!todayDeclaration?.id) return;
     try {
       setError('');
-      await deleteHealthDeclarationById(id);
-      setAdminRows((prev) => prev.filter((item) => item.id !== id));
+      await deleteMyHealthDeclaration(todayDeclaration.id);
+      setSuccess('Declaración eliminada. Ya podés cargar una nueva.');
+      setCompletedToday(false);
+      setTodayDeclaration(null);
+      resetForm();
+      const myHistory = await getMyHealthDeclarations();
+      setHistory(Array.isArray(myHistory) ? myHistory : []);
+      onAfterDelete?.();
     } catch (err) {
       setError(err.message || 'No se pudo eliminar la declaración');
     }
@@ -185,11 +214,19 @@ export default function HealthDeclarationPage({ isAdmin = false, onOpenPolicies 
           {success && <Alert severity="success" sx={{ mb: 1.5 }}>{success}</Alert>}
           {warning && <Alert severity="warning" sx={{ mb: 1.5 }}>{warning}</Alert>}
 
-          {completedToday ? (
-            <Alert severity="info" sx={{ mb: 1.5 }}>
-              Ya completaste la declaración de hoy.
-              {todayDeclaration?.declaredAt ? ` (${new Date(todayDeclaration.declaredAt).toLocaleString('es-AR')})` : ''}
-            </Alert>
+          {completedToday && !editingId ? (
+            <>
+              <Alert severity="info" sx={{ mb: 1.5 }}>
+                Ya completaste la declaración de hoy.
+                {todayDeclaration?.declaredAt ? ` (${new Date(todayDeclaration.declaredAt).toLocaleString('es-AR')})` : ''}
+              </Alert>
+              {editableNow && (
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Button variant="outlined" onClick={startEdit}>Editar (15 min)</Button>
+                  <Button variant="outlined" color="error" onClick={deleteMine}>Eliminar (15 min)</Button>
+                </Box>
+              )}
+            </>
           ) : (
             <Box sx={{ display: 'grid', gap: 1.25 }}>
               <FormControl>
@@ -232,8 +269,9 @@ export default function HealthDeclarationPage({ isAdmin = false, onOpenPolicies 
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 <Button variant="outlined" onClick={onOpenPolicies}>Ver política</Button>
                 <Button variant="contained" onClick={submit} disabled={saving}>
-                  {saving ? 'Guardando...' : 'Enviar declaración'}
+                  {saving ? 'Guardando...' : (editingId ? 'Guardar cambios' : 'Enviar declaración')}
                 </Button>
+                {editingId && <Button variant="text" onClick={() => setEditingId(null)}>Cancelar edición</Button>}
               </Box>
             </Box>
           )}
@@ -274,52 +312,6 @@ export default function HealthDeclarationPage({ isAdmin = false, onOpenPolicies 
           </TableContainer>
         </CardContent>
       </Card>
-
-      {isAdmin && (
-        <Card>
-          <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>Panel Admin</Typography>
-              <Button variant="outlined" onClick={exportHealthDeclarations}>Exportar Excel</Button>
-            </Box>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Usuario</TableCell>
-                    <TableCell>Fecha</TableCell>
-                    <TableCell>Síntomas</TableCell>
-                    <TableCell>Fiebre</TableCell>
-                    <TableCell>Contacto</TableCell>
-                    <TableCell>Política</TableCell>
-                    <TableCell>Acción</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {adminRows.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.userId}</TableCell>
-                      <TableCell>{new Date(item.declaredAt || item.createdAt).toLocaleString('es-AR')}</TableCell>
-                      <TableCell>{renderBoolean(item.hasSymptoms)}</TableCell>
-                      <TableCell>{renderBoolean(item.hasFever)}</TableCell>
-                      <TableCell>{renderBoolean(item.recentContact)}</TableCell>
-                      <TableCell>{item.policyAccepted ? 'Aceptada' : 'No'}</TableCell>
-                      <TableCell>
-                        <Button size="small" color="error" onClick={() => deleteAdminRow(item.id)}>Eliminar</Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {adminRows.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7}>No hay declaraciones.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
-      )}
     </Box>
   );
 }
