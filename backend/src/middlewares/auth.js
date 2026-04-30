@@ -46,9 +46,33 @@ export async function authenticateToken(req, res, next) {
 /**
  * Middleware para verificar rol de administrador
  */
-export function requireAdmin(req, res, next) {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Acceso denegado. Solo administradores.' });
+export async function requireAdmin(req, res, next) {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+    }
+
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { data: profile, error } = await supabaseAdmin
+      .from('profiles')
+      .select('role, is_active')
+      .eq('id', userId)
+      .single();
+
+    if (error || !profile) {
+      return res.status(403).json({ error: 'Perfil no encontrado' });
+    }
+
+    if (profile.role !== 'admin' || profile.is_active === false) {
+      return res.status(403).json({ error: 'Acceso solo para administradores' });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(403).json({ error: 'No autorizado' });
   }
-  next();
 }
