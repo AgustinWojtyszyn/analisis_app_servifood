@@ -92,6 +92,11 @@ export function SummaryGrid({ summary, processedAt = null }) {
       <Grid item xs={12} sm={6} md={4} lg={2}>
         <MetricCard title="OM" value={summary.totalOM || 0} variant="secondary" />
       </Grid>
+      {(summary.totalRevisionManual || 0) > 0 && (
+        <Grid item xs={12} sm={6} md={4} lg={2}>
+          <MetricCard title="Revisión manual" value={summary.totalRevisionManual || 0} variant="warning" />
+        </Grid>
+      )}
       </Grid>
     </>
   );

@@ -74,6 +74,11 @@ export default function DashboardHome({ user, currentAnalysis, loading = false }
         <Grid item xs={12} sm={6} lg={3}>
           <SummaryCard title="Oportunidades de mejora" value={summary?.totalOM || 0} tone="success" />
         </Grid>
+        {(summary?.totalRevisionManual || 0) > 0 && (
+          <Grid item xs={12} sm={6} lg={3}>
+            <SummaryCard title="Revisión manual" value={summary?.totalRevisionManual || 0} tone="warning" />
+          </Grid>
+        )}
       </Grid>
 
       <Grid container spacing={2.5}>

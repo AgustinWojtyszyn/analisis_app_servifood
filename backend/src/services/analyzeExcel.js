@@ -2649,6 +2649,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
     totalCases: 0,
     totalDesvios: 0,
     totalConformes: 0,
+    totalRevisionManual: 0,
     totalNC: 0,
     totalOBS: 0,
     totalOM: 0,
@@ -3184,39 +3185,6 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
 
       const analisisTexto = buildAnalysisText(rawRecord);
 
-      const isConforme = resultadoClasificado === 'Conforme';
-      const isDesvio = tipoDesvio === 'NC' || tipoDesvio === 'OBS' || tipoDesvio === 'OM';
-
-      summary.totalRecords += 1;
-      if (isDesvio) {
-        summary.totalDesvios += 1;
-        const areasForSummary = areaClasificadaFinal
-          .split(',')
-          .flatMap((value) => value.split('/'))
-          .map((value) => value.trim())
-          .filter(Boolean);
-        const uniqueAreasForSummary = [...new Set(sanitizeOperationalAreaList(areasForSummary))];
-        uniqueAreasForSummary.forEach((areaItem) => {
-          summary.byArea[areaItem] = (summary.byArea[areaItem] || 0) + 1;
-        });
-        summary.byIso22000[iso22000] = (summary.byIso22000[iso22000] || 0) + 1;
-
-        if (tipoDesvio && tipoDesvio !== '-') {
-          summary.byTipo[tipoDesvio] = (summary.byTipo[tipoDesvio] || 0) + 1;
-        }
-      } else if (isConforme) {
-        summary.totalConformes += 1;
-      }
-
-      if (tipoDesvio === 'NC') summary.totalNC += 1;
-      if (tipoDesvio === 'OBS') summary.totalOBS += 1;
-      if (tipoDesvio === 'OM') summary.totalOM += 1;
-
-      if (estadoAccion === 'abierta') summary.actions.abiertas += 1;
-      if (estadoAccion === 'cerrada') summary.actions.cerradas += 1;
-      if (estadoAccion === 'en_proceso') summary.actions.enProceso += 1;
-      if (estadoAccion === 'sin_accion') summary.actions.sinAccion += 1;
-
       const finalRecord = validateFinalRecord({
         fecha: rawRecord.fecha || '',
         areaProceso: rawRecord.areaProceso || 'N/A',
@@ -3245,6 +3213,43 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         confianza,
         analisisTexto
       });
+
+      // El resumen debe reflejar exactamente lo que se muestra en tabla.
+      const finalResultado = normalizeCellValue(finalRecord.resultadoClasificado).trim();
+      const finalTipo = normalizeCellValue(finalRecord.tipoDesvio).trim();
+      const finalIso = normalizeCellValue(finalRecord.iso22000).trim() || 'Revisar manualmente';
+      const finalEstadoAccion = normalizeCellValue(finalRecord.estadoAccion).trim();
+      const isConforme = finalResultado === 'Conforme';
+      const isRevisionManual = finalResultado === 'Revisar manualmente';
+      const isDesvio = finalTipo === 'NC' || finalTipo === 'OBS' || finalTipo === 'OM';
+
+      summary.totalRecords += 1;
+      if (isConforme) summary.totalConformes += 1;
+      if (isRevisionManual) summary.totalRevisionManual += 1;
+      if (isDesvio) {
+        summary.totalDesvios += 1;
+        const areasForSummary = normalizeCellValue(finalRecord.areaClasificada)
+          .split(',')
+          .flatMap((value) => value.split('/'))
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const uniqueAreasForSummary = [...new Set(sanitizeOperationalAreaList(areasForSummary))];
+        uniqueAreasForSummary.forEach((areaItem) => {
+          summary.byArea[areaItem] = (summary.byArea[areaItem] || 0) + 1;
+        });
+        summary.byIso22000[finalIso] = (summary.byIso22000[finalIso] || 0) + 1;
+        summary.byTipo[finalTipo] = (summary.byTipo[finalTipo] || 0) + 1;
+      }
+
+      if (finalTipo === 'NC') summary.totalNC += 1;
+      if (finalTipo === 'OBS') summary.totalOBS += 1;
+      if (finalTipo === 'OM') summary.totalOM += 1;
+
+      if (finalEstadoAccion === 'abierta') summary.actions.abiertas += 1;
+      if (finalEstadoAccion === 'cerrada') summary.actions.cerradas += 1;
+      if (finalEstadoAccion === 'en_proceso') summary.actions.enProceso += 1;
+      if (finalEstadoAccion === 'sin_accion') summary.actions.sinAccion += 1;
+
       results.push(finalRecord);
       console.log('FINAL RECORD:', finalRecord);
 
