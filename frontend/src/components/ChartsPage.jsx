@@ -87,12 +87,14 @@ export default function ChartsPage({ records = [], summary = null }) {
 
     const desviosPorArea = objectToChartData(safeSummary.byArea || fallbackByArea);
     const categoriaRaw = safeSummary.byCategoria || fallbackByCategoria;
-    const desviosPorCategoria = objectToChartData({
+    const categoriasCompletas = {
       'Desvío de Inocuidad': Number(safeSummary.totalInocuidad ?? categoriaRaw['Desvío de Inocuidad'] ?? 0),
       'Desvío de Calidad': Number(safeSummary.totalCalidad ?? categoriaRaw['Desvío de Calidad'] ?? 0),
       'Desvío de Logística': Number(safeSummary.totalLogistica ?? categoriaRaw['Desvío de Logística'] ?? 0),
       'Desvío Legal': Number(safeSummary.totalLegal ?? categoriaRaw['Desvío Legal'] ?? 0)
-    }).filter((item) => item.value > 0);
+    };
+    const desviosPorCategoria = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
+    const desviosPorCategoriaCompleta = objectToChartData(categoriasCompletas);
     const desviosPorIso = objectToChartData(safeSummary.byIso22000 || fallbackByIso);
 
     const resumenHallazgos = [
@@ -114,6 +116,7 @@ export default function ChartsPage({ records = [], summary = null }) {
       resumenHallazgos,
       desviosPorArea,
       desviosPorCategoria,
+      desviosPorCategoriaCompleta,
       desviosPorIso,
       estadoAcciones,
       totalRecords: Number(safeSummary.totalRecords || records.length || 0)
@@ -170,7 +173,7 @@ export default function ChartsPage({ records = [], summary = null }) {
                 ) : (
                   <ResponsiveContainer>
                     <BarChart data={data.desviosPorArea}>
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={70} />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-10} textAnchor="end" height={68} />
                       <YAxis allowDecimals={false} />
                       <Tooltip />
                       <Bar dataKey="value" radius={[6, 6, 0, 0]}>
@@ -202,10 +205,19 @@ export default function ChartsPage({ records = [], summary = null }) {
                         {data.desviosPorCategoria.map((entry, idx) => (
                           <Cell key={entry.name} fill={palette[idx % palette.length]} />
                         ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                )}
+                {data.desviosPorCategoria.length > 0 && (
+                  <Box sx={{ mt: 1.25, display: 'flex', flexWrap: 'wrap', gap: 1.25 }}>
+                    {data.desviosPorCategoria.map((item, idx) => (
+                      <Typography key={item.name} variant="body2" sx={{ color: palette[idx % palette.length], fontWeight: 700 }}>
+                        {item.name.replace('Desvío de ', '')} {item.value}
+                      </Typography>
+                    ))}
+                  </Box>
                 )}
               </Box>
             </CardContent>
@@ -217,14 +229,14 @@ export default function ChartsPage({ records = [], summary = null }) {
             <CardContent sx={{ p: 2.5 }}>
               <Typography sx={{ fontWeight: 700, mb: 2 }}>Desvíos por categoría (barras)</Typography>
               <Box sx={{ width: '100%', height: 320 }}>
-                {data.desviosPorCategoria.length === 0 ? (
+                {data.desviosPorCategoriaCompleta.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
                     No hay datos por categoría
                   </Box>
                 ) : (
                   <ResponsiveContainer>
-                    <BarChart data={data.desviosPorCategoria}>
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-10} textAnchor="end" height={70} />
+                    <BarChart data={data.desviosPorCategoriaCompleta}>
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-6} textAnchor="end" height={64} />
                       <YAxis allowDecimals={false} />
                       <Tooltip />
                       <Bar dataKey="value" fill="#1d4ed8" radius={[6, 6, 0, 0]} />
@@ -246,16 +258,25 @@ export default function ChartsPage({ records = [], summary = null }) {
                     No hay estados de acción registrados
                   </Box>
                 ) : (
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie data={data.estadoAcciones} dataKey="value" nameKey="name" outerRadius={105} label>
-                        {data.estadoAcciones.map((entry, idx) => (
-                          <Cell key={entry.name} fill={palette[idx % palette.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <>
+                    <ResponsiveContainer>
+                      <PieChart>
+                        <Pie data={data.estadoAcciones} dataKey="value" nameKey="name" outerRadius={105} label>
+                          {data.estadoAcciones.map((entry, idx) => (
+                            <Cell key={entry.name} fill={palette[idx % palette.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <Box sx={{ mt: 1.25, display: 'flex', flexWrap: 'wrap', gap: 1.25 }}>
+                      {data.estadoAcciones.map((item, idx) => (
+                        <Typography key={item.name} variant="body2" sx={{ color: palette[idx % palette.length], fontWeight: 700 }}>
+                          {item.name}: {item.value}
+                        </Typography>
+                      ))}
+                    </Box>
+                  </>
                 )}
               </Box>
             </CardContent>
@@ -274,7 +295,7 @@ export default function ChartsPage({ records = [], summary = null }) {
                 ) : (
                   <ResponsiveContainer>
                     <BarChart data={data.desviosPorIso}>
-                      <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" height={92} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-10} textAnchor="end" height={88} />
                       <YAxis allowDecimals={false} />
                       <Tooltip />
                       <Bar dataKey="value" radius={[6, 6, 0, 0]}>
