@@ -272,7 +272,13 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'charts') {
-      return <ChartsPage records={selectedAnalysis?.records || []} summary={selectedAnalysis?.summary || null} />;
+      return (
+        <ChartsPage
+          records={selectedAnalysis?.records || []}
+          summary={selectedAnalysis?.summary || null}
+          analysisTotalRecords={selectedAnalysis?.totalRecords || 0}
+        />
+      );
     }
 
     if (currentSection === 'profile') {

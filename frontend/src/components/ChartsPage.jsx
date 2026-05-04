@@ -44,9 +44,10 @@ function normalizeEstadoAccion(value) {
   return normalized;
 }
 
-export default function ChartsPage({ records = [], summary = null }) {
+export default function ChartsPage({ records = [], summary = null, analysisTotalRecords = 0 }) {
   const hasAnalysisData = useMemo(() => {
     const totalRegistros = Number(summary?.totalRegistros ?? summary?.totalRecords ?? 0);
+    const totalAnalisis = Number(analysisTotalRecords || 0);
     const totalDesvios = Number(summary?.totalDesvios ?? 0);
     const categorias = (
       Number(summary?.totalInocuidad ?? 0) +
@@ -56,11 +57,12 @@ export default function ChartsPage({ records = [], summary = null }) {
     );
     return (
       (Array.isArray(records) && records.length > 0) ||
+      totalAnalisis > 0 ||
       totalRegistros > 0 ||
       totalDesvios > 0 ||
       categorias > 0
     );
-  }, [records, summary]);
+  }, [records, summary, analysisTotalRecords]);
 
   const data = useMemo(() => {
     const safeSummary = summary || {};
