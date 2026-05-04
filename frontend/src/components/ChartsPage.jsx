@@ -27,6 +27,22 @@ function splitAreas(areaClasificada) {
     .filter(Boolean);
 }
 
+function normalizeEstadoAccion(value) {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (!raw || raw === '-') return 'sin_accion';
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_');
+
+  if (!normalized || normalized === '-') return 'sin_accion';
+  if (normalized === 'sin_accion' || normalized === 'sinaccion') return 'sin_accion';
+  if (normalized === 'en_proceso' || normalized === 'enproceso') return 'en_proceso';
+  if (normalized === 'abierta' || normalized === 'abierto') return 'abierta';
+  if (normalized === 'cerrada' || normalized === 'cerrado') return 'cerrada';
+  return normalized;
+}
+
 export default function ChartsPage({ records = [], summary = null }) {
   const data = useMemo(() => {
     const safeSummary = summary || {};
@@ -42,7 +58,7 @@ export default function ChartsPage({ records = [], summary = null }) {
         const area = String(record.areaClasificada || '').trim();
         const categoria = String(record.categoriaDesvio || '').trim();
         const iso = String(record.iso22000 || '').trim();
-        const estadoAccion = String(record.estadoAccion || '').trim();
+        const estadoAccion = normalizeEstadoAccion(record.estadoAccion);
         const resultadoClasificado = String(record.resultadoClasificado || '').trim();
         if (categoria) fallbackByCategoria[categoria] = (fallbackByCategoria[categoria] || 0) + 1;
 
@@ -58,9 +74,9 @@ export default function ChartsPage({ records = [], summary = null }) {
         }
 
         if (estadoAccion === 'abierta') fallbackActions.abiertas += 1;
-        if (estadoAccion === 'cerrada') fallbackActions.cerradas += 1;
-        if (estadoAccion === 'en_proceso') fallbackActions.enProceso += 1;
-        if (estadoAccion === 'sin_accion') fallbackActions.sinAccion += 1;
+        else if (estadoAccion === 'cerrada') fallbackActions.cerradas += 1;
+        else if (estadoAccion === 'en_proceso') fallbackActions.enProceso += 1;
+        else fallbackActions.sinAccion += 1;
       });
     }
 
@@ -204,7 +220,7 @@ export default function ChartsPage({ records = [], summary = null }) {
               <Box sx={{ width: '100%', height: 320 }}>
                 {data.estadoAcciones.every((item) => item.value === 0) ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
-                    No hay acciones registradas todavía
+                    No hay estados de acción registrados
                   </Box>
                 ) : (
                   <ResponsiveContainer>
