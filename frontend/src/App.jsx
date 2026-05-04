@@ -73,6 +73,7 @@ function MainApp({ user, onLogout }) {
   const sidebarSections = useMemo(() => {
     if (!isAdmin) {
       return [
+        { id: 'history', label: 'Análisis de Calidad' },
         { id: 'declaration', label: 'Declaración de Salud' },
         { id: 'policies', label: 'Políticas' },
         { id: 'declarationHistory', label: 'Mi Historial' }
@@ -134,8 +135,8 @@ function MainApp({ user, onLogout }) {
 
   useEffect(() => {
     if (!isAdmin) {
-      if (!['/declaracion-salud', '/politicas', '/mi-declaraciones'].includes(window.location.pathname)) {
-        navigateToSection('policies');
+      if (!['/historial', '/declaracion-salud', '/politicas', '/mi-declaraciones'].includes(window.location.pathname)) {
+        navigateToSection('history');
       }
       return;
     }
@@ -256,10 +257,6 @@ function MainApp({ user, onLogout }) {
     if (currentSection === 'adminHealthDeclarations') {
       if (!isAdmin) return null;
       return <HealthDeclarationsAdminPage />;
-    }
-
-    if (!isAdmin) {
-      return <HealthPoliciesPage />;
     }
 
     if (currentSection === 'panel' || currentSection === 'history') {
