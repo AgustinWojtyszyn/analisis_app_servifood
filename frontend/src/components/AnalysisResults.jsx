@@ -42,10 +42,12 @@ const typeColors = {
 
 const tabStyleByCategory = {
   todos: { bg: 'rgba(100, 116, 139, 0.16)', color: '#334155' },
-  nc: { bg: 'rgba(220, 38, 38, 0.15)', color: '#991b1b' },
+  inocuidad: { bg: 'rgba(220, 38, 38, 0.15)', color: '#991b1b' },
+  calidad: { bg: 'rgba(139, 92, 246, 0.16)', color: '#5b21b6' },
+  logistica: { bg: 'rgba(2, 132, 199, 0.16)', color: '#075985' },
+  legal: { bg: 'rgba(3, 105, 161, 0.16)', color: '#0c4a6e' },
   conformes: { bg: 'rgba(22, 163, 74, 0.15)', color: '#166534' },
-  obs: { bg: 'rgba(245, 158, 11, 0.18)', color: '#92400e' },
-  om: { bg: 'rgba(139, 92, 246, 0.16)', color: '#5b21b6' }
+  manual: { bg: 'rgba(245, 158, 11, 0.18)', color: '#92400e' }
 };
 
 function normalizeCellValue(value) {
@@ -143,20 +145,24 @@ export default function AnalysisResults({
 
   const categories = [
     { key: 'todos', label: 'Todos', short: 'Todos' },
-    { key: 'nc', label: 'No conformidades', short: 'NC' },
+    { key: 'inocuidad', label: 'Desvío de inocuidad', short: 'Inocuidad' },
+    { key: 'calidad', label: 'Desvío de calidad', short: 'Calidad' },
+    { key: 'logistica', label: 'Desvío de logística', short: 'Logística' },
+    { key: 'legal', label: 'Desvío legal', short: 'Legal' },
     { key: 'conformes', label: 'Conformes', short: 'Conformes' },
-    { key: 'obs', label: 'Observaciones', short: 'OBS' },
-    { key: 'om', label: 'Oportunidades de mejora', short: 'OM' }
+    { key: 'manual', label: 'Revisión manual', short: 'Manual' }
   ];
 
   const availableAreas = [...new Set(records.flatMap((record) => splitAreas(record.areaClasificada)).filter(Boolean))];
 
   const countsByCategory = {
     todos: records.length,
-    nc: records.filter((record) => normalizeCellValue(record.tipoDesvio) === 'NC').length,
+    inocuidad: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío de Inocuidad').length,
+    calidad: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío de Calidad').length,
+    logistica: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío de Logística').length,
+    legal: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío Legal').length,
     conformes: records.filter((record) => normalizeCellValue(record.resultadoClasificado) === 'Conforme').length,
-    obs: records.filter((record) => normalizeCellValue(record.tipoDesvio) === 'OBS').length,
-    om: records.filter((record) => normalizeCellValue(record.tipoDesvio) === 'OM').length
+    manual: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Revisar manualmente').length
   };
 
   const filteredRecords = records.filter((record) => {
@@ -168,6 +174,7 @@ export default function AnalysisResults({
       record.notaTecnica,
       record.areaClasificada,
       record.iso22000,
+      record.categoriaDesvio,
       record.hallazgoDetectado,
       record.responsable,
       record.estadoAccion
@@ -176,15 +183,18 @@ export default function AnalysisResults({
     const areaParts = splitAreas(record.areaClasificada);
     const tipo = normalizeCellValue(record.tipoDesvio);
     const resultadoClasificado = normalizeCellValue(record.resultadoClasificado);
+    const categoriaDesvio = normalizeCellValue(record.categoriaDesvio);
 
     const matchesSearch = textSearch.includes(searchTerm.toLowerCase());
     const matchesArea = filterArea === 'all' || areaParts.includes(filterArea);
     const matchesCategory = (() => {
       if (activeCategory === 'todos') return true;
-      if (activeCategory === 'nc') return tipo === 'NC';
+      if (activeCategory === 'inocuidad') return categoriaDesvio === 'Desvío de Inocuidad';
+      if (activeCategory === 'calidad') return categoriaDesvio === 'Desvío de Calidad';
+      if (activeCategory === 'logistica') return categoriaDesvio === 'Desvío de Logística';
+      if (activeCategory === 'legal') return categoriaDesvio === 'Desvío Legal';
       if (activeCategory === 'conformes') return resultadoClasificado === 'Conforme';
-      if (activeCategory === 'obs') return tipo === 'OBS';
-      if (activeCategory === 'om') return tipo === 'OM';
+      if (activeCategory === 'manual') return categoriaDesvio === 'Revisar manualmente';
       return true;
     })();
 
@@ -193,10 +203,12 @@ export default function AnalysisResults({
 
   const exportConfigByFilter = {
     todos: { label: 'Exportar todos', fileName: 'analisis_todos.xlsx' },
-    nc: { label: 'Exportar no conformidades', fileName: 'analisis_no_conformidades.xlsx' },
+    inocuidad: { label: 'Exportar desvío inocuidad', fileName: 'analisis_desvio_inocuidad.xlsx' },
+    calidad: { label: 'Exportar desvío calidad', fileName: 'analisis_desvio_calidad.xlsx' },
+    logistica: { label: 'Exportar desvío logística', fileName: 'analisis_desvio_logistica.xlsx' },
+    legal: { label: 'Exportar desvío legal', fileName: 'analisis_desvio_legal.xlsx' },
     conformes: { label: 'Exportar conformes', fileName: 'analisis_conformes.xlsx' },
-    obs: { label: 'Exportar observaciones', fileName: 'analisis_observaciones.xlsx' },
-    om: { label: 'Exportar oportunidades de mejora', fileName: 'analisis_oportunidades_mejora.xlsx' }
+    manual: { label: 'Exportar revisión manual', fileName: 'analisis_revision_manual.xlsx' }
   };
   const activeExportConfig = exportConfigByFilter[activeCategory] || exportConfigByFilter.todos;
 
@@ -259,6 +271,7 @@ export default function AnalysisResults({
       'Hallazgo detectado',
       'Área clasificada',
       'Resultado clasificado',
+      'Categoría desvío',
       'Tipo desvío',
       'ISO 22000',
       'Acción inmediata',
@@ -283,6 +296,7 @@ export default function AnalysisResults({
         'Hallazgo detectado': normalizeCellValue(record.hallazgoDetectado),
         'Área clasificada': normalizeCellValue(record.areaClasificada),
         'Resultado clasificado': normalizeCellValue(record.resultadoClasificado),
+        'Categoría desvío': normalizeCellValue(record.categoriaDesvio),
         'Tipo desvío': normalizeCellValue(record.tipoDesvio),
         'ISO 22000': normalizeCellValue(record.iso22000),
         'Acción inmediata': normalizeCellValue(record.accionInmediata),
@@ -544,6 +558,7 @@ export default function AnalysisResults({
               <TableCell sx={{ fontWeight: 700, minWidth: 300 }}>Hallazgo detectado</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Área</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Resultado</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 180 }}>Categoría</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Tipo</TableCell>
               <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>ISO</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
@@ -593,6 +608,9 @@ export default function AnalysisResults({
                           color: (resultColors[record.resultadoClasificado] || resultColors['No conforme']).text
                         }}
                       />
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 220 }}>
+                      <Typography variant="body2">{normalizeCellValue(record.categoriaDesvio) || '-'}</Typography>
                     </TableCell>
                     <TableCell>
                       {normalizeCellValue(record.tipoDesvio) ? (
@@ -648,7 +666,7 @@ export default function AnalysisResults({
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={13}>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={14}>
                       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                         <Box sx={{ px: 2, py: 1.5, backgroundColor: 'rgba(148,163,184,0.08)', borderRadius: 1, mb: 1.25 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Detalle del registro</Typography>

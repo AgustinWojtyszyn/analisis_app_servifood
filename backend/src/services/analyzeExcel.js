@@ -1599,6 +1599,64 @@ function classifyNormalizedRule(text) {
   return build('Revisar manualmente', '-', 'Revisar manualmente', 'texto ambiguo o incompleto');
 }
 
+function classifyCategoriaDesvio({ hallazgoDetectado = '', actividadRealizada = '', resultadoClasificado = '' } = {}) {
+  const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada].filter(Boolean).join(' | '));
+  const hasAny = (terms) => containsAny(text, terms);
+  const resultado = normalizeCellValue(resultadoClasificado).trim();
+
+  if (!text || isExplicitNoFindingText(text) || resultado === 'Conforme') return 'Conforme';
+
+  if (hasAny([
+    'habilitacion',
+    'habilitación',
+    'municipal',
+    'bromatologia',
+    'bromatología',
+    'carnet',
+    'carnet manipulador',
+    'libreta sanitaria',
+    'documentacion legal',
+    'documentación legal',
+    'certificado',
+    'vencimiento de habilitacion',
+    'vencimiento de habilitación',
+    'normativa legal',
+    'incumplimiento legal',
+    'requisito legal',
+    'rotulo legal',
+    'rótulo legal',
+    'informacion legal',
+    'información legal'
+  ])) return 'Desvío Legal';
+
+  if (hasAny([
+    'faltante', 'faltantes', 'faltaron', 'falto', 'faltó', 'unidades',
+    'menu', 'menú', 'pedido incompleto', 'pedidos incompletos', 'viandas faltantes',
+    'bifes', 'callia', 'caliia', 'entrega', 'distribucion', 'distribución',
+    'logistica', 'logística', 'remito', 'despacho'
+  ])) return 'Desvío de Logística';
+
+  if (hasAny([
+    'sin rotular', 'falta rotulacion', 'falta rotulación', 'rotulacion', 'rotulación', 'rotulo', 'rótulo',
+    'sin identificar', 'trazabilidad', 'vencimiento', 'fecha de vencimiento', 'fecha de elaboracion',
+    'fecha de elaboración', 'temperatura fuera de rango', 'sin registro de temperatura',
+    'alimentos', 'comida', 'producto no conforme', 'contaminacion', 'contaminación',
+    'contaminado', 'contaminada', 'sucio', 'sucia', 'sucios', 'sucias', 'restos de alimentos',
+    'charcos', 'higiene', 'falta limpieza', 'residuos', 'basura', 'plaga', 'plagas', 'manipulacion',
+    'manipulación', 'elementos sucios', 'instalaciones sucias', 'carteleria de producto no conforme',
+    'cartelería de producto no conforme'
+  ])) return 'Desvío de Inocuidad';
+
+  if (hasAny([
+    'mal estado', 'defectuoso', 'defectuosa', 'producto defectuoso', 'presentacion', 'presentación',
+    'mala presentacion', 'mala presentación', 'gramaje', 'peso incorrecto', 'porcion incorrecta',
+    'porción incorrecta', 'textura', 'sabor', 'color', 'aspecto', 'calidad', 'envase dañado',
+    'envase roto', 'bandeja rota', 'bandejas rotas', 'sin integridad', 'envases sin integridad'
+  ])) return 'Desvío de Calidad';
+
+  return 'Revisar manualmente';
+}
+
 function parseRecordDate(value) {
   if (!value) return null;
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
@@ -2298,6 +2356,12 @@ function validateFinalRecord(record = {}) {
     });
   }
 
+  validated.categoriaDesvio = classifyCategoriaDesvio({
+    hallazgoDetectado: validated.hallazgoDetectado,
+    actividadRealizada: validated.actividadRealizada,
+    resultadoClasificado: validated.resultadoClasificado
+  });
+
   return validated;
 }
 
@@ -2649,6 +2713,10 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
     totalCases: 0,
     totalDesvios: 0,
     totalConformes: 0,
+    totalInocuidad: 0,
+    totalCalidad: 0,
+    totalLogistica: 0,
+    totalLegal: 0,
     totalRevisionManual: 0,
     totalNC: 0,
     totalOBS: 0,
@@ -2656,6 +2724,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
     byArea: {},
     byTipo: {},
     byIso22000: {},
+    byCategoria: {},
     actions: {
       abiertas: 0,
       cerradas: 0,
@@ -3218,14 +3287,20 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       const finalResultado = normalizeCellValue(finalRecord.resultadoClasificado).trim();
       const finalTipo = normalizeCellValue(finalRecord.tipoDesvio).trim();
       const finalIso = normalizeCellValue(finalRecord.iso22000).trim() || 'Revisar manualmente';
+      const finalCategoria = normalizeCellValue(finalRecord.categoriaDesvio).trim() || 'Revisar manualmente';
       const finalEstadoAccion = normalizeCellValue(finalRecord.estadoAccion).trim();
       const isConforme = finalResultado === 'Conforme';
-      const isRevisionManual = finalResultado === 'Revisar manualmente';
-      const isDesvio = finalTipo === 'NC' || finalTipo === 'OBS' || finalTipo === 'OM';
+      const isRevisionManual = finalCategoria === 'Revisar manualmente';
+      const isDesvio = ['Desvío de Inocuidad', 'Desvío de Calidad', 'Desvío de Logística', 'Desvío Legal'].includes(finalCategoria);
 
       summary.totalRecords += 1;
       if (isConforme) summary.totalConformes += 1;
       if (isRevisionManual) summary.totalRevisionManual += 1;
+      summary.byCategoria[finalCategoria] = (summary.byCategoria[finalCategoria] || 0) + 1;
+      if (finalCategoria === 'Desvío de Inocuidad') summary.totalInocuidad += 1;
+      if (finalCategoria === 'Desvío de Calidad') summary.totalCalidad += 1;
+      if (finalCategoria === 'Desvío de Logística') summary.totalLogistica += 1;
+      if (finalCategoria === 'Desvío Legal') summary.totalLegal += 1;
       if (isDesvio) {
         summary.totalDesvios += 1;
         const areasForSummary = normalizeCellValue(finalRecord.areaClasificada)

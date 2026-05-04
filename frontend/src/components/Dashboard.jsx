@@ -84,13 +84,16 @@ export function SummaryGrid({ summary, processedAt = null }) {
         <MetricCard title="Conformes" value={summary.totalConformes || 0} variant="success" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="NC" value={summary.totalNC || 0} variant="primary" />
+        <MetricCard title="Inocuidad" value={summary.totalInocuidad || 0} variant="primary" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="OBS" value={summary.totalOBS || 0} variant="warning" />
+        <MetricCard title="Calidad" value={summary.totalCalidad || 0} variant="secondary" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="OM" value={summary.totalOM || 0} variant="secondary" />
+        <MetricCard title="Logística" value={summary.totalLogistica || 0} variant="info" />
+      </Grid>
+      <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard title="Legal" value={summary.totalLegal || 0} variant="warning" />
       </Grid>
       {(summary.totalRevisionManual || 0) > 0 && (
         <Grid item xs={12} sm={6} md={4} lg={2}>

@@ -69,10 +69,16 @@ export default function DashboardHome({ user, currentAnalysis, loading = false }
           <SummaryCard title="Total desvíos" value={summary?.totalDesvios || 0} tone="error" />
         </Grid>
         <Grid item xs={12} sm={6} lg={3}>
-          <SummaryCard title="No conformes" value={(summary?.totalNC || 0) + (summary?.totalOBS || 0)} tone="warning" />
+          <SummaryCard title="Inocuidad" value={summary?.totalInocuidad || 0} tone="warning" />
         </Grid>
         <Grid item xs={12} sm={6} lg={3}>
-          <SummaryCard title="Oportunidades de mejora" value={summary?.totalOM || 0} tone="success" />
+          <SummaryCard title="Calidad" value={summary?.totalCalidad || 0} tone="success" />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={3}>
+          <SummaryCard title="Logística" value={summary?.totalLogistica || 0} tone="info" />
+        </Grid>
+        <Grid item xs={12} sm={6} lg={3}>
+          <SummaryCard title="Legal" value={summary?.totalLegal || 0} tone="warning" />
         </Grid>
         {(summary?.totalRevisionManual || 0) > 0 && (
           <Grid item xs={12} sm={6} lg={3}>
