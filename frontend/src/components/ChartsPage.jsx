@@ -38,8 +38,9 @@ function normalizeEstadoAccion(value) {
   if (!normalized || normalized === '-') return 'sin_accion';
   if (normalized === 'sin_accion' || normalized === 'sinaccion') return 'sin_accion';
   if (normalized === 'en_proceso' || normalized === 'enproceso') return 'en_proceso';
-  if (normalized === 'abierta' || normalized === 'abierto') return 'abierta';
-  if (normalized === 'cerrada' || normalized === 'cerrado') return 'cerrada';
+  if (normalized === 'abierta' || normalized === 'abierto') return 'abierto';
+  if (normalized === 'cerrada' || normalized === 'cerrado') return 'cerrado';
+  if (normalized === 'archivada' || normalized === 'archivado') return 'archivado';
   return normalized;
 }
 
@@ -56,7 +57,7 @@ export default function ChartsPage({ records = [], summary = null }) {
     const fallbackByArea = {};
     const fallbackByCategoria = {};
     const fallbackByIso = {};
-    const fallbackActions = { abiertas: 0, cerradas: 0, enProceso: 0, sinAccion: 0 };
+    const fallbackActions = { abierto: 0, cerrado: 0, archivado: 0, enProceso: 0, sinAccion: 0 };
 
     if (deriveFromRecords) {
       records.forEach((record) => {
@@ -78,8 +79,9 @@ export default function ChartsPage({ records = [], summary = null }) {
           fallbackByIso[iso] = (fallbackByIso[iso] || 0) + 1;
         }
 
-        if (estadoAccion === 'abierta') fallbackActions.abiertas += 1;
-        else if (estadoAccion === 'cerrada') fallbackActions.cerradas += 1;
+        if (estadoAccion === 'abierto') fallbackActions.abierto += 1;
+        else if (estadoAccion === 'cerrado') fallbackActions.cerrado += 1;
+        else if (estadoAccion === 'archivado') fallbackActions.archivado += 1;
         else if (estadoAccion === 'en_proceso') fallbackActions.enProceso += 1;
         else fallbackActions.sinAccion += 1;
       });
@@ -106,8 +108,9 @@ export default function ChartsPage({ records = [], summary = null }) {
     ];
 
     const estadoAcciones = [
-      { name: 'Abiertas', value: Number(safeSummary.actions?.abiertas ?? fallbackActions.abiertas) },
-      { name: 'Cerradas', value: Number(safeSummary.actions?.cerradas ?? fallbackActions.cerradas) },
+      { name: 'Abierto', value: Number(safeSummary.actions?.abiertas ?? fallbackActions.abierto) },
+      { name: 'Cerrado', value: Number(safeSummary.actions?.cerradas ?? fallbackActions.cerrado) },
+      { name: 'Archivado', value: Number(safeSummary.actions?.archivadas ?? fallbackActions.archivado) },
       { name: 'En proceso', value: Number(safeSummary.actions?.enProceso ?? fallbackActions.enProceso) },
       { name: 'Sin acción', value: Number(safeSummary.actions?.sinAccion ?? fallbackActions.sinAccion) }
     ];
@@ -214,7 +217,7 @@ export default function ChartsPage({ records = [], summary = null }) {
                   <Box sx={{ mt: 1.25, display: 'flex', flexWrap: 'wrap', gap: 1.25 }}>
                     {data.desviosPorCategoria.map((item, idx) => (
                       <Typography key={item.name} variant="body2" sx={{ color: palette[idx % palette.length], fontWeight: 700 }}>
-                        {item.name.replace('Desvío de ', '')} {item.value}
+                        {item.name}: {item.value}
                       </Typography>
                     ))}
                   </Box>

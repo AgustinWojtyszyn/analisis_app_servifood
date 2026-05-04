@@ -104,6 +104,22 @@ function findOriginalValueByAliases(record, aliases = []) {
   return '';
 }
 
+function formatEstadoAccion(value) {
+  const raw = normalizeCellValue(value).trim().toLowerCase();
+  if (!raw || raw === '-') return 'Sin acción';
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_');
+
+  if (normalized === 'sin_accion' || normalized === 'sinaccion') return 'Sin acción';
+  if (normalized === 'en_proceso' || normalized === 'enproceso') return 'En proceso';
+  if (normalized === 'cerrada' || normalized === 'cerrado') return 'Cerrado';
+  if (normalized === 'archivada' || normalized === 'archivado') return 'Archivado';
+  if (normalized === 'abierta' || normalized === 'abierto') return 'Abierto';
+  return normalized.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
 export default function AnalysisResults({
   records,
   analysisId,
@@ -629,7 +645,7 @@ export default function AnalysisResults({
                     <TableCell sx={{ maxWidth: 250 }}>
                       <Typography variant="body2">{normalizeCellValue(record.iso22000) || '-'}</Typography>
                     </TableCell>
-                    <TableCell>{normalizeCellValue(record.estadoAccion).replace('_', ' ') || '-'}</TableCell>
+                    <TableCell>{formatEstadoAccion(record.estadoAccion)}</TableCell>
                     <TableCell sx={{ maxWidth: 220 }}>
                       <Typography variant="body2">{normalizeCellValue(record.responsable) || '-'}</Typography>
                     </TableCell>
