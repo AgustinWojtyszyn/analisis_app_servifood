@@ -135,7 +135,7 @@ function MainApp({ user, onLogout }) {
   useEffect(() => {
     if (!isAdmin) {
       if (!['/declaracion-salud', '/politicas', '/mi-declaraciones'].includes(window.location.pathname)) {
-        navigateToSection('declaration');
+        navigateToSection('policies');
       }
       return;
     }
@@ -259,7 +259,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (!isAdmin) {
-      return <HealthDeclarationPage onOpenPolicies={() => navigateToSection('policies')} onAfterDelete={() => navigateToSection('declaration')} />;
+      return <HealthPoliciesPage />;
     }
 
     if (currentSection === 'panel' || currentSection === 'history') {

@@ -356,7 +356,7 @@ function isTextoNoValidoHallazgo(texto) {
 
 function isInvalidDetectedFinding(texto) {
   const t = normalizeForMatch(texto || '');
-  return !t || t === '-' || t === 'sin hallazgo detectado' || t === 'sin hallazgo';
+  return !t || t === '-';
 }
 
 function contieneArea(texto) {
@@ -1327,6 +1327,21 @@ function hasRowContinuationSignal(text) {
 function isExplicitNoFindingText(text) {
   const normalized = normalizeIncidentText(text || '');
   if (!normalized) return false;
+  const compact = normalized.replace(/\s+/g, ' ').trim();
+  if ([
+    'sin hallazgo detectado',
+    'sin hallazgo',
+    'sin hallazgos',
+    'sin observaciones',
+    'sin desvios',
+    'sin desvio',
+    'sin novedades',
+    'correcto',
+    'ok',
+    'conforme'
+  ].includes(compact)) {
+    return true;
+  }
   return containsAny(normalized, [
     'sin hallazgo detectado',
     'sin hallazgo',
@@ -1338,6 +1353,250 @@ function isExplicitNoFindingText(text) {
     'no se observan desvios',
     'no se observan desvíos'
   ]);
+}
+
+function classifyNormalizedRule(text) {
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized) return null;
+
+  const build = (resultadoClasificado, tipoDesvio, iso22000, reason) => ({
+    resultadoClasificado,
+    tipoDesvio,
+    iso22000,
+    reason
+  });
+
+  const hasAny = (terms) => containsAny(normalized, terms);
+
+  const hasNoFinding = isExplicitNoFindingText(normalized);
+  if (hasNoFinding) return build('Conforme', '-', '-', 'Conforme por ausencia de hallazgo');
+
+  if (hasAny([
+    'producto no conforme',
+    'producto nc',
+    'productos no conformes',
+    'carteleria de producto no conforme',
+    'cartelería de producto no conforme'
+  ])) {
+    return build('No conforme', 'NC', '8.7 Control de salidas no conformes', 'NC por producto no conforme');
+  }
+
+  const hasResiduos = hasAny([
+    'residuos',
+    'basura',
+    'contenedor',
+    'contenedores',
+    'carton',
+    'cartón',
+    'bolsas vacias',
+    'bolsas vacías',
+    'cajas vacias',
+    'cajas vacías',
+    'tacho',
+    'tachos'
+  ]);
+
+  // Excepción pedida: residuos + identificación/cartelería sigue siendo residuos.
+  if (hasResiduos && hasAny([
+    'sin identificar',
+    'sin identificacion',
+    'sin identificación',
+    'falta identificacion',
+    'falta identificación',
+    'carteleria',
+    'cartelería'
+  ])) {
+    return build('No conforme', 'NC', '8.2 PRP Manejo residuos', 'NC por manejo de residuos');
+  }
+
+  if (hasAny([
+    'sin rotular',
+    'falta rotulacion',
+    'falta rotulación',
+    'rotulacion',
+    'rotulación',
+    'rotulo',
+    'rótulo',
+    'sin identificar',
+    'sin identificacion',
+    'sin identificación',
+    'falta identificacion',
+    'falta identificación',
+    'etiqueta',
+    'fecha de elaboracion',
+    'fecha de elaboración',
+    'fecha de vencimiento',
+    'vencimiento'
+  ])) {
+    return build('No conforme', 'NC', '8.5.2 Trazabilidad', 'NC por trazabilidad/rotulación');
+  }
+
+  if (hasResiduos) {
+    return build('No conforme', 'NC', '8.2 PRP Manejo residuos', 'NC por manejo de residuos');
+  }
+
+  // Cartelería/identificación general:
+  // aplica cuando no cae en residuos ni producto no conforme.
+  const hasCarteleriaGeneral = hasAny([
+    'falta carteleria',
+    'falta cartelería',
+    'sin carteleria',
+    'sin cartelería',
+    'carteleria',
+    'cartelería'
+  ]);
+  if (hasCarteleriaGeneral) {
+    return build('No conforme', 'NC', '8.2 PRP Identificación', 'NC por falta de cartelería/identificación');
+  }
+
+  if (hasAny([
+    'bandeja rota',
+    'bandejas rotas',
+    'envase sin integridad',
+    'envases sin integridad',
+    'sin integridad',
+    'mal estado',
+    'roto',
+    'rota',
+    'rotos',
+    'rotas',
+    'deteriorado',
+    'deteriorada',
+    'deteriorados',
+    'deterioradas'
+  ])) {
+    return build('No conforme', 'NC', '7.1.3 Equipamiento', 'NC por integridad/equipamiento');
+  }
+
+  if (hasAny([
+    'faltante',
+    'faltantes',
+    'faltaron',
+    'falto',
+    'faltó',
+    'unidades',
+    'menu',
+    'menú',
+    'viandas faltantes',
+    'pedido incompleto',
+    'pedidos incompletos',
+    'bifes',
+    'callia',
+    'caliia'
+  ])) {
+    return build('No conforme', 'NC', '8.5.1 Control operacional', 'NC por faltante/control operacional');
+  }
+
+  if (hasAny([
+    'sucio',
+    'sucia',
+    'sucios',
+    'sucias',
+    'falta limpieza',
+    'limpieza deficiente',
+    'higiene',
+    'restos de alimentos',
+    'restos de comida',
+    'charcos',
+    'piso sucio',
+    'instalaciones sucias',
+    'elementos sucios',
+    'sector sucio'
+  ])) {
+    return build('No conforme', 'NC', '8.2 PRP Limpieza', 'NC por limpieza/higiene');
+  }
+
+  const hasOrderSignal = hasAny([
+    'desorden',
+    'desordenado',
+    'desordenada',
+    'desordenados',
+    'desordenadas',
+    'falta de orden',
+    'orden en general',
+    'heladeras desordenadas',
+    'sector desordenado'
+  ]);
+  const hasDirectRisk = hasAny([
+    'sucio', 'sucia', 'sucios', 'sucias',
+    'rotulacion', 'rotulación', 'sin rotular', 'residuos', 'basura',
+    'producto no conforme', 'roto', 'rota', 'rotos', 'rotas', 'deteriorado', 'deteriorada',
+    'vencido', 'vencida', 'vencimiento', 'faltante', 'faltantes', 'faltaron', 'faltó', 'falto'
+  ]);
+  if (hasOrderSignal && !hasDirectRisk) {
+    return build('Observación', 'OBS', '8.2 PRP Orden', 'OBS por orden sin riesgo directo');
+  }
+
+  const hasAjenosOPersonales = hasAny([
+    'productos ajenos',
+    'elementos ajenos',
+    'objetos ajenos',
+    'riñonera',
+    'rinonera',
+    'mochila',
+    'bolso',
+    'cartera',
+    'ropa',
+    'pertenencias personales'
+  ]);
+  const hasAreaProductiva = hasAny([
+    'pre elaborado',
+    'pre elaborados',
+    'preelaborado',
+    'preelaborados',
+    'area fria',
+    'área fría',
+    'area caliente',
+    'área caliente',
+    'deposito',
+    'depósito',
+    'cocina',
+    'elaboracion',
+    'elaboración'
+  ]);
+  if (hasAjenosOPersonales && hasAreaProductiva) {
+    return build('No conforme', 'NC', '8.2 PRP Higiene', 'NC por objetos/personales en área productiva');
+  }
+
+  const hasTechnicalSignal = hasAny([
+    'registro',
+    'control',
+    'verificacion',
+    'verificación',
+    'temperatura',
+    'camara',
+    'cámara',
+    'heladera',
+    'freezer'
+  ]);
+  const hasTechnicalProblem = hasAny([
+    'falta',
+    'faltante',
+    'sin registro',
+    'incompleto',
+    'incompleta',
+    'fuera de rango',
+    'vencido',
+    'vencida',
+    'no funciona',
+    'no registra',
+    'error',
+    'incorrecto',
+    'incorrecta',
+    'mal',
+    'desvio',
+    'desvío',
+    'anomalia',
+    'anomalía'
+  ]);
+  if (hasTechnicalSignal && hasTechnicalProblem) {
+    return build('No conforme', 'NC', '8.5.1 Control operacional', 'NC por problema técnico explícito');
+  }
+  if (hasTechnicalSignal) {
+    return build('Conforme', '-', '-', 'Conforme por registro técnico neutro');
+  }
+
+  return build('Revisar manualmente', '-', 'Revisar manualmente', 'texto ambiguo o incompleto');
 }
 
 function parseRecordDate(value) {
@@ -1426,196 +1685,224 @@ function sortAreasByPriorityList(areaList = []) {
 function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
   const text = normalizeIncidentText(descripcionDetectada);
   const areaProcesoText = normalizeIncidentText(areaProceso);
+  const areaOriginalNorm = normalizeIncidentText(areaProceso);
 
   if (!text) return { areas: ['Área no identificada'], evidence: [] };
 
-  if (containsAny(text, ['auditoria interna', 'auditoría interna', 'auditoria'])) {
-    return {
-      areas: ['Área no identificada'],
-      evidence: ['actividad de auditoría interna']
-    };
-  }
-
-  const hasExternalBaitSignal = containsAny(text, ['cebro exterior', 'cebros exteriores', 'cebo', 'cebos', 'exterior']);
-  if (hasExternalBaitSignal) {
-    return {
-      areas: ['Área de residuos'],
-      evidence: ['cebos/exterior asociado a control de residuos']
-    };
-  }
-
-  if (containsAny(text, ['cliente', 'easy', 'scop', 'hospital', 'pocito', 'la laja', 'demora', 'faltaron almuerzos', 'faltante de mercaderia'])) {
-    return {
-      areas: ['Logística / Distribución'],
-      evidence: ['evento asociado a cliente/logística']
-    };
-  }
-
-  if (containsAny(text, ['agua caliente', 'bachas', 'sanitiza', 'sanitizacion'])) {
-    return {
-      areas: ['Lavadero'],
-      evidence: ['evento de agua/sanitización en lavadero']
-    };
-  }
-
-  const isCirculationSignal = containsAny(text, ['zona de circulacion', 'zona de circulación', 'circulacion', 'circulación']);
-  const hasStrongOperationalAreaSignal = containsAny(text, [
-    'camara', 'heladera', 'af', 'ac',
-    'cocina', 'coccion', 'horno', 'marmita', 'freidora',
-    'deposito', 'depósito',
-    'lavadero', 'bachas', 'lavado'
-  ]);
-  if (isCirculationSignal && !hasStrongOperationalAreaSignal) {
-    return {
-      areas: ['Áreas comunes'],
-      evidence: ['zona de circulación sin señal operativa fuerte']
-    };
-  }
-
-  const nonPhysicalSignals = containsAny(text, [
-    'proveedor',
-    'evaluacion de proveedor',
-    'evaluación de proveedor',
-    'drive',
-    'documentacion',
-    'documentación',
-    'evaluaciones',
-    'capacitacion',
-    'capacitación',
-    'curso',
-    'formacion',
-    'formación'
-  ]);
-  const depositoPhysicalSignals = containsAny(text, [
-    'deposito',
-    'depósito',
-    'stock',
-    'mercaderia',
-    'mercadería',
-    'almacenamiento',
-    'almacenar',
-    'bodega'
-  ]);
-  if (nonPhysicalSignals && !depositoPhysicalSignals && !containsAny(text, ['camara', 'heladera', 'cocina', 'residuo', 'basura', 'lavadero', 'comedor'])) {
-    return {
-      areas: ['Área no identificada'],
-      evidence: ['texto administrativo/no físico']
-    };
-  }
-
+  // Prioridad 1: Cámara específica (siempre por encima de Área fría).
   const exact = detectExactLocations(text);
   if (exact.cameraLocations.length > 0) {
     return {
-      areas: exact.cameraLocations,
-      evidence: ['cámaras específicas detectadas']
+      areas: [exact.cameraLocations[0]],
+      evidence: ['cámara específica detectada en hallazgo']
     };
   }
 
-  if (exact.heladeraAreas.length > 0) {
-    return {
-      areas: exact.heladeraAreas,
-      evidence: ['heladera mapeada por zona AF/AC']
-    };
+  // Caso especial solicitado: texto genérico de desorden/suciedad/charcos
+  // solo debe ir a Lavadero si el área original ya lo indica.
+  const hasGenericDirtyFloorSignals = containsAny(text, [
+    'sector desordenado',
+    'pisos sucios',
+    'charcos de agua',
+    'restos de alimentos en el piso'
+  ]);
+  if (hasGenericDirtyFloorSignals) {
+    const originalArea = toOperationalArea(areaProceso);
+    if (originalArea === 'Lavadero') {
+      return { areas: ['Lavadero'], evidence: ['lavadero heredado desde área original'] };
+    }
+    return { areas: ['Área no identificada'], evidence: ['higiene general sin pista de área específica'] };
   }
 
-  if (exact.hotEquipmentAreas.length > 0) {
-    return {
-      areas: exact.hotEquipmentAreas,
-      evidence: ['equipos/proceso de área caliente']
-    };
-  }
-
-  if (exact.sectorAreas.length > 0) {
-    return {
-      areas: exact.sectorAreas,
-      evidence: ['sector específico detectado']
-    };
-  }
-
-  if (exact.clientAreas.length > 0) {
-    return {
-      areas: exact.clientAreas,
-      evidence: ['cliente/servicio externo detectado']
-    };
-  }
-
-  const hasHygieneSignal = containsAny(text, ['limpieza', 'sucio', 'suciedad', 'restos de carne', 'sin limpiar', 'sanitizacion', 'higiene']);
-  const hasColdSignal = text.includes('camara') || text.includes('heladera');
-  const hasHotSignal = containsAny(text, ['horno', 'cocina', 'coccion', 'linea caliente', 'marmita', 'freidora', 'plancha', 'costillas', 'almuerzo caliente', 'almuerzos calientes']);
-
-  if (hasHygieneSignal && hasColdSignal) {
+  // Caso especial solicitado: "ambas cámaras" sin número explícito.
+  if (containsAny(text, ['ambas camaras', 'ambas cámaras'])) {
+    const originalArea = toOperationalArea(areaProceso);
+    if (originalArea && originalArea.startsWith('Cámara')) {
+      return {
+        areas: [originalArea],
+        evidence: ['cámaras múltiples con cámara específica heredada desde Excel']
+      };
+    }
     return {
       areas: ['Área fría'],
-      evidence: ['evento de higiene en área fría']
+      evidence: ['cámaras múltiples sin número específico']
     };
   }
 
-  if (hasHygieneSignal && hasHotSignal) {
+  // Prioridad 2: Baños.
+  if (containsAny(text, ['baño', 'baños', 'bano', 'banos', 'sanitario', 'sanitarios', 'armario de baños', 'armario de banos'])) {
+    return {
+      areas: ['Baños'],
+      evidence: ['señales de baños/sanitarios']
+    };
+  }
+
+  // Prioridad 3: Área de residuos.
+  if (containsAny(text, [
+    'residuos',
+    'basura',
+    'contenedor',
+    'contenedores',
+    'carton',
+    'cartón',
+    'tacho',
+    'tachos',
+    'bolsas vacias',
+    'bolsas vacías',
+    'cajas vacias',
+    'cajas vacías'
+  ])) {
+    return {
+      areas: ['Área de residuos'],
+      evidence: ['señales de residuos/basura']
+    };
+  }
+
+  // Prioridad 4: Lavadero.
+  const hasLavaderoSignals = containsAny(text, [
+    'lavadero',
+    'bacha',
+    'bachas',
+    'lavado',
+    'utensilios sucios',
+    'elementos sucios',
+    'charcos de agua'
+  ]);
+  if (hasLavaderoSignals) {
+    return {
+      areas: ['Lavadero'],
+      evidence: ['señales de lavadero/bachas/lavado']
+    };
+  }
+
+  // Prioridad 5: Depósito.
+  if (containsAny(text, [
+    'deposito',
+    'depósito',
+    'almacen',
+    'almacén',
+    'mercaderia',
+    'mercadería',
+    'stock',
+    'pedidos llegaron'
+  ])) {
+    return {
+      areas: ['Depósito'],
+      evidence: ['señales de depósito/almacén/stock']
+    };
+  }
+
+  // Prioridad 6: Logística.
+  if (containsAny(text, [
+    'faltante',
+    'faltantes',
+    'faltaron',
+    'faltó',
+    'falto',
+    'unidades',
+    'menu',
+    'menú',
+    'pedido incompleto',
+    'pedidos incompletos',
+    'callia',
+    'caliia',
+    'bifes',
+    'entrega'
+  ])) {
+    return {
+      areas: ['Logística'],
+      evidence: ['señales de logística/faltantes/entrega']
+    };
+  }
+
+  // Prioridad 7: Área de pre elaborados.
+  if (containsAny(text, [
+    'pre elaborado',
+    'pre elaborados',
+    'preelaborado',
+    'preelaborados',
+    'riñonera',
+    'rinonera',
+    'productos ajenos'
+  ])) {
+    return {
+      areas: ['Área de pre elaborados'],
+      evidence: ['señales de pre elaborados']
+    };
+  }
+
+  // Prioridad 8: Área caliente.
+  if (containsAny(text, [
+    'platina',
+    'platinas',
+    'caliente',
+    'coccion',
+    'cocción',
+    'horno',
+    'hornos',
+    'olla',
+    'ollas',
+    'produccion caliente',
+    'producción caliente',
+    'preparacion caliente',
+    'preparación caliente'
+  ])) {
     return {
       areas: ['Área caliente'],
-      evidence: ['evento de higiene en área caliente']
+      evidence: ['señales de cocción/proceso caliente']
     };
   }
 
-  if (hasHygieneSignal) {
+  // Prioridad 9: Área fría.
+  if (containsAny(text, [
+    'sandwich',
+    'sanguches',
+    'ensalada',
+    'ensaladas',
+    'postre',
+    'postres',
+    'vianda',
+    'viandas',
+    'heladera',
+    'heladeras',
+    'frio',
+    'fría',
+    'fria',
+    'refrigerado',
+    'refrigerados',
+    'camara',
+    'cámara'
+  ])) {
+    // Caso solicitado: frase genérica con charcos/suciedad debe quedar no identificada,
+    // salvo que el área original ya indique Lavadero.
     return {
-      areas: ['Área no identificada'],
-      evidence: ['evento de higiene']
+      areas: ['Área fría'],
+      evidence: ['señales de productos/almacenamiento en frío']
     };
   }
 
-  const scores = new Map();
-  const evidence = new Map();
-
-  AREA_SCORING_RULES.forEach((rule) => {
-    const textMatch = countMatchedKeywords(text, rule.keywords);
-    const weighted = textMatch.score * rule.score;
-    if (weighted <= 0) return;
-    scores.set(rule.area, (scores.get(rule.area) || 0) + weighted);
-    evidence.set(rule.area, [...(textMatch.matches || [])]);
-  });
-
-  if (text.includes('heladera') && /\bac\b/.test(` ${text} `)) {
-    scores.set('Área caliente', (scores.get('Área caliente') || 0) + 8);
-    evidence.set('Área caliente', [...(evidence.get('Área caliente') || []), 'heladera + AC']);
+  // Prioridad 10: Áreas comunes.
+  if (containsAny(text, [
+    'zona de circulacion',
+    'zona de circulación',
+    'circulacion',
+    'circulación',
+    'pasillo',
+    'pasillos',
+    'areas comunes',
+    'áreas comunes',
+    'sector comun',
+    'sector común'
+  ])) {
+    return {
+      areas: ['Áreas comunes'],
+      evidence: ['señales de circulación/áreas comunes']
+    };
   }
-
-  const hasCold = text.includes('tomate') || text.includes('ensalada') || text.includes('verdura') || text.includes('camara') || text.includes('heladera');
-  const hasDeposito = text.includes('recepcion') || text.includes('proveedor') || text.includes('mercaderia') || text.includes('materia prima');
-  if (hasCold && hasDeposito) {
-    scores.set('Área fría', (scores.get('Área fría') || 0) + 6);
-    scores.set('Depósito', (scores.get('Depósito') || 0) + 6);
-    evidence.set('Área fría', [...(evidence.get('Área fría') || []), 'producto perecedero']);
-    evidence.set('Depósito', [...(evidence.get('Depósito') || []), 'origen/recepción de mercadería']);
-  }
-  if (hasCold && (text.includes('envia') || text.includes('envio'))) {
-    scores.set('Depósito', (scores.get('Depósito') || 0) + 8);
-    evidence.set('Depósito', [...(evidence.get('Depósito') || []), 'envio de perecederos']);
-  }
-
-  if (hasHygieneSignal && (text.includes('camara') || text.includes('heladera'))) {
-    scores.set('Área fría', (scores.get('Área fría') || 0) + 8);
-    evidence.set('Área fría', [...(evidence.get('Área fría') || []), 'ubicación fría asociada a evento de higiene']);
-  }
-  if (hasHygieneSignal && containsAny(text, ['horno', 'cocina', 'coccion', 'linea caliente', 'marmita', 'freidora', 'plancha'])) {
-    scores.set('Área caliente', (scores.get('Área caliente') || 0) + 8);
-    evidence.set('Área caliente', [...(evidence.get('Área caliente') || []), 'ubicación caliente asociada a evento de higiene']);
-  }
-
-  if (scores.size === 0) return { areas: ['Área no identificada'], evidence: ['sin señales directas'] };
-
-  const ranked = sortAreasByPriority(scores);
-  const topScore = ranked[0][1];
-  let selected = ranked
-    .filter(([, value], idx) => idx === 0 || value >= topScore - 6)
-    .slice(0, 2)
-    .map(([area]) => area);
-
-  selected = sortAreasByPriorityList(selected);
 
   return {
-    areas: selected.length ? selected : ['Área no identificada'],
-    evidence: selected.flatMap((area) => evidence.get(area) || []).filter(Boolean)
+    areas: ['Área no identificada'],
+    evidence: [areaProcesoText || areaOriginalNorm ? 'sin señales claras; área original no concluyente' : 'sin señales claras']
   };
 }
 
@@ -1735,6 +2022,15 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
       resultadoClasificado: auditCompliance.classification,
       tipoDesvio: auditCompliance.tipoDesvio,
       reason: auditCompliance.reason
+    };
+  }
+
+  const normalizedRule = classifyNormalizedRule(text);
+  if (normalizedRule) {
+    return {
+      resultadoClasificado: normalizedRule.resultadoClasificado,
+      tipoDesvio: normalizedRule.tipoDesvio,
+      reason: normalizedRule.reason
     };
   }
 
@@ -1897,6 +2193,9 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
   const text = normalizeIncidentText([descripcionDetectada, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
 
+  const normalizedRule = classifyNormalizedRule(text);
+  if (normalizedRule) return normalizedRule.iso22000;
+
   const priorityOperationalRule = classifyPriorityOperationalRule(text);
   if (priorityOperationalRule) return priorityOperationalRule.iso22000;
 
@@ -1949,6 +2248,10 @@ function ensureSingleArea(areaClasificada = '') {
 function validateFinalRecord(record = {}) {
   const validated = { ...record };
   const hallazgo = normalizeIncidentText(validated.hallazgoDetectado || '');
+  const normalizedRule = classifyNormalizedRule([
+    validated.hallazgoDetectado,
+    validated.actividadRealizada
+  ].join(' | '));
   const priorityOperationalRule = classifyPriorityOperationalRule([
     validated.hallazgoDetectado,
     validated.actividadRealizada
@@ -1970,7 +2273,11 @@ function validateFinalRecord(record = {}) {
     validated.areaClasificada = 'Área no identificada';
   }
 
-  if (!explicitNoFinding && priorityOperationalRule) {
+  if (!explicitNoFinding && normalizedRule) {
+    validated.resultadoClasificado = normalizedRule.resultadoClasificado;
+    validated.tipoDesvio = normalizedRule.tipoDesvio;
+    validated.iso22000 = normalizedRule.iso22000;
+  } else if (!explicitNoFinding && priorityOperationalRule) {
     validated.resultadoClasificado = priorityOperationalRule.resultadoClasificado;
     validated.tipoDesvio = priorityOperationalRule.tipoDesvio;
     validated.iso22000 = priorityOperationalRule.iso22000;
@@ -2270,8 +2577,8 @@ function normalizeBrunoArea(areaValue, contextText = '') {
   if (containsAny(area, ['vestuarios', 'banos', 'baños', 'vestuarios/baños'])) return 'Baños';
   if (containsAny(area, ['area residuos', 'área residuos', 'residuos'])) return 'Área de residuos';
   if (containsAny(area, ['area pre elaborado', 'pre elaborado', 'preelaborado'])) return 'Área de pre elaborados';
-  if (containsAny(area, ['logistica', 'logística'])) return 'Logística / Distribución';
-  if (containsAny(area, ['callia'])) return 'Logística / Cliente externo';
+  if (containsAny(area, ['logistica', 'logística'])) return 'Logística';
+  if (containsAny(area, ['callia', 'caliia'])) return 'Logística';
   if (containsAny(area, ['comedor'])) return 'Comedor';
   if (containsAny(area, ['armarios', 'armario'])) {
     if (containsAny(`${area} ${context}`, ['armario de banos', 'armario de baños', 'baños'])) return 'Baños';
@@ -2778,8 +3085,16 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         resultadoClasificado
       });
 
+      const normalizedRule = classifyNormalizedRule(textForClassification);
+      if (normalizedRule) {
+        resultadoClasificado = normalizedRule.resultadoClasificado;
+        tipoDesvio = normalizedRule.tipoDesvio;
+        iso22000 = normalizedRule.iso22000;
+        outcomeReason = normalizedRule.reason;
+      }
+
       const priorityOperationalRule = classifyPriorityOperationalRule(textForClassification);
-      if (priorityOperationalRule) {
+      if (priorityOperationalRule && !normalizedRule) {
         resultadoClasificado = priorityOperationalRule.resultadoClasificado;
         tipoDesvio = priorityOperationalRule.tipoDesvio;
         iso22000 = priorityOperationalRule.iso22000;
@@ -2787,7 +3102,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       }
 
       const technicalControlRule = classifyTechnicalControlRule(textForClassification);
-      if (technicalControlRule && !priorityOperationalRule) {
+      if (technicalControlRule && !priorityOperationalRule && !normalizedRule) {
         resultadoClasificado = technicalControlRule.resultadoClasificado;
         tipoDesvio = technicalControlRule.tipoDesvio;
         iso22000 = technicalControlRule.iso22000;
