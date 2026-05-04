@@ -1157,6 +1157,158 @@ function isNeutralTechnicalMention(text) {
   return containsAny(normalized, neutralSignals);
 }
 
+function classifyTechnicalControlRule(text) {
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized) return null;
+
+  const technicalSignals = [
+    'registro',
+    'control',
+    'verificacion',
+    'temperatura',
+    'camara',
+    'heladera',
+    'freezer'
+  ];
+
+  const explicitProblemIndicators = [
+    'falta',
+    'faltante',
+    'sin registro',
+    'incompleto',
+    'incompleta',
+    'fuera de rango',
+    'vencido',
+    'vencida',
+    'no funciona',
+    'no registra',
+    'error',
+    'incorrecto',
+    'incorrecta',
+    'mal',
+    'desvio',
+    'anomalia',
+    'roto',
+    'rota',
+    'mal estado'
+  ];
+
+  const hasTechnicalSignal = containsAny(normalized, technicalSignals);
+  if (!hasTechnicalSignal) return null;
+
+  const hasExplicitProblem = containsAny(normalized, explicitProblemIndicators)
+    || /\bfuera\s+de\s+rango\b/.test(normalized)
+    || /\bsin\s+registro\b/.test(normalized)
+    || /\bno\s+funciona(n)?\b/.test(normalized)
+    || /\bno\s+registra(n)?\b/.test(normalized)
+    || /\bmal\s+estado\b/.test(normalized)
+    || /\banomalia(s)?\b/.test(normalized)
+    || /\bdesvi[oó](s)?\b/.test(normalized);
+
+  if (hasExplicitProblem) {
+    return {
+      resultadoClasificado: 'No conforme',
+      tipoDesvio: 'NC',
+      iso22000: '8.5.1 Control operacional',
+      reason: 'NC por indicador explícito en registro técnico'
+    };
+  }
+
+  return {
+    resultadoClasificado: 'Conforme',
+    tipoDesvio: '-',
+    iso22000: '-',
+    reason: 'Conforme por registro técnico neutro sin problema explícito'
+  };
+}
+
+function classifyPriorityOperationalRule(text) {
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized) return null;
+
+  if (containsAny(normalized, [
+    'sin rotular',
+    'sin rotulacion',
+    'sin rotulación',
+    'falta rotular',
+    'falta de rotular',
+    'alimentos sin rotular'
+  ])) {
+    return {
+      resultadoClasificado: 'No conforme',
+      tipoDesvio: 'NC',
+      iso22000: '8.5.2 Trazabilidad',
+      reason: 'NC por incumplimiento de trazabilidad/rotulado'
+    };
+  }
+
+  if (containsAny(normalized, [
+    'sucio',
+    'sucia',
+    'sucios',
+    'sucias',
+    'suciedad',
+    'sin limpiar',
+    'restos'
+  ])) {
+    return {
+      resultadoClasificado: 'No conforme',
+      tipoDesvio: 'NC',
+      iso22000: '8.2 PRP Limpieza',
+      reason: 'NC por incumplimiento de limpieza'
+    };
+  }
+
+  if (containsAny(normalized, [
+    'no funciona',
+    'fallando',
+    'falla equipo',
+    'equipo fallando',
+    'freezer no funciona',
+    'heladera no funciona',
+    'camara no funciona',
+    'cámara no funciona'
+  ])) {
+    return {
+      resultadoClasificado: 'No conforme',
+      tipoDesvio: 'NC',
+      iso22000: '8.5.1 Control operacional',
+      reason: 'NC por falla de equipamiento operativo'
+    };
+  }
+
+  if (containsAny(normalized, [
+    'faltante',
+    'faltaron',
+    'falta de',
+    'sin stock'
+  ])) {
+    return {
+      resultadoClasificado: 'No conforme',
+      tipoDesvio: 'NC',
+      iso22000: '8.5.1 Control operacional',
+      reason: 'NC por faltante operativo'
+    };
+  }
+
+  if (containsAny(normalized, [
+    'residuos',
+    'basura acumulada',
+    'cesto rebalsado',
+    'cesto rebalsado',
+    'bolsas rotas'
+  ])) {
+    return {
+      resultadoClasificado: 'No conforme',
+      tipoDesvio: 'NC',
+      iso22000: '8.2 PRP Limpieza',
+      reason: 'NC por gestión deficiente de residuos'
+    };
+  }
+
+  return null;
+}
+
 function hasRowContinuationSignal(text) {
   const raw = normalizeCellValue(text || '').trim();
   if (!raw) return false;
@@ -1586,6 +1738,24 @@ function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoA
     };
   }
 
+  const priorityOperationalRule = classifyPriorityOperationalRule(text);
+  if (priorityOperationalRule) {
+    return {
+      resultadoClasificado: priorityOperationalRule.resultadoClasificado,
+      tipoDesvio: priorityOperationalRule.tipoDesvio,
+      reason: priorityOperationalRule.reason
+    };
+  }
+
+  const technicalControlRule = classifyTechnicalControlRule(text);
+  if (technicalControlRule) {
+    return {
+      resultadoClasificado: technicalControlRule.resultadoClasificado,
+      tipoDesvio: technicalControlRule.tipoDesvio,
+      reason: technicalControlRule.reason
+    };
+  }
+
   if (hasDetectionLeadSignal && hasRealNcSignal) {
     return {
       resultadoClasificado: 'No conforme',
@@ -1727,6 +1897,12 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
   const text = normalizeIncidentText([descripcionDetectada, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
 
+  const priorityOperationalRule = classifyPriorityOperationalRule(text);
+  if (priorityOperationalRule) return priorityOperationalRule.iso22000;
+
+  const technicalControlRule = classifyTechnicalControlRule(text);
+  if (technicalControlRule) return technicalControlRule.iso22000;
+
   if (containsAny(text, ['capacitacion', 'curso', 'formacion'])) return '7.2 Competencia / capacitación';
   if (containsAny(text, ['drive', 'documentacion', 'documentación', 'respaldo', 'informacion disponible', 'información disponible'])) return '7.5 Información documentada';
   if (containsAny(text, ['falta de personal', 'falto personal', 'faltó personal', 'ausencia de personal', 'sin personal'])) return '7.1 Recursos';
@@ -1747,6 +1923,7 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
 }
 
 function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadRealizada, areaClasificada, resultadoClasificado }) {
+  if (normalizeCellValue(iso22000).trim() === '-') return '-';
   if (normalizeIncidentText(iso22000) && normalizeIncidentText(iso22000) !== 'revisar manualmente') return iso22000;
   const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
@@ -1772,6 +1949,14 @@ function ensureSingleArea(areaClasificada = '') {
 function validateFinalRecord(record = {}) {
   const validated = { ...record };
   const hallazgo = normalizeIncidentText(validated.hallazgoDetectado || '');
+  const priorityOperationalRule = classifyPriorityOperationalRule([
+    validated.hallazgoDetectado,
+    validated.actividadRealizada
+  ].join(' | '));
+  const technicalControlRule = classifyTechnicalControlRule([
+    validated.hallazgoDetectado,
+    validated.actividadRealizada
+  ].join(' | '));
 
   const explicitNoFinding = isExplicitNoFindingText(hallazgo);
   if (explicitNoFinding) {
@@ -1783,6 +1968,16 @@ function validateFinalRecord(record = {}) {
     validated.accionInmediata = '';
     validated.accionCorrectiva = '';
     validated.areaClasificada = 'Área no identificada';
+  }
+
+  if (!explicitNoFinding && priorityOperationalRule) {
+    validated.resultadoClasificado = priorityOperationalRule.resultadoClasificado;
+    validated.tipoDesvio = priorityOperationalRule.tipoDesvio;
+    validated.iso22000 = priorityOperationalRule.iso22000;
+  } else if (!explicitNoFinding && technicalControlRule) {
+    validated.resultadoClasificado = technicalControlRule.resultadoClasificado;
+    validated.tipoDesvio = technicalControlRule.tipoDesvio;
+    validated.iso22000 = technicalControlRule.iso22000;
   }
 
   validated.areaClasificada = ensureSingleArea(validated.areaClasificada);
@@ -2583,6 +2778,22 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         resultadoClasificado
       });
 
+      const priorityOperationalRule = classifyPriorityOperationalRule(textForClassification);
+      if (priorityOperationalRule) {
+        resultadoClasificado = priorityOperationalRule.resultadoClasificado;
+        tipoDesvio = priorityOperationalRule.tipoDesvio;
+        iso22000 = priorityOperationalRule.iso22000;
+        outcomeReason = priorityOperationalRule.reason;
+      }
+
+      const technicalControlRule = classifyTechnicalControlRule(textForClassification);
+      if (technicalControlRule && !priorityOperationalRule) {
+        resultadoClasificado = technicalControlRule.resultadoClasificado;
+        tipoDesvio = technicalControlRule.tipoDesvio;
+        iso22000 = technicalControlRule.iso22000;
+        outcomeReason = technicalControlRule.reason;
+      }
+
       const actions = buildActions({
         resultadoClasificado,
         text: textForClassification,
@@ -2658,7 +2869,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
 
       const analisisTexto = buildAnalysisText(rawRecord);
 
-      const isDesvio = resultadoClasificado !== 'Conforme' && resultadoClasificado !== 'Revisar manualmente';
+      const isConforme = resultadoClasificado === 'Conforme';
+      const isDesvio = tipoDesvio === 'NC' || tipoDesvio === 'OBS' || tipoDesvio === 'OM';
 
       summary.totalRecords += 1;
       if (isDesvio) {
@@ -2677,7 +2889,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         if (tipoDesvio && tipoDesvio !== '-') {
           summary.byTipo[tipoDesvio] = (summary.byTipo[tipoDesvio] || 0) + 1;
         }
-      } else {
+      } else if (isConforme) {
         summary.totalConformes += 1;
       }
 

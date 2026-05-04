@@ -154,11 +154,7 @@ export default function AnalysisResults({
   const countsByCategory = {
     todos: records.length,
     nc: records.filter((record) => normalizeCellValue(record.tipoDesvio) === 'NC').length,
-    conformes: records.filter((record) => {
-      const tipo = normalizeCellValue(record.tipoDesvio);
-      const resultado = normalizeCellValue(record.resultadoClasificado);
-      return resultado === 'Conforme' || tipo === '-';
-    }).length,
+    conformes: records.filter((record) => normalizeCellValue(record.resultadoClasificado) === 'Conforme').length,
     obs: records.filter((record) => normalizeCellValue(record.tipoDesvio) === 'OBS').length,
     om: records.filter((record) => normalizeCellValue(record.tipoDesvio) === 'OM').length
   };
@@ -186,7 +182,7 @@ export default function AnalysisResults({
     const matchesCategory = (() => {
       if (activeCategory === 'todos') return true;
       if (activeCategory === 'nc') return tipo === 'NC';
-      if (activeCategory === 'conformes') return resultadoClasificado === 'Conforme' || tipo === '-';
+      if (activeCategory === 'conformes') return resultadoClasificado === 'Conforme';
       if (activeCategory === 'obs') return tipo === 'OBS';
       if (activeCategory === 'om') return tipo === 'OM';
       return true;
