@@ -1539,7 +1539,7 @@ function classifyNormalizedRule(text) {
     'vencido', 'vencida', 'vencimiento', 'faltante', 'faltantes', 'faltaron', 'faltó', 'falto'
   ]);
   if (hasOrderSignal && !hasDirectRisk) {
-    return build('Observación', 'OBS', '8.2 PRP Orden', 'OBS por orden sin riesgo directo');
+    return build('No conforme', 'NC', '8.2 PRP Orden', 'NC por falta de orden');
   }
 
   const hasAjenosOPersonales = hasAny([
@@ -1614,10 +1614,18 @@ function classifyNormalizedRule(text) {
   return build('Revisar manualmente', '-', 'Revisar manualmente', 'texto ambiguo o incompleto');
 }
 
-function classifyCategoriaDesvio({ hallazgoDetectado = '', actividadRealizada = '', resultadoClasificado = '' } = {}) {
+function classifyCategoriaDesvio({
+  hallazgoDetectado = '',
+  actividadRealizada = '',
+  resultadoClasificado = '',
+  tipoDesvio = '',
+  iso22000 = ''
+} = {}) {
   const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada].filter(Boolean).join(' | '));
   const hasAny = (terms) => containsAny(text, terms);
   const resultado = normalizeCellValue(resultadoClasificado).trim();
+  const iso = normalizeIncidentText(iso22000 || '');
+  const tipo = normalizeCellValue(tipoDesvio).trim();
 
   if (!text || isExplicitNoFindingText(text) || resultado === 'Conforme') return 'Conforme';
 
@@ -1668,6 +1676,33 @@ function classifyCategoriaDesvio({ hallazgoDetectado = '', actividadRealizada = 
     'porción incorrecta', 'textura', 'sabor', 'color', 'aspecto', 'calidad', 'envase dañado',
     'envase roto', 'bandeja rota', 'bandejas rotas', 'sin integridad', 'envases sin integridad'
   ])) return 'Desvío de Calidad';
+
+  if (hasAny([
+    'falta de orden',
+    'falta orden',
+    'desorden',
+    'desordenado',
+    'desordenada',
+    'desordenados',
+    'desordenadas'
+  ])) return 'Desvío de Calidad';
+
+  // Fallback por ISO útil: si no hubo match textual específico, mapear ISO sanitario/PRP a inocuidad.
+  // No pisa categorías ya resueltas (legal/logística/calidad) porque corre después de esas reglas.
+  if (tipo === 'NC' && containsAny(iso, [
+    '8.2 prp limpieza',
+    '8.2 prp higiene',
+    '8.2 prp identificacion',
+    '8.2 prp identificación',
+    '8.2 prp manejo residuos',
+    '8.5.2 trazabilidad',
+    '8.7 control de salidas no conformes'
+  ])) return 'Desvío de Inocuidad';
+
+  // Caso operativo sanitario: 8.5.1 con señal técnica/sanitaria explícita.
+  if (tipo === 'NC' && iso.includes('8.5.1 control operacional') && hasAny([
+    'temperatura', 'registro', 'control sanitario', 'inocuidad', 'heladera', 'camara', 'cámara', 'freezer'
+  ])) return 'Desvío de Inocuidad';
 
   return 'Revisar manualmente';
 }
@@ -2374,7 +2409,9 @@ function validateFinalRecord(record = {}) {
   validated.categoriaDesvio = classifyCategoriaDesvio({
     hallazgoDetectado: validated.hallazgoDetectado,
     actividadRealizada: validated.actividadRealizada,
-    resultadoClasificado: validated.resultadoClasificado
+    resultadoClasificado: validated.resultadoClasificado,
+    tipoDesvio: validated.tipoDesvio,
+    iso22000: validated.iso22000
   });
 
   return validated;
