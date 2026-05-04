@@ -1396,6 +1396,24 @@ function classifyNormalizedRule(text) {
     return build('No conforme', 'NC', '8.7 Control de salidas no conformes', 'NC por producto no conforme');
   }
 
+  if (hasAny([
+    'habilitacion',
+    'habilitación',
+    'habilitacion municipal',
+    'habilitación municipal',
+    'carnet',
+    'carnet manipulador',
+    'libreta sanitaria',
+    'documentacion legal',
+    'documentación legal',
+    'certificado vencido',
+    'requisito legal',
+    'incumplimiento legal',
+    'normativa legal'
+  ])) {
+    return build('No conforme', 'NC', 'Requisito legal / Documentación legal', 'NC por incumplimiento legal/documental');
+  }
+
   const hasResiduos = hasAny([
     'residuos',
     'basura',
