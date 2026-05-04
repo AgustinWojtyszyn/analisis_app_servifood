@@ -44,6 +44,11 @@ function normalizeEstadoAccion(value) {
 }
 
 export default function ChartsPage({ records = [], summary = null }) {
+  const hasAnalysisData = useMemo(() => {
+    const totalFromSummary = Number(summary?.totalRecords || 0);
+    return records.length > 0 || totalFromSummary > 0;
+  }, [records, summary]);
+
   const data = useMemo(() => {
     const safeSummary = summary || {};
     const deriveFromRecords = !summary || (!summary.byArea && !summary.byCategoria && !summary.byIso22000);
@@ -115,7 +120,7 @@ export default function ChartsPage({ records = [], summary = null }) {
     };
   }, [records, summary]);
 
-  if (!records.length) {
+  if (!hasAnalysisData) {
     return (
       <Card>
         <CardContent sx={{ p: 3.5, textAlign: 'center' }}>
@@ -158,18 +163,24 @@ export default function ChartsPage({ records = [], summary = null }) {
             <CardContent sx={{ p: 2.5 }}>
               <Typography sx={{ fontWeight: 700, mb: 2 }}>Desvíos por área</Typography>
               <Box sx={{ width: '100%', height: 320 }}>
-                <ResponsiveContainer>
-                  <BarChart data={data.desviosPorArea}>
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={70} />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                      {data.desviosPorArea.map((entry, idx) => (
-                        <Cell key={entry.name} fill={palette[idx % palette.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                {data.desviosPorArea.length === 0 ? (
+                  <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+                    No hay datos por área
+                  </Box>
+                ) : (
+                  <ResponsiveContainer>
+                    <BarChart data={data.desviosPorArea}>
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-15} textAnchor="end" height={70} />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                        {data.desviosPorArea.map((entry, idx) => (
+                          <Cell key={entry.name} fill={palette[idx % palette.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -180,16 +191,22 @@ export default function ChartsPage({ records = [], summary = null }) {
             <CardContent sx={{ p: 2.5 }}>
               <Typography sx={{ fontWeight: 700, mb: 2 }}>Desvíos por categoría</Typography>
               <Box sx={{ width: '100%', height: 320 }}>
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie data={data.desviosPorCategoria} dataKey="value" nameKey="name" outerRadius={105} label>
-                      {data.desviosPorCategoria.map((entry, idx) => (
-                        <Cell key={entry.name} fill={palette[idx % palette.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                {data.desviosPorCategoria.length === 0 ? (
+                  <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+                    No hay datos por categoría
+                  </Box>
+                ) : (
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie data={data.desviosPorCategoria} dataKey="value" nameKey="name" outerRadius={105} label>
+                        {data.desviosPorCategoria.map((entry, idx) => (
+                          <Cell key={entry.name} fill={palette[idx % palette.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -200,14 +217,20 @@ export default function ChartsPage({ records = [], summary = null }) {
             <CardContent sx={{ p: 2.5 }}>
               <Typography sx={{ fontWeight: 700, mb: 2 }}>Desvíos por categoría (barras)</Typography>
               <Box sx={{ width: '100%', height: 320 }}>
-                <ResponsiveContainer>
-                  <BarChart data={data.desviosPorCategoria}>
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-10} textAnchor="end" height={70} />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#1d4ed8" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {data.desviosPorCategoria.length === 0 ? (
+                  <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+                    No hay datos por categoría
+                  </Box>
+                ) : (
+                  <ResponsiveContainer>
+                    <BarChart data={data.desviosPorCategoria}>
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-10} textAnchor="end" height={70} />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Bar dataKey="value" fill="#1d4ed8" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -244,18 +267,24 @@ export default function ChartsPage({ records = [], summary = null }) {
             <CardContent sx={{ p: 2.5 }}>
               <Typography sx={{ fontWeight: 700, mb: 2 }}>Vinculación con requisitos ISO 22000</Typography>
               <Box sx={{ width: '100%', height: 340 }}>
-                <ResponsiveContainer>
-                  <BarChart data={data.desviosPorIso}>
-                    <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" height={92} />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip />
-                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                      {data.desviosPorIso.map((entry, idx) => (
-                        <Cell key={entry.name} fill={palette[idx % palette.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                {data.desviosPorIso.length === 0 ? (
+                  <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+                    No hay datos ISO
+                  </Box>
+                ) : (
+                  <ResponsiveContainer>
+                    <BarChart data={data.desviosPorIso}>
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-15} textAnchor="end" height={92} />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                        {data.desviosPorIso.map((entry, idx) => (
+                          <Cell key={entry.name} fill={palette[idx % palette.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 Total analizado: {data.totalRecords}
