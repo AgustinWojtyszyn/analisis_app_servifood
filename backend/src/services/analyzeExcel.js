@@ -16,6 +16,7 @@ const OPERATIVE_AREAS = [
   'Cámara 6',
   'Cámara 7',
   'Baños',
+  'Pasillo principal',
   'Áreas comunes',
   'Comedor',
   'Logística',
@@ -730,6 +731,7 @@ const OPERATIONAL_AREAS = [
   'Cámara 6',
   'Cámara 7',
   'Baños',
+  'Pasillo principal',
   'Áreas comunes',
   'Comedor',
   'Logística',
@@ -758,7 +760,9 @@ function toOperationalArea(area) {
   if (normalized.includes('area fria')) return 'Área fría';
   if (normalized.includes('area caliente')) return 'Área caliente';
   if (normalized.includes('deposito')) return 'Depósito';
+  if (normalized.includes('pasillo')) return 'Pasillo principal';
   if (normalized.includes('bano') || normalized.includes('banos') || normalized.includes('sanitario')) return 'Baños';
+  if (normalized.includes('sector general') || normalized === 'en general') return 'Áreas comunes';
   if (normalized.includes('area comun') || normalized.includes('areas comunes')) return 'Áreas comunes';
   if (normalized.includes('comedor')) return 'Comedor';
   if (normalized.includes('logistica')) return 'Logística';
@@ -872,7 +876,10 @@ function detectExactLocations(text) {
   if (containsAny(normalized, ['comedor'])) {
     sectorAreas.push('Comedor');
   }
-  if (containsAny(normalized, ['planta', 'recorrida de planta', 'area comun', 'área común', 'áreas comunes', 'pasillo'])) {
+  if (containsAny(normalized, ['pasillo', 'pasillos'])) {
+    sectorAreas.push('Pasillo principal');
+  }
+  if (containsAny(normalized, ['planta', 'recorrida de planta', 'area comun', 'área común', 'áreas comunes', 'sector general', 'en general'])) {
     sectorAreas.push('Áreas comunes');
   }
   if (containsAny(normalized, ['easy', 'scop', 'hospital mental', 'pocito', 'la laja'])) {
@@ -902,7 +909,8 @@ const AREA_SCORING_RULES = [
   { area: 'Depósito', keywords: ['deposito', 'recepcion', 'stock', 'mercaderia', 'almacenamiento', 'almacenar', 'ingreso de mercaderia', 'faltante de insumos'], score: 5 },
   { area: 'Logística', keywords: ['faltaron almuerzos', 'faltante de mercaderia en cliente', 'demora', 'entrega al cliente', 'servicio demorado', 'cliente', 'easy', 'hospital mental', 'pocito', 'la laja', 'reparto', 'despacho', 'devolucion del cliente'], score: 7 },
   { area: 'Baños', keywords: ['baño', 'bano', 'baños', 'banos', 'sanitario'], score: 7 },
-  { area: 'Áreas comunes', keywords: ['planta', 'recorrida de planta', 'pasillo', 'area comun', 'áreas comunes'], score: 4 },
+  { area: 'Pasillo principal', keywords: ['pasillo', 'pasillos'], score: 7 },
+  { area: 'Áreas comunes', keywords: ['planta', 'recorrida de planta', 'area comun', 'áreas comunes', 'sector general', 'en general'], score: 4 },
   { area: 'Comedor', keywords: ['comedor', 'linea de servicio', 'línea de servicio'], score: 6 },
   { area: 'Área de residuos', keywords: ['residuo', 'residuos', 'basura', 'desecho'], score: 7 },
   { area: 'Área de pre elaborados', keywords: ['pre elaborados', 'preelaborados', 'pre elaborado', 'pre-elaborados'], score: 6 },
@@ -2043,18 +2051,29 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
     };
   }
 
-  // Prioridad 10: Áreas comunes.
+  // Prioridad 10: Pasillo principal.
+  if (containsAny(text, [
+    'pasillo',
+    'pasillos'
+  ])) {
+    return {
+      areas: ['Pasillo principal'],
+      evidence: ['señales de pasillo']
+    };
+  }
+
+  // Prioridad 11: Áreas comunes.
   if (containsAny(text, [
     'zona de circulacion',
     'zona de circulación',
     'circulacion',
     'circulación',
-    'pasillo',
-    'pasillos',
     'areas comunes',
     'áreas comunes',
     'sector comun',
-    'sector común'
+    'sector común',
+    'sector general',
+    'en general'
   ])) {
     return {
       areas: ['Áreas comunes'],
@@ -2383,6 +2402,359 @@ function classifyIso22000FromDescription({ descripcionDetectada, actividadRealiz
   return 'Revisar manualmente';
 }
 
+const COMPOSITE_ISO_ORDER = [
+  '7.2 Competencia',
+  '7.3 Toma de conciencia',
+  '7.5 Información documentada',
+  'CAA Art. 21',
+  '8.5.2 Trazabilidad',
+  '8.2 PRP Limpieza',
+  '8.2 PRP Manejo residuos',
+  '8.7 Control de salidas no conformes',
+  '8.5.1 Control operacional'
+];
+
+function splitIsoLabels(value = '') {
+  return normalizeCellValue(value)
+    .split(/\s\/\s/)
+    .map((part) => normalizeCellValue(part).trim())
+    .filter(Boolean);
+}
+
+function canonicalizeIsoLabel(label = '') {
+  const raw = normalizeCellValue(label).trim();
+  const norm = normalizeIncidentText(raw);
+  if (!norm) return '';
+  if (norm === 'capacitacion' || norm === 'revisar manualmente' || norm === 'poes' || norm === 'bpm') return '';
+  if (norm === 'requisito legal' || norm === 'documentacion legal') return '';
+  if (norm.includes('7.2 competencia')) return '7.2 Competencia';
+  if (norm.includes('7.3 toma de conciencia')) return '7.3 Toma de conciencia';
+  if (norm.includes('7.5 informacion documentada')) return '7.5 Información documentada';
+  if (norm.includes('caa art 21')) return 'CAA Art. 21';
+  if (norm.includes('8.2 programas prerrequisito')) return '';
+  return raw;
+}
+
+function hasAnyIsoTerm(text, terms = []) {
+  return terms.some((term) => text.includes(normalizeIncidentText(term)));
+}
+
+function detectCompositeIsoFromText(text = '') {
+  const normalized = normalizeIncidentText(text);
+  if (!normalized || isExplicitNoFindingText(normalized)) return [];
+
+  const detected = new Set();
+
+  const hasCompetenciaLegal = hasAnyIsoTerm(normalized, [
+    'carnet de manipulador',
+    'carne de manipulador',
+    'manipulador de alimentos',
+    'carnet sanitario',
+    'libreta sanitaria',
+    'carnet vencido',
+    'carnet faltante',
+    'sin carnet',
+    'no presenta carnet',
+    'personal sin carnet'
+  ]);
+  if (hasCompetenciaLegal) {
+    detected.add('7.2 Competencia');
+    detected.add('CAA Art. 21');
+  }
+
+  const hasConcienciaCapacitacion = hasAnyIsoTerm(normalized, [
+    'capacitacion',
+    'capacitaciones',
+    'personal no capacitado',
+    'falta de capacitacion',
+    'capacitacion vencida',
+    'capacitacion desactualizada',
+    'bpm',
+    'buenas practicas de manufactura',
+    'poe',
+    'poes',
+    'procedimiento operativo estandarizado',
+    'toma de conciencia',
+    'induccion',
+    'entrenamiento'
+  ]);
+  if (hasConcienciaCapacitacion) {
+    detected.add('7.3 Toma de conciencia');
+    detected.add('7.2 Competencia');
+  }
+
+  const hasInformacionDocumentada = hasAnyIsoTerm(normalized, [
+    'procedimiento documentado',
+    'falta procedimiento',
+    'falta de procedimiento',
+    'procedimiento inexistente',
+    'procedimiento desactualizado',
+    'documentacion desactualizada',
+    'informacion documentada',
+    'registros incompletos',
+    'registros ausentes',
+    'falta de registros',
+    'control de versiones',
+    'version desactualizada',
+    'documento sin actualizar',
+    'planilla incompleta',
+    'evidencia documental',
+    'sin evidencia documental'
+  ]);
+  if (hasInformacionDocumentada) {
+    detected.add('7.5 Información documentada');
+  }
+
+  if (hasAnyIsoTerm(normalized, [
+    'falta de rotulo',
+    'falta rotulo',
+    'rotulacion',
+    'rotulacion en general',
+    'sin rotular',
+    'alimento sin rotular',
+    'alimentos sin rotular',
+    'producto sin rotular',
+    'identificacion',
+    'identificar'
+  ])) {
+    detected.add('8.5.2 Trazabilidad');
+  }
+
+  if (hasAnyIsoTerm(normalized, [
+    'suciedad',
+    'sucio',
+    'sucia',
+    'sucios',
+    'sucias',
+    'limpio',
+    'limpia',
+    'limpios',
+    'limpias',
+    'limpieza',
+    'restos de alimentos',
+    'piso sucio',
+    'instalaciones sucias',
+    'sector sucio'
+  ])) {
+    detected.add('8.2 PRP Limpieza');
+  }
+
+  if (hasAnyIsoTerm(normalized, [
+    'residuos',
+    'basura',
+    'sector residuos',
+    'cesto',
+    'cestos',
+    'contenedor',
+    'contenedores'
+  ])) {
+    detected.add('8.2 PRP Manejo residuos');
+  }
+
+  if (hasAnyIsoTerm(normalized, [
+    'producto no conforme',
+    'producto nc',
+    'carteleria de producto no conforme',
+    'identificacion de producto no conforme'
+  ])) {
+    detected.add('8.7 Control de salidas no conformes');
+  }
+
+  if (hasAnyIsoTerm(normalized, [
+    'faltante de menu',
+    'faltaron menu',
+    'faltante de viandas',
+    'error de entrega',
+    'cantidad incorrecta',
+    'entrega incompleta'
+  ])) {
+    detected.add('8.5.1 Control operacional');
+  }
+
+  if (normalized.includes('faltaron') && normalized.includes('menu')) {
+    detected.add('8.5.1 Control operacional');
+  }
+
+  return COMPOSITE_ISO_ORDER.filter((iso) => detected.has(iso));
+}
+
+function hasStrongNcIndicatorForGovernance(text = '') {
+  return hasAnyIsoTerm(text, [
+    'falta',
+    'faltante',
+    'ausencia',
+    'ausente',
+    'inexistente',
+    'sin',
+    'vencido',
+    'vencida',
+    'no presenta',
+    'incumple',
+    'incumplimiento',
+    'obligatorio',
+    'requerido',
+    'critico',
+    'critica'
+  ]);
+}
+
+function hasOmIndicatorForGovernance(text = '') {
+  return hasAnyIsoTerm(text, [
+    'oportunidad de mejora',
+    'mejorar',
+    'mejora',
+    'desactualizado',
+    'desactualizada',
+    'actualizar',
+    'reforzar',
+    'revisar',
+    'optimizar',
+    'sugerencia'
+  ]);
+}
+
+function applyGovernanceTypeAndCategory({
+  hallazgoDetectado = '',
+  actividadRealizada = '',
+  areaClasificada = '',
+  resultadoClasificado = '',
+  tipoDesvio = '',
+  iso22000 = '',
+  categoriaDesvio = ''
+}) {
+  const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada, areaClasificada].filter(Boolean).join(' | '));
+  if (!text || isExplicitNoFindingText(text)) {
+    return { resultadoClasificado, tipoDesvio, iso22000, categoriaDesvio };
+  }
+
+  const hasCompetenciaLegal = hasAnyIsoTerm(text, [
+    'carnet de manipulador',
+    'carne de manipulador',
+    'manipulador de alimentos',
+    'carnet sanitario',
+    'libreta sanitaria',
+    'carnet vencido',
+    'carnet faltante',
+    'sin carnet',
+    'no presenta carnet',
+    'personal sin carnet'
+  ]);
+  const hasConcienciaCapacitacion = hasAnyIsoTerm(text, [
+    'capacitacion',
+    'capacitaciones',
+    'personal no capacitado',
+    'falta de capacitacion',
+    'capacitacion vencida',
+    'capacitacion desactualizada',
+    'bpm',
+    'buenas practicas de manufactura',
+    'poe',
+    'poes',
+    'procedimiento operativo estandarizado',
+    'toma de conciencia',
+    'induccion',
+    'entrenamiento'
+  ]);
+  const hasInformacionDocumentada = hasAnyIsoTerm(text, [
+    'procedimiento documentado',
+    'falta procedimiento',
+    'falta de procedimiento',
+    'procedimiento inexistente',
+    'procedimiento desactualizado',
+    'documentacion desactualizada',
+    'informacion documentada',
+    'registros incompletos',
+    'registros ausentes',
+    'falta de registros',
+    'control de versiones',
+    'version desactualizada',
+    'documento sin actualizar',
+    'planilla incompleta',
+    'evidencia documental',
+    'sin evidencia documental'
+  ]);
+
+  const hasGovernanceSignal = hasCompetenciaLegal || hasConcienciaCapacitacion || hasInformacionDocumentada;
+  if (!hasGovernanceSignal) {
+    return { resultadoClasificado, tipoDesvio, iso22000, categoriaDesvio };
+  }
+
+  let nextTipo = tipoDesvio;
+  let nextResultado = resultadoClasificado;
+  let nextCategoria = categoriaDesvio;
+
+  const strongNc = hasStrongNcIndicatorForGovernance(text);
+  const omSignal = hasOmIndicatorForGovernance(text);
+
+  if (nextTipo !== 'NC') {
+    if (hasCompetenciaLegal || strongNc) {
+      nextTipo = 'NC';
+      nextResultado = 'No conforme';
+    } else if (hasConcienciaCapacitacion || hasInformacionDocumentada || omSignal) {
+      nextTipo = 'OM';
+      nextResultado = 'Oportunidad de mejora';
+    }
+  }
+
+  if (hasCompetenciaLegal) {
+    nextCategoria = 'Desvío Legal';
+  }
+
+  const nextIso = mergeCompositeIsoLabels({
+    iso22000,
+    hallazgoDetectado,
+    actividadRealizada,
+    areaClasificada
+  });
+
+  return {
+    resultadoClasificado: nextResultado,
+    tipoDesvio: nextTipo,
+    iso22000: nextIso,
+    categoriaDesvio: nextCategoria
+  };
+}
+
+function mergeCompositeIsoLabels({ iso22000 = '', hallazgoDetectado = '', actividadRealizada = '', areaClasificada = '' }) {
+  const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada, areaClasificada].filter(Boolean).join(' | '));
+  if (!text || isExplicitNoFindingText(text)) return normalizeCellValue(iso22000).trim() || 'Revisar manualmente';
+
+  const existingLabels = splitIsoLabels(iso22000).map(canonicalizeIsoLabel).filter(Boolean);
+  const detectedLabels = detectCompositeIsoFromText(text);
+  if (detectedLabels.length === 0) return normalizeCellValue(iso22000).trim() || 'Revisar manualmente';
+
+  const existingNormMap = new Map();
+  existingLabels.forEach((label) => {
+    const norm = normalizeIncidentText(canonicalizeIsoLabel(label));
+    if (!existingNormMap.has(norm)) existingNormMap.set(norm, label);
+  });
+
+  const preferredNormSet = new Set(COMPOSITE_ISO_ORDER.map((label) => normalizeIncidentText(label)));
+  const result = [];
+  const pushUnique = (label) => {
+    const norm = normalizeIncidentText(label);
+    if (!norm) return;
+    if (result.some((item) => normalizeIncidentText(item) === norm)) return;
+    result.push(label);
+  };
+
+  existingLabels
+    .filter((label) => !preferredNormSet.has(normalizeIncidentText(label)))
+    .forEach(pushUnique);
+
+  COMPOSITE_ISO_ORDER.forEach((preferredIso) => {
+    const preferredNorm = normalizeIncidentText(preferredIso);
+    const presentInExisting = existingNormMap.has(preferredNorm);
+    const presentInDetected = detectedLabels.some((iso) => normalizeIncidentText(iso) === preferredNorm);
+    if (presentInExisting || presentInDetected) {
+      pushUnique(preferredIso);
+    }
+  });
+
+  if (result.length === 0) return normalizeCellValue(iso22000).trim() || 'Revisar manualmente';
+  return result.join(' / ');
+}
+
 function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadRealizada, areaClasificada, resultadoClasificado }) {
   if (normalizeCellValue(iso22000).trim() === '-') return '-';
   if (normalizeIncidentText(iso22000) && normalizeIncidentText(iso22000) !== 'revisar manualmente') return iso22000;
@@ -2458,15 +2830,36 @@ function validateFinalRecord(record = {}) {
       areaClasificada: validated.areaClasificada,
       resultadoClasificado: validated.resultadoClasificado
     });
+    validated.iso22000 = mergeCompositeIsoLabels({
+      iso22000: validated.iso22000,
+      hallazgoDetectado: validated.hallazgoDetectado,
+      actividadRealizada: validated.actividadRealizada,
+      areaClasificada: validated.areaClasificada
+    });
+    const governanceAdjusted = applyGovernanceTypeAndCategory({
+      hallazgoDetectado: validated.hallazgoDetectado,
+      actividadRealizada: validated.actividadRealizada,
+      areaClasificada: validated.areaClasificada,
+      resultadoClasificado: validated.resultadoClasificado,
+      tipoDesvio: validated.tipoDesvio,
+      iso22000: validated.iso22000,
+      categoriaDesvio: validated.categoriaDesvio || ''
+    });
+    validated.resultadoClasificado = governanceAdjusted.resultadoClasificado;
+    validated.tipoDesvio = governanceAdjusted.tipoDesvio;
+    validated.iso22000 = governanceAdjusted.iso22000;
+    validated.categoriaDesvio = governanceAdjusted.categoriaDesvio || validated.categoriaDesvio;
   }
 
-  validated.categoriaDesvio = classifyCategoriaDesvio({
-    hallazgoDetectado: validated.hallazgoDetectado,
-    actividadRealizada: validated.actividadRealizada,
-    resultadoClasificado: validated.resultadoClasificado,
-    tipoDesvio: validated.tipoDesvio,
-    iso22000: validated.iso22000
-  });
+  if (!validated.categoriaDesvio) {
+    validated.categoriaDesvio = classifyCategoriaDesvio({
+      hallazgoDetectado: validated.hallazgoDetectado,
+      actividadRealizada: validated.actividadRealizada,
+      resultadoClasificado: validated.resultadoClasificado,
+      tipoDesvio: validated.tipoDesvio,
+      iso22000: validated.iso22000
+    });
+  }
 
   return validated;
 }
@@ -2513,7 +2906,7 @@ function classifyResponsibleByArea(areaClasificada = '') {
   if (containsAny(area, ['area caliente'])) return 'Jefe de cocina';
   if (containsAny(area, ['deposito'])) return 'Encargado de depósito';
   if (containsAny(area, ['logistica'])) return 'Responsable de logística';
-  if (containsAny(area, ['banos', 'areas comunes'])) return 'Mantenimiento';
+  if (containsAny(area, ['banos', 'areas comunes', 'pasillo principal'])) return 'Mantenimiento';
   if (containsAny(area, ['area de residuos'])) return 'Higiene / Sanitización';
   if (containsAny(area, ['lavadero'])) return 'Encargado de limpieza';
   return 'Responsable a definir';
@@ -2740,6 +3133,8 @@ function normalizeBrunoArea(areaValue, contextText = '') {
   if (!area || containsAny(area, ['n/a', 'na', 'sin area', 'sin sector', 'no aplica'])) return '';
 
   if (containsAny(area, ['areas comunes', 'áreas comunes'])) return 'Áreas comunes';
+  if (containsAny(area, ['pasillo', 'pasillos'])) return 'Pasillo principal';
+  if (containsAny(area, ['sector general', 'en general'])) return 'Áreas comunes';
   if (containsAny(area, ['zona fria', 'área fria', 'area fria'])) return 'Área fría';
   if (containsAny(area, ['zona caliente', 'área caliente', 'area caliente'])) return 'Área caliente';
   if (containsAny(area, ['area lavadero', 'lavadero'])) return 'Lavadero';
@@ -3347,6 +3742,35 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         outcomeReason = technicalControlRule.reason;
       }
 
+      iso22000 = mergeCompositeIsoLabels({
+        iso22000,
+        hallazgoDetectado: rawRecord.hallazgoDetectado,
+        actividadRealizada: rawRecord.actividadRealizada,
+        areaClasificada
+      });
+
+      let categoriaDesvio = classifyCategoriaDesvio({
+        hallazgoDetectado: rawRecord.hallazgoDetectado,
+        actividadRealizada: rawRecord.actividadRealizada,
+        resultadoClasificado,
+        tipoDesvio,
+        iso22000
+      });
+
+      const governanceAdjusted = applyGovernanceTypeAndCategory({
+        hallazgoDetectado: rawRecord.hallazgoDetectado,
+        actividadRealizada: rawRecord.actividadRealizada,
+        areaClasificada,
+        resultadoClasificado,
+        tipoDesvio,
+        iso22000,
+        categoriaDesvio
+      });
+      resultadoClasificado = governanceAdjusted.resultadoClasificado;
+      tipoDesvio = governanceAdjusted.tipoDesvio;
+      iso22000 = governanceAdjusted.iso22000;
+      categoriaDesvio = governanceAdjusted.categoriaDesvio || categoriaDesvio;
+
       const actions = buildActions({
         resultadoClasificado,
         text: textForClassification,
@@ -3445,6 +3869,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         resultadoClasificado,
         tipoDesvio,
         iso22000,
+        categoriaDesvio,
         responsable,
         estadoAccion,
         refinadoPorIA,
