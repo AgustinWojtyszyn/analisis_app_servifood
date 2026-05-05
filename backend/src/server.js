@@ -30,6 +30,26 @@ function resolveRequestOrigin(req) {
   return normalizeOrigin(`${protocol}://${host}`);
 }
 
+function extractHostname(value = '') {
+  try {
+    return new URL(normalizeOrigin(value)).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function isSameHostOrigin(req, origin) {
+  const originHost = extractHostname(origin);
+  if (!originHost) return false;
+
+  const requestOrigin = resolveRequestOrigin(req);
+  const requestHost = extractHostname(requestOrigin);
+  if (requestHost && requestHost === originHost) return true;
+
+  const rawHost = String(req.headers.host || '').split(':')[0].toLowerCase();
+  return rawHost && rawHost === originHost;
+}
+
 const envAllowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.CORS_ORIGIN,
@@ -65,7 +85,7 @@ if (isProduction && allowedOrigins.length === 0) {
 function buildCorsOptions(req, callback) {
   const requestOrigin = req.headers.origin;
   const normalizedOrigin = normalizeOrigin(requestOrigin);
-  const sameOrigin = normalizedOrigin && resolveRequestOrigin(req) === normalizedOrigin;
+  const sameOrigin = normalizedOrigin && isSameHostOrigin(req, normalizedOrigin);
 
   const baseOptions = {
     credentials: true,
