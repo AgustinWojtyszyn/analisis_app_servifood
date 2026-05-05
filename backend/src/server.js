@@ -21,6 +21,15 @@ function normalizeOrigin(origin = '') {
   return String(origin).trim().replace(/\/+$/, '');
 }
 
+function resolveRequestOrigin(req) {
+  const forwardedProtoHeader = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const protocol = forwardedProtoHeader || req.protocol || 'https';
+  const forwardedHostHeader = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+  const host = forwardedHostHeader || req.headers.host || '';
+  if (!host) return '';
+  return normalizeOrigin(`${protocol}://${host}`);
+}
+
 const envAllowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.CORS_ORIGIN,
@@ -53,35 +62,38 @@ if (isProduction && allowedOrigins.length === 0) {
   console.warn('[CORS] Producción sin orígenes configurados. Se bloquearán requests de navegador con Origin.');
 }
 
-const corsOptions = {
-  origin(origin, callback) {
-    if (!origin) {
-      return callback(null, true);
-    }
+function buildCorsOptions(req, callback) {
+  const requestOrigin = req.headers.origin;
+  const normalizedOrigin = normalizeOrigin(requestOrigin);
+  const sameOrigin = normalizedOrigin && resolveRequestOrigin(req) === normalizedOrigin;
 
-    const normalizedOrigin = normalizeOrigin(origin);
+  const baseOptions = {
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  };
 
-    if (allowedOrigins.includes(normalizedOrigin)) {
-      return callback(null, true);
-    }
+  if (!requestOrigin || sameOrigin) {
+    return callback(null, { ...baseOptions, origin: true });
+  }
 
-    if (!isProduction && (isDevLocalOrigin(normalizedOrigin) || isDevLanOrigin(normalizedOrigin))) {
-      return callback(null, true);
-    }
+  if (allowedOrigins.includes(normalizedOrigin)) {
+    return callback(null, { ...baseOptions, origin: true });
+  }
 
-    const corsError = new Error('CORS: Origin no permitido');
-    corsError.status = 403;
-    return callback(corsError);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
+  if (!isProduction && (isDevLocalOrigin(normalizedOrigin) || isDevLanOrigin(normalizedOrigin))) {
+    return callback(null, { ...baseOptions, origin: true });
+  }
+
+  const corsError = new Error('CORS: Origin no permitido');
+  corsError.status = 403;
+  return callback(corsError);
+}
 
 // Middlewares
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ limit: '1mb', extended: true }));
-app.use('/api', cors(corsOptions));
+app.use('/api', cors(buildCorsOptions));
 
 // Health check
 app.get('/api/health', (req, res) => {
