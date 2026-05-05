@@ -73,7 +73,7 @@ function MainApp({ user, onLogout }) {
   const sidebarSections = useMemo(() => {
     if (!isAdmin) {
       return [
-        { id: 'history', label: 'Análisis de Calidad' },
+        { id: 'history', label: 'Análisis de Desvíos' },
         { id: 'declaration', label: 'Declaración de Salud' },
         { id: 'policies', label: 'Políticas' },
         { id: 'declarationHistory', label: 'Mi Historial' }

@@ -99,18 +99,67 @@ function findOriginalValueByAliases(record, aliases = []) {
 
 function formatEstadoAccion(value) {
   const raw = normalizeCellValue(value).trim().toLowerCase();
-  if (!raw || raw === '-') return 'Sin acción';
+  if (!raw || raw === '-') return 'Pendiente';
   const normalized = raw
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, '_');
 
-  if (normalized === 'sin_accion' || normalized === 'sinaccion') return 'Sin acción';
+  if (normalized === 'sin_accion' || normalized === 'sinaccion') return 'Pendiente';
   if (normalized === 'en_proceso' || normalized === 'enproceso') return 'En proceso';
   if (normalized === 'cerrada' || normalized === 'cerrado') return 'Cerrado';
   if (normalized === 'archivada' || normalized === 'archivado') return 'Archivado';
   if (normalized === 'abierta' || normalized === 'abierto') return 'Abierto';
   return normalized.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
+function buildCorrectiveActionFallback(record = {}) {
+  const existing = normalizeCellValue(
+    record.accionCorrectiva
+    || record.accion_correctiva
+    || record.correctiveAction
+    || record.correction
+    || record.correccion
+  ).trim();
+  if (existing) return existing;
+
+  const text = normalizeCellValue([
+    record.hallazgoDetectado,
+    record.categoriaDesvio,
+    record.iso22000,
+    record.areaClasificada
+  ].filter(Boolean).join(' | ')).toLowerCase();
+
+  const includesAny = (arr) => arr.some((term) => text.includes(term));
+
+  if (includesAny(['producto no conforme', 'carteleria de producto no conforme', 'cartelería de producto no conforme'])) {
+    return 'Identificar, sectorizar y señalizar el producto no conforme. Comunicar al responsable y verificar que no sea utilizado hasta su definición.';
+  }
+  if (includesAny(['desvío legal', 'desvio legal', 'carnet', 'documentacion legal', 'documentación legal', 'caa'])) {
+    return 'Regularizar la documentación requerida antes de permitir tareas asociadas. Informar a Calidad o Recursos Humanos para seguimiento.';
+  }
+  if (includesAny(['desvío de logística', 'desvio de logistica', 'faltaron', 'entrega incompleta', 'despacho', 'logistica'])) {
+    return 'Verificar la diferencia detectada, corregir la entrega o reposición si corresponde y reforzar el control de despacho con el responsable.';
+  }
+  if (includesAny(['sin rotular', 'rotulacion', 'rotulación', 'trazabilidad', '8.5.2'])) {
+    return 'Rotular inmediatamente los alimentos o productos involucrados con identificación, fecha y responsable. Reforzar el control de trazabilidad en el sector.';
+  }
+  if (includesAny(['limpieza', 'sucio', 'sucia', 'restos', 'charcos', 'piso sucio'])) {
+    return 'Limpiar y desinfectar el sector afectado. Reforzar con el responsable la frecuencia de limpieza y verificar cumplimiento.';
+  }
+  if (includesAny(['residuos', 'basura', 'contenedor', 'segregacion', 'segregación'])) {
+    return 'Ordenar y retirar residuos del sector. Identificar correctamente los contenedores y reforzar la segregación de residuos con el responsable.';
+  }
+  if (includesAny(['desorden', 'falta de orden', 'heladeras desordenadas'])) {
+    return 'Ordenar el sector y retirar elementos innecesarios. Reforzar con el responsable el mantenimiento del orden durante la jornada.';
+  }
+  if (includesAny(['bandejas rotas', 'mal estado', 'envases sin integridad', 'equipamiento', 'equipo'])) {
+    return 'Retirar o reemplazar los elementos en mal estado. Verificar disponibilidad de equipamiento apto y comunicar al responsable.';
+  }
+  if (includesAny(['baño', 'bano', 'armario de baños', 'armario de banos', 'carteleria', 'cartelería'])) {
+    return 'Colocar la cartelería correspondiente y verificar la identificación del sector. Reforzar el control visual con el responsable.';
+  }
+  return 'Corregir el desvío detectado, registrar la acción tomada y reforzar el criterio con el responsable del sector.';
 }
 
 export default function AnalysisResults({
@@ -614,7 +663,7 @@ export default function AnalysisResults({
                     </TableCell>
                     <TableCell sx={{ maxWidth: 380 }}>
                       <Typography variant="body2">
-                        {normalizeCellValue(record.accionCorrectiva) || '-'}
+                        {buildCorrectiveActionFallback(record)}
                       </Typography>
                     </TableCell>
                   </TableRow>

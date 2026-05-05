@@ -106,8 +106,8 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
   }), []);
 
   const currentMeta = sectionMeta[currentSection] || {
-    title: 'Análisis de Calidad',
-    subtitle: 'Plataforma de análisis de calidad'
+    title: 'Análisis de Desvíos',
+    subtitle: 'Control y clasificación de desvíos de inocuidad, logística y legal'
   };
 
   const handleSelect = (id) => {
@@ -140,7 +140,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
           }}
         />
         <Typography sx={{ mt: 1.25, color: 'rgba(255,255,255,0.88)', fontSize: 12, textAlign: 'center', fontWeight: 600 }}>
-          Plataforma de análisis de calidad
+          Plataforma de análisis de desvíos
         </Typography>
       </Box>
 
