@@ -11,10 +11,15 @@ export default function HealthDeclarationsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const visibleRows = rows.filter((row) => {
-    if (statusFilter === 'all') return true;
-    return String(row.healthStatus || '').toLowerCase() === statusFilter;
+    const statusOk = statusFilter === 'all' || String(row.healthStatus || '').toLowerCase() === statusFilter;
+    const declared = new Date(row.declaredAt || row.createdAt || 0);
+    const fromOk = !fromDate || declared >= new Date(`${fromDate}T00:00:00`);
+    const toOk = !toDate || declared <= new Date(`${toDate}T23:59:59`);
+    return statusOk && fromOk && toOk;
   });
   const yellowOrRed = rows.filter((row) => ['Rojo', 'Amarillo'].includes(String(row.trafficLight || ''))).length;
 
@@ -65,6 +70,22 @@ export default function HealthDeclarationsAdminPage() {
             <MenuItem value="requiere evaluación">Requiere evaluación</MenuItem>
             <MenuItem value="no apto">No Apto</MenuItem>
           </TextField>
+          <TextField
+            size="small"
+            type="date"
+            label="Desde"
+            InputLabelProps={{ shrink: true }}
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+          />
+          <TextField
+            size="small"
+            type="date"
+            label="Hasta"
+            InputLabelProps={{ shrink: true }}
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+          />
           {yellowOrRed > 0 && <Alert severity="warning">Alertas activas: {yellowOrRed} casos Amarillo/Rojo</Alert>}
         </Box>
 

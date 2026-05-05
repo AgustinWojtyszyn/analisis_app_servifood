@@ -285,6 +285,15 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
                 Ya completaste la declaración de hoy.
                 {todayDeclaration?.declaredAt ? ` (${new Date(todayDeclaration.declaredAt).toLocaleString('es-AR')})` : ''}
               </Alert>
+              <Alert
+                severity={todayDeclaration?.trafficLight === 'Rojo' ? 'error' : todayDeclaration?.trafficLight === 'Amarillo' ? 'warning' : 'success'}
+                sx={{ mb: 1.5 }}
+              >
+                {todayDeclaration?.trafficLight === 'Verde' && 'Estoy bien → Ingreso'}
+                {todayDeclaration?.trafficLight === 'Amarillo' && 'Tengo una herida o tos → Aviso al supervisor'}
+                {todayDeclaration?.trafficLight === 'Rojo' && 'Tengo fiebre, vómitos o diarrea → No ingreso a cocina'}
+                {todayDeclaration?.suggestedAction ? ` · ${todayDeclaration.suggestedAction}` : ''}
+              </Alert>
               {editableNow && (
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   <Button variant="outlined" onClick={startEdit}>Editar (15 min)</Button>

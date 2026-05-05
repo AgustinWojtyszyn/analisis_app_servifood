@@ -38,7 +38,7 @@ export default function HealthPoliciesPage() {
               {policy.content || policy.text || 'Sin contenido cargado.'}
             </Typography>
             <Typography sx={{ mt: 2, whiteSpace: 'pre-wrap' }} color="text.secondary">
-              {'Inducción mínima: completá la DDJJ antes de iniciar tareas, informá síntomas de inmediato, respetá la confidencialidad y seguí indicaciones de supervisor/calidad.'}
+              {'La Declaración Jurada de Salud permite prevenir riesgos de transmisión a través de alimentos. Debe completarse antes de iniciar tareas y cualquier síntoma o lesión debe informarse al supervisor o al área de Calidad. La información declarada es confidencial.'}
             </Typography>
           </>
         )}
