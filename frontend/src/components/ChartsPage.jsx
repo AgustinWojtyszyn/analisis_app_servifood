@@ -51,7 +51,6 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     const totalDesvios = Number(summary?.totalDesvios ?? 0);
     const categorias = (
       Number(summary?.totalInocuidad ?? 0) +
-      Number(summary?.totalCalidad ?? 0) +
       Number(summary?.totalLogistica ?? 0) +
       Number(summary?.totalLegal ?? 0)
     );
@@ -79,17 +78,16 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         const categoria = String(record.categoriaDesvio || '').trim();
         const iso = String(record.iso22000 || '').trim();
         const estadoAccion = normalizeEstadoAccion(record.estadoAccion);
-        const resultadoClasificado = String(record.resultadoClasificado || '').trim();
         if (categoria) fallbackByCategoria[categoria] = (fallbackByCategoria[categoria] || 0) + 1;
 
-        if (area && resultadoClasificado !== 'Conforme') {
+        if (area) {
           const areaList = splitAreas(area);
           areaList.forEach((areaItem) => {
             fallbackByArea[areaItem] = (fallbackByArea[areaItem] || 0) + 1;
           });
         }
 
-        if (iso && resultadoClasificado !== 'Conforme') {
+        if (iso) {
           fallbackByIso[iso] = (fallbackByIso[iso] || 0) + 1;
         }
 
@@ -105,7 +103,6 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     const categoriaRaw = safeSummary.byCategoria || fallbackByCategoria;
     const categoriasCompletas = {
       'Desvío de Inocuidad': Number(safeSummary.totalInocuidad ?? categoriaRaw['Desvío de Inocuidad'] ?? 0),
-      'Desvío de Calidad': Number(safeSummary.totalCalidad ?? categoriaRaw['Desvío de Calidad'] ?? 0),
       'Desvío de Logística': Number(safeSummary.totalLogistica ?? categoriaRaw['Desvío de Logística'] ?? 0),
       'Desvío Legal': Number(safeSummary.totalLegal ?? categoriaRaw['Desvío Legal'] ?? 0)
     };
@@ -116,7 +113,6 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     const resumenHallazgos = [
       { name: 'Desvíos reales', value: Number(safeSummary.totalDesvios || 0) },
       { name: 'Inocuidad', value: Number(safeSummary.totalInocuidad || 0) },
-      { name: 'Calidad', value: Number(safeSummary.totalCalidad || 0) },
       { name: 'Logística', value: Number(safeSummary.totalLogistica || 0) },
       { name: 'Legal', value: Number(safeSummary.totalLegal || 0) }
     ];

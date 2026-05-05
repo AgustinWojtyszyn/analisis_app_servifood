@@ -4039,7 +4039,9 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       if (finalEstadoAccion === 'sin_accion') summary.actions.sinAccion += 1;
 
       results.push(finalRecord);
-      console.log('FINAL RECORD:', finalRecord);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('FINAL RECORD:', finalRecord);
+      }
 
       const shouldOpenNegativeLead = hasRowContinuationSignal(rawRecord.hallazgoDetectado)
         && (explicitNegativeInRow || /falta\s*[;:,]?\s*$/i.test(normalizeCellValue(rawRecord.hallazgoDetectado)));

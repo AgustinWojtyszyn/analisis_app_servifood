@@ -3,7 +3,6 @@ import { Box, Card, CardContent, Grid, Typography } from '@mui/material';
 import {
   Analytics as AnalyticsIcon,
   ReportProblem as ReportProblemIcon,
-  FactCheck as FactCheckIcon,
   Rule as RuleIcon,
   Visibility as VisibilityIcon,
   TrendingUp as TrendingUpIcon
@@ -12,7 +11,6 @@ import {
 const metricVariants = {
   info: { icon: AnalyticsIcon, color: 'info.main', bg: 'rgba(2, 132, 199, 0.14)' },
   error: { icon: ReportProblemIcon, color: 'error.main', bg: 'rgba(220, 38, 38, 0.14)' },
-  success: { icon: FactCheckIcon, color: 'success.main', bg: 'rgba(22, 163, 74, 0.14)' },
   warning: { icon: VisibilityIcon, color: 'warning.main', bg: 'rgba(234, 88, 12, 0.14)' },
   primary: { icon: RuleIcon, color: 'primary.main', bg: 'rgba(29, 78, 216, 0.14)' },
   secondary: { icon: TrendingUpIcon, color: 'secondary.main', bg: 'rgba(126, 34, 206, 0.14)' }
@@ -81,13 +79,7 @@ export function SummaryGrid({ summary, processedAt = null }) {
         <MetricCard title="Total desvíos" value={summary.totalDesvios || 0} variant="error" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Conformes" value={summary.totalConformes || 0} variant="success" />
-      </Grid>
-      <Grid item xs={12} sm={6} md={4} lg={2}>
         <MetricCard title="Inocuidad" value={summary.totalInocuidad || 0} variant="primary" />
-      </Grid>
-      <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Calidad" value={summary.totalCalidad || 0} variant="secondary" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
         <MetricCard title="Logística" value={summary.totalLogistica || 0} variant="info" />
@@ -95,11 +87,6 @@ export function SummaryGrid({ summary, processedAt = null }) {
       <Grid item xs={12} sm={6} md={4} lg={2}>
         <MetricCard title="Legal" value={summary.totalLegal || 0} variant="warning" />
       </Grid>
-      {(summary.totalRevisionManual || 0) > 0 && (
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <MetricCard title="Revisión manual" value={summary.totalRevisionManual || 0} variant="warning" />
-        </Grid>
-      )}
       </Grid>
     </>
   );

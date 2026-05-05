@@ -39,11 +39,8 @@ const typeColors = {
 const tabStyleByCategory = {
   todos: { bg: 'rgba(100, 116, 139, 0.16)', color: '#334155' },
   inocuidad: { bg: 'rgba(220, 38, 38, 0.15)', color: '#991b1b' },
-  calidad: { bg: 'rgba(139, 92, 246, 0.16)', color: '#5b21b6' },
   logistica: { bg: 'rgba(2, 132, 199, 0.16)', color: '#075985' },
-  legal: { bg: 'rgba(3, 105, 161, 0.16)', color: '#0c4a6e' },
-  conformes: { bg: 'rgba(22, 163, 74, 0.15)', color: '#166534' },
-  manual: { bg: 'rgba(245, 158, 11, 0.18)', color: '#92400e' }
+  legal: { bg: 'rgba(3, 105, 161, 0.16)', color: '#0c4a6e' }
 };
 
 function normalizeCellValue(value) {
@@ -158,11 +155,8 @@ export default function AnalysisResults({
   const categories = [
     { key: 'todos', label: 'Todos', short: 'Todos' },
     { key: 'inocuidad', label: 'Desvío de inocuidad', short: 'Inocuidad' },
-    { key: 'calidad', label: 'Desvío de calidad', short: 'Calidad' },
     { key: 'logistica', label: 'Desvío de logística', short: 'Logística' },
-    { key: 'legal', label: 'Desvío legal', short: 'Legal' },
-    { key: 'conformes', label: 'Conformes', short: 'Conformes' },
-    { key: 'manual', label: 'Revisión manual', short: 'Manual' }
+    { key: 'legal', label: 'Desvío legal', short: 'Legal' }
   ];
 
   const availableAreas = [...new Set(records.flatMap((record) => splitAreas(record.areaClasificada)).filter(Boolean))];
@@ -170,11 +164,8 @@ export default function AnalysisResults({
   const countsByCategory = {
     todos: records.length,
     inocuidad: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío de Inocuidad').length,
-    calidad: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío de Calidad').length,
     logistica: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío de Logística').length,
-    legal: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío Legal').length,
-    conformes: records.filter((record) => normalizeCellValue(record.resultadoClasificado) === 'Conforme').length,
-    manual: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Revisar manualmente').length
+    legal: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío Legal').length
   };
 
   const filteredRecords = records.filter((record) => {
@@ -193,8 +184,6 @@ export default function AnalysisResults({
     ].map((value) => normalizeCellValue(value).toLowerCase()).join(' | ');
 
     const areaParts = splitAreas(record.areaClasificada);
-    const tipo = normalizeCellValue(record.tipoDesvio);
-    const resultadoClasificado = normalizeCellValue(record.resultadoClasificado);
     const categoriaDesvio = normalizeCellValue(record.categoriaDesvio);
 
     const matchesSearch = textSearch.includes(searchTerm.toLowerCase());
@@ -202,11 +191,8 @@ export default function AnalysisResults({
     const matchesCategory = (() => {
       if (activeCategory === 'todos') return true;
       if (activeCategory === 'inocuidad') return categoriaDesvio === 'Desvío de Inocuidad';
-      if (activeCategory === 'calidad') return categoriaDesvio === 'Desvío de Calidad';
       if (activeCategory === 'logistica') return categoriaDesvio === 'Desvío de Logística';
       if (activeCategory === 'legal') return categoriaDesvio === 'Desvío Legal';
-      if (activeCategory === 'conformes') return resultadoClasificado === 'Conforme';
-      if (activeCategory === 'manual') return categoriaDesvio === 'Revisar manualmente';
       return true;
     })();
 
@@ -216,11 +202,8 @@ export default function AnalysisResults({
   const exportConfigByFilter = {
     todos: { label: 'Exportar todos', fileName: 'analisis_todos.xlsx' },
     inocuidad: { label: 'Exportar desvío inocuidad', fileName: 'analisis_desvio_inocuidad.xlsx' },
-    calidad: { label: 'Exportar desvío calidad', fileName: 'analisis_desvio_calidad.xlsx' },
     logistica: { label: 'Exportar desvío logística', fileName: 'analisis_desvio_logistica.xlsx' },
-    legal: { label: 'Exportar desvío legal', fileName: 'analisis_desvio_legal.xlsx' },
-    conformes: { label: 'Exportar conformes', fileName: 'analisis_conformes.xlsx' },
-    manual: { label: 'Exportar revisión manual', fileName: 'analisis_revision_manual.xlsx' }
+    legal: { label: 'Exportar desvío legal', fileName: 'analisis_desvio_legal.xlsx' }
   };
   const activeExportConfig = exportConfigByFilter[activeCategory] || exportConfigByFilter.todos;
 
