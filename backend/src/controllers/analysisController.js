@@ -392,7 +392,7 @@ export async function getHistory(req, res) {
     const page = parsePositiveInt(req.query.page, 1);
     const limit = Math.min(parsePositiveInt(req.query.limit, 10), 100);
     const offset = (page - 1) * limit;
-    const isAdmin = req.user?.role === 'admin';
+    const isAdmin = Boolean(req.user?.isAdmin) || String(req.user?.role || '').toLowerCase() === 'admin';
     const search = escapeIlike(req.query.search);
     const status = String(req.query.status || '').trim();
     const userId = String(req.query.userId || '').trim();
@@ -488,7 +488,7 @@ export async function deleteAnalysis(req, res) {
 
     const { id } = req.params;
 
-    const isAdmin = String(req.user?.role || '').toLowerCase() === 'admin';
+    const isAdmin = Boolean(req.user?.isAdmin) || String(req.user?.role || '').toLowerCase() === 'admin';
 
     let query = supabaseAdmin
       .from('analysis_history')
@@ -551,7 +551,7 @@ export async function deleteAllAnalyses(req, res) {
       return res.status(400).json({ error: 'Confirmación inválida. Debe ser BORRAR' });
     }
 
-    const isAdmin = req.user?.role === 'admin';
+    const isAdmin = Boolean(req.user?.isAdmin) || String(req.user?.role || '').toLowerCase() === 'admin';
     const targetUserId = isAdmin && userId ? userId : req.user.id;
 
     const { error } = await supabaseAdmin

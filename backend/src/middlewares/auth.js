@@ -34,7 +34,8 @@ export async function authenticateToken(req, res, next) {
 
     req.user = {
       ...data.user,
-      role: data.user.app_metadata?.role || 'user'
+      role: data.user.app_metadata?.role || 'user',
+      isAdmin: String(data.user.app_metadata?.role || '').toLowerCase() === 'admin'
     };
 
     next();
@@ -81,6 +82,12 @@ export async function requireAdmin(req, res, next) {
 
     if (!isAdminByProfile && !isAdminByToken) {
       return res.status(403).json({ error: 'Acceso solo para administradores' });
+    }
+
+    // Fuente final de permisos: perfil (si existe) con fallback al token.
+    req.user.isAdmin = isAdminByProfile || isAdminByToken;
+    if (isAdminByProfile) {
+      req.user.role = 'admin';
     }
 
     next();

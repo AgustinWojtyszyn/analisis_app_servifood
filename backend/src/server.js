@@ -17,12 +17,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isProduction = process.env.NODE_ENV === 'production';
 
+function normalizeOrigin(origin = '') {
+  return String(origin).trim().replace(/\/+$/, '');
+}
+
 const envAllowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.CORS_ORIGIN,
   ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
 ]
-  .map((origin) => origin?.trim())
+  .map((origin) => normalizeOrigin(origin))
   .filter(Boolean);
 
 const devAllowedOrigins = [
@@ -34,7 +38,7 @@ const devAllowedOrigins = [
 
 const allowedOrigins = [...new Set([
   ...envAllowedOrigins,
-  ...(!isProduction ? devAllowedOrigins : [])
+  ...(!isProduction ? devAllowedOrigins : []).map((origin) => normalizeOrigin(origin))
 ])];
 
 function isDevLocalOrigin(origin = '') {
@@ -55,11 +59,13 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    if (allowedOrigins.includes(origin)) {
+    const normalizedOrigin = normalizeOrigin(origin);
+
+    if (allowedOrigins.includes(normalizedOrigin)) {
       return callback(null, true);
     }
 
-    if (!isProduction && (isDevLocalOrigin(origin) || isDevLanOrigin(origin))) {
+    if (!isProduction && (isDevLocalOrigin(normalizedOrigin) || isDevLanOrigin(normalizedOrigin))) {
       return callback(null, true);
     }
 
