@@ -3180,9 +3180,10 @@ function classifyConfidence({ areaEvidenceCount, resultadoClasificado, classific
   return 'Baja';
 }
 
-function composeAreaClasificada({ areaProcesoOriginal, areaOperativaDetectada }) {
+function composeAreaClasificada({ areaProcesoOriginal, areaOperativaDetectada, contextText = '' }) {
   const detectedRaw = normalizeCellValue(areaOperativaDetectada || '').trim();
   const original = normalizeCellValue(areaProcesoOriginal || '').trim();
+  const context = normalizeCellValue(contextText || '').trim();
   const detectedAreas = sanitizeOperationalAreaList([detectedRaw]);
   const nonUnknownDetected = detectedAreas.filter((area) => area !== 'Área no identificada');
   if (nonUnknownDetected.length > 0) {
@@ -3192,6 +3193,16 @@ function composeAreaClasificada({ areaProcesoOriginal, areaOperativaDetectada })
   const fallbackAreas = sanitizeOperationalAreaList([original]).filter((area) => area !== 'Área no identificada');
   if (fallbackAreas.length > 0) {
     return sortAreasByPriorityList(fallbackAreas).join(' / ');
+  }
+
+  const combinedText = normalizeIncidentText([original, context].filter(Boolean).join(' | '));
+  if (combinedText && containsAny(combinedText, [
+    'sector desordenado en general',
+    'sector en general',
+    'en general',
+    'sector general'
+  ])) {
+    return 'Áreas comunes';
   }
 
   return 'Área no identificada';
@@ -3892,7 +3903,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       const areaOperativaClasificada = areaClasificada;
       let areaClasificadaFinal = composeAreaClasificada({
         areaProcesoOriginal: rawRecord.areaProceso,
-        areaOperativaDetectada: areaOperativaClasificada
+        areaOperativaDetectada: areaOperativaClasificada,
+        contextText: textForClassification
       });
       const isAuditText = containsAny(normalizeIncidentText(textForClassification), ['auditoria', 'auditoría']);
       if (isAuditText) {
