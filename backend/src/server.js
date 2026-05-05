@@ -41,6 +41,10 @@ function isDevLocalOrigin(origin = '') {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
 }
 
+function isDevLanOrigin(origin = '') {
+  return /^https?:\/\/((10\.\d{1,3}\.\d{1,3}\.\d{1,3})|(192\.168\.\d{1,3}\.\d{1,3})|(172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}))(:\d+)?$/i.test(origin);
+}
+
 if (isProduction && allowedOrigins.length === 0) {
   console.warn('[CORS] Producción sin orígenes configurados. Se bloquearán requests de navegador con Origin.');
 }
@@ -55,7 +59,7 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    if (!isProduction && isDevLocalOrigin(origin)) {
+    if (!isProduction && (isDevLocalOrigin(origin) || isDevLanOrigin(origin))) {
       return callback(null, true);
     }
 
