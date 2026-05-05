@@ -3196,7 +3196,8 @@ function buildActions({ resultadoClasificado, text, hallazgoDetectado, accionInm
     categoriaDesvio,
     iso22000
   }) || buildCorrectiveActionFromProblem(normalizedText);
-  const correctiveBase = correctiveExisting || specificCorrective || byScenario[scenario].corrective;
+  // Priorizar siempre la acción normalizada (inmediata + preventiva) para evitar textos legacy incompletos.
+  const correctiveBase = specificCorrective || correctiveExisting || byScenario[scenario].corrective;
   const immediateBase = immediateExisting || detectedImmediate || byScenario[scenario].immediate;
 
   return {

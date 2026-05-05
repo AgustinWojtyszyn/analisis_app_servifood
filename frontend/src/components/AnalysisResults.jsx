@@ -114,15 +114,6 @@ function formatEstadoAccion(value) {
 }
 
 function buildCorrectiveActionFallback(record = {}) {
-  const existing = normalizeCellValue(
-    record.accionCorrectiva
-    || record.accion_correctiva
-    || record.correctiveAction
-    || record.correction
-    || record.correccion
-  ).trim();
-  if (existing) return existing;
-
   const text = normalizeCellValue([
     record.hallazgoDetectado,
     record.categoriaDesvio,
@@ -133,32 +124,45 @@ function buildCorrectiveActionFallback(record = {}) {
   const includesAny = (arr) => arr.some((term) => text.includes(term));
 
   if (includesAny(['producto no conforme', 'carteleria de producto no conforme', 'cartelería de producto no conforme'])) {
-    return 'Identificar, sectorizar y señalizar el producto no conforme. Comunicar al responsable y verificar que no sea utilizado hasta su definición.';
+    return 'Identificar y sectorizar el producto no conforme. Colocar cartelería visible y reforzar el procedimiento de segregación.';
   }
-  if (includesAny(['desvío legal', 'desvio legal', 'carnet', 'documentacion legal', 'documentación legal', 'caa'])) {
-    return 'Regularizar la documentación requerida antes de permitir tareas asociadas. Informar a Calidad o Recursos Humanos para seguimiento.';
-  }
-  if (includesAny(['desvío de logística', 'desvio de logistica', 'faltaron', 'entrega incompleta', 'despacho', 'logistica'])) {
-    return 'Verificar la diferencia detectada, corregir la entrega o reposición si corresponde y reforzar el control de despacho con el responsable.';
+  if (includesAny(['desvío de logística', 'desvio de logistica', 'faltaron', 'entrega incompleta', 'despacho', 'logistica', 'faltante'])) {
+    return 'Verificar el faltante, corregir entrega o reposición si corresponde. Aplicar doble control antes del despacho.';
   }
   if (includesAny(['sin rotular', 'rotulacion', 'rotulación', 'trazabilidad', '8.5.2'])) {
-    return 'Rotular inmediatamente los alimentos o productos involucrados con identificación, fecha y responsable. Reforzar el control de trazabilidad en el sector.';
+    return 'Rotular inmediatamente los alimentos o productos involucrados. Reforzar capacitación y control diario de rótulos.';
   }
   if (includesAny(['limpieza', 'sucio', 'sucia', 'restos', 'charcos', 'piso sucio'])) {
-    return 'Limpiar y desinfectar el sector afectado. Reforzar con el responsable la frecuencia de limpieza y verificar cumplimiento.';
+    return 'Limpiar y desinfectar el sector afectado. Reforzar frecuencia de limpieza y control por checklist diario.';
   }
   if (includesAny(['residuos', 'basura', 'contenedor', 'segregacion', 'segregación'])) {
-    return 'Ordenar y retirar residuos del sector. Identificar correctamente los contenedores y reforzar la segregación de residuos con el responsable.';
+    return 'Ordenar y retirar residuos del sector. Identificar contenedores y reforzar la segregación por tipo de residuo.';
   }
   if (includesAny(['desorden', 'falta de orden', 'heladeras desordenadas'])) {
-    return 'Ordenar el sector y retirar elementos innecesarios. Reforzar con el responsable el mantenimiento del orden durante la jornada.';
+    return 'Ordenar el sector y retirar elementos innecesarios. Reforzar rutina de orden y verificación por turno.';
   }
   if (includesAny(['bandejas rotas', 'mal estado', 'envases sin integridad', 'equipamiento', 'equipo'])) {
-    return 'Retirar o reemplazar los elementos en mal estado. Verificar disponibilidad de equipamiento apto y comunicar al responsable.';
+    return 'Retirar o reemplazar elementos en mal estado. Verificar disponibilidad de equipamiento apto antes del uso.';
+  }
+  if (includesAny(['objetos personales', 'elementos personales', 'productos ajenos', 'ajenos al sector', 'riñonera', 'rinonera'])) {
+    return 'Retirar elementos personales o ajenos al sector productivo. Implementar uso de lockers y reforzar control del área.';
   }
   if (includesAny(['baño', 'bano', 'armario de baños', 'armario de banos', 'carteleria', 'cartelería'])) {
     return 'Colocar la cartelería correspondiente y verificar la identificación del sector. Reforzar el control visual con el responsable.';
   }
+  if (includesAny(['desvío legal', 'desvio legal', 'carnet', 'documentacion legal', 'documentación legal', 'caa'])) {
+    return 'Regularizar la documentación requerida antes de permitir tareas asociadas. Informar a Calidad o Recursos Humanos para seguimiento.';
+  }
+
+  const existing = normalizeCellValue(
+    record.accionCorrectiva
+    || record.accion_correctiva
+    || record.correctiveAction
+    || record.correction
+    || record.correccion
+  ).trim();
+  if (existing) return existing;
+
   return 'Corregir el desvío detectado, registrar la acción tomada y reforzar el criterio con el responsable del sector.';
 }
 
