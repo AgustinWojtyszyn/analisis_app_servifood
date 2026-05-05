@@ -1798,7 +1798,7 @@ function normalizeToTriadClassification({ categoriaDesvio = '', resultadoClasifi
 
 function normalizeFinalOutcomeAndType({ resultadoClasificado = '', tipoDesvio = '' }) {
   const tipo = normalizeCellValue(tipoDesvio).trim().toUpperCase();
-  const allowedTipo = new Set(['NC', 'OBS', 'OM', '-']);
+  const allowedTipo = new Set(['IN', 'LE', 'LGT', 'NC', 'OBS', 'OM', '-']);
   const normalizedTipo = allowedTipo.has(tipo) ? tipo : '-';
 
   if (normalizedTipo === '-') {
@@ -1806,6 +1806,14 @@ function normalizeFinalOutcomeAndType({ resultadoClasificado = '', tipoDesvio = 
   }
 
   return { resultadoClasificado: 'No conforme', tipoDesvio: normalizedTipo };
+}
+
+function mapTipoFromCategoria(categoriaDesvio = '', fallbackTipo = '') {
+  const categoria = normalizeCellValue(categoriaDesvio).trim();
+  if (categoria === 'Desvío de Inocuidad') return 'IN';
+  if (categoria === 'Desvío Legal') return 'LE';
+  if (categoria === 'Desvío de Logística') return 'LGT';
+  return normalizeCellValue(fallbackTipo).trim();
 }
 
 function parseRecordDate(value) {
@@ -2908,6 +2916,7 @@ function validateFinalRecord(record = {}) {
   validated.resultadoClasificado = triad.resultadoClasificado;
   validated.tipoDesvio = triad.tipoDesvio;
   validated.categoriaDesvio = triad.categoriaDesvio || validated.categoriaDesvio;
+  validated.tipoDesvio = mapTipoFromCategoria(validated.categoriaDesvio, validated.tipoDesvio);
 
   const normalizedOutcome = normalizeFinalOutcomeAndType({
     resultadoClasificado: validated.resultadoClasificado,

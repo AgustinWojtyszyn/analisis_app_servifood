@@ -28,6 +28,9 @@ import excelIcon from '../assets/excel.png';
 import whatsappIcon from '../assets/whatsappicon.png';
 
 const typeColors = {
+  IN: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
+  LE: { bg: 'rgba(3, 105, 161, 0.16)', text: '#0c4a6e' },
+  LGT: { bg: 'rgba(2, 132, 199, 0.16)', text: '#075985' },
   NC: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
   OBS: { bg: 'rgba(245, 158, 11, 0.15)', text: '#92400e' },
   OM: { bg: 'rgba(139, 92, 246, 0.14)', text: '#5b21b6' }
@@ -258,7 +261,7 @@ export default function AnalysisResults({
     const message = [
       '*Resumen automático de desvíos*',
       `Registros filtrados: ${filteredRecords.length}`,
-      `NC: ${byTipo.NC || 0} | OBS: ${byTipo.OBS || 0} | OM: ${byTipo.OM || 0} | Conformes: ${byTipo.Conforme || 0}`,
+      `IN: ${byTipo.IN || 0} | LE: ${byTipo.LE || 0} | LGT: ${byTipo.LGT || 0}`,
       '',
       '*Detalle:*',
       ...simplifiedRows,
