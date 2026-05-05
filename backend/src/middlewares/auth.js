@@ -63,13 +63,23 @@ export async function requireAdmin(req, res, next) {
       .from('profiles')
       .select('role, is_active')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
-    if (error || !profile) {
+    // Estrategia de seguridad: fail-closed ante error real de DB/Supabase
+    // para evitar bypass por fallback cuando no se pudo verificar el perfil.
+    if (error) {
+      console.error('[auth.requireAdmin] Error consultando profiles');
+      return res.status(500).json({ error: 'No se pudo validar permisos de administrador' });
+    }
+
+    if (!profile) {
       if (tokenRole === 'admin') {
+        console.warn(`[auth.requireAdmin] Perfil no encontrado para userId=${userId}, se permite por app_metadata.role=admin`);
+        req.user.isAdmin = true;
+        req.user.role = 'admin';
         return next();
       }
-      return res.status(403).json({ error: 'Perfil no encontrado' });
+      return res.status(403).json({ error: 'Acceso solo para administradores' });
     }
 
     const profileRole = String(profile.role || '').toLowerCase();
@@ -92,6 +102,6 @@ export async function requireAdmin(req, res, next) {
 
     next();
   } catch (error) {
-    return res.status(403).json({ error: 'No autorizado' });
+    return res.status(500).json({ error: 'No se pudo validar permisos de administrador' });
   }
 }
