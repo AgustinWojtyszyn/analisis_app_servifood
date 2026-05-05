@@ -27,13 +27,6 @@ import * as XLSX from 'xlsx';
 import excelIcon from '../assets/excel.png';
 import whatsappIcon from '../assets/whatsappicon.png';
 
-const resultColors = {
-  Conforme: { bg: 'rgba(22, 163, 74, 0.12)', text: '#166534' },
-  'No conforme': { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
-  'Oportunidad de mejora': { bg: 'rgba(139, 92, 246, 0.14)', text: '#5b21b6' },
-  Observación: { bg: 'rgba(245, 158, 11, 0.15)', text: '#92400e' }
-};
-
 const typeColors = {
   NC: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
   OBS: { bg: 'rgba(245, 158, 11, 0.15)', text: '#92400e' },
@@ -286,7 +279,6 @@ export default function AnalysisResults({
       'Fecha',
       'Hallazgo detectado',
       'Área clasificada',
-      'Resultado clasificado',
       'Categoría desvío',
       'Tipo desvío',
       'ISO 22000',
@@ -311,7 +303,6 @@ export default function AnalysisResults({
         Fecha: normalizeCellValue(record.fecha),
         'Hallazgo detectado': normalizeCellValue(record.hallazgoDetectado),
         'Área clasificada': normalizeCellValue(record.areaClasificada),
-        'Resultado clasificado': normalizeCellValue(record.resultadoClasificado),
         'Categoría desvío': normalizeCellValue(record.categoriaDesvio),
         'Tipo desvío': normalizeCellValue(record.tipoDesvio),
         'ISO 22000': normalizeCellValue(record.iso22000),
@@ -573,7 +564,6 @@ export default function AnalysisResults({
               <TableCell sx={{ fontWeight: 700 }}>Fecha</TableCell>
               <TableCell sx={{ fontWeight: 700, minWidth: 300 }}>Hallazgo detectado</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Área</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Resultado</TableCell>
               <TableCell sx={{ fontWeight: 700, minWidth: 180 }}>Categoría</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Tipo</TableCell>
               <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>ISO</TableCell>
@@ -615,16 +605,6 @@ export default function AnalysisResults({
                       </Tooltip>
                     </TableCell>
                     <TableCell>{normalizeCellValue(record.areaClasificada) || '-'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={normalizeCellValue(record.resultadoClasificado) || '-'}
-                        size="small"
-                        sx={{
-                          backgroundColor: (resultColors[record.resultadoClasificado] || resultColors['No conforme']).bg,
-                          color: (resultColors[record.resultadoClasificado] || resultColors['No conforme']).text
-                        }}
-                      />
-                    </TableCell>
                     <TableCell sx={{ maxWidth: 220 }}>
                       <Typography variant="body2">{normalizeCellValue(record.categoriaDesvio) || '-'}</Typography>
                     </TableCell>
@@ -682,7 +662,7 @@ export default function AnalysisResults({
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={14}>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={13}>
                       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                         <Box sx={{ px: 2, py: 1.5, backgroundColor: 'rgba(148,163,184,0.08)', borderRadius: 1, mb: 1.25 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Detalle del registro</Typography>
