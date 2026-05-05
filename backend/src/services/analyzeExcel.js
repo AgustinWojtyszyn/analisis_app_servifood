@@ -1737,7 +1737,7 @@ function classifyCategoriaDesvio({
     'mala presentacion', 'mala presentación', 'gramaje', 'peso incorrecto', 'porcion incorrecta',
     'porción incorrecta', 'textura', 'sabor', 'color', 'aspecto', 'calidad', 'envase dañado',
     'envase roto', 'bandeja rota', 'bandejas rotas', 'sin integridad', 'envases sin integridad'
-  ])) return 'Desvío de Calidad';
+  ])) return 'Desvío de Inocuidad';
 
   if (hasAny([
     'falta de orden',
@@ -1747,7 +1747,7 @@ function classifyCategoriaDesvio({
     'desordenada',
     'desordenados',
     'desordenadas'
-  ])) return 'Desvío de Calidad';
+  ])) return 'Desvío de Inocuidad';
 
   // Fallback por ISO útil: si no hubo match textual específico, mapear ISO sanitario/PRP a inocuidad.
   // No pisa categorías ya resueltas (legal/logística/calidad) porque corre después de esas reglas.
@@ -1765,6 +1765,10 @@ function classifyCategoriaDesvio({
   if (tipo === 'NC' && iso.includes('8.5.1 control operacional') && hasAny([
     'temperatura', 'registro', 'control sanitario', 'inocuidad', 'heladera', 'camara', 'cámara', 'freezer'
   ])) return 'Desvío de Inocuidad';
+
+  if (['NC', 'OBS', 'OM'].includes(tipo) || resultado === 'No conforme' || resultado === 'Observación' || resultado === 'Oportunidad de mejora') {
+    return 'Desvío de Inocuidad';
+  }
 
   return 'Revisar manualmente';
 }
