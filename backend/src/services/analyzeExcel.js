@@ -1773,6 +1773,27 @@ function classifyCategoriaDesvio({
   return 'Revisar manualmente';
 }
 
+function normalizeToTriadClassification({ categoriaDesvio = '', resultadoClasificado = '', tipoDesvio = '' }) {
+  const categoria = normalizeCellValue(categoriaDesvio).trim();
+  if (categoria === 'Desvío Legal') {
+    return { resultadoClasificado: 'Desvío Legal', tipoDesvio: 'NC', categoriaDesvio: 'Desvío Legal' };
+  }
+  if (categoria === 'Desvío de Logística') {
+    return { resultadoClasificado: 'Desvío de Logística', tipoDesvio: 'NC', categoriaDesvio: 'Desvío de Logística' };
+  }
+  if (categoria === 'Desvío de Inocuidad') {
+    return { resultadoClasificado: 'Desvío de Inocuidad', tipoDesvio: 'NC', categoriaDesvio: 'Desvío de Inocuidad' };
+  }
+
+  const resultado = normalizeCellValue(resultadoClasificado).trim();
+  const tipo = normalizeCellValue(tipoDesvio).trim();
+  if (['NC', 'OBS', 'OM', '-'].includes(tipo) || ['Conforme', 'No conforme', 'Observación', 'Oportunidad de mejora', 'Revisar manualmente'].includes(resultado)) {
+    return { resultadoClasificado: 'Desvío de Inocuidad', tipoDesvio: 'NC', categoriaDesvio: 'Desvío de Inocuidad' };
+  }
+
+  return { resultadoClasificado, tipoDesvio, categoriaDesvio };
+}
+
 function parseRecordDate(value) {
   if (!value) return null;
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
@@ -2864,6 +2885,15 @@ function validateFinalRecord(record = {}) {
       iso22000: validated.iso22000
     });
   }
+
+  const triad = normalizeToTriadClassification({
+    categoriaDesvio: validated.categoriaDesvio,
+    resultadoClasificado: validated.resultadoClasificado,
+    tipoDesvio: validated.tipoDesvio
+  });
+  validated.resultadoClasificado = triad.resultadoClasificado;
+  validated.tipoDesvio = triad.tipoDesvio;
+  validated.categoriaDesvio = triad.categoriaDesvio || validated.categoriaDesvio;
 
   return validated;
 }
