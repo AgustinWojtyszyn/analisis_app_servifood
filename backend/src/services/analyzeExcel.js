@@ -3016,23 +3016,10 @@ function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', is
     'carteleria de producto no conforme',
     'cartelería de producto no conforme'
   ])) {
-    return 'Identificar, sectorizar y señalizar el producto no conforme. Comunicar al responsable y verificar que no sea utilizado hasta su definición.';
+    return 'Identificar y sectorizar el producto no conforme. Colocar cartelería visible y reforzar el procedimiento de segregación.';
   }
 
-  // 2) Legal
-  if (containsAny(normalized, [
-    'desvio legal',
-    'desvío legal',
-    'carnet manipulador',
-    'manipulador de alimentos',
-    'libreta sanitaria',
-    'documentacion legal',
-    'documentación legal'
-  ])) {
-    return 'Regularizar la documentación requerida antes de permitir tareas asociadas. Informar a calidad o recursos humanos para seguimiento.';
-  }
-
-  // 3) Logística
+  // 2) Logística
   if (containsAny(normalized, [
     'desvio de logistica',
     'desvío de logística',
@@ -3043,10 +3030,10 @@ function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', is
     'faltante',
     'despacho'
   ])) {
-    return 'Verificar la diferencia detectada, corregir la entrega o reposición si corresponde y reforzar el control de despacho con el responsable.';
+    return 'Verificar el faltante, corregir entrega o reposición si corresponde. Aplicar doble control antes del despacho.';
   }
 
-  // 4) Trazabilidad
+  // 3) Trazabilidad
   if (containsAny(normalized, [
     'sin rotular',
     'rotulacion',
@@ -3054,10 +3041,10 @@ function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', is
     'trazabilidad',
     '8.5.2 trazabilidad'
   ])) {
-    return 'Rotular inmediatamente los alimentos o productos involucrados con identificación, fecha y responsable. Reforzar el control de trazabilidad en el sector.';
+    return 'Rotular inmediatamente los alimentos o productos involucrados. Reforzar capacitación y control diario de rótulos.';
   }
 
-  // 5) Limpieza
+  // 4) Limpieza
   if (containsAny(normalized, [
     'limpieza',
     'sucio',
@@ -3068,10 +3055,10 @@ function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', is
     'instalaciones no se encuentran limpias',
     '8.2 prp limpieza'
   ])) {
-    return 'Limpiar y desinfectar el sector afectado. Reforzar con el responsable la frecuencia de limpieza y verificar cumplimiento.';
+    return 'Limpiar y desinfectar el sector afectado. Reforzar frecuencia de limpieza y control por checklist diario.';
   }
 
-  // 6) Residuos
+  // 5) Residuos
   if (containsAny(normalized, [
     'residuos',
     'basura',
@@ -3080,10 +3067,10 @@ function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', is
     'cartelería de residuos',
     '8.2 prp manejo residuos'
   ])) {
-    return 'Ordenar y retirar residuos del sector. Identificar correctamente los contenedores y reforzar la segregación de residuos con el responsable.';
+    return 'Ordenar y retirar residuos del sector. Identificar contenedores y reforzar la segregación por tipo de residuo.';
   }
 
-  // 7) Orden
+  // 6) Orden
   if (containsAny(normalized, [
     'desorden',
     'desordenado',
@@ -3091,10 +3078,10 @@ function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', is
     'falta de orden',
     'heladeras desordenadas'
   ])) {
-    return 'Ordenar el sector y retirar elementos innecesarios. Reforzar con el responsable el mantenimiento del orden durante la jornada.';
+    return 'Ordenar el sector y retirar elementos innecesarios. Reforzar rutina de orden y verificación por turno.';
   }
 
-  // 8) Equipamiento
+  // 7) Equipamiento
   if (containsAny(normalized, [
     'bandejas rotas',
     'mal estado',
@@ -3103,7 +3090,19 @@ function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', is
     'equipo',
     'no funciona'
   ])) {
-    return 'Retirar o reemplazar los elementos en mal estado. Verificar disponibilidad de equipamiento apto y comunicar al responsable.';
+    return 'Retirar o reemplazar elementos en mal estado. Verificar disponibilidad de equipamiento apto antes del uso.';
+  }
+
+  // 8) Objetos personales / ajenos
+  if (containsAny(normalized, [
+    'objetos personales',
+    'elementos personales',
+    'productos ajenos',
+    'ajenos al sector',
+    'rinonera',
+    'riñonera'
+  ])) {
+    return 'Retirar elementos personales o ajenos al sector productivo. Implementar uso de lockers y reforzar control del área.';
   }
 
   // Regla explícita baños/cartelería
