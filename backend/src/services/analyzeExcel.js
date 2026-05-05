@@ -3006,7 +3006,122 @@ function hasSubstantialOverlap(baseText, candidateText) {
   return false;
 }
 
-function buildActions({ resultadoClasificado, text, hallazgoDetectado, accionInmediataOriginal, accionCorrectivaOriginal }) {
+function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', iso22000 = '' }) {
+  const normalized = normalizeIncidentText([text, categoriaDesvio, iso22000].filter(Boolean).join(' | '));
+
+  // 1) Producto no conforme
+  if (containsAny(normalized, [
+    'producto no conforme',
+    'no conforme',
+    'carteleria de producto no conforme',
+    'cartelería de producto no conforme'
+  ])) {
+    return 'Identificar, sectorizar y señalizar el producto no conforme. Comunicar al responsable y verificar que no sea utilizado hasta su definición.';
+  }
+
+  // 2) Legal
+  if (containsAny(normalized, [
+    'desvio legal',
+    'desvío legal',
+    'carnet manipulador',
+    'manipulador de alimentos',
+    'libreta sanitaria',
+    'documentacion legal',
+    'documentación legal'
+  ])) {
+    return 'Regularizar la documentación requerida antes de permitir tareas asociadas. Informar a calidad o recursos humanos para seguimiento.';
+  }
+
+  // 3) Logística
+  if (containsAny(normalized, [
+    'desvio de logistica',
+    'desvío de logística',
+    'faltaron menu',
+    'faltaron menú',
+    'faltante de unidades',
+    'entrega incompleta',
+    'faltante',
+    'despacho'
+  ])) {
+    return 'Verificar la diferencia detectada, corregir la entrega o reposición si corresponde y reforzar el control de despacho con el responsable.';
+  }
+
+  // 4) Trazabilidad
+  if (containsAny(normalized, [
+    'sin rotular',
+    'rotulacion',
+    'rotulación',
+    'trazabilidad',
+    '8.5.2 trazabilidad'
+  ])) {
+    return 'Rotular inmediatamente los alimentos o productos involucrados con identificación, fecha y responsable. Reforzar el control de trazabilidad en el sector.';
+  }
+
+  // 5) Limpieza
+  if (containsAny(normalized, [
+    'limpieza',
+    'sucio',
+    'sucia',
+    'restos',
+    'charcos',
+    'piso sucio',
+    'instalaciones no se encuentran limpias',
+    '8.2 prp limpieza'
+  ])) {
+    return 'Limpiar y desinfectar el sector afectado. Reforzar con el responsable la frecuencia de limpieza y verificar cumplimiento.';
+  }
+
+  // 6) Residuos
+  if (containsAny(normalized, [
+    'residuos',
+    'basura',
+    'contenedor',
+    'carteleria de residuos',
+    'cartelería de residuos',
+    '8.2 prp manejo residuos'
+  ])) {
+    return 'Ordenar y retirar residuos del sector. Identificar correctamente los contenedores y reforzar la segregación de residuos con el responsable.';
+  }
+
+  // 7) Orden
+  if (containsAny(normalized, [
+    'desorden',
+    'desordenado',
+    'desordenada',
+    'falta de orden',
+    'heladeras desordenadas'
+  ])) {
+    return 'Ordenar el sector y retirar elementos innecesarios. Reforzar con el responsable el mantenimiento del orden durante la jornada.';
+  }
+
+  // 8) Equipamiento
+  if (containsAny(normalized, [
+    'bandejas rotas',
+    'mal estado',
+    'envases sin integridad',
+    'equipamiento',
+    'equipo',
+    'no funciona'
+  ])) {
+    return 'Retirar o reemplazar los elementos en mal estado. Verificar disponibilidad de equipamiento apto y comunicar al responsable.';
+  }
+
+  // Regla explícita baños/cartelería
+  if (containsAny(normalized, [
+    'bano',
+    'baño',
+    'armario de banos',
+    'armario de baños',
+    'carteleria',
+    'cartelería'
+  ])) {
+    return 'Colocar la cartelería correspondiente y verificar la identificación del sector. Reforzar el control visual con el responsable.';
+  }
+
+  return 'Corregir el desvío detectado, registrar la acción tomada y reforzar el criterio con el responsable del sector.';
+}
+
+function buildActions({ resultadoClasificado, text, hallazgoDetectado, accionInmediataOriginal, accionCorrectivaOriginal, categoriaDesvio = '', iso22000 = '' }) {
   const immediateExisting = normalizeCellValue(accionInmediataOriginal).replace(/\bcalidad\b/gi, '').trim();
   const correctiveExistingRaw = normalizeCellValue(accionCorrectivaOriginal).trim();
   const scenario = detectActionScenario(text);
@@ -3077,7 +3192,11 @@ function buildActions({ resultadoClasificado, text, hallazgoDetectado, accionInm
     };
   }
 
-  const specificCorrective = buildCorrectiveActionFromProblem(normalizedText);
+  const specificCorrective = resolveCorrectiveActionByPriority({
+    text: `${normalizedText} | ${hallazgoDetectado}`,
+    categoriaDesvio,
+    iso22000
+  }) || buildCorrectiveActionFromProblem(normalizedText);
   const correctiveBase = correctiveExisting || specificCorrective || byScenario[scenario].corrective;
   const immediateBase = immediateExisting || detectedImmediate || byScenario[scenario].immediate;
 
@@ -3858,7 +3977,9 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         text: textForClassification,
         hallazgoDetectado: rawRecord.hallazgoDetectado,
         accionInmediataOriginal: rawRecord.accionInmediata,
-        accionCorrectivaOriginal: rawRecord.accionCorrectiva
+        accionCorrectivaOriginal: rawRecord.accionCorrectiva,
+        categoriaDesvio,
+        iso22000
       });
       rawRecord.accionInmediata = actions.accionInmediata;
       rawRecord.accionCorrectiva = actions.accionCorrectiva;

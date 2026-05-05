@@ -543,7 +543,7 @@ export default function AnalysisResults({
       </Box>
 
       <TableContainer ref={tableContainerRef} sx={{ overflowX: 'auto', backgroundColor: 'transparent', mx: { xs: -0.5, md: 0 }, width: '100%' }}>
-        <Table sx={{ minWidth: 1600 }}>
+        <Table sx={{ minWidth: 1380 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 700, width: 52 }} />
@@ -555,10 +555,7 @@ export default function AnalysisResults({
               <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>ISO</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Responsable</TableCell>
-              <TableCell sx={{ fontWeight: 700, minWidth: 240 }}>Descripción</TableCell>
-              <TableCell sx={{ fontWeight: 700, minWidth: 220 }}>Observaciones</TableCell>
-              <TableCell sx={{ fontWeight: 700, minWidth: 130 }}>N° Acción</TableCell>
-              <TableCell sx={{ fontWeight: 700, minWidth: 220 }}>Nota técnica</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 320 }}>Acción correctiva</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -615,40 +612,14 @@ export default function AnalysisResults({
                     <TableCell sx={{ maxWidth: 220 }}>
                       <Typography variant="body2">{normalizeCellValue(record.responsable) || '-'}</Typography>
                     </TableCell>
-                    <TableCell sx={{ maxWidth: 280 }}>
+                    <TableCell sx={{ maxWidth: 380 }}>
                       <Typography variant="body2">
-                        {findOriginalValueByAliases(record, [
-                          'Descripción',
-                          'Descripcion',
-                          'Descripción del desvío',
-                          'Descripcion del desvio',
-                          'Detalle del desvío',
-                          'Detalle del desvio'
-                        ]) || normalizeCellValue(record.descripcion) || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 240 }}>
-                      <Typography variant="body2">
-                        {findOriginalValueByAliases(record, ['Observaciones', 'Observación', 'Observacion']) || normalizeCellValue(record.observaciones) || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {findOriginalValueByAliases(record, [
-                        'N° Acción',
-                        'N° Accion',
-                        'Nro Acción',
-                        'Nro Accion',
-                        'Numero accion'
-                      ]) || normalizeCellValue(record.numeroAccion) || '-'}
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 240 }}>
-                      <Typography variant="body2">
-                        {findOriginalValueByAliases(record, ['Nota técnica', 'Nota tecnica']) || normalizeCellValue(record.notaTecnica) || '-'}
+                        {normalizeCellValue(record.accionCorrectiva) || '-'}
                       </Typography>
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={13}>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={10}>
                       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                         <Box sx={{ px: 2, py: 1.5, backgroundColor: 'rgba(148,163,184,0.08)', borderRadius: 1, mb: 1.25 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Detalle del registro</Typography>
