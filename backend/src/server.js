@@ -37,6 +37,10 @@ const allowedOrigins = [...new Set([
   ...(!isProduction ? devAllowedOrigins : [])
 ])];
 
+function isDevLocalOrigin(origin = '') {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+}
+
 if (isProduction && allowedOrigins.length === 0) {
   console.warn('[CORS] Producción sin orígenes configurados. Se bloquearán requests de navegador con Origin.');
 }
@@ -54,7 +58,13 @@ app.use(cors({
       return callback(null, true);
     }
 
-    return callback(new Error('CORS: Origin no permitido'));
+    if (!isProduction && isDevLocalOrigin(origin)) {
+      return callback(null, true);
+    }
+
+    const corsError = new Error('CORS: Origin no permitido');
+    corsError.status = 403;
+    return callback(corsError);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
