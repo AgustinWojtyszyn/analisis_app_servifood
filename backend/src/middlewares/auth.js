@@ -53,6 +53,7 @@ export async function requireAdmin(req, res, next) {
     }
 
     const userId = req.user?.id;
+    const tokenRole = String(req.user?.role || '').toLowerCase();
     if (!userId) {
       return res.status(403).json({ error: 'No autorizado' });
     }
@@ -64,10 +65,21 @@ export async function requireAdmin(req, res, next) {
       .single();
 
     if (error || !profile) {
+      if (tokenRole === 'admin') {
+        return next();
+      }
       return res.status(403).json({ error: 'Perfil no encontrado' });
     }
 
-    if (profile.role !== 'admin' || profile.is_active === false) {
+    const profileRole = String(profile.role || '').toLowerCase();
+    const isAdminByProfile = profileRole === 'admin';
+    const isAdminByToken = tokenRole === 'admin';
+
+    if (profile.is_active === false) {
+      return res.status(403).json({ error: 'Usuario inactivo' });
+    }
+
+    if (!isAdminByProfile && !isAdminByToken) {
       return res.status(403).json({ error: 'Acceso solo para administradores' });
     }
 

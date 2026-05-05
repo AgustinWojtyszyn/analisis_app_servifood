@@ -488,11 +488,18 @@ export async function deleteAnalysis(req, res) {
 
     const { id } = req.params;
 
-    const { error } = await supabaseAdmin
+    const isAdmin = String(req.user?.role || '').toLowerCase() === 'admin';
+
+    let query = supabaseAdmin
       .from('analysis_history')
       .delete()
-      .eq('id', id)
-      .eq('user_id', req.user.id);
+      .eq('id', id);
+
+    if (!isAdmin) {
+      query = query.eq('user_id', req.user.id);
+    }
+
+    const { error } = await query;
 
     if (error) {
       return returnSupabaseError(res, 'delete_analysis', error);
