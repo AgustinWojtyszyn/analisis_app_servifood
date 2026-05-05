@@ -16,6 +16,7 @@ import {
   MenuItem
 } from '@mui/material';
 import {
+  archiveAnalysis,
   deleteAllAnalyses,
   deleteAnalysis,
   deleteAnalysesBulk,
@@ -132,6 +133,20 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
     }
   };
 
+  const handleArchiveOne = async (analysis) => {
+    if (!analysis?.id) return;
+    const confirmed = window.confirm(`¿Archivar el análisis "${analysis.filename}"?`);
+    if (!confirmed) return;
+
+    try {
+      const response = await archiveAnalysis(analysis.id);
+      setSuccess(response?.message || 'Análisis archivado');
+      loadHistory();
+    } catch (err) {
+      setError(err.message || 'No se pudo archivar el análisis');
+    }
+  };
+
   const onFilterChange = (patch) => {
     setFilters((prev) => ({ ...prev, ...patch, page: patch.page ?? 1 }));
   };
@@ -219,6 +234,11 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Button variant="outlined" size="small" onClick={() => onSelectAnalysis(analysis.id)}>Ver detalle</Button>
                     <Button variant="text" size="small" onClick={() => handleExportBulk([analysis.id])}>Exportar</Button>
+                    {isAdmin && analysis.status === 'active' && (
+                      <Button variant="text" color="warning" size="small" onClick={() => handleArchiveOne(analysis)}>
+                        Archivar
+                      </Button>
+                    )}
                     <Button variant="text" color="error" size="small" onClick={() => handleDeleteOne(analysis.id)}>Eliminar</Button>
                   </Box>
                 </TableCell>

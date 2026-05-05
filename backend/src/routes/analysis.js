@@ -1,5 +1,4 @@
 import express from 'express';
-import multer from 'multer';
 import {
   uploadAndAnalyze,
   uploadAndAnalyzeMultiple,
@@ -11,12 +10,13 @@ import {
   exportBulkAnalyses,
   getActiveAnalysis,
   deleteActiveAnalysis,
-  updateAnalysisStatus
+  updateAnalysisStatus,
+  archiveAnalysis
 } from '../controllers/analysisController.js';
 import { authenticateToken, requireAdmin } from '../middlewares/auth.js';
+import { upload } from '../middlewares/upload.js';
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
 
 router.post('/upload', authenticateToken, requireAdmin, upload.single('file'), uploadAndAnalyze);
 router.post('/upload-excel', authenticateToken, requireAdmin, upload.single('excel'), uploadAndAnalyze);
@@ -34,5 +34,6 @@ router.delete('/all', authenticateToken, requireAdmin, deleteAllAnalyses);
 router.get('/:id', authenticateToken, requireAdmin, getAnalysis);
 router.delete('/:id', authenticateToken, requireAdmin, deleteAnalysis);
 router.patch('/:id/status', authenticateToken, requireAdmin, updateAnalysisStatus);
+router.patch('/:id/archive', authenticateToken, requireAdmin, archiveAnalysis);
 
 export default router;

@@ -1,0 +1,45 @@
+Resumen de los ultimos cambios
+
+1) Flujo administrativo de archivado de analisis
+- Se agrego un endpoint nuevo: PATCH /api/analysis/:id/archive
+- El endpoint requiere autenticacion y rol admin.
+- Comportamiento:
+  - Si el analisis no existe: devuelve 404.
+  - Si ya estaba archived: devuelve 200 con mensaje controlado.
+  - Si estaba active (u otro estado): actualiza status a archived.
+- No se borra el registro.
+- No se modifica el contenido del analisis (results/records/cases).
+- Respuesta de exito:
+  - success: true
+  - message: "Analisis archivado correctamente"
+  - data: analisis actualizado
+
+2) Backend actualizado
+- Archivo modificado: backend/src/controllers/analysisController.js
+  - Nuevo controlador: archiveAnalysis(req, res)
+  - Manejo de errores de Supabase y compatibilidad con columnas status/updated_at.
+- Archivo modificado: backend/src/routes/analysis.js
+  - Nueva ruta PATCH /:id/archive protegida con requireAdmin.
+
+3) Frontend actualizado
+- Archivo modificado: frontend/src/services/analysis.js
+  - Nueva funcion: archiveAnalysis(id) que llama PATCH /analysis/:id/archive.
+- Archivo modificado: frontend/src/components/AnalysisHistory.jsx
+  - Nuevo boton "Archivar" visible solo para admin y solo cuando status === active.
+  - Se pide confirmacion antes de archivar.
+  - Si archiva con exito: muestra mensaje y recarga historial.
+  - Si falla: muestra mensaje de error.
+
+4) Comportamiento funcional esperado
+- El analisis archivado sigue apareciendo en historial.
+- El analisis archivado deja de aparecer como analisis activo.
+- Usuarios no admin no ven el boton Archivar ni pueden ejecutar la accion (403 en backend).
+
+5) Validaciones realizadas
+- Sintaxis backend:
+  - node --check backend/src/controllers/analysisController.js
+  - node --check backend/src/routes/analysis.js
+- Build frontend:
+  - npm --prefix frontend run build
+- Arranque backend:
+  - npm --prefix backend run start

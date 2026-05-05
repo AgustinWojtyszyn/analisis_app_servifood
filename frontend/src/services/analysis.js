@@ -181,6 +181,12 @@ export async function updateAnalysisStatus(id, status) {
   });
 }
 
+export async function archiveAnalysis(id) {
+  return await authorizedFetch(`/analysis/${id}/archive`, {
+    method: 'PATCH'
+  });
+}
+
 export async function getAnalysisById(id) {
   return await authorizedFetch(`/analysis/${id}`);
 }
