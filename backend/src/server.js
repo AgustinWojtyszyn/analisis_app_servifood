@@ -45,10 +45,7 @@ if (isProduction && allowedOrigins.length === 0) {
   console.warn('[CORS] Producción sin orígenes configurados. Se bloquearán requests de navegador con Origin.');
 }
 
-// Middlewares
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ limit: '1mb', extended: true }));
-app.use(cors({
+const corsOptions = {
   origin(origin, callback) {
     if (!origin) {
       return callback(null, true);
@@ -69,7 +66,12 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));
+};
+
+// Middlewares
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
+app.use('/api', cors(corsOptions));
 
 // Health check
 app.get('/api/health', (req, res) => {
