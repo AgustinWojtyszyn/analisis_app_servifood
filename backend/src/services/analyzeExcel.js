@@ -1776,22 +1776,36 @@ function classifyCategoriaDesvio({
 function normalizeToTriadClassification({ categoriaDesvio = '', resultadoClasificado = '', tipoDesvio = '' }) {
   const categoria = normalizeCellValue(categoriaDesvio).trim();
   if (categoria === 'Desvío Legal') {
-    return { resultadoClasificado: 'Desvío Legal', tipoDesvio: 'NC', categoriaDesvio: 'Desvío Legal' };
+    return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: 'Desvío Legal' };
   }
   if (categoria === 'Desvío de Logística') {
-    return { resultadoClasificado: 'Desvío de Logística', tipoDesvio: 'NC', categoriaDesvio: 'Desvío de Logística' };
+    return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: 'Desvío de Logística' };
   }
   if (categoria === 'Desvío de Inocuidad') {
-    return { resultadoClasificado: 'Desvío de Inocuidad', tipoDesvio: 'NC', categoriaDesvio: 'Desvío de Inocuidad' };
+    return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: 'Desvío de Inocuidad' };
   }
 
-  const resultado = normalizeCellValue(resultadoClasificado).trim();
   const tipo = normalizeCellValue(tipoDesvio).trim();
-  if (['NC', 'OBS', 'OM', '-'].includes(tipo) || ['Conforme', 'No conforme', 'Observación', 'Oportunidad de mejora', 'Revisar manualmente'].includes(resultado)) {
-    return { resultadoClasificado: 'Desvío de Inocuidad', tipoDesvio: 'NC', categoriaDesvio: 'Desvío de Inocuidad' };
+  if (['NC', 'OBS', 'OM'].includes(tipo)) {
+    return { resultadoClasificado, tipoDesvio: tipo, categoriaDesvio: 'Desvío de Inocuidad' };
+  }
+  if (tipo === '-') {
+    return { resultadoClasificado, tipoDesvio: '-', categoriaDesvio: categoria || 'Conforme' };
   }
 
   return { resultadoClasificado, tipoDesvio, categoriaDesvio };
+}
+
+function normalizeFinalOutcomeAndType({ resultadoClasificado = '', tipoDesvio = '' }) {
+  const tipo = normalizeCellValue(tipoDesvio).trim().toUpperCase();
+  const allowedTipo = new Set(['NC', 'OBS', 'OM', '-']);
+  const normalizedTipo = allowedTipo.has(tipo) ? tipo : '-';
+
+  if (normalizedTipo === '-') {
+    return { resultadoClasificado: 'Conforme', tipoDesvio: '-' };
+  }
+
+  return { resultadoClasificado: 'No conforme', tipoDesvio: normalizedTipo };
 }
 
 function parseRecordDate(value) {
@@ -2894,6 +2908,13 @@ function validateFinalRecord(record = {}) {
   validated.resultadoClasificado = triad.resultadoClasificado;
   validated.tipoDesvio = triad.tipoDesvio;
   validated.categoriaDesvio = triad.categoriaDesvio || validated.categoriaDesvio;
+
+  const normalizedOutcome = normalizeFinalOutcomeAndType({
+    resultadoClasificado: validated.resultadoClasificado,
+    tipoDesvio: validated.tipoDesvio
+  });
+  validated.resultadoClasificado = normalizedOutcome.resultadoClasificado;
+  validated.tipoDesvio = normalizedOutcome.tipoDesvio;
 
   return validated;
 }
