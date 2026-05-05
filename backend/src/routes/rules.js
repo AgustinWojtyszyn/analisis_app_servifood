@@ -8,8 +8,7 @@ const router = express.Router();
  * GET /api/rules
  * Obtener todas las reglas de negocio
  */
-router.get('/', authenticateToken, getRules);
-
+router.get('/', authenticateToken, requireAdmin, getRules);
 /**
  * POST /api/rules
  * Crear una nueva regla (solo admin)
