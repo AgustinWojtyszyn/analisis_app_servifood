@@ -2919,6 +2919,13 @@ function validateFinalRecord(record = {}) {
   return validated;
 }
 
+function stripLegacyResultadoFields(record = {}) {
+  const sanitized = { ...record };
+  delete sanitized.resultadoClasificado;
+  delete sanitized.resultado;
+  return sanitized;
+}
+
 function extractImmediateAction(text) {
   const source = normalizeCellValue(text).trim();
   if (!source) return '';
@@ -4050,9 +4057,11 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
     progressCallback?.(95, 'Generando resumen...');
     progressCallback?.(100, 'Analisis completado');
 
+    const responseRecords = results.map((record) => stripLegacyResultadoFields(record));
+
     return {
       success: true,
-      records: results,
+      records: responseRecords,
       cases,
       summary
     };
