@@ -15,6 +15,62 @@ const supabaseAdmin = supabaseUrl && serviceRoleKey
 
 const EDIT_WINDOW_MINUTES = 15;
 
+function buildHealthEvaluation({
+  hasSymptoms = false,
+  hasFever = false,
+  recentContact = false,
+  symptomsDetail = {}
+} = {}) {
+  const detail = symptomsDetail && typeof symptomsDetail === 'object' ? symptomsDetail : {};
+  const flags = {
+    cough: Boolean(detail.cough),
+    soreThroat: Boolean(detail.soreThroat),
+    difficultyBreathing: Boolean(detail.difficultyBreathing),
+    vomiting: Boolean(detail.vomiting),
+    diarrhea: Boolean(detail.diarrhea),
+    jaundice: Boolean(detail.jaundice),
+    skinLesions: Boolean(detail.skinLesions),
+    uncoveredWounds: Boolean(detail.uncoveredWounds)
+  };
+
+  const isRed = flags.vomiting
+    || flags.diarrhea
+    || flags.jaundice
+    || Boolean(hasFever)
+    || flags.difficultyBreathing;
+
+  const isYellow = !isRed && (
+    flags.uncoveredWounds
+    || flags.skinLesions
+    || flags.cough
+    || flags.soreThroat
+    || Boolean(recentContact)
+    || Boolean(hasSymptoms)
+  );
+
+  if (isRed) {
+    return {
+      healthStatus: 'No Apto',
+      trafficLight: 'Rojo',
+      suggestedAction: 'No ingresar a producción. Derivar a médico laboral, informar a supervisor/calidad y activar reemplazo operativo si corresponde.'
+    };
+  }
+
+  if (isYellow) {
+    return {
+      healthStatus: 'Requiere evaluación',
+      trafficLight: 'Amarillo',
+      suggestedAction: 'Avisar al supervisor y evaluar gravedad. Si hay herida leve: vendaje impermeable + guante de nitrilo. Si hay síntoma respiratorio leve: barbijo y refuerzo de lavado de manos.'
+    };
+  }
+
+  return {
+    healthStatus: 'Apto',
+    trafficLight: 'Verde',
+    suggestedAction: 'Puede ingresar. Mantener higiene de manos y cumplimiento de prácticas sanitarias.'
+  };
+}
+
 function startAndEndOfToday() {
   const now = new Date();
   const start = new Date(now);
@@ -34,6 +90,12 @@ function canManageWithinWindow(row) {
 function mapDeclaration(row, profileByUserId = new Map()) {
   if (!row) return null;
   const profile = profileByUserId.get(row.user_id) || null;
+  const fallbackEvaluation = buildHealthEvaluation({
+    hasSymptoms: Boolean(row.has_symptoms),
+    hasFever: Boolean(row.has_fever),
+    recentContact: Boolean(row.recent_contact),
+    symptomsDetail: row.symptoms_detail || {}
+  });
   return {
     id: row.id,
     userId: row.user_id,
@@ -44,8 +106,17 @@ function mapDeclaration(row, profileByUserId = new Map()) {
     hasSymptoms: Boolean(row.has_symptoms),
     hasFever: Boolean(row.has_fever),
     recentContact: Boolean(row.recent_contact),
+    symptomsDetail: row.symptoms_detail || {},
     commitInform: Boolean(row.commit_inform),
     policyAccepted: Boolean(row.policy_accepted),
+    healthStatus: row.health_status || fallbackEvaluation.healthStatus,
+    trafficLight: row.traffic_light || fallbackEvaluation.trafficLight,
+    suggestedAction: row.suggested_action || fallbackEvaluation.suggestedAction,
+    actionTaken: row.action_taken || '',
+    supervisorObservation: row.supervisor_observation || '',
+    medicalReferral: Boolean(row.medical_referral),
+    medicalClearance: Boolean(row.medical_clearance),
+    returnDate: row.return_date || null,
     policyId: row.policy_id || null,
     createdAt: row.created_at || null,
     editableUntil: row.declared_at || row.created_at || null,
@@ -149,6 +220,7 @@ router.post('/health-declarations', authenticateToken, async (req, res) => {
       hasSymptoms,
       hasFever,
       recentContact,
+      symptomsDetail = {},
       commitInform,
       policyAccepted,
       policyId = null
@@ -173,8 +245,9 @@ router.post('/health-declarations', authenticateToken, async (req, res) => {
     }
 
     const { date } = startAndEndOfToday();
+    const evaluation = buildHealthEvaluation({ hasSymptoms, hasFever, recentContact, symptomsDetail });
 
-    const insertPayload = {
+    const baseInsertPayload = {
       user_id: req.user.id,
       declaration_date: date,
       declared_at: new Date().toISOString(),
@@ -186,11 +259,27 @@ router.post('/health-declarations', authenticateToken, async (req, res) => {
       policy_id: policyId
     };
 
-    const { data, error } = await supabaseAdmin
+    let insertResponse = await supabaseAdmin
       .from('health_declarations')
-      .insert(insertPayload)
+      .insert({
+        ...baseInsertPayload,
+        symptoms_detail: symptomsDetail,
+        health_status: evaluation.healthStatus,
+        traffic_light: evaluation.trafficLight,
+        suggested_action: evaluation.suggestedAction
+      })
       .select('*')
       .single();
+
+    if (insertResponse.error) {
+      insertResponse = await supabaseAdmin
+        .from('health_declarations')
+        .insert(baseInsertPayload)
+        .select('*')
+        .single();
+    }
+
+    const { data, error } = insertResponse;
 
     if (error) {
       if (String(error.message || '').toLowerCase().includes('duplicate') || String(error.code || '') === '23505') {
@@ -214,6 +303,7 @@ router.put('/health-declarations/:id/me', authenticateToken, async (req, res) =>
       hasSymptoms,
       hasFever,
       recentContact,
+      symptomsDetail = {},
       commitInform,
       policyAccepted,
       policyId = null
@@ -239,7 +329,9 @@ router.put('/health-declarations/:id/me', authenticateToken, async (req, res) =>
       return res.status(403).json({ error: 'Solo puedes editar dentro de los primeros 15 minutos' });
     }
 
-    const { data, error } = await supabaseAdmin
+    const evaluation = buildHealthEvaluation({ hasSymptoms, hasFever, recentContact, symptomsDetail });
+
+    let updateResponse = await supabaseAdmin
       .from('health_declarations')
       .update({
         has_symptoms: hasSymptoms,
@@ -247,12 +339,35 @@ router.put('/health-declarations/:id/me', authenticateToken, async (req, res) =>
         recent_contact: recentContact,
         commit_inform: commitInform,
         policy_accepted: policyAccepted,
-        policy_id: policyId
+        policy_id: policyId,
+        symptoms_detail: symptomsDetail,
+        health_status: evaluation.healthStatus,
+        traffic_light: evaluation.trafficLight,
+        suggested_action: evaluation.suggestedAction
       })
       .eq('id', id)
       .eq('user_id', req.user.id)
       .select('*')
       .single();
+
+    if (updateResponse.error) {
+      updateResponse = await supabaseAdmin
+        .from('health_declarations')
+        .update({
+          has_symptoms: hasSymptoms,
+          has_fever: hasFever,
+          recent_contact: recentContact,
+          commit_inform: commitInform,
+          policy_accepted: policyAccepted,
+          policy_id: policyId
+        })
+        .eq('id', id)
+        .eq('user_id', req.user.id)
+        .select('*')
+        .single();
+    }
+
+    const { data, error } = updateResponse;
 
     if (error) {
       return res.status(500).json({ error: error.message || 'No se pudo actualizar la declaración' });
@@ -395,6 +510,9 @@ router.post('/health-declarations/export', authenticateToken, requireAdmin, asyn
       { header: 'fiebre', key: 'fiebre', width: 12 },
       { header: 'contacto', key: 'contacto', width: 12 },
       { header: 'politica', key: 'politica', width: 12 },
+      { header: 'estado', key: 'estado', width: 20 },
+      { header: 'semaforo', key: 'semaforo', width: 12 },
+      { header: 'accion_sugerida', key: 'accion_sugerida', width: 60 },
       { header: 'hora', key: 'hora', width: 25 }
     ];
 
@@ -402,6 +520,12 @@ router.post('/health-declarations/export', authenticateToken, requireAdmin, asyn
       const profile = profileMap.get(row.user_id) || null;
       const declaredAt = row.declared_at || row.created_at || null;
       const dateObj = declaredAt ? new Date(declaredAt) : null;
+      const evalRow = buildHealthEvaluation({
+        hasSymptoms: Boolean(row.has_symptoms),
+        hasFever: Boolean(row.has_fever),
+        recentContact: Boolean(row.recent_contact),
+        symptomsDetail: row.symptoms_detail || {}
+      });
       sheet.addRow({
         usuario: profile?.full_name || profile?.email || row.user_id,
         email: profile?.email || '',
@@ -410,6 +534,9 @@ router.post('/health-declarations/export', authenticateToken, requireAdmin, asyn
         fiebre: row.has_fever ? 'si' : 'no',
         contacto: row.recent_contact ? 'si' : 'no',
         politica: row.policy_accepted ? 'aceptada' : 'no aceptada',
+        estado: row.health_status || evalRow.healthStatus,
+        semaforo: row.traffic_light || evalRow.trafficLight,
+        accion_sugerida: row.suggested_action || evalRow.suggestedAction,
         hora: declaredAt || ''
       });
     }

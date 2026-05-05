@@ -42,6 +42,34 @@ function renderBoolean(value) {
   return value ? 'Sí' : 'No';
 }
 
+function buildHealthEvaluation({ hasSymptoms = false, hasFever = false, recentContact = false, symptomsDetail = {} } = {}) {
+  const detail = symptomsDetail && typeof symptomsDetail === 'object' ? symptomsDetail : {};
+  const isRed = Boolean(detail.vomiting || detail.diarrhea || detail.jaundice || hasFever || detail.difficultyBreathing);
+  const isYellow = !isRed && Boolean(
+    detail.uncoveredWounds || detail.skinLesions || detail.cough || detail.soreThroat || recentContact || hasSymptoms
+  );
+
+  if (isRed) {
+    return {
+      healthStatus: 'No Apto',
+      trafficLight: 'Rojo',
+      suggestedAction: 'No ingresar a producción. Derivar a médico laboral e informar a supervisor/calidad.'
+    };
+  }
+  if (isYellow) {
+    return {
+      healthStatus: 'Requiere evaluación',
+      trafficLight: 'Amarillo',
+      suggestedAction: 'Avisar al supervisor y evaluar gravedad. Herida leve: vendaje impermeable + guante. Síntoma respiratorio leve: barbijo + lavado de manos.'
+    };
+  }
+  return {
+    healthStatus: 'Apto',
+    trafficLight: 'Verde',
+    suggestedAction: 'Puede ingresar. Mantener higiene de manos.'
+  };
+}
+
 export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -58,7 +86,17 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
     hasFever: '',
     recentContact: '',
     commitInform: '',
-    policyAccepted: false
+    policyAccepted: false,
+    symptomsDetail: {
+      cough: false,
+      soreThroat: false,
+      difficultyBreathing: false,
+      vomiting: false,
+      diarrhea: false,
+      jaundice: false,
+      skinLesions: false,
+      uncoveredWounds: false
+    }
   });
 
   useEffect(() => {
@@ -90,12 +128,14 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
   };
 
   const validate = () => {
-    const hasSymptoms = yesNoValue(form.hasSymptoms);
+    const hasSymptomsExplicit = yesNoValue(form.hasSymptoms);
     const hasFever = yesNoValue(form.hasFever);
     const recentContact = yesNoValue(form.recentContact);
     const commitInform = yesNoValue(form.commitInform);
+    const derivedHasSymptoms = Object.values(form.symptomsDetail || {}).some(Boolean);
+    const hasSymptoms = hasSymptomsExplicit == null ? derivedHasSymptoms : (hasSymptomsExplicit || derivedHasSymptoms);
 
-    if ([hasSymptoms, hasFever, recentContact, commitInform].some((v) => v === null)) {
+    if ([hasFever, recentContact, commitInform].some((v) => v === null)) {
       return { valid: false, error: 'Debes responder todas las preguntas.' };
     }
 
@@ -113,6 +153,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
         hasSymptoms,
         hasFever,
         recentContact,
+        symptomsDetail: form.symptomsDetail,
         commitInform,
         policyAccepted: true
       }
@@ -126,6 +167,17 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
       recentContact: '',
       commitInform: '',
       policyAccepted: false
+      ,
+      symptomsDetail: {
+        cough: false,
+        soreThroat: false,
+        difficultyBreathing: false,
+        vomiting: false,
+        diarrhea: false,
+        jaundice: false,
+        skinLesions: false,
+        uncoveredWounds: false
+      }
     });
     setEditingId(null);
   };
@@ -173,7 +225,17 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
       hasFever: boolToYesNo(todayDeclaration.hasFever),
       recentContact: boolToYesNo(todayDeclaration.recentContact),
       commitInform: boolToYesNo(todayDeclaration.commitInform),
-      policyAccepted: Boolean(todayDeclaration.policyAccepted)
+      policyAccepted: Boolean(todayDeclaration.policyAccepted),
+      symptomsDetail: {
+        cough: Boolean(todayDeclaration?.symptomsDetail?.cough),
+        soreThroat: Boolean(todayDeclaration?.symptomsDetail?.soreThroat),
+        difficultyBreathing: Boolean(todayDeclaration?.symptomsDetail?.difficultyBreathing),
+        vomiting: Boolean(todayDeclaration?.symptomsDetail?.vomiting),
+        diarrhea: Boolean(todayDeclaration?.symptomsDetail?.diarrhea),
+        jaundice: Boolean(todayDeclaration?.symptomsDetail?.jaundice),
+        skinLesions: Boolean(todayDeclaration?.symptomsDetail?.skinLesions),
+        uncoveredWounds: Boolean(todayDeclaration?.symptomsDetail?.uncoveredWounds)
+      }
     });
   };
 
@@ -209,6 +271,9 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
       <Card>
         <CardContent>
           <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>Declaración de Salud</Typography>
+          <Alert severity="info" sx={{ mb: 1.5 }}>
+            Semáforo sanitario: Verde (ingresa), Amarillo (avisa supervisor), Rojo (no ingresa a cocina/producción).
+          </Alert>
 
           {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
           {success && <Alert severity="success" sx={{ mb: 1.5 }}>{success}</Alert>}
@@ -236,6 +301,36 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
                   <FormControlLabel value="no" control={<Radio />} label="No tengo síntomas" />
                 </RadioGroup>
               </FormControl>
+
+              <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5, p: 1.25 }}>
+                <Typography sx={{ fontWeight: 700, mb: 0.5 }}>Checklist de síntomas (obligatorio en procedimiento)</Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+                  {[
+                    ['cough', 'Tos'],
+                    ['soreThroat', 'Dolor de garganta'],
+                    ['difficultyBreathing', 'Dificultad respiratoria'],
+                    ['vomiting', 'Vómitos'],
+                    ['diarrhea', 'Diarrea'],
+                    ['jaundice', 'Ictericia'],
+                    ['skinLesions', 'Lesiones cutáneas'],
+                    ['uncoveredWounds', 'Heridas/cortes sin cubrir']
+                  ].map(([key, label]) => (
+                    <FormControlLabel
+                      key={key}
+                      control={(
+                        <Checkbox
+                          checked={Boolean(form.symptomsDetail?.[key])}
+                          onChange={(e) => setForm((prev) => ({
+                            ...prev,
+                            symptomsDetail: { ...prev.symptomsDetail, [key]: e.target.checked }
+                          }))}
+                        />
+                      )}
+                      label={label}
+                    />
+                  ))}
+                </Box>
+              </Box>
 
               <FormControl>
                 <FormLabel>2. ¿Tenés fiebre?</FormLabel>
@@ -273,6 +368,19 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
                 </Button>
                 {editingId && <Button variant="text" onClick={() => setEditingId(null)}>Cancelar edición</Button>}
               </Box>
+              {(() => {
+                const evalPreview = buildHealthEvaluation({
+                  hasSymptoms: Object.values(form.symptomsDetail || {}).some(Boolean) || yesNoValue(form.hasSymptoms) === true,
+                  hasFever: yesNoValue(form.hasFever) === true,
+                  recentContact: yesNoValue(form.recentContact) === true,
+                  symptomsDetail: form.symptomsDetail
+                });
+                return (
+                  <Alert severity={evalPreview.trafficLight === 'Rojo' ? 'error' : evalPreview.trafficLight === 'Amarillo' ? 'warning' : 'success'}>
+                    Estado: {evalPreview.healthStatus} ({evalPreview.trafficLight}). {evalPreview.suggestedAction}
+                  </Alert>
+                );
+              })()}
             </Box>
           )}
         </CardContent>
@@ -290,6 +398,8 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
                   <TableCell>Fiebre</TableCell>
                   <TableCell>Contacto</TableCell>
                   <TableCell>Política</TableCell>
+                  <TableCell>Estado</TableCell>
+                  <TableCell>Semáforo</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -300,11 +410,13 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
                     <TableCell>{renderBoolean(item.hasFever)}</TableCell>
                     <TableCell>{renderBoolean(item.recentContact)}</TableCell>
                     <TableCell>{item.policyAccepted ? 'Aceptada' : 'No'}</TableCell>
+                    <TableCell>{item.healthStatus || '-'}</TableCell>
+                    <TableCell>{item.trafficLight || '-'}</TableCell>
                   </TableRow>
                 ))}
                 {history.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5}>Sin declaraciones cargadas.</TableCell>
+                    <TableCell colSpan={7}>Sin declaraciones cargadas.</TableCell>
                   </TableRow>
                 )}
               </TableBody>

@@ -44,6 +44,8 @@ export default function HealthDeclarationHistoryPage() {
                   <TableCell>Fiebre</TableCell>
                   <TableCell>Contacto</TableCell>
                   <TableCell>Política</TableCell>
+                  <TableCell>Estado</TableCell>
+                  <TableCell>Semáforo</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -54,11 +56,13 @@ export default function HealthDeclarationHistoryPage() {
                     <TableCell>{yesNo(item.hasFever)}</TableCell>
                     <TableCell>{yesNo(item.recentContact)}</TableCell>
                     <TableCell>{item.policyAccepted ? 'Aceptada' : 'No'}</TableCell>
+                    <TableCell>{item.healthStatus || '-'}</TableCell>
+                    <TableCell>{item.trafficLight || '-'}</TableCell>
                   </TableRow>
                 ))}
                 {rows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5}>Sin declaraciones cargadas.</TableCell>
+                    <TableCell colSpan={7}>Sin declaraciones cargadas.</TableCell>
                   </TableRow>
                 )}
               </TableBody>

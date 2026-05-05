@@ -37,6 +37,9 @@ export default function HealthPoliciesPage() {
             <Typography sx={{ whiteSpace: 'pre-wrap' }} color="text.secondary">
               {policy.content || policy.text || 'Sin contenido cargado.'}
             </Typography>
+            <Typography sx={{ mt: 2, whiteSpace: 'pre-wrap' }} color="text.secondary">
+              {'Inducción mínima: completá la DDJJ antes de iniciar tareas, informá síntomas de inmediato, respetá la confidencialidad y seguí indicaciones de supervisor/calidad.'}
+            </Typography>
           </>
         )}
       </CardContent>

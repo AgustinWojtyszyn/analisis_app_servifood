@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Box, Button, Card, CardContent, CircularProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import { deleteHealthDeclarationById, exportHealthDeclarations, getAdminHealthDeclarations } from '../services/healthDeclarations';
 
 function yesNo(value) {
@@ -10,6 +10,13 @@ export default function HealthDeclarationsAdminPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const visibleRows = rows.filter((row) => {
+    if (statusFilter === 'all') return true;
+    return String(row.healthStatus || '').toLowerCase() === statusFilter;
+  });
+  const yellowOrRed = rows.filter((row) => ['Rojo', 'Amarillo'].includes(String(row.trafficLight || ''))).length;
 
   useEffect(() => {
     load();
@@ -44,6 +51,22 @@ export default function HealthDeclarationsAdminPage() {
           <Typography variant="h5" sx={{ fontWeight: 800 }}>Gestor de Declaraciones de Salud</Typography>
           <Button variant="outlined" onClick={exportHealthDeclarations}>Exportar Excel</Button>
         </Box>
+        <Box sx={{ display: 'flex', gap: 1, mb: 1.25, flexWrap: 'wrap' }}>
+          <TextField
+            select
+            size="small"
+            label="Filtrar estado"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            sx={{ minWidth: 220 }}
+          >
+            <MenuItem value="all">Todos</MenuItem>
+            <MenuItem value="apto">Apto</MenuItem>
+            <MenuItem value="requiere evaluación">Requiere evaluación</MenuItem>
+            <MenuItem value="no apto">No Apto</MenuItem>
+          </TextField>
+          {yellowOrRed > 0 && <Alert severity="warning">Alertas activas: {yellowOrRed} casos Amarillo/Rojo</Alert>}
+        </Box>
 
         {loading && <CircularProgress size={22} />}
         {!loading && error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
@@ -60,11 +83,13 @@ export default function HealthDeclarationsAdminPage() {
                   <TableCell>Fiebre</TableCell>
                   <TableCell>Contacto</TableCell>
                   <TableCell>Política</TableCell>
+                  <TableCell>Estado</TableCell>
+                  <TableCell>Semáforo</TableCell>
                   <TableCell>Acción</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {rows.map((item) => (
+                {visibleRows.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>{item.userName}</TableCell>
                     <TableCell>{item.userEmail || '-'}</TableCell>
@@ -73,14 +98,16 @@ export default function HealthDeclarationsAdminPage() {
                     <TableCell>{yesNo(item.hasFever)}</TableCell>
                     <TableCell>{yesNo(item.recentContact)}</TableCell>
                     <TableCell>{item.policyAccepted ? 'Aceptada' : 'No'}</TableCell>
+                    <TableCell>{item.healthStatus || '-'}</TableCell>
+                    <TableCell>{item.trafficLight || '-'}</TableCell>
                     <TableCell>
                       <Button size="small" color="error" onClick={() => remove(item.id)}>Eliminar</Button>
                     </TableCell>
                   </TableRow>
                 ))}
-                {!rows.length && (
+                {!visibleRows.length && (
                   <TableRow>
-                    <TableCell colSpan={8}>No hay declaraciones registradas.</TableCell>
+                    <TableCell colSpan={10}>No hay declaraciones registradas.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
