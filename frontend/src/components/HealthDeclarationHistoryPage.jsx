@@ -10,23 +10,23 @@ function getTrafficLightStyles(trafficLight) {
   const value = String(trafficLight || '').toLowerCase();
   if (value === 'rojo') {
     return {
-      rowBg: 'rgba(220, 38, 38, 0.14)',
-      cellBg: '#dc2626',
-      cellColor: '#ffffff'
+      rowBg: '#fee2e2',
+      cellBg: '#fee2e2',
+      cellColor: '#991b1b'
     };
   }
   if (value === 'amarillo') {
     return {
-      rowBg: 'rgba(245, 158, 11, 0.16)',
-      cellBg: '#f59e0b',
-      cellColor: '#111827'
+      rowBg: '#fef9c3',
+      cellBg: '#fef9c3',
+      cellColor: '#854d0e'
     };
   }
   if (value === 'verde') {
     return {
-      rowBg: 'rgba(22, 163, 74, 0.14)',
-      cellBg: '#16a34a',
-      cellColor: '#ffffff'
+      rowBg: '#dcfce7',
+      cellBg: '#dcfce7',
+      cellColor: '#166534'
     };
   }
   return {
