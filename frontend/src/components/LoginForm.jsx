@@ -99,7 +99,10 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
       email: email.trim(),
       password,
       options: {
-        data: { name: name.trim() },
+        data: {
+          name: name.trim(),
+          full_name: name.trim()
+        },
         emailRedirectTo
       }
     });
