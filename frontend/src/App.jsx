@@ -31,7 +31,7 @@ const sectionPathMap = {
   tutorial: '/tutorial',
   adminUsers: '/admin-usuarios',
   declaration: '/declaracion-salud',
-  policies: '/politicas',
+  policies: '/politicas-seguridad',
   declarationHistory: '/mi-declaraciones',
   adminHealthDeclarations: '/admin-declaraciones-salud'
 };
@@ -41,18 +41,29 @@ const publicAuthPathMap = {
   '/signup': '/register'
 };
 
+const publicPaths = new Set(['/', '/login', '/register']);
+const protectedPathAliases = {
+  '/politicas': '/politicas-seguridad'
+};
+const USER_ALLOWED_SECTIONS = new Set(['declaration', 'policies']);
+
+function normalizeProtectedPath(pathname) {
+  return protectedPathAliases[pathname] || pathname;
+}
+
 function normalizePublicPath(pathname) {
   const mappedPath = publicAuthPathMap[pathname] || pathname;
-  if (mappedPath === '/' || mappedPath === '/login' || mappedPath === '/register') {
+  if (publicPaths.has(mappedPath)) {
     return mappedPath;
   }
-  return '/';
+  return '/login';
 }
 
 function getSectionFromPath(pathname) {
-  if (pathname.startsWith('/analisis/')) return 'history';
-  const match = Object.entries(sectionPathMap).find(([, path]) => path === pathname);
-  return match?.[0] || 'history';
+  const normalizedPath = normalizeProtectedPath(pathname);
+  if (normalizedPath.startsWith('/analisis/')) return 'history';
+  const match = Object.entries(sectionPathMap).find(([, path]) => path === normalizedPath);
+  return match?.[0] || 'declaration';
 }
 
 function MainApp({ user, onLogout }) {
@@ -73,10 +84,8 @@ function MainApp({ user, onLogout }) {
   const sidebarSections = useMemo(() => {
     if (!isAdmin) {
       return [
-        { id: 'history', label: 'Análisis de Desvíos' },
         { id: 'declaration', label: 'Declaración de Salud' },
-        { id: 'policies', label: 'Políticas' },
-        { id: 'declarationHistory', label: 'Mi Historial' }
+        { id: 'policies', label: 'Políticas de Seguridad' }
       ];
     }
 
@@ -96,9 +105,14 @@ function MainApp({ user, onLogout }) {
 
   useEffect(() => {
     const handlePopState = () => {
-      setCurrentSection(getSectionFromPath(window.location.pathname));
-      const id = window.location.pathname.startsWith('/analisis/')
-        ? window.location.pathname.replace('/analisis/', '')
+      const normalizedPath = normalizeProtectedPath(window.location.pathname);
+      if (window.location.pathname !== normalizedPath) {
+        window.history.replaceState({}, '', normalizedPath);
+      }
+
+      setCurrentSection(getSectionFromPath(normalizedPath));
+      const id = normalizedPath.startsWith('/analisis/')
+        ? normalizedPath.replace('/analisis/', '')
         : null;
       if (id) {
         loadAnalysis(id);
@@ -135,9 +149,18 @@ function MainApp({ user, onLogout }) {
 
   useEffect(() => {
     if (!isAdmin) {
-      if (!['/historial', '/declaracion-salud', '/politicas', '/mi-declaraciones'].includes(window.location.pathname)) {
-        navigateToSection('history');
+      const normalizedPath = normalizeProtectedPath(window.location.pathname);
+      if (window.location.pathname !== normalizedPath) {
+        window.history.replaceState({}, '', normalizedPath);
       }
+
+      const sectionFromPath = getSectionFromPath(normalizedPath);
+      if (!USER_ALLOWED_SECTIONS.has(sectionFromPath)) {
+        navigateToSection('declaration');
+        return;
+      }
+
+      setCurrentSection(sectionFromPath);
       return;
     }
 
@@ -148,6 +171,10 @@ function MainApp({ user, onLogout }) {
   }, [isAdmin]);
 
   const navigateToSection = (nextSection) => {
+    if (!isAdmin && !USER_ALLOWED_SECTIONS.has(nextSection)) {
+      nextSection = 'declaration';
+    }
+
     const nextPath = sectionPathMap[nextSection] || '/historial';
     if (window.location.pathname !== nextPath) {
       window.history.pushState({}, '', nextPath);
@@ -156,6 +183,11 @@ function MainApp({ user, onLogout }) {
   };
 
   const navigateToAnalysis = (analysisId) => {
+    if (!isAdmin) {
+      navigateToSection('declaration');
+      return;
+    }
+
     const nextPath = `/analisis/${analysisId}`;
     if (window.location.pathname !== nextPath) {
       window.history.pushState({}, '', nextPath);
@@ -238,7 +270,21 @@ function MainApp({ user, onLogout }) {
   };
 
   const renderSection = () => {
+    if (!isAdmin && !USER_ALLOWED_SECTIONS.has(currentSection)) {
+      return (
+        <Paper sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+            No tenés permisos para acceder a esta sección
+          </Typography>
+          <Typography color="text.secondary">
+            Solo podés acceder a Declaración de Salud y Políticas de Seguridad.
+          </Typography>
+        </Paper>
+      );
+    }
+
     if (window.location.pathname.startsWith('/analisis/')) {
+      if (!isAdmin) return null;
       return renderDetailById();
     }
 
@@ -251,6 +297,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'declarationHistory') {
+      if (!isAdmin) return null;
       return <HealthDeclarationHistoryPage />;
     }
 
