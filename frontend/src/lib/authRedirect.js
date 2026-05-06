@@ -15,30 +15,25 @@ function isLocalOrigin(origin) {
   return origin === 'http://localhost:3000' || origin === 'http://localhost:5173';
 }
 
-function isBlockedProductionOrigin(origin) {
-  return origin === CUSTOM_DOMAIN;
-}
-
 export function resolveAuthRedirectUrl() {
   const envMode = import.meta.env.MODE;
   const isProd = envMode === 'production';
 
   const customFromEnv = normalizeUrl(import.meta.env.VITE_CUSTOM_DOMAIN_URL);
-  const renderFromEnv = normalizeUrl(import.meta.env.VITE_RENDER_URL);
   const publicFromEnv = normalizeUrl(import.meta.env.VITE_PUBLIC_SITE_URL);
 
   if (isProd) {
     const candidates = [
       publicFromEnv,
-      renderFromEnv,
-      RENDER_DOMAIN
-    ].filter(Boolean).filter((origin) => !isBlockedProductionOrigin(origin));
+      customFromEnv,
+      CUSTOM_DOMAIN
+    ].filter(Boolean);
 
-    const selected = candidates.find((origin) => !isLocalOrigin(origin) && !isBlockedProductionOrigin(origin));
+    const selected = candidates.find((origin) => !isLocalOrigin(origin) && origin !== RENDER_DOMAIN);
 
     if (!selected) {
-      console.warn('[auth] No valid production redirect URL found. Using Render fallback.');
-      return RENDER_DOMAIN;
+      console.warn('[auth] No valid production redirect URL found. Using custom domain fallback.');
+      return CUSTOM_DOMAIN;
     }
 
     return selected;

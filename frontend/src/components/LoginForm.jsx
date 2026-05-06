@@ -30,10 +30,38 @@ function mapSupabaseUser(user) {
   };
 }
 
+function sanitizeAuthErrorMessage(err) {
+  const message = (err?.message || '').toLowerCase();
+  const status = err?.status;
+
+  if (message.includes('user already registered') || message.includes('already been registered')) {
+    return 'Este email ya está registrado. Iniciá sesión o reenviá el correo de confirmación.';
+  }
+
+  if (message.includes('invalid login credentials')) {
+    return 'Credenciales inválidas. Verificá email y contraseña.';
+  }
+
+  if (message.includes('email not confirmed')) {
+    return 'Tu email todavía no está confirmado. Revisá tu correo o reenviá la confirmación.';
+  }
+
+  if (message.includes('password should be at least') || message.includes('password is too weak')) {
+    return 'La contraseña es muy corta. Usá al menos 6 caracteres.';
+  }
+
+  if (status === 400 && (message.includes('redirect') || message.includes('site url') || message.includes('not allowed'))) {
+    return 'Error de configuración de redirección de email. Contactá a soporte.';
+  }
+
+  return err?.message || 'Error de autenticación. Intentá nuevamente.';
+}
+
 export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBackToLanding, onSwitchMode }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [isRegister, setIsRegister] = useState(initialMode === 'register');
   const [name, setName] = useState('');
@@ -42,49 +70,142 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
     setIsRegister(initialMode === 'register');
   }, [initialMode]);
 
+  const validateInputs = () => {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      setError('Ingresá un email válido.');
+      return false;
+    }
+
+    if (!password || password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
+      return false;
+    }
+
+    if (isRegister && !name.trim()) {
+      setError('Ingresá tu nombre.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleRegister = async () => {
+    const emailRedirectTo = resolveAuthRedirectUrl();
+    console.info('[auth] register_attempt', { email: email.trim(), emailRedirectTo });
+
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: { name: name.trim() },
+        emailRedirectTo
+      }
+    });
+
+    if (signUpError) {
+      console.warn('[auth] register_error', {
+        message: signUpError.message,
+        status: signUpError.status
+      });
+      throw signUpError;
+    }
+
+    console.info('[auth] register_result', {
+      hasUser: Boolean(data?.user),
+      hasSession: Boolean(data?.session)
+    });
+
+    if (!data?.session) {
+      setInfoMessage('Cuenta creada. Revisá tu correo para confirmar la cuenta.');
+      return;
+    }
+
+    onLoginSuccess(mapSupabaseUser(data.session.user));
+  };
+
+  const handleLogin = async () => {
+    console.info('[auth] login_attempt', { email: email.trim() });
+
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password
+    });
+
+    if (signInError) {
+      console.warn('[auth] login_error', {
+        message: signInError.message,
+        status: signInError.status
+      });
+      throw signInError;
+    }
+
+    console.info('[auth] login_result', {
+      hasUser: Boolean(data?.user),
+      hasSession: Boolean(data?.session)
+    });
+
+    onLoginSuccess(mapSupabaseUser(data.user));
+  };
+
+  const handleResendConfirmation = async () => {
+    setError('');
+    setInfoMessage('');
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('Ingresá el email para reenviar la confirmación.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const emailRedirectTo = resolveAuthRedirectUrl();
+      console.info('[auth] resend_confirmation_attempt', { email: trimmedEmail, emailRedirectTo });
+
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: trimmedEmail,
+        options: { emailRedirectTo }
+      });
+
+      if (resendError) {
+        console.warn('[auth] resend_confirmation_error', {
+          message: resendError.message,
+          status: resendError.status
+        });
+        throw resendError;
+      }
+
+      setInfoMessage('Correo de confirmación reenviado. Revisá tu bandeja y spam.');
+    } catch (err) {
+      setError(sanitizeAuthErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setInfoMessage('');
+
+    if (!validateInputs()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (isRegister) {
-        const emailRedirectTo = resolveAuthRedirectUrl();
-
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { name },
-            emailRedirectTo
-          }
-        });
-
-        if (signUpError) {
-          throw signUpError;
-        }
-
-        if (!data?.session) {
-          setError('Cuenta creada. Revisa tu email para confirmar la cuenta.');
-          return;
-        }
-
-        onLoginSuccess(mapSupabaseUser(data.session.user));
+        await handleRegister();
         return;
       }
 
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (signInError) {
-        throw signInError;
-      }
-
-      onLoginSuccess(mapSupabaseUser(data.user));
+      await handleLogin();
     } catch (err) {
-      setError(err?.message || 'Error de autenticacion');
+      setError(sanitizeAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -121,7 +242,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
             <Box
               component="img"
               src={servifoodLogo}
-              alt="ServiFood Logo"
+              alt="Servifood Logo"
               sx={{ width: '100%', maxWidth: 210, height: 84, objectFit: 'contain', mx: 'auto', display: 'block' }}
             />
             <Typography sx={{ mt: 1, color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>
@@ -138,6 +259,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
             </Typography>
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {infoMessage && <Alert severity="success" sx={{ mb: 2 }}>{infoMessage}</Alert>}
 
             <Box component="form" onSubmit={handleSubmit}>
               {isRegister && (
@@ -185,6 +307,19 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
                 {loading ? <CircularProgress size={24} /> : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesion')}
               </Button>
 
+              {!isRegister && (
+                <Button
+                  type="button"
+                  fullWidth
+                  variant="text"
+                  sx={{ mt: -1, mb: 1.5, textTransform: 'none' }}
+                  onClick={handleResendConfirmation}
+                  disabled={loading}
+                >
+                  Reenviar correo de confirmación
+                </Button>
+              )}
+
               <Box sx={{ textAlign: 'center' }}>
                 {onBackToLanding && (
                   <Button
@@ -209,6 +344,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
                         setIsRegister(nextIsRegister);
                       }
                       setError('');
+                      setInfoMessage('');
                     }}
                     sx={{ cursor: 'pointer' }}
                   >

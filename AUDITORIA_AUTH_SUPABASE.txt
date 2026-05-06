@@ -1,0 +1,186 @@
+AUDITORIA FLUJO AUTH - SUPABASE
+Fecha: 2026-05-06
+Proyecto: analisis_app_servifood
+
+1) DIAGNOSTICO EXACTO DEL BUG
+
+- El request con endpoint /token?grant_type=password se dispara desde:
+  frontend/src/components/LoginForm.jsx
+  en la llamada a:
+  supabase.auth.signInWithPassword({ email, password })
+
+- Confirmacion tecnica:
+  En todo el frontend, la unica llamada a signInWithPassword esta en LoginForm.jsx.
+
+- Sobre el flujo de registro:
+  El formulario ya tenia flujo separado por modo:
+  - Registro -> supabase.auth.signUp(...)
+  - Login -> supabase.auth.signInWithPassword(...)
+  No se detecto un useEffect ni un auto-login forzado luego de signUp cuando no hay session.
+
+- Bug adicional encontrado (importante):
+  En frontend/src/lib/authRedirect.js la logica de produccion bloqueaba explicitamente el dominio nuevo:
+  https://analisis.servifoodapp.site
+  y forzaba fallback al dominio de Render.
+  Esto puede provocar errores 400 vinculados a configuracion/redirect de auth por email.
+
+
+2) ARCHIVOS AFECTADOS
+
+- frontend/src/components/LoginForm.jsx
+- frontend/src/lib/authRedirect.js
+
+
+3) CAMBIOS MINIMOS NECESARIOS (APLICADOS)
+
+A. Separacion explicita de handlers en LoginForm.jsx
+- handleRegister() -> usa exclusivamente supabase.auth.signUp(...)
+- handleLogin() -> usa exclusivamente supabase.auth.signInWithPassword(...)
+- handleResendConfirmation() -> usa supabase.auth.resend({ type: "signup", email, options })
+
+B. Logs temporales seguros (sin password ni tokens)
+Se agregaron logs para distinguir:
+- register_attempt
+- register_result
+- register_error
+- login_attempt
+- login_result
+- login_error
+- resend_confirmation_attempt
+- resend_confirmation_error
+
+Datos logueados:
+- email (trimmed)
+- emailRedirectTo
+- error.message
+- error.status
+- hasUser
+- hasSession
+
+NO se loguean:
+- contraseñas
+- access token
+- refresh token
+
+C. Validaciones antes de enviar a Supabase
+- email no vacio
+- password minimo 6 caracteres
+- nombre obligatorio en registro
+
+D. Manejo de errores mejorado para UX
+Mensajes claros para:
+- email ya registrado
+- credenciales invalidas
+- email no confirmado
+- contraseña muy corta
+- error de redirect/configuracion
+
+E. Confirmacion por email (sin login forzado)
+- Si signUp responde sin session, se muestra mensaje:
+  "Cuenta creada. Revisa tu correo para confirmar la cuenta."
+- No se fuerza login inmediato en ese caso.
+
+F. Redirect auth en produccion corregido
+Archivo: frontend/src/lib/authRedirect.js
+- Se elimino el bloqueo del dominio nuevo.
+- Se priorizan candidatos validos incluyendo:
+  - VITE_PUBLIC_SITE_URL
+  - VITE_CUSTOM_DOMAIN_URL
+  - https://analisis.servifoodapp.site
+  - VITE_RENDER_URL
+  - https://analisis-app-servifood.onrender.com
+- Fallback ajustado a dominio custom si no hay candidato valido.
+
+
+4) PATCH SUGERIDO (RESUMEN)
+
+Archivo: frontend/src/components/LoginForm.jsx
+- Nueva funcion sanitizeAuthErrorMessage(err)
+- Nuevo estado infoMessage
+- Nuevas funciones:
+  - validateInputs
+  - handleRegister
+  - handleLogin
+  - handleResendConfirmation
+- handleSubmit ahora delega explicitamente por modo
+- Se agrega boton en modo login:
+  "Reenviar correo de confirmacion"
+- Se agregan Alert de tipo success para mensajes informativos
+
+Archivo: frontend/src/lib/authRedirect.js
+- Se elimina isBlockedProductionOrigin()
+- Se corrige seleccion de redirect URL para permitir el dominio nuevo
+
+
+5) RIESGOS ANTES DE PRODUCCION
+
+1. Configuracion Supabase Dashboard (critico)
+- Debe estar configurado correctamente:
+  - Site URL: https://analisis.servifoodapp.site
+  - Redirect URLs permitidas: incluir dominio nuevo
+  - Agregar Render/localhost solo si corresponde
+
+2. Si Dashboard no coincide con frontend
+- Puede seguir habiendo 400 de auth aunque el codigo ya este corregido.
+
+3. Logs temporales
+- Conviene quitarlos o dejarlos detras de una condicion por entorno antes de release final.
+
+
+6) PRUEBAS MANUALES PARA VALIDAR
+
+Caso 1: Crear cuenta nueva
+- Ir a /register
+- Completar nombre + email nuevo + password >= 6
+- Submit
+Esperado:
+- Se ejecuta signUp
+- Si requiere confirmacion, mensaje "Revisa tu correo"
+- En este submit NO debe aparecer /token?grant_type=password
+
+Caso 2: Crear cuenta con email ya usado
+- Ir a /register con email existente
+Esperado:
+- Mensaje claro de email ya registrado
+
+Caso 3: Login con cuenta confirmada
+- Ir a /login con credenciales validas y confirmadas
+Esperado:
+- Se ejecuta signInWithPassword
+- Login exitoso
+
+Caso 4: Login con cuenta no confirmada
+- Ir a /login con usuario sin confirmar
+Esperado:
+- Mensaje claro de email no confirmado
+
+Caso 5: Reenviar correo de confirmacion
+- En /login, cargar email
+- Click en "Reenviar correo de confirmacion"
+Esperado:
+- Se ejecuta supabase.auth.resend({ type: "signup", ... })
+- Mensaje de reenvio exitoso
+
+Caso 6: Logout/login nuevamente
+- Hacer logout
+- Volver a /login e iniciar sesion
+Esperado:
+- Sesion consistente, sin regresiones
+
+
+7) CRITERIO DE EXITO CONTRASTADO
+
+Objetivo: "Crear cuenta nueva no debe llamar /token?grant_type=password salvo login"
+Estado tras patch:
+- Flujo de registro usa signUp (separado)
+- Flujo de login usa signInWithPassword (separado)
+- Reenvio usa resend(type=signup)
+- Registro con confirmacion no fuerza login cuando no hay session
+
+
+8) VERIFICACION TECNICA
+
+- Build frontend ejecutado: OK
+  Comando: npm run build (en frontend)
+  Resultado: compilacion exitosa
+
