@@ -1,0 +1,92 @@
+{
+  "cases": [],
+  "records": [],
+  "summary": {
+    "actions": {
+      "abiertas": 0,
+      "cerradas": 0,
+      "enProceso": 0,
+      "sinAccion": 0
+    },
+    "byArea": {},
+    "byCategoria": {},
+    "byIso22000": {},
+    "byTipo": {},
+    "excelAudit": {
+      "conformesExplicitosReales": 0,
+      "ejemplosConformesAutoGenerados": [],
+      "ejemplosFilasDescartadas": [
+        {
+          "area": "Logística",
+          "descripcion": "Faltó mercadería en envío a cliente",
+          "desvioDetectado": "-",
+          "fecha": "2024-04-01",
+          "fila": 1,
+          "observaciones": "Se debe verificar inventario",
+          "responsable": "Pedro López"
+        },
+        {
+          "area": "Calidad",
+          "descripcion": "Producto en mal estado detectado en QA",
+          "desvioDetectado": "-",
+          "fecha": "2024-04-02",
+          "fila": 2,
+          "observaciones": "Producto devuelto a proveedor",
+          "responsable": "Laura Sánchez"
+        },
+        {
+          "area": "Ventas",
+          "descripcion": "Cliente reclamó demora en entrega",
+          "desvioDetectado": "-",
+          "fecha": "2024-04-03",
+          "fila": 3,
+          "observaciones": "Se ofreció compensación",
+          "responsable": "Pedro López"
+        },
+        {
+          "area": "Logística",
+          "descripcion": "Retraso en entrega de pedido",
+          "desvioDetectado": "-",
+          "fecha": "2024-04-04",
+          "fila": 4,
+          "observaciones": "Se comunicó al cliente",
+          "responsable": "Pedro López"
+        },
+        {
+          "area": "Operaciones",
+          "descripcion": "Incumplimiento interno de horarios",
+          "desvioDetectado": "-",
+          "fecha": "2024-04-05",
+          "fila": 5,
+          "observaciones": "Se requiere capacitación",
+          "responsable": "Carlos Mendez"
+        }
+      ],
+      "ejemplosRegistrosCreados": [],
+      "filasDescartadasDesvioVacio": 10,
+      "totalConformesAutoGenerados": 0,
+      "totalFilasLeidas": 10,
+      "totalRegistrosCreados": 0
+    },
+    "noFindingAudit": {
+      "conformesReales": 0,
+      "ejemplosConformesReales": [],
+      "ejemplosDescartadas": [],
+      "filasVaciasDescartadas": 0,
+      "totalNoFindingAntes": 10
+    },
+    "timestamp": "2026-05-06T11:55:58.816Z",
+    "totalCalidad": 0,
+    "totalCases": 0,
+    "totalConformes": 0,
+    "totalDesvios": 0,
+    "totalInocuidad": 0,
+    "totalLegal": 0,
+    "totalLogistica": 0,
+    "totalNC": 0,
+    "totalOBS": 0,
+    "totalOM": 0,
+    "totalRecords": 0,
+    "totalRevisionManual": 0
+  }
+}

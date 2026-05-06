@@ -1,0 +1,92 @@
+{
+  "cases": [],
+  "records": [],
+  "summary": {
+    "actions": {
+      "abiertas": 0,
+      "cerradas": 0,
+      "enProceso": 0,
+      "sinAccion": 0
+    },
+    "byArea": {},
+    "byCategoria": {},
+    "byIso22000": {},
+    "byTipo": {},
+    "excelAudit": {
+      "conformesExplicitosReales": 0,
+      "ejemplosConformesAutoGenerados": [],
+      "ejemplosFilasDescartadas": [
+        {
+          "area": "Cocina",
+          "descripcion": "Temperatura fuera de rango",
+          "desvioDetectado": "-",
+          "fecha": "2026-05-01",
+          "fila": 1,
+          "observaciones": "-",
+          "responsable": "-"
+        },
+        {
+          "area": "Depósito",
+          "descripcion": "Sin hallazgo detectado",
+          "desvioDetectado": "-",
+          "fecha": "2026-05-01",
+          "fila": 2,
+          "observaciones": "-",
+          "responsable": "-"
+        },
+        {
+          "area": "Compras",
+          "descripcion": "Se sugiere mejorar rotulado",
+          "desvioDetectado": "-",
+          "fecha": "2026-05-02",
+          "fila": 3,
+          "observaciones": "-",
+          "responsable": "-"
+        },
+        {
+          "area": "Producción",
+          "descripcion": "Falta cofia en operario",
+          "desvioDetectado": "-",
+          "fecha": "2026-05-03",
+          "fila": 4,
+          "observaciones": "-",
+          "responsable": "-"
+        },
+        {
+          "area": "Calidad",
+          "descripcion": "Sin hallazgo detectado",
+          "desvioDetectado": "-",
+          "fecha": "2026-05-03",
+          "fila": 5,
+          "observaciones": "-",
+          "responsable": "-"
+        }
+      ],
+      "ejemplosRegistrosCreados": [],
+      "filasDescartadasDesvioVacio": 5,
+      "totalConformesAutoGenerados": 0,
+      "totalFilasLeidas": 5,
+      "totalRegistrosCreados": 0
+    },
+    "noFindingAudit": {
+      "conformesReales": 0,
+      "ejemplosConformesReales": [],
+      "ejemplosDescartadas": [],
+      "filasVaciasDescartadas": 0,
+      "totalNoFindingAntes": 5
+    },
+    "timestamp": "2026-05-06T11:55:53.346Z",
+    "totalCalidad": 0,
+    "totalCases": 0,
+    "totalConformes": 0,
+    "totalDesvios": 0,
+    "totalInocuidad": 0,
+    "totalLegal": 0,
+    "totalLogistica": 0,
+    "totalNC": 0,
+    "totalOBS": 0,
+    "totalOM": 0,
+    "totalRecords": 0,
+    "totalRevisionManual": 0
+  }
+}
