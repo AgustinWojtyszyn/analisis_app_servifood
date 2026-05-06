@@ -188,8 +188,10 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
     setInfoMessage('');
+    const submitMode = isRegister ? 'register' : 'login';
 
     if (!validateInputs()) {
       return;
@@ -198,12 +200,15 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
     setLoading(true);
 
     try {
-      if (isRegister) {
+      if (submitMode === 'register') {
         await handleRegister();
         return;
       }
 
-      await handleLogin();
+      if (submitMode === 'login') {
+        await handleLogin();
+        return;
+      }
     } catch (err) {
       setError(sanitizeAuthErrorMessage(err));
     } finally {
@@ -323,6 +328,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
               <Box sx={{ textAlign: 'center' }}>
                 {onBackToLanding && (
                   <Button
+                    type="button"
                     onClick={onBackToLanding}
                     startIcon={<ArrowBackRoundedIcon />}
                     sx={{ mb: 1.25, textTransform: 'none', fontWeight: 600 }}
