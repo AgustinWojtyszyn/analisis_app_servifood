@@ -82,11 +82,17 @@ export default function HealthDeclarationHistoryPage() {
                 {rows.map((item) => (
                   <TableRow
                     key={item.id}
-                    sx={{
-                      backgroundColor: getTrafficLightStyles(item.trafficLight).rowBg,
-                      '&:hover': {
-                        backgroundColor: getTrafficLightStyles(item.trafficLight).rowBg
-                      }
+                    sx={() => {
+                      const styles = getTrafficLightStyles(item.trafficLight);
+                      return {
+                        '& td': {
+                          backgroundColor: styles.rowBg,
+                          color: styles.cellColor
+                        },
+                        '&:hover td': {
+                          backgroundColor: styles.rowBg
+                        }
+                      };
                     }}
                   >
                     <TableCell>{new Date(item.declaredAt || item.createdAt).toLocaleString('es-AR')}</TableCell>
@@ -97,7 +103,7 @@ export default function HealthDeclarationHistoryPage() {
                     <TableCell>{item.healthStatus || '-'}</TableCell>
                     <TableCell
                       sx={{
-                        backgroundColor: getTrafficLightStyles(item.trafficLight).cellBg,
+                        backgroundColor: getTrafficLightStyles(item.trafficLight).rowBg,
                         color: getTrafficLightStyles(item.trafficLight).cellColor,
                         fontWeight: 700
                       }}

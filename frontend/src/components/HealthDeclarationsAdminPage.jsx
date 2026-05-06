@@ -143,11 +143,17 @@ export default function HealthDeclarationsAdminPage() {
                 {visibleRows.map((item) => (
                   <TableRow
                     key={item.id}
-                    sx={{
-                      backgroundColor: getTrafficLightStyles(item.trafficLight).rowBg,
-                      '&:hover': {
-                        backgroundColor: getTrafficLightStyles(item.trafficLight).rowBg
-                      }
+                    sx={() => {
+                      const styles = getTrafficLightStyles(item.trafficLight);
+                      return {
+                        '& td': {
+                          backgroundColor: styles.rowBg,
+                          color: styles.cellColor
+                        },
+                        '&:hover td': {
+                          backgroundColor: styles.rowBg
+                        }
+                      };
                     }}
                   >
                     <TableCell>{item.userName}</TableCell>
@@ -160,7 +166,7 @@ export default function HealthDeclarationsAdminPage() {
                     <TableCell>{item.healthStatus || '-'}</TableCell>
                     <TableCell
                       sx={{
-                        backgroundColor: getTrafficLightStyles(item.trafficLight).cellBg,
+                        backgroundColor: getTrafficLightStyles(item.trafficLight).rowBg,
                         color: getTrafficLightStyles(item.trafficLight).cellColor,
                         fontWeight: 700
                       }}

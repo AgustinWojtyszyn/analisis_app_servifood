@@ -42,6 +42,32 @@ function renderBoolean(value) {
   return value ? 'Sí' : 'No';
 }
 
+function getTrafficLightStyles(trafficLight) {
+  const value = String(trafficLight || '').toLowerCase();
+  if (value === 'rojo') {
+    return {
+      rowBg: 'rgba(220, 38, 38, 0.14)',
+      cellColor: '#ffffff'
+    };
+  }
+  if (value === 'amarillo') {
+    return {
+      rowBg: 'rgba(245, 158, 11, 0.16)',
+      cellColor: '#111827'
+    };
+  }
+  if (value === 'verde') {
+    return {
+      rowBg: 'rgba(22, 163, 74, 0.14)',
+      cellColor: '#ffffff'
+    };
+  }
+  return {
+    rowBg: 'transparent',
+    cellColor: 'inherit'
+  };
+}
+
 function buildHealthEvaluation({ hasSymptoms = false, hasFever = false, recentContact = false, symptomsDetail = {} } = {}) {
   const detail = symptomsDetail && typeof symptomsDetail === 'object' ? symptomsDetail : {};
   const isRed = Boolean(detail.vomiting || detail.diarrhea || detail.jaundice || hasFever || detail.difficultyBreathing);
@@ -413,14 +439,28 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
               </TableHead>
               <TableBody>
                 {history.map((item) => (
-                  <TableRow key={item.id}>
+                  <TableRow
+                    key={item.id}
+                    sx={() => {
+                      const styles = getTrafficLightStyles(item.trafficLight);
+                      return {
+                        '& td': {
+                          backgroundColor: styles.rowBg,
+                          color: styles.cellColor
+                        },
+                        '&:hover td': {
+                          backgroundColor: styles.rowBg
+                        }
+                      };
+                    }}
+                  >
                     <TableCell>{new Date(item.declaredAt || item.createdAt).toLocaleString('es-AR')}</TableCell>
                     <TableCell>{renderBoolean(item.hasSymptoms)}</TableCell>
                     <TableCell>{renderBoolean(item.hasFever)}</TableCell>
                     <TableCell>{renderBoolean(item.recentContact)}</TableCell>
                     <TableCell>{item.policyAccepted ? 'Aceptada' : 'No'}</TableCell>
                     <TableCell>{item.healthStatus || '-'}</TableCell>
-                    <TableCell>{item.trafficLight || '-'}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{item.trafficLight || '-'}</TableCell>
                   </TableRow>
                 ))}
                 {history.length === 0 && (
