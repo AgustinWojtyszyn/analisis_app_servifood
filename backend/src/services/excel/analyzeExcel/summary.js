@@ -5,6 +5,7 @@ import { classifyDeviationCasesFromRecords } from '../../caseClassifier.js';
 function stripLegacyResultadoFields(record = {}) {
   const sanitized = { ...record };
   delete sanitized.resultado;
+  delete sanitized.responsable;
   return sanitized;
 }
 
