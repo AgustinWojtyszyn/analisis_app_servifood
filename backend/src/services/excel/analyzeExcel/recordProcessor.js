@@ -49,6 +49,7 @@ import {
   classifyActionStatusFromRow
 } from './actions.js';
 import { validateFinalRecord } from './validation.js';
+import { detectCompanyAreaFromRecord } from './companyDetector.js';
 
 function splitHallazgos(textoBase) {
   const source = normalizeCellValue(textoBase).trim();
@@ -544,8 +545,17 @@ function processRow({
     console.log('INPUT:', textForClassification);
   }
   const explicitAreaFromExcel = normalizeBrunoArea(rawRecord.areaProceso, textForClassification);
+  const detectedCompanyArea = detectCompanyAreaFromRecord({
+    rawRecord,
+    hallazgo: rawRecord.hallazgoDetectado,
+    descripcion: rawRecord.descripcion,
+    observaciones: rawRecord.observaciones,
+    textForClassification
+  });
 
-  let areaResult = detectAreasFromDescription(textForClassification, rawRecord.areaProceso);
+  let areaResult = detectedCompanyArea
+    ? { areas: [detectedCompanyArea], evidence: ['empresa/cliente detectado en el texto del desvío'] }
+    : detectAreasFromDescription(textForClassification, rawRecord.areaProceso);
   let areaClasificada = areaResult.areas.join(', ');
   let areaEvidence = areaResult.evidence;
   let { resultadoClasificado, tipoDesvio, reason: outcomeReason } = classifyOutcomeFromRow({
@@ -563,7 +573,7 @@ function processRow({
     resultadoClasificado,
     actividadRealizada: rawRecord.actividadRealizada
   });
-  if (explicitAreaFromExcel) {
+  if (!detectedCompanyArea && explicitAreaFromExcel) {
     areaClasificada = explicitAreaFromExcel;
     areaEvidence = ['área/sector explícito informado en Excel'];
   }
@@ -596,7 +606,9 @@ function processRow({
   resultadoClasificado = operationalOverride.resultadoClasificado;
   tipoDesvio = operationalOverride.tipoDesvio;
   iso22000 = operationalOverride.iso22000;
-  if (explicitAreaFromExcel) {
+  if (detectedCompanyArea) {
+    areaClasificada = detectedCompanyArea;
+  } else if (explicitAreaFromExcel) {
     areaClasificada = explicitAreaFromExcel;
   }
 
@@ -761,11 +773,13 @@ function processRow({
   const refinadoPorIA = false;
 
   const areaOperativaClasificada = areaClasificada;
-  let areaClasificadaFinal = composeAreaClasificada({
-    areaProcesoOriginal: rawRecord.areaProceso,
-    areaOperativaDetectada: areaOperativaClasificada,
-    contextText: textForClassification
-  });
+  let areaClasificadaFinal = detectedCompanyArea
+    ? detectedCompanyArea
+    : composeAreaClasificada({
+      areaProcesoOriginal: rawRecord.areaProceso,
+      areaOperativaDetectada: areaOperativaClasificada,
+      contextText: textForClassification
+    });
   const isAuditText = containsAny(normalizeIncidentText(textForClassification), ['auditoria', 'auditoría']);
   if (isAuditText) {
     areaClasificadaFinal = 'Área no identificada';
