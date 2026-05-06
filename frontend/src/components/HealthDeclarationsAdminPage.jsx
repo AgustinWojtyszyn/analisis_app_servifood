@@ -6,6 +6,36 @@ function yesNo(value) {
   return value ? 'Sí' : 'No';
 }
 
+function getTrafficLightStyles(trafficLight) {
+  const value = String(trafficLight || '').toLowerCase();
+  if (value === 'rojo') {
+    return {
+      rowBg: 'rgba(220, 38, 38, 0.14)',
+      cellBg: '#dc2626',
+      cellColor: '#ffffff'
+    };
+  }
+  if (value === 'amarillo') {
+    return {
+      rowBg: 'rgba(245, 158, 11, 0.16)',
+      cellBg: '#f59e0b',
+      cellColor: '#111827'
+    };
+  }
+  if (value === 'verde') {
+    return {
+      rowBg: 'rgba(22, 163, 74, 0.14)',
+      cellBg: '#16a34a',
+      cellColor: '#ffffff'
+    };
+  }
+  return {
+    rowBg: 'transparent',
+    cellBg: 'transparent',
+    cellColor: 'inherit'
+  };
+}
+
 export default function HealthDeclarationsAdminPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -111,7 +141,15 @@ export default function HealthDeclarationsAdminPage() {
               </TableHead>
               <TableBody>
                 {visibleRows.map((item) => (
-                  <TableRow key={item.id}>
+                  <TableRow
+                    key={item.id}
+                    sx={{
+                      backgroundColor: getTrafficLightStyles(item.trafficLight).rowBg,
+                      '&:hover': {
+                        backgroundColor: getTrafficLightStyles(item.trafficLight).rowBg
+                      }
+                    }}
+                  >
                     <TableCell>{item.userName}</TableCell>
                     <TableCell>{item.userEmail || '-'}</TableCell>
                     <TableCell>{new Date(item.declaredAt || item.createdAt).toLocaleString('es-AR')}</TableCell>
@@ -120,7 +158,15 @@ export default function HealthDeclarationsAdminPage() {
                     <TableCell>{yesNo(item.recentContact)}</TableCell>
                     <TableCell>{item.policyAccepted ? 'Aceptada' : 'No'}</TableCell>
                     <TableCell>{item.healthStatus || '-'}</TableCell>
-                    <TableCell>{item.trafficLight || '-'}</TableCell>
+                    <TableCell
+                      sx={{
+                        backgroundColor: getTrafficLightStyles(item.trafficLight).cellBg,
+                        color: getTrafficLightStyles(item.trafficLight).cellColor,
+                        fontWeight: 700
+                      }}
+                    >
+                      {item.trafficLight || '-'}
+                    </TableCell>
                     <TableCell>
                       <Button size="small" color="error" onClick={() => remove(item.id)}>Eliminar</Button>
                     </TableCell>
