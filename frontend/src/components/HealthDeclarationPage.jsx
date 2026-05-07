@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Checkbox,
   CircularProgress,
   FormControl,
@@ -97,9 +98,11 @@ function buildHealthEvaluation({ hasSymptoms = false, hasFever = false, recentCo
 }
 
 export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete }) {
+  const SERVIFOOD_LOGO_URL = 'https://analisis.servifoodapp.site/assets/servifood_logo_white_text_HQ-2783eac4.png';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [warning, setWarning] = useState('');
@@ -145,6 +148,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
 
       setCompletedToday(Boolean(today?.completed));
       setTodayDeclaration(today?.declaration || null);
+      setShowForm(false);
       setHistory(Array.isArray(myHistory) ? myHistory : []);
     } catch (err) {
       setError(err.message || 'No se pudo cargar la declaración');
@@ -227,6 +231,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
 
       setCompletedToday(true);
       setTodayDeclaration(response?.declaration || null);
+      setShowForm(false);
       setSuccess(editingId ? 'Declaración actualizada correctamente.' : 'Declaración completada correctamente.');
 
       if (check.payload.hasSymptoms || check.payload.hasFever || check.payload.recentContact) {
@@ -284,19 +289,70 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
 
   if (loading) {
     return (
-      <Card>
-        <CardContent sx={{ textAlign: 'center' }}>
+      <Card sx={{ bgcolor: '#0f172a', color: '#e2e8f0', border: '1px solid #1e293b' }}>
+        <CardContent sx={{ textAlign: 'center', py: 6 }}>
           <CircularProgress />
         </CardContent>
       </Card>
     );
   }
 
+  const traffic = String(todayDeclaration?.trafficLight || '').toLowerCase();
+  const statusChipSx = traffic === 'rojo'
+    ? { backgroundColor: '#dc2626', color: '#fff' }
+    : traffic === 'amarillo'
+      ? { backgroundColor: '#f59e0b', color: '#111827' }
+      : traffic === 'verde'
+        ? { backgroundColor: '#16a34a', color: '#fff' }
+        : { backgroundColor: '#f59e0b', color: '#111827' };
+
   return (
     <Box sx={{ display: 'grid', gap: 2 }}>
-      <Card>
-        <CardContent>
-          <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>Declaración de Salud</Typography>
+      <Box
+        sx={{
+          minHeight: { xs: 'auto', md: 'calc(100vh - 220px)' },
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          px: { xs: 1, sm: 2 }
+        }}
+      >
+        <Card
+          sx={{
+            width: '100%',
+            maxWidth: 760,
+            bgcolor: '#0f172a',
+            color: '#e2e8f0',
+            border: '1px solid #1e293b',
+            boxShadow: '0 20px 50px rgba(2, 6, 23, 0.45)',
+            borderRadius: 4
+          }}
+        >
+          <CardContent sx={{ p: { xs: 2.5, sm: 4, md: 5 } }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 }}>
+              <Box
+                component="img"
+                src={SERVIFOOD_LOGO_URL}
+                alt="ServiFood"
+                sx={{
+                  width: '100%',
+                  maxWidth: { xs: 220, sm: 300, md: 360 },
+                  height: 'auto',
+                  objectFit: 'contain'
+                }}
+              />
+            </Box>
+
+            <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+              Declaración de salud diaria
+            </Typography>
+            <Typography sx={{ color: '#cbd5e1', fontSize: { xs: '0.98rem', sm: '1.05rem' }, mb: 1 }}>
+              Antes de continuar, completá tu declaración sanitaria. Este control permite registrar tu estado de salud y cuidar a todas las personas del servicio.
+            </Typography>
+            <Typography sx={{ color: '#94a3b8', fontSize: '0.92rem', mb: 2.5 }}>
+              El formulario toma menos de 1 minuto.
+            </Typography>
+
           <Alert severity="info" sx={{ mb: 1.5 }}>
             Semáforo sanitario: Verde (ingresa), Amarillo (avisa supervisor), Rojo (no ingresa a cocina/producción).
           </Alert>
@@ -305,10 +361,31 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
           {success && <Alert severity="success" sx={{ mb: 1.5 }}>{success}</Alert>}
           {warning && <Alert severity="warning" sx={{ mb: 1.5 }}>{warning}</Alert>}
 
-          {completedToday && !editingId ? (
+          {!completedToday && !editingId && !showForm ? (
             <>
+              <Chip label="Declaración pendiente" sx={{ ...statusChipSx, fontWeight: 700, mb: 2 }} />
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  variant="contained"
+                  onClick={() => setShowForm(true)}
+                  sx={{ width: { xs: '100%', sm: 'auto' }, minHeight: 48, px: 3 }}
+                >
+                  Completar declaración de salud
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={onOpenPolicies}
+                  sx={{ width: { xs: '100%', sm: 'auto' }, minHeight: 48, color: '#e2e8f0', borderColor: '#475569' }}
+                >
+                  Ver política
+                </Button>
+              </Box>
+            </>
+          ) : completedToday && !editingId ? (
+            <>
+              <Chip label="Declaración completada" sx={{ ...statusChipSx, fontWeight: 700, mb: 2 }} />
               <Alert severity="info" sx={{ mb: 1.5 }}>
-                Ya completaste la declaración de hoy.
+                Declaración completada.
                 {todayDeclaration?.declaredAt ? ` (${new Date(todayDeclaration.declaredAt).toLocaleString('es-AR')})` : ''}
               </Alert>
               <Alert
@@ -402,6 +479,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
                   {saving ? 'Guardando...' : (editingId ? 'Guardar cambios' : 'Enviar declaración')}
                 </Button>
                 {editingId && <Button variant="text" onClick={() => setEditingId(null)}>Cancelar edición</Button>}
+                {!editingId && !completedToday && <Button variant="text" onClick={() => setShowForm(false)}>Volver</Button>}
               </Box>
               {(() => {
                 const evalPreview = buildHealthEvaluation({
@@ -418,8 +496,9 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
               })()}
             </Box>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </Box>
 
       <Card>
         <CardContent>
