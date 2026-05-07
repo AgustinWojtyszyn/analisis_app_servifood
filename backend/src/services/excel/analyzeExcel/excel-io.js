@@ -101,8 +101,25 @@ function detectHeaderRowIndex(sheet) {
 
 function selectBestWorksheet(workbook) {
   const sheets = workbook.worksheets || [];
-  if (sheets.length === 0) return null;
-  if (sheets.length === 1) return sheets[0];
+  if (sheets.length === 0) return { chosen: null, ranking: [] };
+  if (sheets.length === 1) {
+    const only = sheets[0];
+    return {
+      chosen: only,
+      ranking: [
+        {
+          rank: 1,
+          sheetName: only?.name || '',
+          rowsAfterHeader: Math.max(0, (only?.rowCount || 0) - 1),
+          detectedHeaderRow: 1,
+          headerMatchCount: 0,
+          deviationHeaderCount: 0,
+          longTextCells: 0,
+          totalScore: 0
+        }
+      ]
+    };
+  }
 
   const headerSignalRegex = /(descripcion|desvio|desviacion|observacion|hallazgo|detalle|comentario|nota|accion|resultado|tipo|sector|fecha)/i;
 
