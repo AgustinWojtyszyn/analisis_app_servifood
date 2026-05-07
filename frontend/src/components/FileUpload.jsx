@@ -73,6 +73,15 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
 
   const handleFileChange = (e) => {
     applyFiles(e.target.files);
+    if (import.meta.env.DEV) {
+      const first = e.target.files?.[0];
+      // Debug temporal en desarrollo para validar selección de archivo.
+      console.log({
+        selectedFileName: first?.name || null,
+        selectedFileSize: first?.size || null,
+        selectedFileType: first?.type || null
+      });
+    }
   };
 
   const handleRemove = (filename) => {
@@ -93,8 +102,19 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
     setFileStatuses((prev) => prev.map((item) => ({ ...item, status: 'procesando' })));
 
     try {
+      if (import.meta.env.DEV) {
+        console.log({
+          uploadEndpoint: `${import.meta.env.VITE_API_URL || '/api'}/analysis/upload-multiple`,
+          method: 'POST',
+          formDataField: 'files',
+          filesCount: files.length,
+          filenames: files.map((f) => f.name)
+        });
+      }
       const response = await uploadMultipleAnalysis(files);
       const resultMap = new Map((response?.results || []).map((r) => [r.filename, r]));
+      const okCount = Number(response?.ok || 0);
+      const failCount = Number(response?.fail || 0);
 
       setFileStatuses((prev) => prev.map((item) => {
         const result = resultMap.get(item.filename);
@@ -103,7 +123,11 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
         return { ...item, status: 'error', error: result.error || 'Error procesando' };
       }));
 
-      onUploadSuccess?.(response);
+      if (okCount > 0) {
+        onUploadSuccess?.(response);
+      } else if (failCount > 0) {
+        setError('No se pudo procesar ningún archivo del lote. Revisá los errores por archivo.');
+      }
     } catch (err) {
       setError(err.message || 'Error cargando archivos');
       setFileStatuses((prev) => prev.map((item) => ({ ...item, status: 'error', error: err.message || 'Error general' })));

@@ -13,6 +13,7 @@ const supabaseAdmin = supabaseUrl && serviceRoleKey
   : null;
 const prisma = new PrismaClient();
 const STATUS_VALUES = new Set(['active', 'exported', 'archived']);
+const ENABLE_DEBUG_EXCEL_ANALYSIS = process.env.DEBUG_EXCEL_ANALYSIS === 'true';
 
 function returnSupabaseError(res, context, error, fallbackMessage = 'Error en Supabase') {
   const details = {
@@ -298,6 +299,18 @@ export async function uploadAndAnalyze(req, res) {
       return res.status(400).json({ error: 'Excel file is required' });
     }
 
+    if (ENABLE_DEBUG_EXCEL_ANALYSIS) {
+      console.log({
+        endpoint: 'POST /analysis/upload-excel',
+        hasFile: !!req.file,
+        fileField: req.file?.fieldname || null,
+        originalname: req.file?.originalname || null,
+        mimetype: req.file?.mimetype || null,
+        size: req.file?.size || null,
+        bodyKeys: Object.keys(req.body || {})
+      });
+    }
+
     const analysis = await processExcelFile(req.file, req.user.id);
 
     return res.json({
@@ -318,6 +331,16 @@ export async function uploadAndAnalyzeMultiple(req, res) {
     }
 
     const files = req.files || [];
+    if (ENABLE_DEBUG_EXCEL_ANALYSIS) {
+      console.log({
+        endpoint: 'POST /analysis/upload-multiple',
+        hasFiles: Array.isArray(files) && files.length > 0,
+        filesCount: Array.isArray(files) ? files.length : 0,
+        fields: Array.isArray(files) ? files.map((f) => f.fieldname) : [],
+        names: Array.isArray(files) ? files.map((f) => f.originalname) : [],
+        bodyKeys: Object.keys(req.body || {})
+      });
+    }
     if (!Array.isArray(files) || files.length === 0) {
       return res.status(400).json({ error: 'Debes enviar al menos un archivo Excel' });
     }

@@ -21,6 +21,12 @@ import { normalizeCellValue, normalizeIncidentText } from './analyzeExcel/normal
 const ENABLE_CLASSIFICATION_TRACE = process.env.CLASSIFICATION_TRACE === '1';
 const ENABLE_FILLDOWN_TRACE = process.env.EXCEL_FILLDOWN_TRACE === '1';
 
+function hasUsefulDeviationText(text = '') {
+  const normalized = normalizeIncidentText(text || '');
+  if (!normalized) return false;
+  return !['-', 'na', 'n a', 'nd', 'n d', 's d', 's/d'].includes(normalized);
+}
+
 /**
  * Analiza un archivo Excel y clasifica desvios en base a reglas textuales objetivas.
  */
@@ -53,6 +59,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
     };
     const fillDownState = createFillDownState();
     const diagnostics = {
+      hasFile: true,
+      workbookSheets: parsingDiagnostics?.workbookSheets || [],
       worksheetSelected: parsingDiagnostics?.worksheetSelected || null,
       worksheetRanking: parsingDiagnostics?.worksheetRanking || [],
       totalPhysicalRows: totalRows,
@@ -101,9 +109,11 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         });
       }
 
-      if (!processed.skipped) {
+      if (hasUsefulDeviationText(rawDeviationValue)) {
         diagnostics.rowsWithDeviationText += 1;
-      } else {
+      }
+
+      if (processed.skipped) {
         diagnostics.discardedRowsCount += 1;
         if (diagnostics.discardedSamples.length < 20) {
           diagnostics.discardedSamples.push({

@@ -249,6 +249,10 @@ async function loadExcelParsingContext(fileBuffer) {
     headerIndexes,
     rows,
     diagnostics: {
+      workbookSheets: (workbook.worksheets || []).map((ws) => ({
+        name: ws.name,
+        rowCount: ws.rowCount || 0
+      })),
       worksheetSelected: sheet.name,
       worksheetRanking: sheetSelection?.ranking || [],
       detectedHeaderRow: headerRowIndex,
