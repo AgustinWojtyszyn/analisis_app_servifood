@@ -1,4 +1,4 @@
-import React, { useId, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -19,7 +19,7 @@ function isExcel(file) {
 }
 
 export default function FileUpload({ onUploadSuccess, showHeader = true }) {
-  const inputId = useId();
+  const inputId = useMemo(() => `file-input-${Math.random().toString(36).slice(2, 10)}`, []);
   const [dragActive, setDragActive] = useState(false);
   const [files, setFiles] = useState([]);
   const [fileStatuses, setFileStatuses] = useState([]);
@@ -162,6 +162,7 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
             <input
               type="file"
               multiple
+              name="excel_files"
               accept=".xlsx,.xls"
               onChange={handleFileChange}
               style={{ display: 'none' }}

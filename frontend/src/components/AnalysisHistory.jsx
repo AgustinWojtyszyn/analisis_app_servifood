@@ -156,23 +156,23 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
       <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>Dashboard de análisis</Typography>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(4, minmax(0,1fr))' }, gap: 1, mb: 1.5 }}>
-        <TextField size="small" label="Buscar archivo" value={filters.search} onChange={(e) => onFilterChange({ search: e.target.value })} />
-        <TextField size="small" type="date" label="Desde" InputLabelProps={{ shrink: true }} value={filters.from} onChange={(e) => onFilterChange({ from: e.target.value })} />
-        <TextField size="small" type="date" label="Hasta" InputLabelProps={{ shrink: true }} value={filters.to} onChange={(e) => onFilterChange({ to: e.target.value })} />
-        <TextField size="small" select label="Estado" value={filters.status} onChange={(e) => onFilterChange({ status: e.target.value })}>
+        <TextField id="history-search" name="history_search" size="small" label="Buscar archivo" value={filters.search} onChange={(e) => onFilterChange({ search: e.target.value })} />
+        <TextField id="history-from" name="history_from" size="small" type="date" label="Desde" InputLabelProps={{ shrink: true }} value={filters.from} onChange={(e) => onFilterChange({ from: e.target.value })} />
+        <TextField id="history-to" name="history_to" size="small" type="date" label="Hasta" InputLabelProps={{ shrink: true }} value={filters.to} onChange={(e) => onFilterChange({ to: e.target.value })} />
+        <TextField id="history-status" name="history_status" size="small" select label="Estado" value={filters.status} onChange={(e) => onFilterChange({ status: e.target.value })}>
           <MenuItem value="">Todos</MenuItem>
           <MenuItem value="active">active</MenuItem>
           <MenuItem value="exported">exported</MenuItem>
           <MenuItem value="archived">archived</MenuItem>
         </TextField>
-        <TextField size="small" type="number" label="Mín. registros" value={filters.minRecords} onChange={(e) => onFilterChange({ minRecords: e.target.value })} />
-        <TextField size="small" type="number" label="Mín. NC" value={filters.minNC} onChange={(e) => onFilterChange({ minNC: e.target.value })} />
-        <TextField size="small" type="number" label="Mín. OBS" value={filters.minOBS} onChange={(e) => onFilterChange({ minOBS: e.target.value })} />
-        <TextField size="small" type="number" label="Mín. conformes" value={filters.minConformes} onChange={(e) => onFilterChange({ minConformes: e.target.value })} />
+        <TextField id="history-min-records" name="history_min_records" size="small" type="number" label="Mín. registros" value={filters.minRecords} onChange={(e) => onFilterChange({ minRecords: e.target.value })} />
+        <TextField id="history-min-nc" name="history_min_nc" size="small" type="number" label="Mín. NC" value={filters.minNC} onChange={(e) => onFilterChange({ minNC: e.target.value })} />
+        <TextField id="history-min-obs" name="history_min_obs" size="small" type="number" label="Mín. OBS" value={filters.minOBS} onChange={(e) => onFilterChange({ minOBS: e.target.value })} />
+        <TextField id="history-min-conformes" name="history_min_conformes" size="small" type="number" label="Mín. conformes" value={filters.minConformes} onChange={(e) => onFilterChange({ minConformes: e.target.value })} />
         {isAdmin && (
-          <TextField size="small" label="Usuario (UUID)" value={filters.userId} onChange={(e) => onFilterChange({ userId: e.target.value })} />
+          <TextField id="history-user-id" name="history_user_id" size="small" label="Usuario (UUID)" value={filters.userId} onChange={(e) => onFilterChange({ userId: e.target.value })} />
         )}
-        <TextField size="small" select label="Orden" value={filters.sort} onChange={(e) => onFilterChange({ sort: e.target.value })}>
+        <TextField id="history-sort" name="history_sort" size="small" select label="Orden" value={filters.sort} onChange={(e) => onFilterChange({ sort: e.target.value })}>
           <MenuItem value="date_desc">Fecha desc</MenuItem>
           <MenuItem value="date_asc">Fecha asc</MenuItem>
           <MenuItem value="name_asc">Nombre asc</MenuItem>
@@ -182,7 +182,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
           <MenuItem value="nc_desc">NC desc</MenuItem>
           <MenuItem value="nc_asc">NC asc</MenuItem>
         </TextField>
-        <TextField size="small" select label="Por página" value={filters.limit} onChange={(e) => onFilterChange({ limit: Number(e.target.value), page: 1 })}>
+        <TextField id="history-limit" name="history_limit" size="small" select label="Por página" value={filters.limit} onChange={(e) => onFilterChange({ limit: Number(e.target.value), page: 1 })}>
           {limitOptions.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
         </TextField>
       </Box>
