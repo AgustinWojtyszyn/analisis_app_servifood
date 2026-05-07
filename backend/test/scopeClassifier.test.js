@@ -22,3 +22,11 @@ test('Internos por proceso/equipo/planta', () => {
   assert.equal(scopeOf('El deposito se encuentra cerrado por tardanza de personal'), 'Interno');
   assert.equal(scopeOf('Falla de mantenimiento detectada en planta antes de entregar al cliente'), 'Interno');
 });
+
+test('Ajuste fino de alcance logístico interno/externo', () => {
+  assert.equal(scopeOf('Falta de cajones para despacho'), 'Interno');
+  assert.equal(scopeOf('La Laja sale tarde'), 'Externo');
+  assert.equal(scopeOf('No sale cena de bodega'), 'Interno');
+  assert.equal(scopeOf('No se envió fruta al Easy'), 'Externo');
+  assert.equal(scopeOf('No se enviaron almuerzos para celíacos para Monteverde'), 'Externo');
+});
