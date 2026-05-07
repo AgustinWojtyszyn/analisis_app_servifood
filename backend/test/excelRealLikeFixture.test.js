@@ -87,6 +87,8 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   assert.equal(result.records.length, 34);
   assert.equal(result.summary?.totalRecords, 34);
   assert.equal(result.summary?.totalDesvios, 34);
+  const hasYear2026 = result.records.some((r) => String(r.fecha || '').startsWith('2026-'));
+  assert.equal(hasYear2026, false, 'No deben existir fechas 2026 cuando el contexto del archivo es 2025');
 
   const rejectedDeviationRows = (result.diagnostics.rowsAudit || []).filter((r) =>
     r.rowNumber >= 2
@@ -113,6 +115,17 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   assert.equal(byFinding.get('se rompe el batidor')?.alcanceDesvio, 'Interno');
   assert.equal(byFinding.get('no se enviaron los almuerzos para celiacos para monteverde')?.categoriaDesvio, 'Desvío de Logística');
   assert.equal(byFinding.get('no se enviaron los almuerzos para celiacos para monteverde')?.alcanceDesvio, 'Externo');
+  assert.equal(byFinding.get('la laja sale tarde')?.areaClasificada, 'La Laja');
+  assert.equal(byFinding.get('no se envio junto con el recorrido la limonada y fruta a scop')?.areaClasificada, 'SCOP');
+  assert.equal(byFinding.get('falto comida para celiaco en la laja (1)')?.areaClasificada, 'La Laja');
+  assert.notEqual(byFinding.get('carne de mg no apta exceder el gramaje solicitado en los bifes')?.areaClasificada, 'Logística');
+  const banana = byFinding.get('banana oxidada o pasada en bandejas de refrigerio fruta lista para despacho');
+  assert.equal(banana?.categoriaDesvio, 'Desvío de Inocuidad');
+  assert.match(String(banana?.accionCorrectiva || '').toLowerCase(), /retirar el producto no conforme/);
+  const pizzas = byFinding.get('no se enviaron pizzas al easy');
+  assert.match(String(pizzas?.accionCorrectiva || '').toLowerCase(), /verificar el faltante/);
+  const viandas = byFinding.get('las viandas estan pasadas de peso');
+  assert.match(String(viandas?.accionCorrectiva || '').toLowerCase(), /fuera de especificacion|fuera de especificación|gramaje/);
   assert.ok((result.summary?.totalInternos || 0) > 0);
   assert.ok((result.summary?.totalExternos || 0) > 0);
 

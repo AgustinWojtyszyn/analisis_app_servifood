@@ -213,7 +213,7 @@ function detectExactLocations(text) {
   if (containsAny(normalized, ['comedor'])) sectorAreas.push('Comedor');
   if (containsAny(normalized, ['pasillo', 'pasillos'])) sectorAreas.push('Pasillo principal');
   if (containsAny(normalized, ['planta', 'recorrida de planta', 'area comun', 'área común', 'áreas comunes', 'sector general', 'en general'])) sectorAreas.push('Áreas comunes');
-  if (containsAny(normalized, ['easy', 'scop', 'hospital mental', 'pocito', 'la laja'])) clientAreas.push('Logística');
+  // Cliente/empresa detectado se resuelve en companyDetector; no mapear a área logística.
 
   return {
     cameraLocations: [...new Set(cameraLocations)],
@@ -271,7 +271,7 @@ function detectAreasFromDescription(descripcionDetectada, areaProceso = '') {
   if (containsAny(text, ['residuos','basura','contenedor','contenedores','carton','cartón','tacho','tachos','bolsas vacias','bolsas vacías','cajas vacias','cajas vacías'])) return { areas: ['Área de residuos'], evidence: ['señales de residuos/basura'] };
   if (containsAny(text, ['lavadero','bacha','bachas','lavado','utensilios sucios','elementos sucios','charcos de agua'])) return { areas: ['Lavadero'], evidence: ['señales de lavadero/bachas/lavado'] };
   if (containsAny(text, ['deposito','depósito','almacen','almacén','mercaderia','mercadería','stock','pedidos llegaron'])) return { areas: ['Depósito'], evidence: ['señales de depósito/almacén/stock'] };
-  if (containsAny(text, ['faltante','faltantes','faltaron','faltó','falto','unidades','menu','menú','pedido incompleto','pedidos incompletos','callia','caliia','bifes','entrega'])) return { areas: ['Logística'], evidence: ['señales de logística/faltantes/entrega'] };
+  if (containsAny(text, ['faltante','faltantes','faltaron','faltó','falto','unidades','menu','menú','pedido incompleto','pedidos incompletos','entrega'])) return { areas: ['Logística'], evidence: ['señales de logística/faltantes/entrega'] };
   if (containsAny(text, ['pre elaborado','pre elaborados','preelaborado','preelaborados','riñonera','rinonera','productos ajenos'])) return { areas: ['Área de pre elaborados'], evidence: ['señales de pre elaborados'] };
   if (containsAny(text, ['platina','platinas','caliente','coccion','cocción','horno','hornos','olla','ollas','produccion caliente','producción caliente','preparacion caliente','preparación caliente'])) return { areas: ['Área caliente'], evidence: ['señales de cocción/proceso caliente'] };
   if (containsAny(text, ['sandwich','sanguches','ensalada','ensaladas','postre','postres','vianda','viandas','heladera','heladeras','frio','fría','fria','refrigerado','refrigerados','camara','cámara'])) return { areas: ['Área fría'], evidence: ['señales de productos/almacenamiento en frío'] };

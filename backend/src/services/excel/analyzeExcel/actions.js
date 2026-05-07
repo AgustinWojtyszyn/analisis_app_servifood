@@ -178,7 +178,7 @@ function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', is
     return 'Retirar el producto no conforme, reemplazarlo por producto apto, verificar condiciones de recepción/conservación y reforzar control previo al despacho.';
   }
   if (categoria === 'desvio de logistica') {
-    return 'Corregir faltante o demora de entrega, reponer si corresponde y aplicar doble verificación en despacho/recorrido.';
+    return 'Verificar el faltante, corregir entrega o reposición si corresponde. Aplicar doble control antes del despacho.';
   }
   if (categoria === 'desvio de calidad') {
     return 'Retirar o corregir producto fuera de especificación y reforzar control final de gramaje/presentación/receta.';
