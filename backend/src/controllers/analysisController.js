@@ -194,7 +194,10 @@ export async function processExcelFile(file, userId) {
   }
 
   const activeRules = await getRulesForAnalysis();
-  const analysisResult = await analyzeExcel(file.buffer, activeRules);
+  const analysisResult = await analyzeExcel(file.buffer, activeRules, null, {
+    filename,
+    uploadedAt: new Date().toISOString()
+  });
   if (!analysisResult.success) {
     throw new Error(analysisResult.error || 'Error procesando archivo');
   }

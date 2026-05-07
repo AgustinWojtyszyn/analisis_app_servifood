@@ -164,6 +164,16 @@ function parseFechaValue(rawValue = '', lastFecha = '', contextYear = null) {
   return raw;
 }
 
+function inferRawDateType(rawValue = '') {
+  const raw = normalizeCellValue(rawValue).trim();
+  if (!raw) return 'empty';
+  if (/^\d{5,}(\.\d+)?$/.test(raw)) return 'excel_serial';
+  if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(raw)) return 'iso_or_ymd';
+  if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(raw)) return 'dmy_with_year';
+  if (/^\d{1,2}[\/\-]\d{1,2}$/.test(raw)) return 'dmy_without_year';
+  return 'text';
+}
+
 function isUsefulNonHallazgoValue(value) {
   const raw = normalizeCellValue(value || '').trim();
   const normalized = normalizeForMatch(raw);
@@ -1008,6 +1018,15 @@ function processRow({
     discardedEmptyRowPayload: null,
     finalRecord,
     rawRecord,
+    dateDebug: {
+      rowNumber: headerRowIndex + index + 1,
+      rawDateValue: fechaRaw,
+      rawDateType: inferRawDateType(fechaRaw),
+      parsedDate: finalRecord?.fecha || '',
+      contextYearUsed: fillDownState.contextYear,
+      parserUsed: 'parseFechaValue+fillDown',
+      usedCurrentYearFallback: false
+    },
     isAutoConforme,
     explicitRawNoFinding
   };
