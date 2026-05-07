@@ -30,3 +30,7 @@ test('Ajuste fino de alcance logístico interno/externo', () => {
   assert.equal(scopeOf('No se envió fruta al Easy'), 'Externo');
   assert.equal(scopeOf('No se enviaron almuerzos para celíacos para Monteverde'), 'Externo');
 });
+
+test('Alcance externo para riesgo en dieta especial con empresa/cliente', () => {
+  assert.equal(scopeOf('Easy reporta menú sin TACC mal rotulado y no apto para celíacos'), 'Externo');
+});

@@ -65,12 +65,29 @@ function classifyDeviationScope({
     'fecha incorrecta',
     'faltante'
   ]);
+  const hasSensitiveDietRisk = includesAny([
+    'celiaco',
+    'celiacos',
+    'sin tacc',
+    'dieta especial',
+    'menu diferenciado',
+    'menú diferenciado'
+  ]) && includesAny([
+    'entrego incorrecto',
+    'entregó incorrecto',
+    'contaminacion cruzada',
+    'contaminación cruzada',
+    'no apto',
+    'mal rotulado',
+    'rotulado incorrecto',
+    'riesgo'
+  ]);
   const hasExplicitInternalContainment = includesAny(['antes de despacho', 'antes de entregar', 'deteccion interna', 'detección interna', 'dentro de planta']);
   const hasExternalComplaint = includesAny(['cliente reclama', 'reclamo del cliente', 'queja del cliente']) || hasGenericClaim;
   const hasExternalDeliveryImpact = includesAny(['no se envio', 'no se envió', 'no se envia', 'no se envía', 'no se enviaron', 'no se envian', 'no se envían', 'no se entrego', 'no se entregó', 'entrega incompleta', 'despacho incompleto', 'demora en entrega', 'demora de entrega', 'evento enviado en fecha incorrecta', 'fecha incorrecta', 'sale tarde', 'llega tarde', 'llegan tarde']) && includesAny(['cliente', 'entrega', 'despacho', 'envio', 'envío', 'enviaron', 'envian', 'envían', 'recorrido', 'movilidad', 'transporte']);
   const hasExternalThirdParty = includesAny(['proveedor', 'establecimiento externo', 'en establecimiento del cliente', 'sede externa']);
   const hasExternalByCompanyAndImpact = hasCompanyMention && (hasLogisticsImpact || hasExternalComplaint || hasServiceNotDelivered);
-  if ((hasExternalComplaint || hasExternalDeliveryImpact || hasExternalThirdParty || hasServiceNotDelivered || hasExternalByCompanyAndImpact) && !hasExplicitInternalContainment) {
+  if ((hasExternalComplaint || hasExternalDeliveryImpact || hasExternalThirdParty || hasServiceNotDelivered || hasExternalByCompanyAndImpact || (hasCompanyMention && hasSensitiveDietRisk)) && !hasExplicitInternalContainment) {
     return {
       scope: 'Externo',
       reason: 'El desvío impacta al cliente, la entrega/despacho o un tercero externo',

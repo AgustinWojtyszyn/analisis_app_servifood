@@ -62,7 +62,8 @@ function classifyDeviationAreaDetailed({
     { hit: hasAny(['materia prima faltante', 'falta de materia prima', 'sin stock', 'falta de stock']) && hasAny(['impide enviar', 'no se envio', 'no se envia', 'despacho', 'entrega']), reason: 'Falta de materia prima que bloquea envío' },
     { hit: hasAny(['falta de aceite', 'aceite faltante', 'falta aceite', 'reclama aceite', 'aceite de oliva']), reason: 'Faltante de insumo para envío o producción' },
     { hit: hasAny(['personal llega tarde']) && hasAny(['despacho', 'entrega', 'envio', 'envío']), reason: 'Demora operativa de personal con impacto logístico' },
-    { hit: hasAny(['reclamo']) && hasAny(['entrega', 'despacho', 'faltante', 'demora', 'tardanza', 'aceite', 'no se envio', 'no se envia']), reason: 'Reclamo por incidencia logística' }
+    { hit: hasAny(['reclamo']) && hasAny(['entrega', 'despacho', 'faltante', 'demora', 'tardanza', 'aceite', 'no se envio', 'no se envia']), reason: 'Reclamo por incidencia logística' },
+    { hit: hasAny(['celiaco', 'celiacos', 'sin tacc', 'dieta especial', 'menu diferenciado', 'menú diferenciado']) && hasAny(['no se envio', 'no se envió', 'no se enviaron', 'no se envian', 'no se envían', 'falto', 'faltó', 'faltante']), reason: 'No envío de menú especial/dieta diferenciada' }
   ];
 
   const calidadSignals = [
