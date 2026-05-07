@@ -224,6 +224,65 @@ function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', is
   return 'Corregir el desvío detectado, registrar la acción tomada y reforzar el criterio con el responsable del sector.';
 }
 
+function resolveImmediateActionByPriority({ text = '', categoriaDesvio = '', iso22000 = '' }) {
+  const normalized = normalizeIncidentText([text, categoriaDesvio, iso22000].filter(Boolean).join(' | '));
+  const categoria = normalizeIncidentText(categoriaDesvio);
+
+  if (categoria === 'desvio de logistica') {
+    if (containsAny(normalized, ['celiaco', 'celiacos', 'sin tacc', 'dieta especial', 'menu diferenciado', 'menú diferenciado'])
+      && containsAny(normalized, ['no se envio', 'no se envió', 'no se enviaron', 'falto', 'faltó', 'faltante'])) {
+      return 'Verificar faltante y enviar o reponer de inmediato el menú especial al cliente.';
+    }
+    return 'Verificar faltante o demora y corregir entrega/reposición o informar al cliente según corresponda.';
+  }
+  if (categoria === 'desvio de inocuidad') {
+    if (containsAny(normalized, ['falta de coccion', 'falta de cocción', 'coccion', 'cocción', 'crudo', 'mal cocido'])) {
+      return 'Retirar producto no conforme, completar cocción o reemplazar por producto apto antes de liberar.';
+    }
+    if (containsAny(normalized, ['sin sanitizar', 'contaminacion', 'contaminación', 'pelo', 'cuerpo extraño', 'cuerpo extrano'])) {
+      return 'Retirar producto afectado, inmovilizar lote si corresponde y reemplazar por producto apto.';
+    }
+    if (containsAny(normalized, ['celiaco', 'celiacos', 'sin tacc', 'dieta especial']) && containsAny(normalized, ['contaminacion cruzada', 'contaminación cruzada', 'no apto', 'mal rotulado', 'rotulado incorrecto'])) {
+      return 'Retirar y reemplazar producto no apto para dieta especial y notificar al responsable de calidad.';
+    }
+    return 'Retirar o inmovilizar producto no conforme y reemplazar por producto apto verificando condición sanitaria.';
+  }
+  if (categoria === 'desvio de calidad') {
+    if (containsAny(normalized, ['equipo', 'equipamiento', 'batidor', 'sifon', 'sifón', 'bacha', 'camara', 'cámara', 'mantenimiento', 'no funciona'])) {
+      return 'Retirar de uso o aislar el equipo/sector afectado y coordinar mantenimiento correctivo.';
+    }
+    return 'Corregir, separar o reemplazar el producto/equipo afectado según la desviación detectada.';
+  }
+  if (categoria === 'desvio legal') {
+    return 'Regularizar documentación o requisito formal antes de continuar con la tarea o ingreso.';
+  }
+  if (categoria === 'revisar manualmente') {
+    return 'Registrar el desvío y derivarlo a responsable para análisis manual del caso.';
+  }
+
+  return 'Contener el desvío detectado y corregir el problema puntual del evento operativo.';
+}
+
+function ensureDistinctActions({ immediate = '', corrective = '', categoriaDesvio = '' }) {
+  const inmed = removeDuplicateActionChunks(immediate || '');
+  let corr = removeDuplicateActionChunks(corrective || '');
+  if (!inmed || !corr) return { accionInmediata: inmed, accionCorrectiva: corr };
+
+  if (normalizeIncidentText(inmed) === normalizeIncidentText(corr)) {
+    const categoria = normalizeIncidentText(categoriaDesvio || '');
+    if (categoria === 'desvio de logistica') corr = `${corr} Reforzar doble control de despacho y validación de pedidos/recorridos.`;
+    else if (categoria === 'desvio de inocuidad') corr = `${corr} Reforzar BPM/POES y control de liberación sanitaria.`;
+    else if (categoria === 'desvio de calidad') corr = `${corr} Reforzar control final de especificaciones y verificación preventiva.`;
+    else if (categoria === 'desvio legal') corr = `${corr} Reforzar control documental previo y responsable de seguimiento.`;
+    else corr = `${corr} Definir causa raíz y acción preventiva para evitar recurrencia.`;
+  }
+
+  return {
+    accionInmediata: removeDuplicateActionChunks(inmed),
+    accionCorrectiva: removeDuplicateActionChunks(corr)
+  };
+}
+
 function buildActions({ resultadoClasificado, text, hallazgoDetectado, accionInmediataOriginal, accionCorrectivaOriginal, categoriaDesvio = '', iso22000 = '' }) {
   const immediateExisting = normalizeCellValue(accionInmediataOriginal).replace(/\bcalidad\b/gi, '').trim();
   const correctiveExistingRaw = normalizeCellValue(accionCorrectivaOriginal).trim();
@@ -300,13 +359,19 @@ function buildActions({ resultadoClasificado, text, hallazgoDetectado, accionInm
     categoriaDesvio,
     iso22000
   }) || buildCorrectiveActionFromProblem(normalizedText);
+  const specificImmediate = resolveImmediateActionByPriority({
+    text: `${normalizedText} | ${hallazgoDetectado}`,
+    categoriaDesvio,
+    iso22000
+  });
+  const immediateBase = immediateExisting || detectedImmediate || specificImmediate || byScenario[scenario].immediate;
   const correctiveBase = specificCorrective || correctiveExisting || byScenario[scenario].corrective;
-  const immediateBase = immediateExisting || detectedImmediate || byScenario[scenario].immediate;
 
-  return {
-    accionInmediata: removeDuplicateActionChunks(immediateBase),
-    accionCorrectiva: removeDuplicateActionChunks(correctiveBase)
-  };
+  return ensureDistinctActions({
+    immediate: immediateBase,
+    corrective: correctiveBase,
+    categoriaDesvio
+  });
 }
 
 function classifyActionStatusFromRow({

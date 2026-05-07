@@ -663,6 +663,7 @@ export default function AnalysisResults({
               <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>ISO</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Responsable</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 280 }}>Acción inmediata</TableCell>
               <TableCell sx={{ fontWeight: 700, minWidth: 320 }}>Acción correctiva</TableCell>
             </TableRow>
           </TableHead>
@@ -721,6 +722,9 @@ export default function AnalysisResults({
                     <TableCell sx={{ maxWidth: 220 }}>
                       <Typography variant="body2">{normalizeCellValue(record.responsable) || '-'}</Typography>
                     </TableCell>
+                    <TableCell sx={{ maxWidth: 360 }}>
+                      <Typography variant="body2">{normalizeCellValue(record.accionInmediata) || '-'}</Typography>
+                    </TableCell>
                     <TableCell sx={{ maxWidth: 380 }}>
                       <Typography variant="body2">
                         {buildCorrectiveActionFallback(record)}
@@ -728,7 +732,7 @@ export default function AnalysisResults({
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={11}>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={12}>
                       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                         <Box sx={{ px: 2, py: 1.5, backgroundColor: 'rgba(148,163,184,0.08)', borderRadius: 1, mb: 1.25 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Detalle del registro</Typography>

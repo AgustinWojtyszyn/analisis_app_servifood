@@ -52,4 +52,16 @@ test('Pipeline reads all valid deviation rows with fill-down and ignores invalid
 
   const shortDateRow = result.records.find((r) => r.hallazgoDetectado.includes('limonada y fruta a SCOP'));
   assert.equal(shortDateRow?.fecha, '2025-12-07');
+
+  const nonConformeWithActions = result.records.find((r) =>
+    String(r?.resultadoClasificado || '').trim() === 'No conforme'
+    && String(r?.accionInmediata || '').trim()
+    && String(r?.accionCorrectiva || '').trim()
+  );
+  assert.ok(nonConformeWithActions, 'Debe existir al menos un registro NC con ambas acciones');
+  assert.notEqual(
+    String(nonConformeWithActions.accionInmediata || '').trim().toLowerCase(),
+    String(nonConformeWithActions.accionCorrectiva || '').trim().toLowerCase(),
+    'Acción inmediata y acción correctiva no deben ser idénticas'
+  );
 });

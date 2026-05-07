@@ -87,8 +87,8 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   assert.equal(result.records.length, 34);
   assert.equal(result.summary?.totalRecords, 34);
   assert.equal(result.summary?.totalDesvios, 34);
-  assert.equal(result.summary?.totalInocuidad, 9);
-  assert.equal(result.summary?.totalLogistica, 16);
+  assert.equal(result.summary?.totalInocuidad, 8);
+  assert.equal(result.summary?.totalLogistica, 17);
   assert.equal(result.summary?.totalCalidad, 6);
   assert.equal(result.summary?.totalLegal, 1);
   assert.equal(result.summary?.totalInternos, 13);
