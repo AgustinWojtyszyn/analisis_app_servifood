@@ -87,6 +87,12 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   assert.equal(result.records.length, 34);
   assert.equal(result.summary?.totalRecords, 34);
   assert.equal(result.summary?.totalDesvios, 34);
+  assert.equal(result.summary?.totalInocuidad, 10);
+  assert.equal(result.summary?.totalLogistica, 19);
+  assert.equal(result.summary?.totalCalidad, 4);
+  assert.equal(result.summary?.totalLegal, 1);
+  assert.equal(result.summary?.totalInternos, 14);
+  assert.equal(result.summary?.totalExternos, 20);
   const hasYear2026 = result.records.some((r) => String(r.fecha || '').startsWith('2026-'));
   assert.equal(hasYear2026, false, 'No deben existir fechas 2026 cuando el contexto del archivo es 2025');
 
@@ -122,6 +128,8 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   const banana = byFinding.get('banana oxidada o pasada en bandejas de refrigerio fruta lista para despacho');
   assert.equal(banana?.categoriaDesvio, 'Desvío de Inocuidad');
   assert.match(String(banana?.accionCorrectiva || '').toLowerCase(), /retirar el producto no conforme/);
+  const naranjas = byFinding.get('reclamo de adium por naranjas picadas');
+  assert.match(String(naranjas?.accionCorrectiva || '').toLowerCase(), /retirar el producto no conforme/);
   const pizzas = byFinding.get('no se enviaron pizzas al easy');
   assert.match(String(pizzas?.accionCorrectiva || '').toLowerCase(), /verificar el faltante/);
   const viandas = byFinding.get('las viandas estan pasadas de peso');

@@ -119,7 +119,9 @@ function extractYearFromIsoDate(value = '') {
 
 function hasExplicitYearToken(rawValue = '') {
   const raw = normalizeCellValue(rawValue).trim();
-  return /\b(19|20)\d{2}\b/.test(raw) || /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(raw);
+  // Consideramos explícito solo cuando el usuario escribió día/mes/año.
+  // Un ISO yyyy-mm-dd puede provenir de serial/Date Excel normalizado y no debe fijar el año contextual.
+  return /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$/.test(raw);
 }
 
 function parseFechaValue(rawValue = '', lastFecha = '', contextYear = null) {
