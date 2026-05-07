@@ -6,20 +6,26 @@ import {
   Card,
   CardContent,
   Checkbox,
+  Chip,
   CircularProgress,
+  Divider,
   FormControl,
   FormControlLabel,
   FormLabel,
+  Grid,
   Radio,
   RadioGroup,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Typography
+  Typography,
+  useMediaQuery
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {
   deleteMyHealthDeclaration,
   getMyHealthDeclarations,
@@ -36,10 +42,6 @@ function yesNoValue(value) {
 
 function boolToYesNo(value) {
   return value ? 'si' : 'no';
-}
-
-function renderBoolean(value) {
-  return value ? 'Sí' : 'No';
 }
 
 function getTrafficLightStyles(trafficLight) {
@@ -97,9 +99,14 @@ function buildHealthEvaluation({ hasSymptoms = false, hasFever = false, recentCo
 }
 
 export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete }) {
+  const SERVIFOOD_LOGO_URL = 'https://analisis.servifoodapp.site/assets/servifood_logo_white_text_HQ-2783eac4.png';
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [warning, setWarning] = useState('');
@@ -145,6 +152,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
 
       setCompletedToday(Boolean(today?.completed));
       setTodayDeclaration(today?.declaration || null);
+      setShowForm(false);
       setHistory(Array.isArray(myHistory) ? myHistory : []);
     } catch (err) {
       setError(err.message || 'No se pudo cargar la declaración');
@@ -192,8 +200,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
       hasFever: '',
       recentContact: '',
       commitInform: '',
-      policyAccepted: false
-      ,
+      policyAccepted: false,
       symptomsDetail: {
         cough: false,
         soreThroat: false,
@@ -227,6 +234,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
 
       setCompletedToday(true);
       setTodayDeclaration(response?.declaration || null);
+      setShowForm(false);
       setSuccess(editingId ? 'Declaración actualizada correctamente.' : 'Declaración completada correctamente.');
 
       if (check.payload.hasSymptoms || check.payload.hasFever || check.payload.recentContact) {
@@ -246,6 +254,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
   const startEdit = () => {
     if (!todayDeclaration) return;
     setEditingId(todayDeclaration.id);
+    setShowForm(true);
     setForm({
       hasSymptoms: boolToYesNo(todayDeclaration.hasSymptoms),
       hasFever: boolToYesNo(todayDeclaration.hasFever),
@@ -284,50 +293,41 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
 
   if (loading) {
     return (
-      <Card>
-        <CardContent sx={{ textAlign: 'center' }}>
+      <Card sx={{ bgcolor: '#0f172a', color: '#e2e8f0', border: '1px solid #1e293b' }}>
+        <CardContent sx={{ textAlign: 'center', py: 6 }}>
           <CircularProgress />
         </CardContent>
       </Card>
     );
   }
 
+  const traffic = String(todayDeclaration?.trafficLight || '').toLowerCase();
+  const statusChipSx = traffic === 'rojo'
+    ? { backgroundColor: '#dc2626', color: '#fff' }
+    : traffic === 'amarillo'
+      ? { backgroundColor: '#f59e0b', color: '#111827' }
+      : traffic === 'verde'
+        ? { backgroundColor: '#16a34a', color: '#fff' }
+        : { backgroundColor: '#f59e0b', color: '#111827' };
+
+  const recentHistory = Array.isArray(history) ? history.slice(0, 5) : [];
+  const isFormMode = Boolean(editingId || showForm);
+  const statusLabel = completedToday ? 'Declaración completada' : 'Pendiente';
+
   return (
-    <Box sx={{ display: 'grid', gap: 2 }}>
-      <Card>
-        <CardContent>
-          <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>Declaración de Salud</Typography>
-          <Alert severity="info" sx={{ mb: 1.5 }}>
-            Semáforo sanitario: Verde (ingresa), Amarillo (avisa supervisor), Rojo (no ingresa a cocina/producción).
-          </Alert>
+    <Box sx={{ display: 'grid', gap: 2, maxWidth: 1180, mx: 'auto', width: '100%', px: { xs: 1, sm: 2 } }}>
+      {error && <Alert severity="error">{error}</Alert>}
+      {success && <Alert severity="success">{success}</Alert>}
+      {warning && <Alert severity="warning">{warning}</Alert>}
 
-          {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
-          {success && <Alert severity="success" sx={{ mb: 1.5 }}>{success}</Alert>}
-          {warning && <Alert severity="warning" sx={{ mb: 1.5 }}>{warning}</Alert>}
+      {isFormMode ? (
+        <Card sx={{ bgcolor: '#0f172a', color: '#e2e8f0', border: '1px solid #1e293b', borderRadius: 4, boxShadow: '0 16px 34px rgba(2, 6, 23, 0.35)' }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>Formulario de declaración</Typography>
+              <Button variant="text" onClick={() => { setShowForm(false); setEditingId(null); }}>Volver al panel</Button>
+            </Stack>
 
-          {completedToday && !editingId ? (
-            <>
-              <Alert severity="info" sx={{ mb: 1.5 }}>
-                Ya completaste la declaración de hoy.
-                {todayDeclaration?.declaredAt ? ` (${new Date(todayDeclaration.declaredAt).toLocaleString('es-AR')})` : ''}
-              </Alert>
-              <Alert
-                severity={todayDeclaration?.trafficLight === 'Rojo' ? 'error' : todayDeclaration?.trafficLight === 'Amarillo' ? 'warning' : 'success'}
-                sx={{ mb: 1.5 }}
-              >
-                {todayDeclaration?.trafficLight === 'Verde' && 'Estoy bien → Ingreso'}
-                {todayDeclaration?.trafficLight === 'Amarillo' && 'Tengo una herida o tos → Aviso al supervisor'}
-                {todayDeclaration?.trafficLight === 'Rojo' && 'Tengo fiebre, vómitos o diarrea → No ingreso a cocina'}
-                {todayDeclaration?.suggestedAction ? ` · ${todayDeclaration.suggestedAction}` : ''}
-              </Alert>
-              {editableNow && (
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Button variant="outlined" onClick={startEdit}>Editar (15 min)</Button>
-                  <Button variant="outlined" color="error" onClick={deleteMine}>Eliminar (15 min)</Button>
-                </Box>
-              )}
-            </>
-          ) : (
             <Box sx={{ display: 'grid', gap: 1.25 }}>
               <FormControl>
                 <FormLabel>1. ¿Presentás síntomas actualmente?</FormLabel>
@@ -402,6 +402,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
                   {saving ? 'Guardando...' : (editingId ? 'Guardar cambios' : 'Enviar declaración')}
                 </Button>
                 {editingId && <Button variant="text" onClick={() => setEditingId(null)}>Cancelar edición</Button>}
+                {!editingId && !completedToday && <Button variant="text" onClick={() => setShowForm(false)}>Volver</Button>}
               </Box>
               {(() => {
                 const evalPreview = buildHealthEvaluation({
@@ -417,62 +418,149 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
                 );
               })()}
             </Box>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>Mi historial</Typography>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell>Síntomas</TableCell>
-                  <TableCell>Fiebre</TableCell>
-                  <TableCell>Contacto</TableCell>
-                  <TableCell>Política</TableCell>
-                  <TableCell>Estado</TableCell>
-                  <TableCell>Semáforo</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {history.map((item) => (
-                  <TableRow
-                    key={item.id}
-                    sx={() => {
-                      const styles = getTrafficLightStyles(item.trafficLight);
-                      return {
-                        '& td': {
-                          backgroundColor: styles.rowBg,
-                          color: styles.cellColor
-                        },
-                        '&:hover td': {
-                          backgroundColor: styles.rowBg
-                        }
-                      };
+          </CardContent>
+        </Card>
+      ) : (
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={7}>
+            <Card sx={{ height: '100%', bgcolor: '#0f172a', color: '#e2e8f0', border: '1px solid #1e293b', borderRadius: 4, boxShadow: '0 16px 34px rgba(2, 6, 23, 0.35)' }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                  <Chip label="Declaración diaria" size="small" sx={{ bgcolor: '#1d4ed8', color: '#fff', fontWeight: 700 }} />
+                  <Box
+                    component="img"
+                    src={SERVIFOOD_LOGO_URL}
+                    alt="ServiFood"
+                    sx={{
+                      width: { xs: 84, sm: 108, md: 118 },
+                      maxWidth: { xs: 100, md: 130 },
+                      height: 'auto',
+                      objectFit: 'contain'
                     }}
-                  >
-                    <TableCell>{new Date(item.declaredAt || item.createdAt).toLocaleString('es-AR')}</TableCell>
-                    <TableCell>{renderBoolean(item.hasSymptoms)}</TableCell>
-                    <TableCell>{renderBoolean(item.hasFever)}</TableCell>
-                    <TableCell>{renderBoolean(item.recentContact)}</TableCell>
-                    <TableCell>{item.policyAccepted ? 'Aceptada' : 'No'}</TableCell>
-                    <TableCell>{item.healthStatus || '-'}</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>{item.trafficLight || '-'}</TableCell>
-                  </TableRow>
-                ))}
-                {history.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7}>Sin declaraciones cargadas.</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
+                  />
+                </Stack>
+
+                <Typography variant="h4" sx={{ fontWeight: 800, mb: 1.2, fontSize: { xs: '1.6rem', md: '2rem' } }}>
+                  Completá tu declaración de salud
+                </Typography>
+                <Typography sx={{ color: '#cbd5e1', mb: 0.8 }}>
+                  Registrá tu estado sanitario antes de comenzar la jornada.
+                </Typography>
+                <Typography sx={{ color: '#94a3b8', fontSize: '0.93rem', mb: 2.2 }}>
+                  El formulario toma menos de 1 minuto.
+                </Typography>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2}>
+                  <Button variant="contained" onClick={() => setShowForm(true)} sx={{ minHeight: 48, px: 3, width: { xs: '100%', sm: 'auto' } }}>
+                    Completar declaración
+                  </Button>
+                  <Button variant="outlined" onClick={onOpenPolicies} sx={{ minHeight: 48, width: { xs: '100%', sm: 'auto' }, color: '#e2e8f0', borderColor: '#475569' }}>
+                    Ver política
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={5}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Card sx={{ bgcolor: '#0f172a', color: '#e2e8f0', border: '1px solid #1e293b', borderRadius: 4, boxShadow: '0 14px 30px rgba(2, 6, 23, 0.3)' }}>
+                  <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.2 }}>Estado de hoy</Typography>
+                    <Chip label={statusLabel} sx={{ ...statusChipSx, fontWeight: 700, mb: 1.2 }} />
+                    {completedToday ? (
+                      <>
+                        <Typography sx={{ color: '#e2e8f0', fontWeight: 600, mb: 0.5 }}>Declaración completada</Typography>
+                        <Typography sx={{ color: '#94a3b8', fontSize: '0.88rem', mb: 1.4 }}>
+                          {todayDeclaration?.declaredAt ? new Date(todayDeclaration.declaredAt).toLocaleString('es-AR') : 'Sin fecha disponible'}
+                        </Typography>
+                        {todayDeclaration?.healthStatus && (
+                          <Typography sx={{ color: '#cbd5e1', fontSize: '0.92rem', mb: 1 }}>
+                            Resultado: {todayDeclaration.healthStatus}
+                          </Typography>
+                        )}
+                        {editableNow && (
+                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                            <Button variant="outlined" onClick={startEdit} sx={{ width: { xs: '100%', sm: 'auto' } }}>Ver detalle / Editar</Button>
+                            <Button variant="outlined" color="error" onClick={deleteMine} sx={{ width: { xs: '100%', sm: 'auto' } }}>Eliminar</Button>
+                          </Stack>
+                        )}
+                      </>
+                    ) : (
+                      <Typography sx={{ color: '#cbd5e1', fontSize: '0.93rem' }}>
+                        Todavía no completaste la declaración sanitaria del día.
+                      </Typography>
+                    )}
+
+                    <Divider sx={{ my: 1.5, borderColor: '#1e293b' }} />
+                    <Stack spacing={0.6}>
+                      <Typography sx={{ fontSize: '0.87rem', color: '#bbf7d0' }}>Verde: Ingresa.</Typography>
+                      <Typography sx={{ fontSize: '0.87rem', color: '#fde68a' }}>Amarillo: Avisar supervisor.</Typography>
+                      <Typography sx={{ fontSize: '0.87rem', color: '#fecaca' }}>Rojo: No ingresa a cocina/producción.</Typography>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Card sx={{ bgcolor: '#0f172a', color: '#e2e8f0', border: '1px solid #1e293b', borderRadius: 4, boxShadow: '0 14px 30px rgba(2, 6, 23, 0.3)' }}>
+                  <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.2 }}>Últimas declaraciones</Typography>
+                    {recentHistory.length === 0 ? (
+                      <Typography sx={{ color: '#94a3b8', fontSize: '0.92rem' }}>
+                        Todavía no hay declaraciones registradas.
+                      </Typography>
+                    ) : isMobile ? (
+                      <Stack spacing={1} sx={{ maxHeight: 280, overflow: 'auto', pr: 0.5 }}>
+                        {recentHistory.map((item) => {
+                          const styles = getTrafficLightStyles(item.trafficLight);
+                          return (
+                            <Box key={item.id} sx={{ p: 1.1, borderRadius: 2, bgcolor: '#111c34', border: '1px solid #24324b' }}>
+                              <Typography sx={{ fontSize: '0.8rem', color: '#93c5fd' }}>
+                                {new Date(item.declaredAt || item.createdAt).toLocaleString('es-AR')}
+                              </Typography>
+                              <Typography sx={{ fontSize: '0.84rem', color: styles.cellColor, fontWeight: 700 }}>
+                                {item.healthStatus || '-'} · {item.trafficLight || '-'}
+                              </Typography>
+                            </Box>
+                          );
+                        })}
+                      </Stack>
+                    ) : (
+                      <TableContainer sx={{ maxHeight: 280, border: '1px solid #1e293b', borderRadius: 2 }}>
+                        <Table size="small" stickyHeader>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell sx={{ fontSize: '0.75rem' }}>Fecha</TableCell>
+                              <TableCell sx={{ fontSize: '0.75rem' }}>Estado</TableCell>
+                              <TableCell sx={{ fontSize: '0.75rem' }}>Semáforo</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {recentHistory.map((item) => {
+                              const styles = getTrafficLightStyles(item.trafficLight);
+                              return (
+                                <TableRow key={item.id}>
+                                  <TableCell sx={{ fontSize: '0.76rem', color: '#cbd5e1' }}>
+                                    {new Date(item.declaredAt || item.createdAt).toLocaleString('es-AR')}
+                                  </TableCell>
+                                  <TableCell sx={{ fontSize: '0.76rem', color: '#e2e8f0' }}>{item.healthStatus || '-'}</TableCell>
+                                  <TableCell sx={{ fontSize: '0.76rem', fontWeight: 700, color: styles.cellColor }}>{item.trafficLight || '-'}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          </Grid>
+        </Grid>
+      )}
     </Box>
   );
 }
