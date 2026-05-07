@@ -270,6 +270,12 @@ async function loadExcelParsingContext(fileBuffer) {
         name: ws.name,
         rowCount: ws.rowCount || 0
       })),
+      workbookMeta: {
+        created: workbook?.created ? normalizeCellValue(workbook.created) : '',
+        modified: workbook?.modified ? normalizeCellValue(workbook.modified) : '',
+        creator: workbook?.creator || '',
+        lastModifiedBy: workbook?.lastModifiedBy || ''
+      },
       worksheetSelected: sheet.name,
       worksheetRanking: sheetSelection?.ranking || [],
       detectedHeaderRow: headerRowIndex,

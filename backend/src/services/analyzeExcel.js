@@ -38,6 +38,16 @@ function extractYearCandidates(raw = '') {
   return years.filter((y) => y >= 2000 && y <= 2100);
 }
 
+function pickMostFrequentYear(years = []) {
+  const counts = new Map();
+  years.forEach((year) => {
+    if (!Number.isInteger(year)) return;
+    counts.set(year, (counts.get(year) || 0) + 1);
+  });
+  if (!counts.size) return null;
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+
 /**
  * Analiza un archivo Excel y clasifica desvios en base a reglas textuales objetivas.
  */
@@ -69,15 +79,34 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       maxLeadWindow: 3
     };
     const fillDownState = createFillDownState();
+    const explicitYearsFound = [];
     const yearCounts = new Map();
     if (Number.isInteger(headerIndexes.fecha)) {
       rows.forEach((row) => {
         const candidates = extractYearCandidates(row?.[headerIndexes.fecha]);
-        candidates.forEach((y) => yearCounts.set(y, (yearCounts.get(y) || 0) + 1));
+        candidates.forEach((y) => {
+          explicitYearsFound.push(y);
+          yearCounts.set(y, (yearCounts.get(y) || 0) + 1);
+        });
       });
     }
+    const metadataYears = [];
+    const workbookMeta = parsingDiagnostics?.workbookMeta || {};
+    extractYearCandidates(workbookMeta.created || '').forEach((y) => metadataYears.push(y));
+    extractYearCandidates(workbookMeta.modified || '').forEach((y) => metadataYears.push(y));
+    (parsingDiagnostics?.workbookSheets || []).forEach((sheetInfo) => {
+      extractYearCandidates(sheetInfo?.name || '').forEach((y) => metadataYears.push(y));
+    });
+
+    let usedCurrentYearFallback = false;
     if (yearCounts.size > 0) {
-      fillDownState.contextYear = [...yearCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      fillDownState.contextYear = pickMostFrequentYear(explicitYearsFound);
+    } else {
+      fillDownState.contextYear = pickMostFrequentYear(metadataYears);
+    }
+    if (!Number.isInteger(fillDownState.contextYear)) {
+      fillDownState.contextYear = new Date().getFullYear();
+      usedCurrentYearFallback = true;
     }
     const diagnostics = {
       hasFile: true,
@@ -93,7 +122,20 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       discardedSamples: [],
       rowsAudit: [],
       recordsAfterProcessing: 0,
-      recordsSentToFrontend: 0
+      recordsSentToFrontend: 0,
+      dateParsing: {
+        inferredContextYear: fillDownState.contextYear,
+        explicitYearsFound: [...new Set(explicitYearsFound)],
+        dateColumnIndex: Number.isInteger(headerIndexes.fecha) ? headerIndexes.fecha : null,
+        sampleRawDates: Number.isInteger(headerIndexes.fecha)
+          ? rows
+            .slice(0, 20)
+            .map((row) => normalizeCellValue(row?.[headerIndexes.fecha]).trim())
+            .filter(Boolean)
+          : [],
+        sampleParsedDates: [],
+        usedCurrentYearFallback
+      }
     };
 
     rows.forEach((rowValues, index) => {
@@ -162,6 +204,13 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
 
       if (processed.skipped) {
         return;
+      }
+
+      if (diagnostics.dateParsing.sampleParsedDates.length < 20) {
+        diagnostics.dateParsing.sampleParsedDates.push({
+          rowNumber: headerRowIndex + index + 1,
+          parsedDate: normalizeCellValue(processed.finalRecord?.fecha).trim()
+        });
       }
 
       if (processed.isAutoConforme && !processed.explicitRawNoFinding) {

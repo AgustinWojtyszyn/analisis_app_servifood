@@ -95,6 +95,11 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   assert.equal(result.summary?.totalExternos, 20);
   const hasYear2026 = result.records.some((r) => String(r.fecha || '').startsWith('2026-'));
   assert.equal(hasYear2026, false, 'No deben existir fechas 2026 cuando el contexto del archivo es 2025');
+  assert.equal(
+    result.records.every((r) => String(r.fecha || '').startsWith('2025-12-')),
+    true,
+    'Todas las fechas del fixture de diciembre deben quedar en 2025-12-xx'
+  );
 
   const rejectedDeviationRows = (result.diagnostics.rowsAudit || []).filter((r) =>
     r.rowNumber >= 2
