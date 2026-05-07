@@ -98,6 +98,7 @@ function detectHeaders(headerRow) {
   const mapping = {
     fecha: ['fecha', 'date', 'fecha de registro', 'fecha del evento'],
     areaProceso: ['area', 'area / proceso', 'area/proceso', 'proceso', 'sector', 'departamento'],
+    hallazgoDetectado: ['desvio detectado', 'desvío detectado', 'hallazgo detectado', 'descripcion del desvio', 'descripción del desvío'],
     actividadRealizada: ['actividad realizada', 'actividad realizada / descripcion', 'actividad realizada / descripción'],
     descripcion: ['descripcion del desvio', 'descripcion desvio', 'descripcion', 'detalle del desvio', 'detalle desvio', 'hallazgo'],
     observaciones: ['observaciones', 'observacion', 'comentario', 'comentarios'],

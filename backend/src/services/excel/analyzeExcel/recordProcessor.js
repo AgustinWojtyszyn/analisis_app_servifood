@@ -93,6 +93,13 @@ function isInvalidDetectedFinding(texto) {
   return !t || t === '-';
 }
 
+function hasUsefulFindingText(texto) {
+  const t = normalizeForMatch(texto || '');
+  if (!t) return false;
+  if (['-', 'n a', 'na', 'n d', 'nd', 's d', 's/d'].includes(t)) return false;
+  return true;
+}
+
 function isUsefulNonHallazgoValue(value) {
   const raw = normalizeCellValue(value || '').trim();
   const normalized = normalizeForMatch(raw);
@@ -342,7 +349,7 @@ function processRow({
     'Desvío detectado',
     'Desvio detectado',
     'Hallazgo detectado'
-  ]) || '').trim();
+  ]) || getValue(headerIndexes.hallazgoDetectado) || '').trim();
   const areaOriginal = normalizeCellValue(areaProcesoRaw).trim();
   const descripcionRaw = getRowValueByCandidates(row, rowKeyMap, [
     'Descripción',
@@ -411,8 +418,8 @@ function processRow({
   if (iso22000Original) fillDownState.iso22000Original = iso22000Original;
   if (tipoDesvioOriginal) fillDownState.tipoDesvioOriginal = tipoDesvioOriginal;
 
-  const hasRealRowSignal = Boolean(normalizeCellValue(desvioDetectadoOriginal).trim());
-  const invalidDetectedFinding = isInvalidDetectedFinding(desvioDetectadoOriginal);
+  const hasRealRowSignal = hasUsefulFindingText(desvioDetectadoOriginal);
+  const invalidDetectedFinding = !hasUsefulFindingText(desvioDetectadoOriginal);
 
   if (!hasRealRowSignal || invalidDetectedFinding || shouldDiscardAsEmptyRow || shouldDiscardByEmptyHallazgo) {
     if (enableFillDownTrace) {
