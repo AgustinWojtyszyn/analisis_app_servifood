@@ -112,21 +112,24 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
         });
       }
       const response = await uploadMultipleAnalysis(files);
-      const resultMap = new Map((response?.results || []).map((r) => [r.filename, r]));
-      const okCount = Number(response?.ok || 0);
-      const failCount = Number(response?.fail || 0);
+      const payload = response?.data ?? response ?? {};
+      const rawResults = Array.isArray(payload.results) ? payload.results : [];
+      const resultMap = new Map(rawResults.map((r) => [r.filename, r]));
+      const okCount = Number(payload.successfulFiles ?? payload.ok ?? rawResults.filter((r) => r?.success).length);
+      const failCount = Number(payload.failedFiles ?? payload.fail ?? rawResults.filter((r) => !r?.success).length);
 
       setFileStatuses((prev) => prev.map((item) => {
         const result = resultMap.get(item.filename);
         if (!result) return { ...item, status: 'error', error: 'Sin respuesta del servidor' };
-        if (result.success) return { ...item, status: 'listo', analysisId: result.analysisId };
+        if (result.success) return { ...item, status: 'listo', analysisId: result.analysisId, totalRecords: result.totalRecords };
         return { ...item, status: 'error', error: result.error || 'Error procesando' };
       }));
 
       if (okCount > 0) {
-        onUploadSuccess?.(response);
+        onUploadSuccess?.(payload);
       } else if (failCount > 0) {
-        setError('No se pudo procesar ningún archivo del lote. Revisá los errores por archivo.');
+        const firstError = rawResults.find((r) => !r?.success)?.error || payload.errors?.[0]?.message;
+        setError(firstError || 'No se pudo procesar ningún archivo del lote. Revisá los errores por archivo.');
       }
     } catch (err) {
       setError(err.message || 'Error cargando archivos');
@@ -205,6 +208,11 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
                     <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 700 }}>
                       {item.status}
                     </Typography>
+                    {item.status === 'error' && item.error && (
+                      <Typography variant="caption" color="error.main" sx={{ maxWidth: 360 }}>
+                        {item.error}
+                      </Typography>
+                    )}
                     {item.status === 'pendiente' && (
                       <Button size="small" color="error" onClick={() => handleRemove(item.filename)}>Quitar</Button>
                     )}

@@ -15,6 +15,25 @@ const prisma = new PrismaClient();
 const STATUS_VALUES = new Set(['active', 'exported', 'archived']);
 const ENABLE_DEBUG_EXCEL_ANALYSIS = process.env.DEBUG_EXCEL_ANALYSIS === 'true';
 
+function buildBatchUploadResponse(results = []) {
+  const normalized = Array.isArray(results) ? results : [];
+  const successful = normalized.filter((r) => r.success);
+  const failed = normalized.filter((r) => !r.success);
+  return {
+    success: failed.length === 0,
+    totalFiles: normalized.length,
+    successfulFiles: successful.length,
+    failedFiles: failed.length,
+    results: normalized,
+    errors: failed.map((f) => ({
+      fileName: f.filename,
+      message: f.error || 'Error procesando archivo',
+      stage: f.stage || 'processing',
+      diagnostics: f.diagnostics || null
+    }))
+  };
+}
+
 function returnSupabaseError(res, context, error, fallbackMessage = 'Error en Supabase') {
   const details = {
     message: error?.message || fallbackMessage,
@@ -353,34 +372,80 @@ export async function uploadAndAnalyzeMultiple(req, res) {
 
     for (const file of files) {
       try {
+        if (ENABLE_DEBUG_EXCEL_ANALYSIS) {
+          console.log('BATCH FILE RECEIVED', {
+            fileName: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size
+          });
+        }
         const analysis = await processExcelFile(file, req.user.id);
+        const recordsLength = Array.isArray(analysis?.records) ? analysis.records.length : 0;
+        if (recordsLength === 0) {
+          const emptyResult = {
+            filename: file.originalname,
+            success: false,
+            stage: 'post_processing',
+            error: 'Archivo procesado sin registros detectados',
+            diagnostics: analysis?.diagnostics || null,
+            analysisId: analysis?.id || null
+          };
+          if (ENABLE_DEBUG_EXCEL_ANALYSIS) {
+            console.log('BATCH FILE RESULT', {
+              fileName: file.originalname,
+              success: emptyResult.success,
+              recordsLength,
+              diagnostics: emptyResult.diagnostics
+            });
+          }
+          results.push(emptyResult);
+          continue;
+        }
+        if (ENABLE_DEBUG_EXCEL_ANALYSIS) {
+          console.log('BATCH FILE RESULT', {
+            fileName: file.originalname,
+            success: true,
+            recordsLength,
+            diagnostics: analysis?.diagnostics || null
+          });
+        }
         results.push({
           filename: file.originalname,
           success: true,
           analysisId: analysis.id,
+          totalRecords: recordsLength,
+          records: analysis.records || [],
+          diagnostics: analysis.diagnostics || null,
           analysis
         });
       } catch (error) {
+        if (ENABLE_DEBUG_EXCEL_ANALYSIS) {
+          console.log('BATCH FILE RESULT', {
+            fileName: file.originalname,
+            success: false,
+            recordsLength: 0,
+            diagnostics: error?.diagnostics || null
+          });
+        }
         results.push({
           filename: file.originalname,
           success: false,
+          stage: error?.stage || 'processing',
+          diagnostics: error?.diagnostics || null,
           error: error.message || 'Error procesando archivo'
         });
       }
     }
 
-    return res.json({
-      success: true,
-      total: results.length,
-      ok: results.filter((r) => r.success).length,
-      fail: results.filter((r) => !r.success).length,
-      results
-    });
+    const payload = buildBatchUploadResponse(results);
+    return res.json(payload);
   } catch (error) {
     console.error('Error en carga múltiple:', error);
     return res.status(500).json({ error: 'Error procesando carga múltiple' });
   }
 }
+
+export { buildBatchUploadResponse };
 
 export async function getAnalysis(req, res) {
   try {
