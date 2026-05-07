@@ -104,7 +104,9 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     const categoriasCompletas = {
       'Desvío de Inocuidad': Number(safeSummary.totalInocuidad ?? categoriaRaw['Desvío de Inocuidad'] ?? 0),
       'Desvío de Logística': Number(safeSummary.totalLogistica ?? categoriaRaw['Desvío de Logística'] ?? 0),
-      'Desvío Legal': Number(safeSummary.totalLegal ?? categoriaRaw['Desvío Legal'] ?? 0)
+      'Desvío de Calidad': Number(safeSummary.totalCalidad ?? categoriaRaw['Desvío de Calidad'] ?? 0),
+      'Desvío Legal': Number(safeSummary.totalLegal ?? categoriaRaw['Desvío Legal'] ?? 0),
+      'Revisar manualmente': Number(safeSummary.totalRevisionManual ?? categoriaRaw['Revisar manualmente'] ?? 0)
     };
     const desviosPorCategoria = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
     const desviosPorCategoriaCompleta = objectToChartData(categoriasCompletas);
@@ -114,7 +116,9 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       { name: 'Desvíos reales', value: Number(safeSummary.totalDesvios || 0) },
       { name: 'Inocuidad', value: Number(safeSummary.totalInocuidad || 0) },
       { name: 'Logística', value: Number(safeSummary.totalLogistica || 0) },
-      { name: 'Legal', value: Number(safeSummary.totalLegal || 0) }
+      { name: 'Calidad', value: Number(safeSummary.totalCalidad || 0) },
+      { name: 'Legal', value: Number(safeSummary.totalLegal || 0) },
+      { name: 'Rev. manual', value: Number(safeSummary.totalRevisionManual || 0) }
     ];
 
     const estadoAcciones = [

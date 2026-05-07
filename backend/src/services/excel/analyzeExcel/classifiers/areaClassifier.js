@@ -41,20 +41,8 @@ function applyOperationalOverrides({ hallazgoDetectado, areaClasificada, resulta
   let tipoFinal = tipoDesvio;
   let isoFinal = iso22000;
 
-  if (containsAny(hallazgoText, [
-    'faltaron almuerzos',
-    'faltante de mercaderia',
-    'demora de entrega',
-    'cliente',
-    'servicio',
-    'scop',
-    'easy',
-    'hospital',
-    'pocito',
-    'la laja'
-  ])) {
-    areaFinal = 'Logística / Distribución';
-  }
+  // No forzar área logística por tipo de desvío o cliente mencionado:
+  // la categoría se clasifica aparte y el área debe preservar sector/cliente detectado.
 
   if (containsAny(hallazgoText, ['mal estado', 'devuelve', 'ensaladas'])) {
     resultadoFinal = 'No conforme';

@@ -27,6 +27,17 @@ function hasUsefulDeviationText(text = '') {
   return !['-', 'na', 'n a', 'nd', 'n d', 's d', 's/d'].includes(normalized);
 }
 
+function extractYearCandidates(raw = '') {
+  const text = normalizeCellValue(raw).trim();
+  if (!text) return [];
+  const years = [];
+  const iso = text.match(/\b(20\d{2})[-/]\d{1,2}[-/]\d{1,2}\b/);
+  if (iso) years.push(Number(iso[1]));
+  const dmy = text.match(/\b\d{1,2}[-/]\d{1,2}[-/](20\d{2})\b/);
+  if (dmy) years.push(Number(dmy[1]));
+  return years.filter((y) => y >= 2000 && y <= 2100);
+}
+
 /**
  * Analiza un archivo Excel y clasifica desvios en base a reglas textuales objetivas.
  */
@@ -58,6 +69,16 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       maxLeadWindow: 3
     };
     const fillDownState = createFillDownState();
+    const yearCounts = new Map();
+    if (Number.isInteger(headerIndexes.fecha)) {
+      rows.forEach((row) => {
+        const candidates = extractYearCandidates(row?.[headerIndexes.fecha]);
+        candidates.forEach((y) => yearCounts.set(y, (yearCounts.get(y) || 0) + 1));
+      });
+    }
+    if (yearCounts.size > 0) {
+      fillDownState.contextYear = [...yearCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    }
     const diagnostics = {
       hasFile: true,
       workbookSheets: parsingDiagnostics?.workbookSheets || [],

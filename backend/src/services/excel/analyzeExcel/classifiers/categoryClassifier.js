@@ -44,12 +44,12 @@ function classifyDeviationAreaDetailed({
   const inocuidadMatch = inocuidadSignals.find((signal) => signal.hit);
 
   const logisticaSignals = [
-    { hit: hasAny(['no se envio', 'no se enviaron', 'falto enviar', 'no sale', 'sale tarde', 'llego tarde', 'llegan tarde']), reason: 'Incidencia de envío/entrega operativa' },
+    { hit: hasAny(['no se envio', 'no se enviaron', 'no se envian', 'falto enviar', 'no sale', 'sale tarde', 'llego tarde', 'llegan tarde']), reason: 'Incidencia de envío/entrega operativa' },
     { hit: hasAny(['despacho', 'recorrido', 'segunda movilidad']), reason: 'Incidencia de despacho o recorrido logístico' },
     { hit: hasAny(['falta de materia prima', 'materia prima faltante', 'falta de stock', 'sin stock']), reason: 'Falta de disponibilidad de insumos/stock' },
     { hit: hasAny(['faltan cajones', 'faltan platinas', 'cajones para despacho', 'platinas para despacho']), reason: 'Faltante de elementos para despacho' },
     { hit: hasAny(['evento programado', 'fecha incorrecta', 'salio 26 12', 'salio 27 12']), reason: 'Error operativo de programación de evento' },
-    { hit: hasAny(['personal llega tarde', 'deposito cerrado por tardanza', 'sale tarde', 'cerrado por tardanza']), reason: 'Demora operativa de personal o depósito' },
+    { hit: hasAny(['personal llega tarde', 'personal de area caliente llega tarde', 'deposito cerrado por tardanza', 'sale tarde', 'cerrado por tardanza']), reason: 'Demora operativa de personal o depósito' },
     { hit: hasAny(['falta de aceite de oliva', 'reclama aceite de oliva', 'falta aceite de oliva']), reason: 'Faltante de insumo para entrega/producción' },
     { hit: hasAny(['reclamo']) && hasAny(['callia', 'easy', 'adium', 'scop', 'comeca', 'clorox']), reason: 'Reclamo operativo de cliente/servicio' }
   ];
@@ -58,7 +58,7 @@ function classifyDeviationAreaDetailed({
   const legalSignals = [
     { hit: hasAny(['documentacion vencida', 'documentacion faltante', 'plataforma desactualizada']), reason: 'Incumplimiento documental o de plataforma' },
     { hit: hasAny(['no pudo ingresar', 'ingreso denegado']) && hasAny(['documentacion', 'plataforma', 'credencial']), reason: 'Ingreso bloqueado por incumplimiento documental' },
-    { hit: hasAny(['habilitacion', 'permiso', 'ingreso no autorizado', 'credencial', 'cubre franco no pudo ingresar']), reason: 'Incumplimiento de habilitación/ingreso' },
+    { hit: hasAny(['habilitacion', 'permiso', 'ingreso no autorizado', 'credencial', 'cubre franco no pudo ingresar', 'no pudo ingresar']), reason: 'Incumplimiento de habilitación/ingreso' },
     { hit: hasAny(['seguro art', 'art vigente', 'certificado', 'libreta sanitaria', 'documentacion laboral', 'documentacion contractual']), reason: 'Incumplimiento legal/laboral documental' }
   ];
   const legalMatch = legalSignals.find((signal) => signal.hit);

@@ -116,7 +116,7 @@ function extractYearFromIsoDate(value = '') {
   return m ? Number(m[1]) : null;
 }
 
-function parseFechaValue(rawValue = '', lastFecha = '') {
+function parseFechaValue(rawValue = '', lastFecha = '', contextYear = null) {
   const raw = normalizeCellValue(rawValue).trim();
   if (!raw) return '';
 
@@ -145,6 +145,7 @@ function parseFechaValue(rawValue = '', lastFecha = '') {
     if (year != null && year < 100) year += 2000;
     if (year == null) {
       year = extractYearFromIsoDate(lastFecha);
+      if (year == null && Number.isInteger(contextYear)) year = contextYear;
     }
     if (year != null && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
       return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -452,7 +453,7 @@ function processRow({
   const shouldDiscardByEmptyHallazgo = hallazgoVacioOInvalido || becameNoFindingAfterSanitize;
   const shouldDiscardAsEmptyRow = !noFindingSignal && !hasSupportData && hallazgoVacioOInvalido;
 
-  const fechaParsed = parseFechaValue(fechaRaw, fillDownState.fecha);
+  const fechaParsed = parseFechaValue(fechaRaw, fillDownState.fecha, fillDownState.contextYear);
   const fecha = fechaParsed || fillDownState.fecha;
   const areaProceso = normalizeCellValue(areaProcesoRaw).trim() || fillDownState.areaProceso;
   const actividadRealizada = normalizeCellValue(actividadRealizadaRaw).trim() || fillDownState.actividadRealizada;
@@ -466,7 +467,11 @@ function processRow({
   const iso22000Original = iso22000OriginalRaw || fillDownState.iso22000Original;
   const tipoDesvioOriginal = tipoDesvioOriginalRaw || fillDownState.tipoDesvioOriginal;
 
-  if (fecha && normalizeForMatch(fecha) !== 'fecha') fillDownState.fecha = fecha;
+  if (fecha && normalizeForMatch(fecha) !== 'fecha') {
+    fillDownState.fecha = fecha;
+    const y = extractYearFromIsoDate(fecha);
+    if (Number.isInteger(y)) fillDownState.contextYear = y;
+  }
   if (areaProceso && !['area', 'area sector', 'area proceso'].includes(normalizeForMatch(areaProceso))) fillDownState.areaProceso = areaProceso;
   if (actividadRealizada && normalizeForMatch(actividadRealizada) !== 'actividad realizada') fillDownState.actividadRealizada = actividadRealizada;
   if (tipoActividad && normalizeForMatch(tipoActividad) !== 'tipo de actividad') fillDownState.tipoActividad = tipoActividad;

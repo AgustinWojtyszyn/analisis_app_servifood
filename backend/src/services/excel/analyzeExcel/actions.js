@@ -172,6 +172,20 @@ function hasSubstantialOverlap(baseText, candidateText) {
 
 function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', iso22000 = '' }) {
   const normalized = normalizeIncidentText([text, categoriaDesvio, iso22000].filter(Boolean).join(' | '));
+  const categoria = normalizeIncidentText(categoriaDesvio);
+
+  if (categoria === 'desvio de inocuidad') {
+    return 'Retirar el producto no conforme, reemplazarlo por producto apto, verificar condiciones de recepción/conservación y reforzar control previo al despacho.';
+  }
+  if (categoria === 'desvio de logistica') {
+    return 'Corregir faltante o demora de entrega, reponer si corresponde y aplicar doble verificación en despacho/recorrido.';
+  }
+  if (categoria === 'desvio de calidad') {
+    return 'Retirar o corregir producto fuera de especificación y reforzar control final de gramaje/presentación/receta.';
+  }
+  if (categoria === 'desvio legal') {
+    return 'Regularizar documentación/autorización requerida y verificar cumplimiento legal antes de habilitar la operación.';
+  }
 
   if (containsAny(normalized, ['producto no conforme', 'no conforme', 'carteleria de producto no conforme', 'cartelería de producto no conforme'])) {
     return 'Identificar y sectorizar el producto no conforme. Colocar cartelería visible y reforzar el procedimiento de segregación.';

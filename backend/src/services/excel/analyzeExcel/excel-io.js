@@ -282,6 +282,7 @@ async function loadExcelParsingContext(fileBuffer) {
 function createFillDownState() {
   return {
     fecha: '',
+    contextYear: null,
     areaProceso: '',
     actividadRealizada: '',
     tipoActividad: '',

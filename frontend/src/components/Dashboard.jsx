@@ -64,6 +64,21 @@ export function SummaryGrid({ summary, processedAt = null }) {
     })
     : null;
 
+  const dynamicCategoryCards = Object.entries(summary.byCategoria || {})
+    .filter(([name]) => name && name !== 'Conforme')
+    .filter(([name]) => ![
+      'Desvío de Inocuidad',
+      'Desvío de Logística',
+      'Desvío de Calidad',
+      'Desvío Legal',
+      'Revisar manualmente'
+    ].includes(name))
+    .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
+    .map(([name, value]) => ({
+      title: name.replace(/^Desvío de\s+/i, ''),
+      value: Number(value || 0)
+    }));
+
   return (
     <>
       {processedAtLabel && (
@@ -85,8 +100,19 @@ export function SummaryGrid({ summary, processedAt = null }) {
         <MetricCard title="Logística" value={summary.totalLogistica || 0} variant="info" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard title="Calidad" value={summary.totalCalidad || 0} variant="secondary" />
+      </Grid>
+      <Grid item xs={12} sm={6} md={4} lg={2}>
         <MetricCard title="Legal" value={summary.totalLegal || 0} variant="warning" />
       </Grid>
+      <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard title="Rev. manual" value={summary.totalRevisionManual || 0} variant="warning" />
+      </Grid>
+      {dynamicCategoryCards.map((item) => (
+        <Grid item xs={12} sm={6} md={4} lg={2} key={`cat-${item.title}`}>
+          <MetricCard title={item.title} value={item.value} variant="secondary" />
+        </Grid>
+      ))}
       </Grid>
     </>
   );
