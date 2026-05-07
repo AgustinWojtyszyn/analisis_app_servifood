@@ -109,6 +109,12 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   assert.equal(byFinding.get('carne de mg no apta exceder el gramaje solicitado en los bifes')?.categoriaDesvio, 'Desvío de Calidad');
   assert.equal(byFinding.get('reclamo de adium por naranjas picadas')?.categoriaDesvio, 'Desvío de Inocuidad');
   assert.equal(byFinding.get('se encuentra pelo en la tarta de cliente adium')?.categoriaDesvio, 'Desvío de Inocuidad');
+  assert.equal(byFinding.get('se rompe el batidor')?.categoriaDesvio, 'Desvío de Inocuidad');
+  assert.equal(byFinding.get('se rompe el batidor')?.alcanceDesvio, 'Interno');
+  assert.equal(byFinding.get('no se enviaron los almuerzos para celiacos para monteverde')?.categoriaDesvio, 'Desvío de Logística');
+  assert.equal(byFinding.get('no se enviaron los almuerzos para celiacos para monteverde')?.alcanceDesvio, 'Externo');
+  assert.ok((result.summary?.totalInternos || 0) > 0);
+  assert.ok((result.summary?.totalExternos || 0) > 0);
 
   const usefulRecords = result.records.filter((r) => String(r.hallazgoDetectado || '').trim() !== '');
   const withDashType = usefulRecords.filter((r) => String(r.tipoDesvio || '').trim() === '-');

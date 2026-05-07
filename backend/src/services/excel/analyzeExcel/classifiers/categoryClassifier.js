@@ -39,7 +39,7 @@ function classifyDeviationAreaDetailed({
     { hit: hasAny(['camara', 'cadena de frio', 'refrigeracion', 'temperatura de conservacion', 'frio']) && hasAny(['no funciona', 'fuera de rango', 'falla', 'sin']), reason: 'Riesgo de inocuidad por falla en conservación en frío' },
     { hit: hasAny(['pelo', 'plastico', 'metal', 'suciedad', 'cuerpo extrano', 'cuerpo extraño']), reason: 'Contaminación física detectada en alimento' },
     { hit: hasAny(['bpm', 'higiene', 'limpieza', 'sanitizacion', 'desinfeccion']), reason: 'Incumplimiento de prácticas de higiene/inocuidad' },
-    { hit: hasAny(['alergeno', 'alergenos', 'celiaco', 'celiacos', 'sin tacc', 'dieta especial', 'menu sin tacc']), reason: 'Incumplimiento de requerimientos de alérgenos o dieta especial' }
+    { hit: hasAny(['alergeno', 'alergenos', 'celiaco', 'celiacos', 'sin tacc', 'dieta especial', 'menu sin tacc']) && hasAny(['contaminado', 'mezclado', 'mal rotulado', 'sin rotular', 'sin identificar', 'identificacion incorrecta', 'identificación incorrecta', 'no apto', 'contaminacion cruzada', 'contaminación cruzada']), reason: 'Riesgo de inocuidad por gestión incorrecta de dieta especial/alérgenos' }
   ];
   const inocuidadMatch = inocuidadSignals.find((signal) => signal.hit);
 
@@ -79,6 +79,12 @@ function classifyDeviationAreaDetailed({
   if (hasAny(['no se envio fruta', 'no se enviaron fruta', 'no se enviaron frutas', 'falta envio fruta'])) {
     return { area: 'Desvío de Logística', reason: 'No envío de fruta (problema de entrega)', confidence: 0.94 };
   }
+  if (
+    hasAny(['celiaco', 'celiacos', 'sin tacc', 'menu celiaco', 'menu sin tacc', 'dieta especial'])
+    && hasAny(['no se envio', 'no se enviaron', 'no se envian', 'no se entrego', 'no se entregaron', 'falto', 'faltó', 'no llego', 'no llegó', 'no se mando', 'no se mandó'])
+  ) {
+    return { area: 'Desvío de Logística', reason: 'Faltante/no entrega de menú especial (incidencia de despacho)', confidence: 0.96 };
+  }
   if (hasAny(['fruta']) && hasAny(['sin sanitizar', 'picada', 'pasada', 'oxidada', 'mal estado'])) {
     return { area: 'Desvío de Inocuidad', reason: 'Riesgo alimentario en fruta lista para consumo', confidence: 0.98 };
   }
@@ -89,7 +95,7 @@ function classifyDeviationAreaDetailed({
     return { area: 'Desvío de Inocuidad', reason: 'Falla de infraestructura que afecta higiene/POES', confidence: 0.9 };
   }
   if (hasAny(['se rompe el batidor', 'batidor roto', 'equipo roto'])) {
-    return { area: 'Desvío de Logística', reason: 'Falla de equipamiento con impacto operativo', confidence: 0.88 };
+    return { area: 'Desvío de Inocuidad', reason: 'Falla de equipamiento crítico para elaboración segura de alimentos', confidence: 0.92 };
   }
 
   if (inocuidadMatch) {

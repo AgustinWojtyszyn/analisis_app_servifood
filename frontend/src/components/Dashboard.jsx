@@ -106,6 +106,12 @@ export function SummaryGrid({ summary, processedAt = null }) {
         <MetricCard title="Legal" value={summary.totalLegal || 0} variant="warning" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard title="Internos" value={summary.totalInternos || 0} variant="info" />
+      </Grid>
+      <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard title="Externos" value={summary.totalExternos || 0} variant="primary" />
+      </Grid>
+      <Grid item xs={12} sm={6} md={4} lg={2}>
         <MetricCard title="Rev. manual" value={summary.totalRevisionManual || 0} variant="warning" />
       </Grid>
       {dynamicCategoryCards.map((item) => (

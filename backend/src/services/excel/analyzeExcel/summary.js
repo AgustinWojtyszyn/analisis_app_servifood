@@ -20,6 +20,8 @@ function createSummary() {
     totalLogistica: 0,
     totalLegal: 0,
     totalRevisionManual: 0,
+    totalInternos: 0,
+    totalExternos: 0,
     totalNC: 0,
     totalOBS: 0,
     totalOM: 0,
@@ -27,6 +29,7 @@ function createSummary() {
     byTipo: {},
     byIso22000: {},
     byCategoria: {},
+    byAlcance: {},
     noFindingAudit: {
       totalNoFindingAntes: 0,
       conformesReales: 0,
@@ -102,6 +105,7 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
   const finalIso = normalizeCellValue(finalRecord.iso22000).trim() || 'Revisar manualmente';
   const finalCategoria = normalizeCellValue(finalRecord.categoriaDesvio).trim() || 'Revisar manualmente';
   const finalEstadoAccion = normalizeCellValue(finalRecord.estadoAccion).trim();
+  const finalAlcance = normalizeCellValue(finalRecord.alcanceDesvio).trim();
   const isConforme = finalResultado === 'Conforme';
   const isRevisionManual = finalCategoria === 'Revisar manualmente';
   const isDesvio = !isConforme && !normalizeForMatch(finalCategoria).includes('conforme');
@@ -144,6 +148,9 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
   if (finalCategoria === 'Desvío de Calidad') summary.totalCalidad += 1;
   if (finalCategoria === 'Desvío de Logística') summary.totalLogistica += 1;
   if (finalCategoria === 'Desvío Legal') summary.totalLegal += 1;
+  if (finalAlcance === 'Interno') summary.totalInternos += 1;
+  if (finalAlcance === 'Externo') summary.totalExternos += 1;
+  if (finalAlcance) summary.byAlcance[finalAlcance] = (summary.byAlcance[finalAlcance] || 0) + 1;
 
   if (isDesvio) {
     summary.totalDesvios += 1;

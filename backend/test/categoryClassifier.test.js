@@ -62,6 +62,18 @@ test('Se rompe sifón de bacha => Inocuidad', () => {
   assert.equal(classify('Se rompe sifon de bacha'), 'Desvío de Inocuidad');
 });
 
+test('Se rompe el batidor => Inocuidad', () => {
+  assert.equal(classify('Se rompe el batidor'), 'Desvío de Inocuidad');
+});
+
+test('No se enviaron almuerzos para celíacos => Logística', () => {
+  assert.equal(classify('No se enviaron los almuerzos para celiacos para monteverde'), 'Desvío de Logística');
+});
+
+test('Menú celíaco contaminado => Inocuidad', () => {
+  assert.equal(classify('Menu celiaco contaminado con alergenos y mal rotulado'), 'Desvío de Inocuidad');
+});
+
 test('Detailed classifier returns technical reason and confidence', () => {
   const detailed = classifyDeviationAreaDetailed({
     textoCompleto: 'Llega fruta sin sanitizar a Adium',

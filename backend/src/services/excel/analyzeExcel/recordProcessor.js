@@ -34,6 +34,7 @@ import {
   classifyCategoriaDesvio,
   applyGovernanceTypeAndCategory
 } from './classifiers/categoryClassifier.js';
+import { classifyDeviationScope, normalizeScope } from './classifiers/scopeClassifier.js';
 import {
   hasOperationalDeviationSignal,
   shouldUseAreaProcesoAsHallazgo,
@@ -871,6 +872,26 @@ function processRow({
 
   const explicacionClasificacion = preExplicacionClasificacion;
   const confianza = preConfianza;
+  const scopeFromSource = normalizeScope(getRowValueByCandidates(row, rowKeyMap, [
+    'Desvío interno/externo',
+    'Desvio interno/externo',
+    'Desvío externo/ Interno',
+    'Desvio externo/ Interno',
+    'Desvio externo/interno',
+    'Origen',
+    'origen'
+  ]));
+  const scopeClassified = classifyDeviationScope({
+    text: [textForClassification, rawRecord.hallazgoDetectado, rawRecord.descripcion, rawRecord.observaciones].filter(Boolean).join(' | '),
+    detectedArea: areaClasificadaFinal,
+    empresaDetectada: detectedCompanyArea || '',
+    sectorDetectado: rawRecord.areaProceso || ''
+  });
+  const alcanceDesvio = scopeFromSource || scopeClassified.scope;
+  const alcanceReason = scopeFromSource
+    ? 'Alcance informado explícitamente en Excel origen'
+    : scopeClassified.reason;
+  const alcanceConfidence = scopeFromSource ? 0.99 : scopeClassified.confidence;
 
   const analisisTexto = buildAnalysisText(rawRecord);
 
@@ -900,6 +921,9 @@ function processRow({
     categoriaDesvio,
     responsable,
     estadoAccion,
+    alcanceDesvio,
+    alcanceReason,
+    alcanceConfidence,
     refinadoPorIA,
     explicacionClasificacion,
     confianza,

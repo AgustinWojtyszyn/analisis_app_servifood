@@ -31,6 +31,7 @@ const typeColors = {
   IN: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
   LE: { bg: 'rgba(3, 105, 161, 0.16)', text: '#0c4a6e' },
   LGT: { bg: 'rgba(2, 132, 199, 0.16)', text: '#075985' },
+  CAL: { bg: 'rgba(126, 34, 206, 0.14)', text: '#5b21b6' },
   NC: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
   OBS: { bg: 'rgba(245, 158, 11, 0.15)', text: '#92400e' },
   OM: { bg: 'rgba(139, 92, 246, 0.14)', text: '#5b21b6' }
@@ -166,6 +167,16 @@ function buildCorrectiveActionFallback(record = {}) {
   return 'Corregir el desvío detectado, registrar la acción tomada y reforzar el criterio con el responsable del sector.';
 }
 
+function getRecordScope(record = {}) {
+  const normalized = normalizeCellValue(record.alcanceDesvio || record.desvioInternoExterno).trim().toLowerCase();
+  if (normalized === 'interno') return 'Interno';
+  if (normalized === 'externo') return 'Externo';
+  const original = normalizeCellValue(findOriginalValueByAliases(record, ['Desvío interno/externo', 'Desvio interno/externo', 'Origen', 'origen'])).trim().toLowerCase();
+  if (original === 'interno') return 'Interno';
+  if (original === 'externo') return 'Externo';
+  return 'Interno';
+}
+
 export default function AnalysisResults({
   records,
   analysisId,
@@ -177,7 +188,9 @@ export default function AnalysisResults({
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterArea, setFilterArea] = useState('all');
+  const [scopeFilter, setScopeFilter] = useState('all');
   const [activeCategory, setActiveCategory] = useState('todos');
+  const [exportMode, setExportMode] = useState('all');
   const [expandedRows, setExpandedRows] = useState({});
   const topScrollRef = useRef(null);
   const tableContainerRef = useRef(null);
@@ -188,7 +201,9 @@ export default function AnalysisResults({
     setRowsPerPage(10);
     setSearchTerm('');
     setFilterArea('all');
+    setScopeFilter('all');
     setActiveCategory('todos');
+    setExportMode('all');
     setExpandedRows({});
   };
 
@@ -241,6 +256,7 @@ export default function AnalysisResults({
 
     const matchesSearch = textSearch.includes(searchTerm.toLowerCase());
     const matchesArea = filterArea === 'all' || areaParts.includes(filterArea);
+    const matchesScope = scopeFilter === 'all' || getRecordScope(record).toLowerCase() === scopeFilter;
     const matchesCategory = (() => {
       if (activeCategory === 'todos') return true;
       if (activeCategory === 'inocuidad') return categoriaDesvio === 'Desvío de Inocuidad';
@@ -249,7 +265,7 @@ export default function AnalysisResults({
       return true;
     })();
 
-    return matchesSearch && matchesArea && matchesCategory;
+    return matchesSearch && matchesArea && matchesScope && matchesCategory;
   });
 
   const exportConfigByFilter = {
@@ -259,6 +275,7 @@ export default function AnalysisResults({
     legal: { label: 'Exportar desvío legal', fileName: 'analisis_desvio_legal.xlsx' }
   };
   const activeExportConfig = exportConfigByFilter[activeCategory] || exportConfigByFilter.todos;
+  const recordsForExport = exportMode === 'filtered' ? filteredRecords : records;
 
   const displayedRecords = filteredRecords.slice(
     page * rowsPerPage,
@@ -320,7 +337,10 @@ export default function AnalysisResults({
       'Área clasificada',
       'Categoría desvío',
       'Tipo desvío',
+      'Desvío interno/externo',
       'ISO 22000',
+      'Razón técnica',
+      'Confianza',
       'Acción inmediata',
       'Acción correctiva',
       'Estado acción',
@@ -334,17 +354,20 @@ export default function AnalysisResults({
     ];
 
     const originalHeaders = [...new Set(
-      filteredRecords.flatMap((record) => Object.keys(getOriginalColumns(record)))
+      recordsForExport.flatMap((record) => Object.keys(getOriginalColumns(record)))
     )];
 
-    const rows = filteredRecords.map((record) => {
+    const rows = recordsForExport.map((record) => {
       const base = {
         Fecha: normalizeCellValue(record.fecha),
         'Hallazgo detectado': normalizeCellValue(record.hallazgoDetectado),
         'Área clasificada': normalizeCellValue(record.areaClasificada),
         'Categoría desvío': normalizeCellValue(record.categoriaDesvio),
         'Tipo desvío': normalizeCellValue(record.tipoDesvio),
+        'Desvío interno/externo': getRecordScope(record),
         'ISO 22000': normalizeCellValue(record.iso22000),
+        'Razón técnica': normalizeCellValue(record.explicacionClasificacion || record.alcanceReason),
+        Confianza: normalizeCellValue(record.confianza || record.alcanceConfidence),
         'Acción inmediata': normalizeCellValue(record.accionInmediata),
         'Acción correctiva': normalizeCellValue(record.accionCorrectiva),
         'Estado acción': normalizeCellValue(record.estadoAccion),
@@ -441,6 +464,9 @@ export default function AnalysisResults({
         <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: 19, md: 21 } }}>
           Registros procesados ({filteredRecords.length})
         </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Mostrando {filteredRecords.length} de {records.length}
+        </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.25 }}>
           <Button
             variant="text"
@@ -535,10 +561,38 @@ export default function AnalysisResults({
             <option key={area} value={area}>{area}</option>
           ))}
         </TextField>
+        <TextField
+          select
+          label="Alcance"
+          value={scopeFilter}
+          onChange={(e) => {
+            setScopeFilter(e.target.value);
+            setPage(0);
+          }}
+          size="small"
+          fullWidth
+          SelectProps={{ native: true }}
+        >
+          <option value="all">Todos</option>
+          <option value="interno">Solo internos</option>
+          <option value="externo">Solo externos</option>
+        </TextField>
+        <TextField
+          select
+          label="Exportación"
+          value={exportMode}
+          onChange={(e) => setExportMode(e.target.value)}
+          size="small"
+          fullWidth
+          SelectProps={{ native: true }}
+        >
+          <option value="all">Exportar todos</option>
+          <option value="filtered">Exportar vista filtrada</option>
+        </TextField>
         <Button
           variant="contained"
           onClick={handleExportExcel}
-          disabled={filteredRecords.length === 0}
+          disabled={recordsForExport.length === 0}
           size="small"
           sx={{
             backgroundColor: '#1d6f42',
@@ -563,7 +617,7 @@ export default function AnalysisResults({
           }}
         >
           <img src={excelIcon} alt="" width={16} height={16} />
-          {activeExportConfig.label}
+          {exportMode === 'filtered' ? `${activeExportConfig.label} (vista)` : `${activeExportConfig.label} (todos)`}
         </Button>
         <Button
           variant="contained"
@@ -605,6 +659,7 @@ export default function AnalysisResults({
               <TableCell sx={{ fontWeight: 700 }}>Área</TableCell>
               <TableCell sx={{ fontWeight: 700, minWidth: 180 }}>Categoría</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Tipo</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Alcance</TableCell>
               <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>ISO</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Responsable</TableCell>
@@ -658,6 +713,7 @@ export default function AnalysisResults({
                         <Typography variant="body2" color="text.secondary">-</Typography>
                       )}
                     </TableCell>
+                    <TableCell>{getRecordScope(record)}</TableCell>
                     <TableCell sx={{ maxWidth: 250 }}>
                       <Typography variant="body2">{normalizeCellValue(record.iso22000) || '-'}</Typography>
                     </TableCell>
@@ -672,7 +728,7 @@ export default function AnalysisResults({
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={10}>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={11}>
                       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                         <Box sx={{ px: 2, py: 1.5, backgroundColor: 'rgba(148,163,184,0.08)', borderRadius: 1, mb: 1.25 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Detalle del registro</Typography>
@@ -700,7 +756,7 @@ export default function AnalysisResults({
                             <Box sx={{ gridColumn: { xs: 'auto', md: '1 / span 2' } }}>
                               <Typography variant="caption" color="text.secondary">Desvío interno/externo (origen)</Typography>
                               <Typography variant="body2">
-                                {findOriginalValueByAliases(record, ['Desvío interno/externo', 'Desvio interno/externo', 'Origen', 'origen']) || '-'}
+                                {getRecordScope(record)}
                               </Typography>
                             </Box>
                             <Box>
