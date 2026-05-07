@@ -119,10 +119,16 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
       const failCount = Number(payload.failedFiles ?? payload.fail ?? rawResults.filter((r) => !r?.success).length);
 
       setFileStatuses((prev) => prev.map((item) => {
-        const result = resultMap.get(item.filename);
+        const result = resultMap.get(item.filename) || rawResults.find((r) => r.fileName === item.filename);
         if (!result) return { ...item, status: 'error', error: 'Sin respuesta del servidor' };
         if (result.success) return { ...item, status: 'listo', analysisId: result.analysisId, totalRecords: result.totalRecords };
-        return { ...item, status: 'error', error: result.error || 'Error procesando' };
+        return {
+          ...item,
+          status: 'error',
+          stage: result.stage || 'processing',
+          error: result.error || result.message || 'Error procesando',
+          diagnostics: result.diagnostics || null
+        };
       }));
 
       if (okCount > 0) {
@@ -209,8 +215,8 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
                       {item.status}
                     </Typography>
                     {item.status === 'error' && item.error && (
-                      <Typography variant="caption" color="error.main" sx={{ maxWidth: 360 }}>
-                        {item.error}
+                      <Typography variant="caption" color="error.main" sx={{ maxWidth: 520, textTransform: 'none' }}>
+                        {`${item.stage ? `[${item.stage}] ` : ''}${item.error}`}
                       </Typography>
                     )}
                     {item.status === 'pendiente' && (

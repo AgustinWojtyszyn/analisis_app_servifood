@@ -26,7 +26,7 @@ function buildBatchUploadResponse(results = []) {
     failedFiles: failed.length,
     results: normalized,
     errors: failed.map((f) => ({
-      fileName: f.filename,
+      fileName: f.fileName || f.filename,
       message: f.error || 'Error procesando archivo',
       stage: f.stage || 'processing',
       diagnostics: f.diagnostics || null
@@ -350,6 +350,14 @@ export async function uploadAndAnalyzeMultiple(req, res) {
     }
 
     const files = req.files || [];
+    const uploadDiagnostics = {
+      hasFile: !!req.file,
+      hasFiles: Array.isArray(files) && files.length > 0,
+      receivedFilesCount: Array.isArray(files) ? files.length : 0,
+      fieldNames: Array.isArray(files) ? files.map((f) => f.fieldname) : [],
+      fileNames: Array.isArray(files) ? files.map((f) => f.originalname) : [],
+      sizes: Array.isArray(files) ? files.map((f) => f.size) : []
+    };
     if (ENABLE_DEBUG_EXCEL_ANALYSIS) {
       console.log({
         endpoint: 'POST /analysis/upload-multiple',
@@ -383,11 +391,14 @@ export async function uploadAndAnalyzeMultiple(req, res) {
         const recordsLength = Array.isArray(analysis?.records) ? analysis.records.length : 0;
         if (recordsLength === 0) {
           const emptyResult = {
+            fileName: file.originalname,
             filename: file.originalname,
             success: false,
             stage: 'post_processing',
             error: 'Archivo procesado sin registros detectados',
-            diagnostics: analysis?.diagnostics || null,
+            diagnostics: ENABLE_DEBUG_EXCEL_ANALYSIS
+              ? { upload: uploadDiagnostics, excel: analysis?.diagnostics || null }
+              : null,
             analysisId: analysis?.id || null
           };
           if (ENABLE_DEBUG_EXCEL_ANALYSIS) {
@@ -410,12 +421,15 @@ export async function uploadAndAnalyzeMultiple(req, res) {
           });
         }
         results.push({
+          fileName: file.originalname,
           filename: file.originalname,
           success: true,
           analysisId: analysis.id,
           totalRecords: recordsLength,
           records: analysis.records || [],
-          diagnostics: analysis.diagnostics || null,
+          diagnostics: ENABLE_DEBUG_EXCEL_ANALYSIS
+            ? { upload: uploadDiagnostics, excel: analysis.diagnostics || null }
+            : null,
           analysis
         });
       } catch (error) {
@@ -428,10 +442,13 @@ export async function uploadAndAnalyzeMultiple(req, res) {
           });
         }
         results.push({
+          fileName: file.originalname,
           filename: file.originalname,
           success: false,
           stage: error?.stage || 'processing',
-          diagnostics: error?.diagnostics || null,
+          diagnostics: ENABLE_DEBUG_EXCEL_ANALYSIS
+            ? { upload: uploadDiagnostics, excel: error?.diagnostics || null }
+            : null,
           error: error.message || 'Error procesando archivo'
         });
       }
