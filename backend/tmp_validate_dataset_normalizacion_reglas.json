@@ -1,0 +1,182 @@
+{
+  "excelPath": "/home/aggustin/.vscode/analisis_app_servifood/dataset_normalizacion_reglas.xlsx",
+  "totalRecords": 17,
+  "summary": {
+    "totalRecords": 17,
+    "totalCases": 16,
+    "totalDesvios": 11,
+    "totalConformes": 6,
+    "totalInocuidad": 11,
+    "totalCalidad": 0,
+    "totalLogistica": 0,
+    "totalLegal": 0,
+    "totalRevisionManual": 0,
+    "totalNC": 0,
+    "totalOBS": 0,
+    "totalOM": 0,
+    "byArea": {
+      "Cámara 1": 11
+    },
+    "byTipo": {
+      "IN": 11
+    },
+    "byIso22000": {
+      "8.2 PRP Limpieza": 2,
+      "8.5.2 Trazabilidad": 2,
+      "8.5.1 Control operacional": 3,
+      "8.7 Control de salidas no conformes": 1,
+      "8.5.2 Trazabilidad / 8.2 PRP Manejo residuos": 1,
+      "7.1.3 Equipamiento": 1,
+      "8.2 PRP Orden": 1
+    },
+    "byCategoria": {
+      "Desvío de Inocuidad": 11,
+      "Conforme": 6
+    },
+    "noFindingAudit": {
+      "totalNoFindingAntes": 3,
+      "conformesReales": 1,
+      "filasVaciasDescartadas": 0,
+      "ejemplosDescartadas": [],
+      "ejemplosConformesReales": [
+        {
+          "fecha": "2026-05-04",
+          "area": "Área no identificada",
+          "hallazgo": "Sin hallazgo detectado",
+          "responsable": "Responsable a definir",
+          "descripcion": "Sin hallazgo detectado",
+          "observaciones": "-",
+          "accion": "-",
+          "notaTecnica": "-"
+        }
+      ]
+    },
+    "excelAudit": {
+      "totalFilasLeidas": 17,
+      "totalRegistrosCreados": 17,
+      "filasDescartadasDesvioVacio": 0,
+      "conformesExplicitosReales": 3,
+      "totalConformesAutoGenerados": 0,
+      "ejemplosFilasDescartadas": [],
+      "ejemplosRegistrosCreados": [
+        {
+          "fecha": "2026-05-04",
+          "area": "Cámara 1",
+          "hallazgo": "Heladera sucia",
+          "resultado": "No conforme",
+          "categoria": "Desvío de Inocuidad"
+        },
+        {
+          "fecha": "2026-05-04",
+          "area": "Cámara 1",
+          "hallazgo": "Alimentos sin rotular en heladera",
+          "resultado": "No conforme",
+          "categoria": "Desvío de Inocuidad"
+        },
+        {
+          "fecha": "2026-05-04",
+          "area": "Cámara 1",
+          "hallazgo": "Cámara 1 con alimentos sin rotular",
+          "resultado": "No conforme",
+          "categoria": "Desvío de Inocuidad"
+        },
+        {
+          "fecha": "2026-05-04",
+          "area": "Cámara 1",
+          "hallazgo": "Cámara 1 sucia",
+          "resultado": "No conforme",
+          "categoria": "Desvío de Inocuidad"
+        },
+        {
+          "fecha": "2026-05-04",
+          "area": "Cámara 1",
+          "hallazgo": "Freezer no funciona",
+          "resultado": "No conforme",
+          "categoria": "Desvío de Inocuidad"
+        }
+      ],
+      "ejemplosConformesAutoGenerados": []
+    },
+    "actions": {
+      "abiertas": 0,
+      "cerradas": 0,
+      "enProceso": 0,
+      "sinAccion": 17
+    },
+    "timestamp": "2026-05-07T13:34:11.231Z"
+  },
+  "checks": [
+    {
+      "rule": "inocuidad_fruta_riesgo",
+      "expected": "Desvío de Inocuidad",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "logistica_no_envio",
+      "expected": "Desvío de Logística",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "logistica_falta_stock_mp",
+      "expected": "Desvío de Logística",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "inocuidad_mp_mal_estado",
+      "expected": "Desvío de Inocuidad",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "inocuidad_coccion",
+      "expected": "Desvío de Inocuidad",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "inocuidad_celiacos",
+      "expected": "Desvío de Inocuidad",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "legal_documentacion_ingreso",
+      "expected": "Desvío Legal",
+      "matches": 1,
+      "ok": 0,
+      "fail": 1,
+      "sample": [
+        {
+          "row": 13,
+          "text": "Producto no conforme detectado | Producto no conforme detectado | Producto no conforme detectado",
+          "actual": "Desvío de Inocuidad",
+          "expected": "Desvío Legal",
+          "ok": false
+        }
+      ]
+    },
+    {
+      "rule": "calidad_gramaje_peso_presentacion",
+      "expected": "Desvío de Calidad",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    }
+  ]
+}

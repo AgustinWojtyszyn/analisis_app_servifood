@@ -1,0 +1,170 @@
+{
+  "excelPath": "/home/aggustin/.vscode/analisis_app_servifood/dataset_area_step3_fixed.xlsx",
+  "totalRecords": 16,
+  "summary": {
+    "totalRecords": 16,
+    "totalCases": 16,
+    "totalDesvios": 16,
+    "totalConformes": 0,
+    "totalInocuidad": 16,
+    "totalCalidad": 0,
+    "totalLogistica": 0,
+    "totalLegal": 0,
+    "totalRevisionManual": 0,
+    "totalNC": 0,
+    "totalOBS": 0,
+    "totalOM": 0,
+    "byArea": {
+      "Área fría": 3,
+      "Cámara 1": 3,
+      "Área de residuos": 2,
+      "Área no identificada": 2,
+      "Logística": 1,
+      "Baños": 1,
+      "Áreas comunes": 1,
+      "Lavadero": 1,
+      "Área de pre elaborados": 1,
+      "Área caliente": 1
+    },
+    "byTipo": {
+      "IN": 16
+    },
+    "byIso22000": {
+      "8.5.2 Trazabilidad": 4,
+      "8.2 PRP Limpieza": 4,
+      "8.2 PRP Manejo residuos": 4,
+      "8.5.1 Control operacional": 2,
+      "8.2 PRP Identificación": 1,
+      "8.2 PRP Higiene": 1
+    },
+    "byCategoria": {
+      "Desvío de Inocuidad": 16
+    },
+    "noFindingAudit": {
+      "totalNoFindingAntes": 0,
+      "conformesReales": 0,
+      "filasVaciasDescartadas": 0,
+      "ejemplosDescartadas": [],
+      "ejemplosConformesReales": []
+    },
+    "excelAudit": {
+      "totalFilasLeidas": 16,
+      "totalRegistrosCreados": 16,
+      "filasDescartadasDesvioVacio": 0,
+      "conformesExplicitosReales": 0,
+      "totalConformesAutoGenerados": 0,
+      "ejemplosFilasDescartadas": [],
+      "ejemplosRegistrosCreados": [
+        {
+          "fecha": "2026-05-04",
+          "area": "Área fría",
+          "hallazgo": "Sándwiches y postres sin rotular",
+          "resultado": "No conforme",
+          "categoria": "Desvío de Inocuidad"
+        },
+        {
+          "fecha": "2026-05-04",
+          "area": "Área fría",
+          "hallazgo": "Alimentos sin rotular en heladera",
+          "resultado": "No conforme",
+          "categoria": "Desvío de Inocuidad"
+        },
+        {
+          "fecha": "2026-05-04",
+          "area": "Cámara 1",
+          "hallazgo": "Cámara 1 con alimentos sin rotular",
+          "resultado": "No conforme",
+          "categoria": "Desvío de Inocuidad"
+        },
+        {
+          "fecha": "2026-05-04",
+          "area": "Cámara 1",
+          "hallazgo": "Cámara 1 sucia",
+          "resultado": "No conforme",
+          "categoria": "Desvío de Inocuidad"
+        },
+        {
+          "fecha": "2026-05-04",
+          "area": "Área de residuos",
+          "hallazgo": "Falta cartelería y orden en sector residuos",
+          "resultado": "No conforme",
+          "categoria": "Desvío de Inocuidad"
+        }
+      ],
+      "ejemplosConformesAutoGenerados": []
+    },
+    "actions": {
+      "abiertas": 0,
+      "cerradas": 0,
+      "enProceso": 0,
+      "sinAccion": 16
+    },
+    "timestamp": "2026-05-07T13:34:38.140Z"
+  },
+  "checks": [
+    {
+      "rule": "inocuidad_fruta_riesgo",
+      "expected": "Desvío de Inocuidad",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "logistica_no_envio",
+      "expected": "Desvío de Logística",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "logistica_falta_stock_mp",
+      "expected": "Desvío de Logística",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "inocuidad_mp_mal_estado",
+      "expected": "Desvío de Inocuidad",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "inocuidad_coccion",
+      "expected": "Desvío de Inocuidad",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "inocuidad_celiacos",
+      "expected": "Desvío de Inocuidad",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "legal_documentacion_ingreso",
+      "expected": "Desvío Legal",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    },
+    {
+      "rule": "calidad_gramaje_peso_presentacion",
+      "expected": "Desvío de Calidad",
+      "matches": 0,
+      "ok": 0,
+      "fail": 0,
+      "sample": []
+    }
+  ]
+}

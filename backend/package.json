@@ -8,6 +8,7 @@
     "build": "npm run prisma:generate",
     "dev": "node --watch src/bootstrap.js",
     "start": "node src/bootstrap.js",
+    "test": "node --test",
     "prisma:generate": "npx -y prisma@5.22.0 generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
