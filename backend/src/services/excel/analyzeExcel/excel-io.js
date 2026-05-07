@@ -53,6 +53,23 @@ function scoreWorksheetForDescriptions(sheet) {
 
 function detectHeaderRowIndex(sheet) {
   const maxRows = Math.min(sheet.rowCount || 0, 40);
+  const CORE_ALIASES = {
+    fecha: ['fecha', 'fecha del desvio', 'fecha de registro'],
+    area: ['area / sector', 'area / proceso', 'area', 'sector'],
+    desvio: DEVIATION_HEADER_ALIASES
+  };
+
+  // Fast-path: primer row que luce inequívocamente como cabecera de desvíos.
+  for (let r = 1; r <= maxRows; r += 1) {
+    const rowValues = sheet.getRow(r).values || [];
+    const cells = rowValues.slice(1).map((value) => normalizeHeaderKey(value)).filter(Boolean);
+    if (!cells.length) continue;
+    const hasFecha = CORE_ALIASES.fecha.some((a) => cells.some((c) => c === a || c.startsWith(a)));
+    const hasArea = CORE_ALIASES.area.some((a) => cells.some((c) => c === a || c.startsWith(a)));
+    const hasDesvio = CORE_ALIASES.desvio.some((a) => cells.some((c) => c === a || c.startsWith(a)));
+    if (hasDesvio && (hasFecha || hasArea)) return r;
+  }
+
   let bestRow = 1;
   let bestScore = -1;
 
@@ -70,7 +87,7 @@ function detectHeaderRowIndex(sheet) {
     let score = 0;
     score += cells.length;
     score += cells.filter((cell) => headerSignalRegex.test(cell)).length * 8;
-    score += cells.filter((cell) => DEVIATION_HEADER_ALIASES.includes(cell)).length * 30;
+    score += cells.filter((cell) => DEVIATION_HEADER_ALIASES.includes(cell)).length * 50;
     score += cells.filter((cell) => cell.length <= 40).length;
 
     if (score > bestScore) {

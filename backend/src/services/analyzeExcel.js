@@ -16,15 +16,16 @@ import {
 } from './excel/analyzeExcel/excel-io.js';
 import { processRow } from './excel/analyzeExcel/recordProcessor.js';
 import { OPERATIVE_AREAS } from './excel/analyzeExcel/public.js';
+import { normalizeCellValue, normalizeIncidentText } from './analyzeExcel/normalizers.js';
 
 const ENABLE_CLASSIFICATION_TRACE = process.env.CLASSIFICATION_TRACE === '1';
 const ENABLE_FILLDOWN_TRACE = process.env.EXCEL_FILLDOWN_TRACE === '1';
-const ENABLE_DEBUG_DIAGNOSTICS = process.env.DEBUG_EXCEL_ANALYSIS === 'true';
 
 /**
  * Analiza un archivo Excel y clasifica desvios en base a reglas textuales objetivas.
  */
 export async function analyzeExcel(fileBuffer, _businessRules, progressCallback = null) {
+  const enableDebugDiagnostics = process.env.DEBUG_EXCEL_ANALYSIS === 'true';
   const results = [];
 
   const summary = createSummary();
@@ -61,6 +62,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       rowsWithDeviationText: 0,
       discardedRowsCount: 0,
       discardedSamples: [],
+      rowsAudit: [],
       recordsAfterProcessing: 0,
       recordsSentToFrontend: 0
     };
@@ -82,6 +84,22 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         enableClassificationTrace: ENABLE_CLASSIFICATION_TRACE,
         enableFillDownTrace: ENABLE_FILLDOWN_TRACE
       });
+
+      const rawDeviationValue = normalizeCellValue(
+        Number.isInteger(diagnostics.deviationColumnIndex)
+          ? rowValues?.[diagnostics.deviationColumnIndex]
+          : ''
+      ).trim();
+      const normalizedDeviationValue = normalizeIncidentText(rawDeviationValue);
+      if (enableDebugDiagnostics && diagnostics.rowsAudit.length < 2000) {
+        diagnostics.rowsAudit.push({
+          rowNumber: headerRowIndex + index + 1,
+          rawDeviationValue,
+          normalizedDeviationValue,
+          accepted: !processed.skipped,
+          discardReason: processed.skipped ? (processed.discardedReason || 'unknown') : null
+        });
+      }
 
       if (!processed.skipped) {
         diagnostics.rowsWithDeviationText += 1;
@@ -128,7 +146,7 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
     const successPayload = buildSuccessPayload(results, summary);
     diagnostics.recordsAfterProcessing = results.length;
     diagnostics.recordsSentToFrontend = successPayload.records.length;
-    if (ENABLE_DEBUG_DIAGNOSTICS) {
+    if (enableDebugDiagnostics) {
       successPayload.diagnostics = diagnostics;
     }
 
