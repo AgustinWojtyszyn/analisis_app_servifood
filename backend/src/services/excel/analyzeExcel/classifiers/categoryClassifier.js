@@ -32,83 +32,52 @@ function classifyDeviationAreaDetailed({
     return { area: 'Conforme', reason: 'Sin evidencia de desvío en el texto normalizado', confidence: 0.8 };
   }
 
-  const inocuidadSignals = [
-    { hit: hasAny(['fruta sin sanitizar', 'sin sanitizar', 'falta de sanitizacion', 'falta sanitizacion']), reason: 'Riesgo alimentario por falta de sanitización' },
-    { hit: hasAny(['mal estado', 'deteriorada', 'deteriorado', 'pasada', 'pasado', 'oxidada', 'oxidado', 'fruta picada', 'naranja picada', 'naranjas picadas']), reason: 'Alimento en mal estado con riesgo sanitario potencial' },
-    { hit: hasAny(['falta de coccion', 'crudo', 'mal cocido', 'temperatura insuficiente', 'sin coccion']), reason: 'Riesgo sanitario por cocción insuficiente' },
-    { hit: hasAny(['camara', 'cadena de frio', 'refrigeracion', 'temperatura de conservacion', 'frio']) && hasAny(['no funciona', 'fuera de rango', 'falla', 'sin']), reason: 'Riesgo de inocuidad por falla en conservación en frío' },
-    { hit: hasAny(['pelo', 'plastico', 'metal', 'suciedad', 'cuerpo extrano', 'cuerpo extraño']), reason: 'Contaminación física detectada en alimento' },
-    { hit: hasAny(['bpm', 'higiene', 'limpieza', 'sanitizacion', 'desinfeccion']), reason: 'Incumplimiento de prácticas de higiene/inocuidad' },
-    { hit: hasAny(['alergeno', 'alergenos', 'celiaco', 'celiacos', 'sin tacc', 'dieta especial', 'menu sin tacc']) && hasAny(['contaminado', 'mezclado', 'mal rotulado', 'sin rotular', 'sin identificar', 'identificacion incorrecta', 'identificación incorrecta', 'no apto', 'contaminacion cruzada', 'contaminación cruzada']), reason: 'Riesgo de inocuidad por gestión incorrecta de dieta especial/alérgenos' }
+  const legalSignals = [
+    { hit: hasAny(['documentacion', 'documental', 'registro administrativo', 'requisito administrativo']), reason: 'Incumplimiento documental o administrativo' },
+    { hit: hasAny(['no pudo ingresar', 'ingreso denegado', 'acceso denegado', 'ingreso bloqueado']) && hasAny(['establecimiento', 'cliente', 'plataforma', 'credencial', 'permiso', 'habilitacion']), reason: 'Bloqueo de ingreso por requisitos administrativos' },
+    { hit: hasAny(['plataforma', 'credencial', 'cubre franco', 'permiso', 'habilitacion', 'habilitación']), reason: 'Incumplimiento de plataforma/credenciales/habilitaciones' },
+    { hit: hasAny(['contrato', 'contractual', 'libreta sanitaria', 'certificado', 'art vigente']), reason: 'Incumplimiento contractual o documental legal' }
   ];
-  const inocuidadMatch = inocuidadSignals.find((signal) => signal.hit);
+
+  const inocuidadSignals = [
+    { hit: hasAny(['falta de coccion', 'falta de cocción', 'crudo', 'mal cocido', 'sin coccion', 'sin cocción']), reason: 'Riesgo directo por cocción insuficiente' },
+    { hit: hasAny(['pelo en alimento', 'pelo', 'cuerpo extrano', 'cuerpo extraño', 'contaminacion fisica', 'contaminación física']), reason: 'Contaminación física en alimento' },
+    { hit: hasAny(['contaminacion cruzada', 'contaminación cruzada', 'alergeno', 'alergenos', 'sin tacc', 'celiaco', 'celiacos']) && hasAny(['contaminado', 'mezclado', 'mal rotulado', 'sin rotular', 'no apto']), reason: 'Riesgo por contaminación cruzada/alérgenos' },
+    { hit: hasAny(['sin sanitizar', 'falta de sanitizacion', 'falta de sanitización', 'desinfeccion incompleta', 'desinfección incompleta']), reason: 'Alimento o insumo sin sanitizar' },
+    { hit: (hasAny(['mal estado', 'oxidado', 'oxidada', 'picado', 'picada', 'no inocuo']) || (hasAny(['pasado', 'pasada']) && hasAny(['alimento', 'producto', 'fruta', 'materia prima']))) && !hasAny(['pasado de peso', 'pasadas de peso', 'gramaje', 'peso']), reason: 'Producto potencialmente no inocuo' },
+    { hit: hasAny(['temperatura peligrosa', 'fuera de rango', 'cadena de frio', 'cadena de frío', 'temperatura de conservacion']) && hasAny(['producto', 'alimento', 'materia prima', 'comprometido', 'comprometida']), reason: 'Temperatura peligrosa con producto comprometido' }
+  ];
 
   const logisticaSignals = [
-    { hit: hasAny(['no se envio', 'no se enviaron', 'no se envian', 'falto enviar', 'no sale', 'sale tarde', 'llego tarde', 'llegan tarde']), reason: 'Incidencia de envío/entrega operativa' },
-    { hit: hasAny(['despacho', 'recorrido', 'segunda movilidad']), reason: 'Incidencia de despacho o recorrido logístico' },
-    { hit: hasAny(['falta de materia prima', 'materia prima faltante', 'falta de stock', 'sin stock']), reason: 'Falta de disponibilidad de insumos/stock' },
-    { hit: hasAny(['faltan cajones', 'faltan platinas', 'cajones para despacho', 'platinas para despacho']), reason: 'Faltante de elementos para despacho' },
-    { hit: hasAny(['evento programado', 'fecha incorrecta', 'salio 26 12', 'salio 27 12']), reason: 'Error operativo de programación de evento' },
-    { hit: hasAny(['personal llega tarde', 'personal de area caliente llega tarde', 'deposito cerrado por tardanza', 'sale tarde', 'cerrado por tardanza']), reason: 'Demora operativa de personal o depósito' },
-    { hit: hasAny(['falta de aceite de oliva', 'reclama aceite de oliva', 'falta aceite de oliva']), reason: 'Faltante de insumo para entrega/producción' },
-    { hit: hasAny(['reclamo']) && hasAny(['callia', 'easy', 'adium', 'scop', 'comeca', 'clorox']), reason: 'Reclamo operativo de cliente/servicio' }
+    { hit: hasAny(['despacho', 'entrega', 'horario', 'recorrido', 'movilidad', 'transporte']), reason: 'Incidencia de despacho/entrega/transporte' },
+    { hit: hasAny(['no se envio', 'no se envió', 'no se envia', 'no se envía', 'no se enviaron', 'comida no enviada', 'producto no salio', 'producto no salió', 'no salieron productos', 'no sale', 'no salen']), reason: 'Producto no enviado o no despachado' },
+    { hit: hasAny(['demora', 'tardanza', 'llega tarde', 'llegaron tarde', 'sale tarde', 'salen tarde', 'evento enviado en fecha incorrecta', 'fecha incorrecta']), reason: 'Demora o programación incorrecta de entrega' },
+    { hit: hasAny(['faltante', 'faltan cajones', 'falta de cajones', 'faltan platinas', 'falta de platinas']), reason: 'Faltantes logísticos para despacho' },
+    { hit: hasAny(['materia prima faltante', 'falta de materia prima', 'sin stock', 'falta de stock']) && hasAny(['impide enviar', 'no se envio', 'no se envia', 'despacho', 'entrega']), reason: 'Falta de materia prima que bloquea envío' },
+    { hit: hasAny(['falta de aceite', 'aceite faltante', 'falta aceite']), reason: 'Faltante de insumo para envío o producción' },
+    { hit: hasAny(['personal llega tarde']) && hasAny(['despacho', 'entrega', 'envio', 'envío']), reason: 'Demora operativa de personal con impacto logístico' },
+    { hit: hasAny(['reclamo']) && hasAny(['entrega', 'despacho', 'faltante', 'demora', 'tardanza', 'aceite', 'no se envio', 'no se envia']), reason: 'Reclamo por incidencia logística' }
   ];
-  const logisticaMatch = logisticaSignals.find((signal) => signal.hit);
-
-  const legalSignals = [
-    { hit: hasAny(['documentacion vencida', 'documentacion faltante', 'plataforma desactualizada']), reason: 'Incumplimiento documental o de plataforma' },
-    { hit: hasAny(['no pudo ingresar', 'ingreso denegado']) && hasAny(['documentacion', 'plataforma', 'credencial']), reason: 'Ingreso bloqueado por incumplimiento documental' },
-    { hit: hasAny(['habilitacion', 'permiso', 'ingreso no autorizado', 'credencial', 'cubre franco no pudo ingresar', 'no pudo ingresar']), reason: 'Incumplimiento de habilitación/ingreso' },
-    { hit: hasAny(['seguro art', 'art vigente', 'certificado', 'libreta sanitaria', 'documentacion laboral', 'documentacion contractual']), reason: 'Incumplimiento legal/laboral documental' }
-  ];
-  const legalMatch = legalSignals.find((signal) => signal.hit);
 
   const calidadSignals = [
-    { hit: hasAny(['gramaje', 'peso', 'tamano', 'tamaño', 'dorado', 'aspecto', 'presentacion', 'organoleptica']), reason: 'Desvío de especificación de producto sin riesgo sanitario explícito' },
-    { hit: hasAny(['producto quemado', 'se queman', 'queman en el establecimiento', 'receta', 'emplatado']), reason: 'Desvío de calidad de elaboración/presentación' }
+    { hit: hasAny(['incumplimiento de especificacion', 'incumplimiento de especificación', 'especificacion', 'especificación', 'presentacion', 'presentación']), reason: 'Incumplimiento de especificación/presentación' },
+    { hit: hasAny(['gramaje', 'peso', 'pasadas de peso', 'pasado de peso']), reason: 'Desvío de gramaje o peso' },
+    { hit: hasAny(['quemado', 'quemada', 'queman', 'oxidado', 'oxidada', 'picado', 'picada', 'pasado', 'pasada']) && !hasAny(['alimento no inocuo', 'contaminacion', 'contaminación']), reason: 'Defecto de calidad del producto' },
+    { hit: hasAny(['equipo roto', 'camara no funciona', 'cámara no funciona', 'batidor roto', 'se rompe el batidor', 'sifon roto', 'sifón roto', 'se rompe sifon', 'se rompe sifón', 'bacha rota', 'mantenimiento']) && !inocuidadSignals.some((signal) => signal.hit), reason: 'Falla de equipo/mantenimiento sin riesgo claro de inocuidad' }
   ];
-  const calidadMatch = calidadSignals.find((signal) => signal.hit);
 
-  // Desempates obligatorios: prioridad por riesgo de inocuidad.
-  if (hasAny(['materia prima en mal estado'])) {
-    return { area: 'Desvío de Inocuidad', reason: 'Materia prima en mal estado con riesgo alimentario', confidence: 0.97 };
-  }
-  if (hasAny(['materia prima faltante', 'falta de materia prima', 'falta de stock', 'sin stock'])) {
-    return { area: 'Desvío de Logística', reason: 'Falta de materia prima/stock (incidencia operativa)', confidence: 0.95 };
-  }
-  if (hasAny(['no se envio fruta', 'no se enviaron fruta', 'no se enviaron frutas', 'falta envio fruta'])) {
-    return { area: 'Desvío de Logística', reason: 'No envío de fruta (problema de entrega)', confidence: 0.94 };
-  }
-  if (
-    hasAny(['celiaco', 'celiacos', 'sin tacc', 'menu celiaco', 'menu sin tacc', 'dieta especial'])
-    && hasAny(['no se envio', 'no se enviaron', 'no se envian', 'no se entrego', 'no se entregaron', 'falto', 'faltó', 'no llego', 'no llegó', 'no se mando', 'no se mandó'])
-  ) {
-    return { area: 'Desvío de Logística', reason: 'Faltante/no entrega de menú especial (incidencia de despacho)', confidence: 0.96 };
-  }
-  if (hasAny(['fruta']) && hasAny(['sin sanitizar', 'picada', 'pasada', 'oxidada', 'mal estado'])) {
-    return { area: 'Desvío de Inocuidad', reason: 'Riesgo alimentario en fruta lista para consumo', confidence: 0.98 };
-  }
-  if (hasAny(['pasadas de peso', 'pasado de peso', 'excede gramaje', 'exceder gramaje', 'gramaje solicitado', 'viandas pasadas de peso'])) {
-    return { area: 'Desvío de Calidad', reason: 'Desvío de gramaje/peso de especificación', confidence: 0.95 };
-  }
-  if (hasAny(['se rompe sifon de bacha', 'sifon de bacha'])) {
-    return { area: 'Desvío de Inocuidad', reason: 'Falla de infraestructura que afecta higiene/POES', confidence: 0.9 };
-  }
-  if (hasAny(['se rompe el batidor', 'batidor roto', 'equipo roto'])) {
-    return { area: 'Desvío de Inocuidad', reason: 'Falla de equipamiento crítico para elaboración segura de alimentos', confidence: 0.92 };
-  }
+  const priority = [
+    { category: 'Desvío Legal', signals: legalSignals, confidence: 0.94 },
+    { category: 'Desvío de Inocuidad', signals: inocuidadSignals, confidence: 0.95 },
+    { category: 'Desvío de Logística', signals: logisticaSignals, confidence: 0.92 },
+    { category: 'Desvío de Calidad', signals: calidadSignals, confidence: 0.9 }
+  ];
 
-  if (inocuidadMatch) {
-    return { area: 'Desvío de Inocuidad', reason: inocuidadMatch.reason, confidence: 0.95 };
-  }
-  if (legalMatch) {
-    return { area: 'Desvío Legal', reason: legalMatch.reason, confidence: 0.93 };
-  }
-  if (logisticaMatch) {
-    return { area: 'Desvío de Logística', reason: logisticaMatch.reason, confidence: 0.92 };
-  }
-  if (calidadMatch) {
-    return { area: 'Desvío de Calidad', reason: calidadMatch.reason, confidence: 0.9 };
+  for (const group of priority) {
+    const match = group.signals.find((signal) => signal.hit);
+    if (match) {
+      return { area: group.category, reason: match.reason, confidence: group.confidence };
+    }
   }
 
   if (tipo === 'NC' && containsAny(iso, [

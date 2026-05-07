@@ -1,26 +1,5 @@
 import { normalizeCellValue, normalizeIncidentText, containsAny } from '../../../analyzeExcel/normalizers.js';
 
-const EXTERNAL_ENTITIES = [
-  'aes',
-  'la laja',
-  'adium',
-  'easy',
-  'scop',
-  'callia',
-  'clorox',
-  'calidra',
-  'los berros',
-  'monteverde',
-  'comeca',
-  'placo',
-  'bodegas callia',
-  'saint gobain',
-  'grupo comeca',
-  'hospital',
-  'caps',
-  'cliente'
-];
-
 function classifyDeviationScope({
   text = '',
   detectedArea = '',
@@ -35,12 +14,24 @@ function classifyDeviationScope({
   ].filter(Boolean).join(' | '));
 
   const includesAny = (terms) => containsAny(normalizedText, terms);
-  const hasExternalEntity = EXTERNAL_ENTITIES.some((entity) => normalizedText.includes(entity));
-  if (hasExternalEntity) {
+  const hasExplicitInternalContainment = includesAny(['antes de despacho', 'antes de entregar', 'deteccion interna', 'detección interna', 'dentro de planta']);
+  const hasExternalComplaint = includesAny(['cliente reclama', 'reclamo del cliente', 'queja del cliente']);
+  const hasExternalDeliveryImpact = includesAny(['no se envio', 'no se envió', 'no se envia', 'no se envía', 'no se enviaron', 'no se envian', 'no se envían', 'no se entrego', 'no se entregó', 'entrega incompleta', 'despacho incompleto', 'demora en entrega', 'demora de entrega', 'evento enviado en fecha incorrecta', 'fecha incorrecta', 'sale tarde', 'llega tarde', 'llegan tarde']) && includesAny(['cliente', 'entrega', 'despacho', 'envio', 'envío', 'enviaron', 'envian', 'envían', 'recorrido', 'movilidad', 'transporte']);
+  const hasExternalThirdParty = includesAny(['proveedor', 'establecimiento externo', 'en establecimiento del cliente', 'sede externa']);
+  const hasExternalDispatchMention = includesAny(['despacho', 'entrega', 'envio', 'envío', 'enviaron', 'envian', 'envían', 'recorrido', 'movilidad', 'transporte']) && !hasExplicitInternalContainment;
+  if (hasExternalComplaint || hasExternalDeliveryImpact || hasExternalThirdParty || hasExternalDispatchMention) {
     return {
       scope: 'Externo',
-      reason: 'Se detecta cliente/empresa/sede externa en el desvío',
+      reason: 'El desvío impacta al cliente, la entrega/despacho o un tercero externo',
       confidence: 0.95
+    };
+  }
+
+  if (includesAny(['cliente', 'establecimiento', 'sede externa']) && includesAny(['no pudo ingresar', 'ingreso denegado', 'credencial', 'permiso', 'habilitacion', 'habilitación'])) {
+    return {
+      scope: 'Externo',
+      reason: 'El incidente ocurre al interactuar con establecimiento/cliente externo',
+      confidence: 0.93
     };
   }
 
@@ -48,7 +39,6 @@ function classifyDeviationScope({
     'planta',
     'cocina',
     'deposito',
-    'despacho',
     'area caliente',
     'area fria',
     'camara',
@@ -64,12 +54,17 @@ function classifyDeviationScope({
     'limpieza',
     'bpm',
     'poes',
-    'personal'
+    'personal',
+    'proceso interno',
+    'antes de despacho',
+    'antes de entregar',
+    'deteccion interna',
+    'detección interna'
   ];
   if (includesAny(internalSignals)) {
     return {
       scope: 'Interno',
-      reason: 'El desvío impacta proceso, sector o equipamiento interno',
+      reason: 'El desvío se detecta dentro de planta/proceso/equipo interno',
       confidence: 0.88
     };
   }

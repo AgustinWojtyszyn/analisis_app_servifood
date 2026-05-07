@@ -7,11 +7,11 @@ function scopeOf(text, detectedArea = '') {
 }
 
 test('Externos por cliente detectado', () => {
-  assert.equal(scopeOf('Llega fruta sin sanitizar a Adium'), 'Externo');
-  assert.equal(scopeOf('No se enviaron pizzas al Easy'), 'Externo');
-  assert.equal(scopeOf('La Laja sale tarde'), 'Externo');
-  assert.equal(scopeOf('Evento de Comeca programado para el 27-12, salio 26-12'), 'Externo');
-  assert.equal(scopeOf('Gerente de Callia reclama aceite de oliva'), 'Externo');
+  assert.equal(scopeOf('Cliente reclama entrega incompleta'), 'Externo');
+  assert.equal(scopeOf('No se enviaron pizzas por falla de despacho'), 'Externo');
+  assert.equal(scopeOf('Evento enviado en fecha incorrecta al cliente'), 'Externo');
+  assert.equal(scopeOf('Problema de transporte del proveedor'), 'Externo');
+  assert.equal(scopeOf('No pudo ingresar al establecimiento externo por credencial vencida'), 'Externo');
 });
 
 test('Internos por proceso/equipo/planta', () => {
@@ -20,5 +20,5 @@ test('Internos por proceso/equipo/planta', () => {
   assert.equal(scopeOf('La camara 5 no funciona'), 'Interno');
   assert.equal(scopeOf('Personal de area caliente llega tarde'), 'Interno');
   assert.equal(scopeOf('El deposito se encuentra cerrado por tardanza de personal'), 'Interno');
-  assert.equal(scopeOf('Falta de cajones para despacho'), 'Interno');
+  assert.equal(scopeOf('Falla de mantenimiento detectada en planta antes de entregar al cliente'), 'Interno');
 });

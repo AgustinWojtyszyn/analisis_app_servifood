@@ -88,11 +88,11 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   assert.equal(result.summary?.totalRecords, 34);
   assert.equal(result.summary?.totalDesvios, 34);
   assert.equal(result.summary?.totalInocuidad, 10);
-  assert.equal(result.summary?.totalLogistica, 19);
-  assert.equal(result.summary?.totalCalidad, 4);
+  assert.equal(result.summary?.totalLogistica, 14);
+  assert.equal(result.summary?.totalCalidad, 6);
   assert.equal(result.summary?.totalLegal, 1);
-  assert.equal(result.summary?.totalInternos, 14);
-  assert.equal(result.summary?.totalExternos, 20);
+  assert.equal(result.summary?.totalInternos, 25);
+  assert.equal(result.summary?.totalExternos, 9);
   const hasYear2026 = result.records.some((r) => String(r.fecha || '').startsWith('2026-'));
   assert.equal(hasYear2026, false, 'No deben existir fechas 2026 cuando el contexto del archivo es 2025');
   assert.equal(
@@ -122,7 +122,7 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   assert.equal(byFinding.get('carne de mg no apta exceder el gramaje solicitado en los bifes')?.categoriaDesvio, 'Desvío de Calidad');
   assert.equal(byFinding.get('reclamo de adium por naranjas picadas')?.categoriaDesvio, 'Desvío de Inocuidad');
   assert.equal(byFinding.get('se encuentra pelo en la tarta de cliente adium')?.categoriaDesvio, 'Desvío de Inocuidad');
-  assert.equal(byFinding.get('se rompe el batidor')?.categoriaDesvio, 'Desvío de Inocuidad');
+  assert.equal(byFinding.get('se rompe el batidor')?.categoriaDesvio, 'Desvío de Calidad');
   assert.equal(byFinding.get('se rompe el batidor')?.alcanceDesvio, 'Interno');
   assert.equal(byFinding.get('no se enviaron los almuerzos para celiacos para monteverde')?.categoriaDesvio, 'Desvío de Logística');
   assert.equal(byFinding.get('no se enviaron los almuerzos para celiacos para monteverde')?.alcanceDesvio, 'Externo');

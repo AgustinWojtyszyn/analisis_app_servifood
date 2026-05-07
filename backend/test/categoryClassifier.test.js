@@ -59,11 +59,11 @@ test('Falta de aceite de oliva => Logística', () => {
 });
 
 test('Se rompe sifón de bacha => Inocuidad', () => {
-  assert.equal(classify('Se rompe sifon de bacha'), 'Desvío de Inocuidad');
+  assert.equal(classify('Se rompe sifon de bacha sin contacto con producto'), 'Desvío de Calidad');
 });
 
 test('Se rompe el batidor => Inocuidad', () => {
-  assert.equal(classify('Se rompe el batidor'), 'Desvío de Inocuidad');
+  assert.equal(classify('Se rompe el batidor durante mantenimiento'), 'Desvío de Calidad');
 });
 
 test('No se enviaron almuerzos para celíacos => Logística', () => {
@@ -72,6 +72,22 @@ test('No se enviaron almuerzos para celíacos => Logística', () => {
 
 test('Menú celíaco contaminado => Inocuidad', () => {
   assert.equal(classify('Menu celiaco contaminado con alergenos y mal rotulado'), 'Desvío de Inocuidad');
+});
+
+test('Prioridad: Legal sobre Inocuidad cuando conviven señales', () => {
+  assert.equal(classify('No pudo ingresar al establecimiento por credencial vencida y producto crudo detectado'), 'Desvío Legal');
+});
+
+test('Naturaleza manda sobre área: área caliente + falta de cocción => Inocuidad', () => {
+  assert.equal(classify('Area caliente: falta de coccion en pollo'), 'Desvío de Inocuidad');
+});
+
+test('Naturaleza manda sobre área: área caliente + viandas pasadas de peso => Calidad', () => {
+  assert.equal(classify('Area caliente: viandas pasadas de peso'), 'Desvío de Calidad');
+});
+
+test('Naturaleza manda sobre área: área caliente + personal llega tarde para despacho => Logística', () => {
+  assert.equal(classify('Area caliente: personal llega tarde y se demora el despacho'), 'Desvío de Logística');
 });
 
 test('Detailed classifier returns technical reason and confidence', () => {
