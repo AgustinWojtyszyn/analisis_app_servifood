@@ -19,6 +19,7 @@ import { OPERATIVE_AREAS } from './excel/analyzeExcel/public.js';
 
 const ENABLE_CLASSIFICATION_TRACE = process.env.CLASSIFICATION_TRACE === '1';
 const ENABLE_FILLDOWN_TRACE = process.env.EXCEL_FILLDOWN_TRACE === '1';
+const ENABLE_DEBUG_DIAGNOSTICS = process.env.DEBUG_EXCEL_ANALYSIS === 'true';
 
 /**
  * Analiza un archivo Excel y clasifica desvios en base a reglas textuales objetivas.
@@ -35,7 +36,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       headerRowIndex,
       headerValues,
       rows,
-      headerIndexes
+      headerIndexes,
+      diagnostics: parsingDiagnostics
     } = await loadExcelParsingContext(fileBuffer);
 
     progressCallback?.(30, 'Leyendo datos del Excel...');
@@ -49,6 +51,19 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       maxLeadWindow: 3
     };
     const fillDownState = createFillDownState();
+    const diagnostics = {
+      worksheetSelected: parsingDiagnostics?.worksheetSelected || null,
+      worksheetRanking: parsingDiagnostics?.worksheetRanking || [],
+      totalPhysicalRows: totalRows,
+      detectedHeaderRow: parsingDiagnostics?.detectedHeaderRow ?? headerRowIndex,
+      detectedHeaders: parsingDiagnostics?.detectedHeaders || headerIndexes,
+      deviationColumnIndex: parsingDiagnostics?.deviationColumnIndex ?? null,
+      rowsWithDeviationText: 0,
+      discardedRowsCount: 0,
+      discardedSamples: [],
+      recordsAfterProcessing: 0,
+      recordsSentToFrontend: 0
+    };
 
     rows.forEach((rowValues, index) => {
       progressCallback?.(
@@ -67,6 +82,20 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
         enableClassificationTrace: ENABLE_CLASSIFICATION_TRACE,
         enableFillDownTrace: ENABLE_FILLDOWN_TRACE
       });
+
+      if (!processed.skipped) {
+        diagnostics.rowsWithDeviationText += 1;
+      } else {
+        diagnostics.discardedRowsCount += 1;
+        if (diagnostics.discardedSamples.length < 20) {
+          diagnostics.discardedSamples.push({
+            rowNumber: headerRowIndex + index + 1,
+            reason: processed.discardedReason || 'unknown',
+            rawDeviationValue: processed.discardedByEmptyHallazgoPayload?.desvioDetectado || '-',
+            normalizedDeviationValue: processed.discardedByEmptyHallazgoPayload?.desvioDetectado || '-'
+          });
+        }
+      }
 
       if (processed.incrementConformesExplicitosReales) {
         incrementConformesExplicitosReales(summary);
@@ -97,6 +126,11 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
     });
 
     const successPayload = buildSuccessPayload(results, summary);
+    diagnostics.recordsAfterProcessing = results.length;
+    diagnostics.recordsSentToFrontend = successPayload.records.length;
+    if (ENABLE_DEBUG_DIAGNOSTICS) {
+      successPayload.diagnostics = diagnostics;
+    }
 
     return successPayload;
   } catch (error) {

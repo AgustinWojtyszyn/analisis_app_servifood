@@ -6,6 +6,14 @@ const COMMON_TEXT_FIXES = [
   { from: /\brobocoupe\b/g, to: 'equipo maquina de proceso' }
 ];
 
+function formatExcelDateLocal(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function normalizeCellValue(value) {
   if (value == null) return '';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
@@ -13,7 +21,7 @@ function normalizeCellValue(value) {
   }
 
   if (value instanceof Date) {
-    return value.toISOString().split('T')[0];
+    return formatExcelDateLocal(value);
   }
 
   if (Array.isArray(value)) {
@@ -148,6 +156,7 @@ function normalizeIncidentText(value) {
 }
 
 export {
+  formatExcelDateLocal,
   normalizeCellValue,
   normalizeForMatch,
   containsAny,

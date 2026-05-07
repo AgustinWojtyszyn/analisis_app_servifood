@@ -2,6 +2,7 @@ import {
   normalizeCellValue,
   normalizeForMatch,
   containsAny,
+  formatExcelDateLocal,
   isYesLike,
   isNoConformeLike,
   buildRowObjectFromExcel,
@@ -98,6 +99,60 @@ function hasUsefulFindingText(texto) {
   if (!t) return false;
   if (['-', 'n a', 'na', 'n d', 'nd', 's d', 's/d'].includes(t)) return false;
   return true;
+}
+
+function excelSerialToDate(serialRaw) {
+  const serial = Number(serialRaw);
+  if (!Number.isFinite(serial) || serial <= 0) return null;
+  const utcDays = Math.floor(serial - 25569);
+  const utcValue = utcDays * 86400;
+  const dateInfo = new Date(utcValue * 1000);
+  if (Number.isNaN(dateInfo.getTime())) return null;
+  return new Date(dateInfo.getFullYear(), dateInfo.getMonth(), dateInfo.getDate());
+}
+
+function extractYearFromIsoDate(value = '') {
+  const m = String(value).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? Number(m[1]) : null;
+}
+
+function parseFechaValue(rawValue = '', lastFecha = '') {
+  const raw = normalizeCellValue(rawValue).trim();
+  if (!raw) return '';
+
+  const fromDate = new Date(raw);
+  if (!Number.isNaN(fromDate.getTime()) && /[a-z]/i.test(raw)) {
+    return formatExcelDateLocal(fromDate);
+  }
+
+  if (/^\d{5,}(\.\d+)?$/.test(raw)) {
+    const fromSerial = excelSerialToDate(raw);
+    if (fromSerial) return formatExcelDateLocal(fromSerial);
+  }
+
+  if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(raw)) {
+    const [y, m, d] = raw.split(/[-/]/).map((v) => Number(v));
+    if (y >= 1900 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+  }
+
+  const dm = raw.match(/^(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?$/);
+  if (dm) {
+    const day = Number(dm[1]);
+    const month = Number(dm[2]);
+    let year = dm[3] ? Number(dm[3]) : null;
+    if (year != null && year < 100) year += 2000;
+    if (year == null) {
+      year = extractYearFromIsoDate(lastFecha);
+    }
+    if (year != null && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  return raw;
 }
 
 function isUsefulNonHallazgoValue(value) {
@@ -397,7 +452,8 @@ function processRow({
   const shouldDiscardByEmptyHallazgo = hallazgoVacioOInvalido || becameNoFindingAfterSanitize;
   const shouldDiscardAsEmptyRow = !noFindingSignal && !hasSupportData && hallazgoVacioOInvalido;
 
-  const fecha = fechaRaw || fillDownState.fecha;
+  const fechaParsed = parseFechaValue(fechaRaw, fillDownState.fecha);
+  const fecha = fechaParsed || fillDownState.fecha;
   const areaProceso = normalizeCellValue(areaProcesoRaw).trim() || fillDownState.areaProceso;
   const actividadRealizada = normalizeCellValue(actividadRealizadaRaw).trim() || fillDownState.actividadRealizada;
   const tipoActividad = normalizeCellValue(tipoActividadRaw).trim() || fillDownState.tipoActividad;
@@ -410,10 +466,10 @@ function processRow({
   const iso22000Original = iso22000OriginalRaw || fillDownState.iso22000Original;
   const tipoDesvioOriginal = tipoDesvioOriginalRaw || fillDownState.tipoDesvioOriginal;
 
-  if (fecha) fillDownState.fecha = fecha;
-  if (areaProceso) fillDownState.areaProceso = areaProceso;
-  if (actividadRealizada) fillDownState.actividadRealizada = actividadRealizada;
-  if (tipoActividad) fillDownState.tipoActividad = tipoActividad;
+  if (fecha && normalizeForMatch(fecha) !== 'fecha') fillDownState.fecha = fecha;
+  if (areaProceso && !['area', 'area sector', 'area proceso'].includes(normalizeForMatch(areaProceso))) fillDownState.areaProceso = areaProceso;
+  if (actividadRealizada && normalizeForMatch(actividadRealizada) !== 'actividad realizada') fillDownState.actividadRealizada = actividadRealizada;
+  if (tipoActividad && normalizeForMatch(tipoActividad) !== 'tipo de actividad') fillDownState.tipoActividad = tipoActividad;
   if (responsableOriginal) fillDownState.responsableOriginal = responsableOriginal;
   if (iso22000Original) fillDownState.iso22000Original = iso22000Original;
   if (tipoDesvioOriginal) fillDownState.tipoDesvioOriginal = tipoDesvioOriginal;
@@ -422,14 +478,15 @@ function processRow({
   const invalidDetectedFinding = !hasUsefulFindingText(desvioDetectadoOriginal);
 
   if (!hasRealRowSignal || invalidDetectedFinding || shouldDiscardAsEmptyRow || shouldDiscardByEmptyHallazgo) {
+    const discardedReason = shouldDiscardByEmptyHallazgo
+      ? (becameNoFindingAfterSanitize ? 'desvio_detectado_no_util_post_sanitize' : 'desvio_detectado_vacio')
+      : (shouldDiscardAsEmptyRow
+        ? 'fila_vacia_incompleta'
+        : (!hasRealRowSignal ? 'sin_senales_reales' : 'desvio_detectado_invalido'));
     if (enableFillDownTrace) {
       console.log('[fill-down-discarded]', {
         index: index + 1,
-        motivo: shouldDiscardByEmptyHallazgo
-          ? (becameNoFindingAfterSanitize ? 'desvio_detectado_no_util_post_sanitize' : 'desvio_detectado_vacio')
-          : (shouldDiscardAsEmptyRow
-            ? 'fila_vacia_incompleta'
-            : (!hasRealRowSignal ? 'sin_senales_reales' : 'desvio_detectado_invalido')),
+        motivo: discardedReason,
         desvioDetectadoOriginal,
         areaOriginal,
         tipoDesvioOriginal: tipoDesvioOriginalRaw
@@ -438,6 +495,7 @@ function processRow({
 
     return {
       skipped: true,
+      discardedReason,
       noFindingSignal,
       incrementNoFindingAntes: noFindingSignal || normalizeForMatch(sanitizeHallazgo(hallazgoRawText)) === normalizeForMatch('Sin hallazgo detectado'),
       incrementConformesExplicitosReales: noFindingSignal,
@@ -512,6 +570,7 @@ function processRow({
   if (isRepeatedHeaderRow(rawRecord)) {
     return {
       skipped: true,
+      discardedReason: 'encabezado_repetido',
       incrementNoFindingAntes: noFindingSignal || normalizeForMatch(sanitizeHallazgo(hallazgoRawText)) === normalizeForMatch('Sin hallazgo detectado'),
       incrementConformesExplicitosReales: noFindingSignal,
       discardedByEmptyHallazgoPayload: null,
@@ -592,7 +651,7 @@ function processRow({
   }
 
   const keepAsOperationalFinding = hasOperationalDeviationSignal(rawRecord.hallazgoDetectado);
-  if (casoVacio && !keepAsOperationalFinding) {
+  if (hallazgoSinInfo && casoVacio && !keepAsOperationalFinding) {
     rawRecord.hallazgoDetectado = 'Sin hallazgo detectado';
     areaClasificada = 'Área no identificada';
     resultadoClasificado = 'Revisar manualmente';

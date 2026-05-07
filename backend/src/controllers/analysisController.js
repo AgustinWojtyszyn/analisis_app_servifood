@@ -126,7 +126,8 @@ function mapAnalysisRowToApi(row) {
     totalRecords: row.results?.totalRecords || 0,
     summary,
     records: row.results?.records || [],
-    cases: row.results?.cases || []
+    cases: row.results?.cases || [],
+    diagnostics: row.results?.diagnostics || null
   };
 }
 
@@ -189,7 +190,8 @@ export async function processExcelFile(file, userId) {
       processedAt: processingTimestamp
     },
     records,
-    cases: analysisResult.cases || []
+    cases: analysisResult.cases || [],
+    ...(analysisResult.diagnostics ? { diagnostics: analysisResult.diagnostics } : {})
   };
 
   const insertResult = await insertAnalysisHistory({
