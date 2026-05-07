@@ -112,12 +112,36 @@ function validateFinalRecord(record = {}) {
   validated.categoriaDesvio = triad.categoriaDesvio || validated.categoriaDesvio;
   validated.tipoDesvio = mapTipoFromCategoria(validated.categoriaDesvio, validated.tipoDesvio);
 
+  if (
+    validated.resultadoClasificado !== 'Conforme'
+    && (!normalizeCellValue(validated.tipoDesvio).trim() || normalizeCellValue(validated.tipoDesvio).trim() === '-')
+  ) {
+    validated.tipoDesvio = mapTipoFromCategoria(validated.categoriaDesvio, 'NC') || 'NC';
+  }
+
+  const isoNorm = normalizeIncidentText(validated.iso22000 || '');
+  if (!isoNorm || isoNorm === 'revisar manualmente') {
+    const categoriaNorm = normalizeIncidentText(validated.categoriaDesvio || '');
+    if (categoriaNorm === 'desvio de inocuidad') validated.iso22000 = '8.5.1 Control operacional';
+    if (categoriaNorm === 'desvio de logistica') validated.iso22000 = '8.5.1 Control operacional';
+    if (categoriaNorm === 'desvio de calidad') validated.iso22000 = '8.5.1 Control operacional';
+    if (categoriaNorm === 'desvio legal') validated.iso22000 = '7.5 Información documentada';
+  }
+
   const normalizedOutcome = normalizeFinalOutcomeAndType({
     resultadoClasificado: validated.resultadoClasificado,
     tipoDesvio: validated.tipoDesvio
   });
   validated.resultadoClasificado = normalizedOutcome.resultadoClasificado;
   validated.tipoDesvio = normalizedOutcome.tipoDesvio;
+
+  if (
+    normalizeIncidentText(validated.categoriaDesvio || '').startsWith('desvio')
+    && normalizeIncidentText(validated.resultadoClasificado || '') === 'conforme'
+  ) {
+    validated.resultadoClasificado = 'No conforme';
+    validated.tipoDesvio = mapTipoFromCategoria(validated.categoriaDesvio, validated.tipoDesvio || 'NC') || 'NC';
+  }
 
   return validated;
 }

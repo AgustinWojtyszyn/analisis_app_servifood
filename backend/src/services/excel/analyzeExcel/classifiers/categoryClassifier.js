@@ -34,7 +34,7 @@ function classifyDeviationAreaDetailed({
 
   const inocuidadSignals = [
     { hit: hasAny(['fruta sin sanitizar', 'sin sanitizar', 'falta de sanitizacion', 'falta sanitizacion']), reason: 'Riesgo alimentario por falta de sanitización' },
-    { hit: hasAny(['mal estado', 'deteriorada', 'deteriorado', 'pasada', 'pasado', 'oxidada', 'oxidado', 'fruta picada']), reason: 'Alimento en mal estado con riesgo sanitario potencial' },
+    { hit: hasAny(['mal estado', 'deteriorada', 'deteriorado', 'pasada', 'pasado', 'oxidada', 'oxidado', 'fruta picada', 'naranja picada', 'naranjas picadas']), reason: 'Alimento en mal estado con riesgo sanitario potencial' },
     { hit: hasAny(['falta de coccion', 'crudo', 'mal cocido', 'temperatura insuficiente', 'sin coccion']), reason: 'Riesgo sanitario por cocción insuficiente' },
     { hit: hasAny(['camara', 'cadena de frio', 'refrigeracion', 'temperatura de conservacion', 'frio']) && hasAny(['no funciona', 'fuera de rango', 'falla', 'sin']), reason: 'Riesgo de inocuidad por falla en conservación en frío' },
     { hit: hasAny(['pelo', 'plastico', 'metal', 'suciedad', 'cuerpo extrano', 'cuerpo extraño']), reason: 'Contaminación física detectada en alimento' },
@@ -48,22 +48,24 @@ function classifyDeviationAreaDetailed({
     { hit: hasAny(['despacho', 'recorrido', 'segunda movilidad']), reason: 'Incidencia de despacho o recorrido logístico' },
     { hit: hasAny(['falta de materia prima', 'materia prima faltante', 'falta de stock', 'sin stock']), reason: 'Falta de disponibilidad de insumos/stock' },
     { hit: hasAny(['faltan cajones', 'faltan platinas', 'cajones para despacho', 'platinas para despacho']), reason: 'Faltante de elementos para despacho' },
-    { hit: hasAny(['evento programado', 'fecha incorrecta']), reason: 'Error operativo de programación de evento' },
-    { hit: hasAny(['personal llega tarde', 'deposito cerrado por tardanza']), reason: 'Demora operativa de personal o depósito' }
+    { hit: hasAny(['evento programado', 'fecha incorrecta', 'salio 26 12', 'salio 27 12']), reason: 'Error operativo de programación de evento' },
+    { hit: hasAny(['personal llega tarde', 'deposito cerrado por tardanza', 'sale tarde', 'cerrado por tardanza']), reason: 'Demora operativa de personal o depósito' },
+    { hit: hasAny(['falta de aceite de oliva', 'reclama aceite de oliva', 'falta aceite de oliva']), reason: 'Faltante de insumo para entrega/producción' },
+    { hit: hasAny(['reclamo']) && hasAny(['callia', 'easy', 'adium', 'scop', 'comeca', 'clorox']), reason: 'Reclamo operativo de cliente/servicio' }
   ];
   const logisticaMatch = logisticaSignals.find((signal) => signal.hit);
 
   const legalSignals = [
     { hit: hasAny(['documentacion vencida', 'documentacion faltante', 'plataforma desactualizada']), reason: 'Incumplimiento documental o de plataforma' },
     { hit: hasAny(['no pudo ingresar', 'ingreso denegado']) && hasAny(['documentacion', 'plataforma', 'credencial']), reason: 'Ingreso bloqueado por incumplimiento documental' },
-    { hit: hasAny(['habilitacion', 'permiso', 'ingreso no autorizado', 'credencial']), reason: 'Incumplimiento de habilitación/ingreso' },
+    { hit: hasAny(['habilitacion', 'permiso', 'ingreso no autorizado', 'credencial', 'cubre franco no pudo ingresar']), reason: 'Incumplimiento de habilitación/ingreso' },
     { hit: hasAny(['seguro art', 'art vigente', 'certificado', 'libreta sanitaria', 'documentacion laboral', 'documentacion contractual']), reason: 'Incumplimiento legal/laboral documental' }
   ];
   const legalMatch = legalSignals.find((signal) => signal.hit);
 
   const calidadSignals = [
     { hit: hasAny(['gramaje', 'peso', 'tamano', 'tamaño', 'dorado', 'aspecto', 'presentacion', 'organoleptica']), reason: 'Desvío de especificación de producto sin riesgo sanitario explícito' },
-    { hit: hasAny(['producto quemado', 'receta', 'emplatado']), reason: 'Desvío de calidad de elaboración/presentación' }
+    { hit: hasAny(['producto quemado', 'se queman', 'queman en el establecimiento', 'receta', 'emplatado']), reason: 'Desvío de calidad de elaboración/presentación' }
   ];
   const calidadMatch = calidadSignals.find((signal) => signal.hit);
 
@@ -82,6 +84,12 @@ function classifyDeviationAreaDetailed({
   }
   if (hasAny(['pasadas de peso', 'pasado de peso', 'excede gramaje', 'exceder gramaje', 'gramaje solicitado', 'viandas pasadas de peso'])) {
     return { area: 'Desvío de Calidad', reason: 'Desvío de gramaje/peso de especificación', confidence: 0.95 };
+  }
+  if (hasAny(['se rompe sifon de bacha', 'sifon de bacha'])) {
+    return { area: 'Desvío de Inocuidad', reason: 'Falla de infraestructura que afecta higiene/POES', confidence: 0.9 };
+  }
+  if (hasAny(['se rompe el batidor', 'batidor roto', 'equipo roto'])) {
+    return { area: 'Desvío de Logística', reason: 'Falla de equipamiento con impacto operativo', confidence: 0.88 };
   }
 
   if (inocuidadMatch) {
@@ -149,6 +157,7 @@ function normalizeToTriadClassification({ categoriaDesvio = '', resultadoClasifi
   if (categoria === 'Desvío Legal') return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: 'Desvío Legal' };
   if (categoria === 'Desvío de Logística') return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: 'Desvío de Logística' };
   if (categoria === 'Desvío de Inocuidad') return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: 'Desvío de Inocuidad' };
+  if (categoria === 'Desvío de Calidad') return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: 'Desvío de Calidad' };
 
   const tipo = normalizeCellValue(tipoDesvio).trim();
   if (['NC', 'OBS', 'OM'].includes(tipo)) return { resultadoClasificado, tipoDesvio: tipo, categoriaDesvio: 'Desvío de Inocuidad' };
@@ -162,6 +171,7 @@ function mapTipoFromCategoria(categoriaDesvio = '', fallbackTipo = '') {
   if (categoria === 'Desvío de Inocuidad') return 'IN';
   if (categoria === 'Desvío Legal') return 'LE';
   if (categoria === 'Desvío de Logística') return 'LGT';
+  if (categoria === 'Desvío de Calidad') return 'CAL';
   return normalizeCellValue(fallbackTipo).trim();
 }
 

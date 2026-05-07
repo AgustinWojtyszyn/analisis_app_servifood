@@ -104,7 +104,7 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
   const finalEstadoAccion = normalizeCellValue(finalRecord.estadoAccion).trim();
   const isConforme = finalResultado === 'Conforme';
   const isRevisionManual = finalCategoria === 'Revisar manualmente';
-  const isDesvio = ['Desvío de Inocuidad', 'Desvío de Calidad', 'Desvío de Logística', 'Desvío Legal'].includes(finalCategoria);
+  const isDesvio = !isConforme && !normalizeForMatch(finalCategoria).includes('conforme');
 
   if (
     normalizeForMatch(normalizeCellValue(finalRecord.hallazgoDetectado)) === normalizeForMatch('Sin hallazgo detectado')

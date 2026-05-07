@@ -85,6 +85,8 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   assert.equal(result.diagnostics.recordsAfterProcessing, 34);
   assert.equal(result.diagnostics.recordsSentToFrontend, 34);
   assert.equal(result.records.length, 34);
+  assert.equal(result.summary?.totalRecords, 34);
+  assert.equal(result.summary?.totalDesvios, 34);
 
   const rejectedDeviationRows = (result.diagnostics.rowsAudit || []).filter((r) =>
     r.rowNumber >= 2
@@ -98,4 +100,17 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
     0,
     `Rows discarded unexpectedly: ${JSON.stringify(rejectedDeviationRows.slice(0, 10))}`
   );
+
+  const byFinding = new Map(result.records.map((r) => [String(r.hallazgoDetectado || '').toLowerCase(), r]));
+  assert.equal(byFinding.get('la laja sale tarde')?.categoriaDesvio, 'Desvío de Logística');
+  assert.equal(byFinding.get('no sale cena de bodega')?.categoriaDesvio, 'Desvío de Logística');
+  assert.equal(byFinding.get('llega fruta sin sanitizar a adium')?.categoriaDesvio, 'Desvío de Inocuidad');
+  assert.equal(byFinding.get('las viandas estan pasadas de peso')?.categoriaDesvio, 'Desvío de Calidad');
+  assert.equal(byFinding.get('carne de mg no apta exceder el gramaje solicitado en los bifes')?.categoriaDesvio, 'Desvío de Calidad');
+  assert.equal(byFinding.get('reclamo de adium por naranjas picadas')?.categoriaDesvio, 'Desvío de Inocuidad');
+  assert.equal(byFinding.get('se encuentra pelo en la tarta de cliente adium')?.categoriaDesvio, 'Desvío de Inocuidad');
+
+  const usefulRecords = result.records.filter((r) => String(r.hallazgoDetectado || '').trim() !== '');
+  const withDashType = usefulRecords.filter((r) => String(r.tipoDesvio || '').trim() === '-');
+  assert.equal(withDashType.length, 0, `Records with tipo '-': ${JSON.stringify(withDashType.slice(0, 5).map((r) => ({ row: r.rawRowNumber, hallazgo: r.hallazgoDetectado, categoria: r.categoriaDesvio })))}`);
 });

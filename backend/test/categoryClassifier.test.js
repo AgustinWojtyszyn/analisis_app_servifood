@@ -50,6 +50,18 @@ test('Carne no apta por exceder gramaje solicitado => Calidad', () => {
   assert.equal(classify('Carne no apta por exceder gramaje solicitado'), 'Desvío de Calidad');
 });
 
+test('Pizzas se queman en el establecimiento => Calidad', () => {
+  assert.equal(classify('Las pizzas de SCOP se queman en el establecimiento'), 'Desvío de Calidad');
+});
+
+test('Falta de aceite de oliva => Logística', () => {
+  assert.equal(classify('El gerente de callia reclama la falta de aceite de oliva'), 'Desvío de Logística');
+});
+
+test('Se rompe sifón de bacha => Inocuidad', () => {
+  assert.equal(classify('Se rompe sifon de bacha'), 'Desvío de Inocuidad');
+});
+
 test('Detailed classifier returns technical reason and confidence', () => {
   const detailed = classifyDeviationAreaDetailed({
     textoCompleto: 'Llega fruta sin sanitizar a Adium',
