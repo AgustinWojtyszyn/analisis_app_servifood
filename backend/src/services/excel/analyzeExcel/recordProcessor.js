@@ -455,6 +455,14 @@ function processRow({
     'Acción correctiva',
     'Accion correctiva'
   ]) || normalizeCellValue(getValue(headerIndexes.accionCorrectiva));
+  const estadoAccionRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
+    'Estado',
+    'Estado acción',
+    'Estado accion',
+    'Status',
+    'Estado de acción',
+    'Estado de accion'
+  ]) || '').trim();
   const hallazgoRawText = normalizeCellValue(desvioDetectadoOriginal).trim();
   const noFindingSignal = isExplicitNoFindingText(hallazgoRawText);
   const hallazgoVacioOInvalido = isInvalidDetectedFinding(hallazgoRawText);
@@ -599,6 +607,7 @@ function processRow({
     observaciones: observacionesRaw,
     accionInmediata: accionInmediataRaw,
     accionCorrectiva: accionCorrectivaRaw,
+    estadoAccionRaw,
     responsableOriginal,
     iso22000Original,
     tipoDesvioOriginal,
@@ -911,7 +920,8 @@ function processRow({
     accionDetectada: rawRecord.accionDetectada,
     accionInmediata: rawRecord.accionInmediata,
     accionCorrectiva: rawRecord.accionCorrectiva,
-    fechaRegistro: rawRecord.fecha
+    fechaRegistro: rawRecord.fecha,
+    estadoExplicito: rawRecord.estadoAccionRaw
   });
 
   const explicacionClasificacion = preExplicacionClasificacion;

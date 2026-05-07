@@ -181,10 +181,16 @@ function resolveCorrectiveActionByPriority({ text = '', categoriaDesvio = '', is
     return 'Verificar el faltante, corregir entrega o reposición si corresponde. Aplicar doble control antes del despacho.';
   }
   if (categoria === 'desvio de calidad') {
+    if (containsAny(normalized, ['equipo', 'equipamiento', 'batidor', 'sifon', 'sifón', 'bacha', 'camara', 'cámara', 'mantenimiento', 'no funciona'])) {
+      return 'Coordinar mantenimiento correctivo del equipo/infraestructura afectada y verificar aptitud operativa antes de reanudar uso.';
+    }
     return 'Retirar o corregir producto fuera de especificación y reforzar control final de gramaje/presentación/receta.';
   }
   if (categoria === 'desvio legal') {
-    return 'Regularizar documentación/autorización requerida y verificar cumplimiento legal antes de habilitar la operación.';
+    return 'Regularizar documentación/requisito formal y notificar a Calidad o RRHH antes de habilitar la operación.';
+  }
+  if (categoria === 'revisar manualmente') {
+    return 'Registrar el caso y derivarlo a revisión manual para definir causa, alcance y acción correctiva específica.';
   }
 
   if (containsAny(normalized, ['producto no conforme', 'no conforme', 'carteleria de producto no conforme', 'cartelería de producto no conforme'])) {
@@ -312,8 +318,15 @@ function classifyActionStatusFromRow({
   accionDetectada,
   accionInmediata,
   accionCorrectiva,
-  fechaRegistro
+  fechaRegistro,
+  estadoExplicito = ''
 }) {
+  const explicit = normalizeIncidentText(estadoExplicito || '');
+  if (explicit) {
+    if (containsAny(explicit, ['cerrado', 'cerrada', 'finalizado', 'finalizada', 'cumplido'])) return 'cerrada';
+    if (containsAny(explicit, ['pendiente', 'abierto', 'abierta', 'en proceso', 'en_proceso'])) return 'pendiente';
+  }
+
   const parseIsoDateOnly = (value) => {
     const raw = normalizeCellValue(value).trim();
     const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);

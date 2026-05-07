@@ -31,6 +31,11 @@ function classifyDeviationAreaDetailed({
   if (!text || isExplicitNoFindingText(text) || resultado === 'Conforme') {
     return { area: 'Conforme', reason: 'Sin evidencia de desvío en el texto normalizado', confidence: 0.8 };
   }
+  if (hasAny(['reclamo de']) && !hasAny([
+    'falta', 'faltante', 'demora', 'tardanza', 'no se envio', 'no se envió', 'no se enviaron', 'coccion', 'cocción', 'sanitizar', 'mal estado', 'picada', 'picado', 'oxidada', 'oxidado', 'gramaje', 'peso', 'documentacion', 'permiso', 'credencial'
+  ])) {
+    return { area: 'Revisar manualmente', reason: 'Reclamo sin detalle técnico suficiente para clasificar', confidence: 0.4 };
+  }
 
   const legalSignals = [
     { hit: hasAny(['documentacion', 'documental', 'registro administrativo', 'requisito administrativo']), reason: 'Incumplimiento documental o administrativo' },
@@ -40,21 +45,22 @@ function classifyDeviationAreaDetailed({
   ];
 
   const inocuidadSignals = [
-    { hit: hasAny(['falta de coccion', 'falta de cocción', 'crudo', 'mal cocido', 'sin coccion', 'sin cocción']), reason: 'Riesgo directo por cocción insuficiente' },
+    { hit: hasAny(['falta de coccion', 'falta de cocción', 'coccion', 'cocción', 'crudo', 'mal cocido', 'sin coccion', 'sin cocción']), reason: 'Riesgo directo por cocción insuficiente' },
     { hit: hasAny(['pelo en alimento', 'pelo', 'cuerpo extrano', 'cuerpo extraño', 'contaminacion fisica', 'contaminación física']), reason: 'Contaminación física en alimento' },
     { hit: hasAny(['contaminacion cruzada', 'contaminación cruzada', 'alergeno', 'alergenos', 'sin tacc', 'celiaco', 'celiacos']) && hasAny(['contaminado', 'mezclado', 'mal rotulado', 'sin rotular', 'no apto']), reason: 'Riesgo por contaminación cruzada/alérgenos' },
     { hit: hasAny(['sin sanitizar', 'falta de sanitizacion', 'falta de sanitización', 'desinfeccion incompleta', 'desinfección incompleta']), reason: 'Alimento o insumo sin sanitizar' },
     { hit: (hasAny(['mal estado', 'oxidado', 'oxidada', 'picado', 'picada', 'no inocuo']) || (hasAny(['pasado', 'pasada']) && hasAny(['alimento', 'producto', 'fruta', 'materia prima']))) && !hasAny(['pasado de peso', 'pasadas de peso', 'gramaje', 'peso']), reason: 'Producto potencialmente no inocuo' },
-    { hit: hasAny(['temperatura peligrosa', 'fuera de rango', 'cadena de frio', 'cadena de frío', 'temperatura de conservacion']) && hasAny(['producto', 'alimento', 'materia prima', 'comprometido', 'comprometida']), reason: 'Temperatura peligrosa con producto comprometido' }
+    { hit: hasAny(['temperatura peligrosa', 'fuera de rango', 'cadena de frio', 'cadena de frío', 'temperatura de conservacion']) && hasAny(['producto', 'alimento', 'materia prima', 'comprometido', 'comprometida']), reason: 'Temperatura peligrosa con producto comprometido' },
+    { hit: hasAny(['camara no funciona', 'cámara no funciona', 'cadena de frio', 'cadena de frío']) && hasAny(['conservacion', 'conservación', 'producto', 'alimento', 'materia prima']), reason: 'Falla de frío con impacto en conservación/inocuidad' }
   ];
 
   const logisticaSignals = [
     { hit: hasAny(['despacho', 'entrega', 'horario', 'recorrido', 'movilidad', 'transporte']), reason: 'Incidencia de despacho/entrega/transporte' },
-    { hit: hasAny(['no se envio', 'no se envió', 'no se envia', 'no se envía', 'no se enviaron', 'comida no enviada', 'producto no salio', 'producto no salió', 'no salieron productos', 'no sale', 'no salen']), reason: 'Producto no enviado o no despachado' },
-    { hit: hasAny(['demora', 'tardanza', 'llega tarde', 'llegaron tarde', 'sale tarde', 'salen tarde', 'evento enviado en fecha incorrecta', 'fecha incorrecta']), reason: 'Demora o programación incorrecta de entrega' },
+    { hit: hasAny(['no se envio', 'no se envió', 'no se envia', 'no se envía', 'no se enviaron', 'no se envian', 'no se envían', 'comida no enviada', 'producto no salio', 'producto no salió', 'no salieron productos', 'no sale', 'no salen', 'limonada no enviada', 'fruta no enviada', 'guarniciones no enviadas']), reason: 'Producto no enviado o no despachado' },
+    { hit: hasAny(['demora', 'tardanza', 'llega tarde', 'llegaron tarde', 'sale tarde', 'salen tarde', 'evento enviado en fecha incorrecta', 'fecha incorrecta', 'salio 26', 'salio 27', 'salió 26', 'salió 27']), reason: 'Demora o programación incorrecta de entrega' },
     { hit: hasAny(['faltante', 'faltan cajones', 'falta de cajones', 'faltan platinas', 'falta de platinas']), reason: 'Faltantes logísticos para despacho' },
     { hit: hasAny(['materia prima faltante', 'falta de materia prima', 'sin stock', 'falta de stock']) && hasAny(['impide enviar', 'no se envio', 'no se envia', 'despacho', 'entrega']), reason: 'Falta de materia prima que bloquea envío' },
-    { hit: hasAny(['falta de aceite', 'aceite faltante', 'falta aceite']), reason: 'Faltante de insumo para envío o producción' },
+    { hit: hasAny(['falta de aceite', 'aceite faltante', 'falta aceite', 'reclama aceite', 'aceite de oliva']), reason: 'Faltante de insumo para envío o producción' },
     { hit: hasAny(['personal llega tarde']) && hasAny(['despacho', 'entrega', 'envio', 'envío']), reason: 'Demora operativa de personal con impacto logístico' },
     { hit: hasAny(['reclamo']) && hasAny(['entrega', 'despacho', 'faltante', 'demora', 'tardanza', 'aceite', 'no se envio', 'no se envia']), reason: 'Reclamo por incidencia logística' }
   ];
@@ -95,7 +101,7 @@ function classifyDeviationAreaDetailed({
   ])) return { area: 'Desvío de Inocuidad', reason: 'No conformidad operacional vinculada a control sanitario', confidence: 0.84 };
 
   if (['NC', 'OBS', 'OM'].includes(tipo) || resultado === 'No conforme' || resultado === 'Observación' || resultado === 'Oportunidad de mejora') {
-    return { area: 'Desvío de Inocuidad', reason: 'Fallback conservador por desvío sin contexto concluyente', confidence: 0.6 };
+    return { area: 'Revisar manualmente', reason: 'Desvío sin contexto concluyente; requiere análisis manual', confidence: 0.45 };
   }
 
   return { area: 'Revisar manualmente', reason: 'Sin señales contextuales suficientes para clasificar', confidence: 0.45 };

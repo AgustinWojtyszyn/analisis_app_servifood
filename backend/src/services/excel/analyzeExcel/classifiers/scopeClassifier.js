@@ -14,12 +14,22 @@ function classifyDeviationScope({
   ].filter(Boolean).join(' | '));
 
   const includesAny = (terms) => containsAny(normalizedText, terms);
+  const hasGenericClaim = includesAny(['reclamo de', 'reclama', 'cliente reclama', 'gerente reclama']);
+  const hasServiceNotDelivered = includesAny([
+    'no se envio a',
+    'no se envió a',
+    'no se enviaron a',
+    'falto comida para',
+    'faltó comida para',
+    'falta de coccion reclamada por',
+    'falta de cocción reclamada por'
+  ]);
   const hasExplicitInternalContainment = includesAny(['antes de despacho', 'antes de entregar', 'deteccion interna', 'detección interna', 'dentro de planta']);
-  const hasExternalComplaint = includesAny(['cliente reclama', 'reclamo del cliente', 'queja del cliente']);
+  const hasExternalComplaint = includesAny(['cliente reclama', 'reclamo del cliente', 'queja del cliente']) || hasGenericClaim;
   const hasExternalDeliveryImpact = includesAny(['no se envio', 'no se envió', 'no se envia', 'no se envía', 'no se enviaron', 'no se envian', 'no se envían', 'no se entrego', 'no se entregó', 'entrega incompleta', 'despacho incompleto', 'demora en entrega', 'demora de entrega', 'evento enviado en fecha incorrecta', 'fecha incorrecta', 'sale tarde', 'llega tarde', 'llegan tarde']) && includesAny(['cliente', 'entrega', 'despacho', 'envio', 'envío', 'enviaron', 'envian', 'envían', 'recorrido', 'movilidad', 'transporte']);
   const hasExternalThirdParty = includesAny(['proveedor', 'establecimiento externo', 'en establecimiento del cliente', 'sede externa']);
   const hasExternalDispatchMention = includesAny(['despacho', 'entrega', 'envio', 'envío', 'enviaron', 'envian', 'envían', 'recorrido', 'movilidad', 'transporte']) && !hasExplicitInternalContainment;
-  if (hasExternalComplaint || hasExternalDeliveryImpact || hasExternalThirdParty || hasExternalDispatchMention) {
+  if ((hasExternalComplaint || hasExternalDeliveryImpact || hasExternalThirdParty || hasExternalDispatchMention || hasServiceNotDelivered) && !hasExplicitInternalContainment) {
     return {
       scope: 'Externo',
       reason: 'El desvío impacta al cliente, la entrega/despacho o un tercero externo',
@@ -70,9 +80,9 @@ function classifyDeviationScope({
   }
 
   return {
-    scope: 'Interno',
-    reason: 'Sin evidencia de cliente externo; se asume alcance interno operativo',
-    confidence: 0.65
+    scope: 'Revisar manualmente',
+    reason: 'Sin señales suficientes para determinar alcance interno/externo con confianza',
+    confidence: 0.45
   };
 }
 

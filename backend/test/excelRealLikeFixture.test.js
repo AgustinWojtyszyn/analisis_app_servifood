@@ -87,12 +87,12 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   assert.equal(result.records.length, 34);
   assert.equal(result.summary?.totalRecords, 34);
   assert.equal(result.summary?.totalDesvios, 34);
-  assert.equal(result.summary?.totalInocuidad, 10);
-  assert.equal(result.summary?.totalLogistica, 14);
+  assert.equal(result.summary?.totalInocuidad, 9);
+  assert.equal(result.summary?.totalLogistica, 16);
   assert.equal(result.summary?.totalCalidad, 6);
   assert.equal(result.summary?.totalLegal, 1);
-  assert.equal(result.summary?.totalInternos, 25);
-  assert.equal(result.summary?.totalExternos, 9);
+  assert.equal(result.summary?.totalInternos, 9);
+  assert.equal(result.summary?.totalExternos, 15);
   const hasYear2026 = result.records.some((r) => String(r.fecha || '').startsWith('2026-'));
   assert.equal(hasYear2026, false, 'No deben existir fechas 2026 cuando el contexto del archivo es 2025');
   assert.equal(
