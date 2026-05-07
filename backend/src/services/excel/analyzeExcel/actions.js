@@ -314,6 +314,27 @@ function classifyActionStatusFromRow({
   accionCorrectiva,
   fechaRegistro
 }) {
+  const parseIsoDateOnly = (value) => {
+    const raw = normalizeCellValue(value).trim();
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const y = Number(match[1]);
+    const m = Number(match[2]);
+    const d = Number(match[3]);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+    return new Date(y, m - 1, d);
+  };
+  const startOfToday = () => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  };
+  const fecha = parseIsoDateOnly(fechaRegistro);
+  const today = startOfToday();
+  if (fecha) {
+    if (fecha < today) return 'cerrada';
+    return 'pendiente';
+  }
+
   const sourceActionText = normalizeIncidentText([
     actividadRealizada,
     accion,
@@ -360,13 +381,12 @@ function classifyActionStatusFromRow({
   ]);
 
   if (hasClosedEvidence) return 'cerrada';
-  if (hasProgressEvidence) return 'en_proceso';
-  if (hasExecutedEvidence) return 'cerrada';
+  if (hasProgressEvidence) return 'pendiente';
+  if (hasExecutedEvidence) return 'pendiente';
 
-  if (!tieneNumeroAccion && !hasImplicitActionVerb) return 'sin_accion';
-
-  if (tieneNumeroAccion || hasImplicitActionVerb) return 'en_proceso';
-  return 'sin_accion';
+  if (!tieneNumeroAccion && !hasImplicitActionVerb) return 'pendiente';
+  if (tieneNumeroAccion || hasImplicitActionVerb) return 'pendiente';
+  return 'pendiente';
 }
 
 export {

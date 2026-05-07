@@ -175,6 +175,7 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
   if (finalEstadoAccion === 'cerrada') summary.actions.cerradas += 1;
   if (finalEstadoAccion === 'en_proceso') summary.actions.enProceso += 1;
   if (finalEstadoAccion === 'sin_accion') summary.actions.sinAccion += 1;
+  if (finalEstadoAccion === 'pendiente') summary.actions.sinAccion += 1;
 }
 
 function buildSuccessPayload(results = [], summary = {}) {
