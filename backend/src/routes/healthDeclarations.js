@@ -168,10 +168,27 @@ async function loadProfilesMap(userIds = []) {
   return new Map(data.map((row) => [row.id, row]));
 }
 
+async function getRecentDeclarationsByUser(userId, limit = 60) {
+  return await supabaseAdmin
+    .from('health_declarations')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+}
+
+function pickTodayDeclaration(rows = [], now = new Date()) {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  return rows.find((row) => {
+    const sourceDate = row?.declared_at || row?.created_at;
+    return isSameLocalDay(sourceDate, now, HEALTH_DECLARATION_TIMEZONE);
+  }) || null;
+}
+
 async function getTodayDeclaration(userId) {
   const date = localDateString(new Date(), HEALTH_DECLARATION_TIMEZONE);
 
-  let query = await supabaseAdmin
+  const byDeclarationDate = await supabaseAdmin
     .from('health_declarations')
     .select('*')
     .eq('user_id', userId)
@@ -179,25 +196,29 @@ async function getTodayDeclaration(userId) {
     .order('created_at', { ascending: false })
     .limit(1);
 
-  if (query.error) {
-    const recentQuery = await supabaseAdmin
-      .from('health_declarations')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(30);
+  if (byDeclarationDate.error) {
+    const recentQuery = await getRecentDeclarationsByUser(userId);
 
     if (recentQuery.error) return recentQuery;
 
-    const todayRow = (recentQuery.data || []).find((row) => {
-      const sourceDate = row?.declared_at || row?.created_at;
-      return isSameLocalDay(sourceDate, new Date(), HEALTH_DECLARATION_TIMEZONE);
-    }) || null;
-
+    const todayRow = pickTodayDeclaration(recentQuery.data, new Date());
     return { data: todayRow ? [todayRow] : [], error: null };
   }
 
-  return query;
+  // Defensive check: even if declaration_date is populated, enforce local-day match from timestamp.
+  const candidate = byDeclarationDate.data?.[0] || null;
+  if (candidate) {
+    const sourceDate = candidate.declared_at || candidate.created_at;
+    if (isSameLocalDay(sourceDate, new Date(), HEALTH_DECLARATION_TIMEZONE)) {
+      return byDeclarationDate;
+    }
+  }
+
+  const recentQuery = await getRecentDeclarationsByUser(userId);
+
+  if (recentQuery.error) return recentQuery;
+  const todayRow = pickTodayDeclaration(recentQuery.data, new Date());
+  return { data: todayRow ? [todayRow] : [], error: null };
 }
 
 router.get('/health-policies/active', authenticateToken, async (_req, res) => {
