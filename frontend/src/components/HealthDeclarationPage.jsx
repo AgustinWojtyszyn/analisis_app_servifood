@@ -44,6 +44,31 @@ function boolToYesNo(value) {
   return value ? 'si' : 'no';
 }
 
+function getLocalDateParts(date, timeZone = 'America/Argentina/Buenos_Aires') {
+  const value = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(value.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(value);
+
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+  if (!year || !month || !day) return null;
+  return { year, month, day };
+}
+
+function isSameLocalDay(dateA, dateB, timeZone = 'America/Argentina/Buenos_Aires') {
+  const partsA = getLocalDateParts(dateA, timeZone);
+  const partsB = getLocalDateParts(dateB, timeZone);
+  if (!partsA || !partsB) return false;
+  return partsA.year === partsB.year && partsA.month === partsB.month && partsA.day === partsB.day;
+}
+
 function getTrafficLightStyles(trafficLight) {
   const value = String(trafficLight || '').toLowerCase();
   if (value === 'rojo') return { rowBg: '#4a2327', cellColor: '#fecaca' };
@@ -123,10 +148,17 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
       setSuccess('');
       setWarning('');
       const [today, myHistory] = await Promise.all([getTodayHealthDeclaration(), getMyHealthDeclarations()]);
-      setCompletedToday(Boolean(today?.completed));
-      setTodayDeclaration(today?.declaration || null);
+      const safeHistory = Array.isArray(myHistory) ? myHistory : [];
+      const apiTodayDeclaration = today?.declaration || null;
+      const historyTodayDeclaration = safeHistory.find((item) => isSameLocalDay(item?.declaredAt || item?.createdAt, new Date()));
+      const effectiveTodayDeclaration = apiTodayDeclaration && isSameLocalDay(apiTodayDeclaration?.declaredAt || apiTodayDeclaration?.createdAt, new Date())
+        ? apiTodayDeclaration
+        : (historyTodayDeclaration || null);
+
+      setCompletedToday(Boolean(effectiveTodayDeclaration));
+      setTodayDeclaration(effectiveTodayDeclaration);
       setShowForm(false);
-      setHistory(Array.isArray(myHistory) ? myHistory : []);
+      setHistory(safeHistory);
     } catch (err) {
       setError(err.message || 'No se pudo cargar la declaración');
     } finally {

@@ -14,6 +14,7 @@ const supabaseAdmin = supabaseUrl && serviceRoleKey
   : null;
 
 const EDIT_WINDOW_MINUTES = 15;
+const HEALTH_DECLARATION_TIMEZONE = 'America/Argentina/Buenos_Aires';
 
 function buildHealthEvaluation({
   hasSymptoms = false,
@@ -71,13 +72,43 @@ function buildHealthEvaluation({
   };
 }
 
-function startAndEndOfToday() {
-  const now = new Date();
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
-  return { start: start.toISOString(), end: end.toISOString(), date: start.toISOString().slice(0, 10) };
+function getLocalDateParts(date = new Date(), timeZone = HEALTH_DECLARATION_TIMEZONE) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+
+  if (!year || !month || !day) {
+    const fallback = new Date(date);
+    return {
+      year: String(fallback.getUTCFullYear()),
+      month: String(fallback.getUTCMonth() + 1).padStart(2, '0'),
+      day: String(fallback.getUTCDate()).padStart(2, '0')
+    };
+  }
+
+  return { year, month, day };
+}
+
+function localDateString(date = new Date(), timeZone = HEALTH_DECLARATION_TIMEZONE) {
+  const { year, month, day } = getLocalDateParts(date, timeZone);
+  return `${year}-${month}-${day}`;
+}
+
+function isSameLocalDay(dateA, dateB, timeZone = HEALTH_DECLARATION_TIMEZONE) {
+  if (!dateA || !dateB) return false;
+  const a = dateA instanceof Date ? dateA : new Date(dateA);
+  const b = dateB instanceof Date ? dateB : new Date(dateB);
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return false;
+  const pa = getLocalDateParts(a, timeZone);
+  const pb = getLocalDateParts(b, timeZone);
+  return pa.year === pb.year && pa.month === pb.month && pa.day === pb.day;
 }
 
 function canManageWithinWindow(row) {
@@ -138,7 +169,7 @@ async function loadProfilesMap(userIds = []) {
 }
 
 async function getTodayDeclaration(userId) {
-  const { start, end, date } = startAndEndOfToday();
+  const date = localDateString(new Date(), HEALTH_DECLARATION_TIMEZONE);
 
   let query = await supabaseAdmin
     .from('health_declarations')
@@ -149,14 +180,21 @@ async function getTodayDeclaration(userId) {
     .limit(1);
 
   if (query.error) {
-    query = await supabaseAdmin
+    const recentQuery = await supabaseAdmin
       .from('health_declarations')
       .select('*')
       .eq('user_id', userId)
-      .gte('created_at', start)
-      .lte('created_at', end)
       .order('created_at', { ascending: false })
-      .limit(1);
+      .limit(30);
+
+    if (recentQuery.error) return recentQuery;
+
+    const todayRow = (recentQuery.data || []).find((row) => {
+      const sourceDate = row?.declared_at || row?.created_at;
+      return isSameLocalDay(sourceDate, new Date(), HEALTH_DECLARATION_TIMEZONE);
+    }) || null;
+
+    return { data: todayRow ? [todayRow] : [], error: null };
   }
 
   return query;
@@ -244,7 +282,7 @@ router.post('/health-declarations', authenticateToken, async (req, res) => {
       return res.status(409).json({ error: 'Ya completaste la declaración de hoy' });
     }
 
-    const { date } = startAndEndOfToday();
+    const date = localDateString(new Date(), HEALTH_DECLARATION_TIMEZONE);
     const evaluation = buildHealthEvaluation({ hasSymptoms, hasFever, recentContact, symptomsDetail });
 
     const baseInsertPayload = {
