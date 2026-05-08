@@ -44,6 +44,19 @@ function boolToYesNo(value) {
   return value ? 'si' : 'no';
 }
 
+function emptySymptomsDetail() {
+  return {
+    cough: false,
+    soreThroat: false,
+    difficultyBreathing: false,
+    vomiting: false,
+    diarrhea: false,
+    jaundice: false,
+    skinLesions: false,
+    uncoveredWounds: false
+  };
+}
+
 function getLocalDateParts(date, timeZone = 'America/Argentina/Buenos_Aires') {
   const value = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(value.getTime())) return null;
@@ -123,16 +136,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
     recentContact: '',
     commitInform: '',
     policyAccepted: false,
-    symptomsDetail: {
-      cough: false,
-      soreThroat: false,
-      difficultyBreathing: false,
-      vomiting: false,
-      diarrhea: false,
-      jaundice: false,
-      skinLesions: false,
-      uncoveredWounds: false
-    }
+    symptomsDetail: emptySymptomsDetail()
   });
 
   useEffect(() => {
@@ -171,20 +175,41 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
     const hasFever = yesNoValue(form.hasFever);
     const recentContact = yesNoValue(form.recentContact);
     const commitInform = yesNoValue(form.commitInform);
-    const derivedHasSymptoms = Object.values(form.symptomsDetail || {}).some(Boolean);
-    const hasSymptoms = hasSymptomsExplicit == null ? derivedHasSymptoms : (hasSymptomsExplicit || derivedHasSymptoms);
-    if ([hasFever, recentContact, commitInform].some((v) => v === null)) return { valid: false, error: 'Debes responder todas las preguntas.' };
+    const hasSelectedSymptoms = Object.values(form.symptomsDetail || {}).some(Boolean);
+    if ([hasSymptomsExplicit, hasFever, recentContact, commitInform].some((v) => v === null)) return { valid: false, error: 'Debes responder todas las preguntas.' };
+    if (hasSymptomsExplicit && !hasSelectedSymptoms) return { valid: false, error: 'Seleccioná al menos un síntoma.' };
     if (!commitInform) return { valid: false, error: 'El compromiso de informar síntomas es obligatorio.' };
     if (!form.policyAccepted) return { valid: false, error: 'Debes aceptar la política interna.' };
-    return { valid: true, payload: { hasSymptoms, hasFever, recentContact, symptomsDetail: form.symptomsDetail, commitInform, policyAccepted: true } };
+
+    const normalizedSymptoms = hasSymptomsExplicit ? form.symptomsDetail : emptySymptomsDetail();
+    return {
+      valid: true,
+      payload: {
+        hasSymptoms: hasSymptomsExplicit,
+        hasFever,
+        recentContact,
+        symptomsDetail: normalizedSymptoms,
+        commitInform,
+        policyAccepted: true
+      }
+    };
   };
 
   const resetForm = () => {
     setForm({
       hasSymptoms: '', hasFever: '', recentContact: '', commitInform: '', policyAccepted: false,
-      symptomsDetail: { cough: false, soreThroat: false, difficultyBreathing: false, vomiting: false, diarrhea: false, jaundice: false, skinLesions: false, uncoveredWounds: false }
+      symptomsDetail: emptySymptomsDetail()
     });
     setEditingId(null);
+  };
+
+  const onHasSymptomsChange = (value) => {
+    setForm((prev) => {
+      if (value === 'no') {
+        return { ...prev, hasSymptoms: value, symptomsDetail: emptySymptomsDetail() };
+      }
+      return { ...prev, hasSymptoms: value };
+    });
   };
 
   const submit = async () => {
@@ -271,6 +296,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
   const recentHistory = Array.isArray(history) ? history.slice(0, 5) : [];
   const isFormMode = Boolean(editingId || showForm);
   const statusLabel = completedToday ? 'Declaración completada' : 'Pendiente';
+  const hasSymptomsChoice = yesNoValue(form.hasSymptoms);
 
   return (
     <Box sx={{ display: 'grid', gap: 2, maxWidth: 1180, mx: 'auto', width: '100%', px: { xs: 1, sm: 2 } }}>
@@ -281,9 +307,9 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
       {isFormMode ? (
         <Card sx={{ bgcolor: formCardBg, color: textPrimary, border: `1px solid ${formBorder}`, borderRadius: 4, boxShadow: '0 14px 28px rgba(7, 14, 27, 0.22)' }}>
           <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>Formulario de declaración</Typography>
-              <Button variant="text" onClick={() => { setShowForm(false); setEditingId(null); }} sx={{ color: formHelperColor }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1.5 }}>
+              <Typography variant="h5" sx={{ fontWeight: 800, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>Formulario de declaración</Typography>
+              <Button variant="text" onClick={() => { setShowForm(false); setEditingId(null); }} sx={{ color: formHelperColor, width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'flex-start', sm: 'center' } }}>
                 Volver al panel
               </Button>
             </Stack>
@@ -291,66 +317,68 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
             <Box sx={{ display: 'grid', gap: 1.25 }}>
               <FormControl>
                 <FormLabel sx={{ color: `${formLabelColor} !important`, fontWeight: 700 }}>1. ¿Presentás síntomas actualmente?</FormLabel>
-                <RadioGroup value={form.hasSymptoms} onChange={(e) => setForm((prev) => ({ ...prev, hasSymptoms: e.target.value }))}>
+                <RadioGroup value={form.hasSymptoms} onChange={(e) => onHasSymptomsChange(e.target.value)}>
                   <FormControlLabel
                     value="si"
                     control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />}
                     label="Sí, tengo síntomas"
-                    sx={{ '& .MuiFormControlLabel-label': { color: formLabelColor } }}
+                    sx={{ minHeight: 42, '& .MuiFormControlLabel-label': { color: formLabelColor, fontSize: { xs: '0.97rem', sm: '1rem' } } }}
                   />
                   <FormControlLabel
                     value="no"
                     control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />}
                     label="No tengo síntomas"
-                    sx={{ '& .MuiFormControlLabel-label': { color: formLabelColor } }}
+                    sx={{ minHeight: 42, '& .MuiFormControlLabel-label': { color: formLabelColor, fontSize: { xs: '0.97rem', sm: '1rem' } } }}
                   />
                 </RadioGroup>
               </FormControl>
 
-              <Box sx={{ border: '1px solid', borderColor: formBorder, borderRadius: 2, p: 1.4, bgcolor: formBlockBg }}>
-                <Typography sx={{ fontWeight: 700, mb: 0.5, color: formLabelColor }}>Checklist de síntomas (obligatorio en procedimiento)</Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-                  {[
-                    ['cough', 'Tos'], ['soreThroat', 'Dolor de garganta'], ['difficultyBreathing', 'Dificultad respiratoria'], ['vomiting', 'Vómitos'],
-                    ['diarrhea', 'Diarrea'], ['jaundice', 'Ictericia'], ['skinLesions', 'Lesiones cutáneas'], ['uncoveredWounds', 'Heridas/cortes sin cubrir']
-                  ].map(([key, label]) => (
-                    <FormControlLabel
-                      key={key}
-                      control={(
-                        <Checkbox
-                          checked={Boolean(form.symptomsDetail?.[key])}
-                          onChange={(e) => setForm((prev) => ({ ...prev, symptomsDetail: { ...prev.symptomsDetail, [key]: e.target.checked } }))}
-                          sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }}
-                        />
-                      )}
-                      label={label}
-                      sx={{ '& .MuiFormControlLabel-label': { color: formLabelColor } }}
-                    />
-                  ))}
+              {hasSymptomsChoice === true && (
+                <Box sx={{ border: '1px solid', borderColor: formBorder, borderRadius: 2, p: { xs: 1.2, sm: 1.4 }, bgcolor: formBlockBg }}>
+                  <Typography sx={{ fontWeight: 700, mb: 0.5, color: formLabelColor }}>Checklist de síntomas (obligatorio)</Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: 1 }}>
+                    {[
+                      ['cough', 'Tos'], ['soreThroat', 'Dolor de garganta'], ['difficultyBreathing', 'Dificultad respiratoria'], ['vomiting', 'Vómitos'],
+                      ['diarrhea', 'Diarrea'], ['jaundice', 'Ictericia'], ['skinLesions', 'Lesiones cutáneas'], ['uncoveredWounds', 'Heridas/cortes sin cubrir']
+                    ].map(([key, label]) => (
+                      <FormControlLabel
+                        key={key}
+                        control={(
+                          <Checkbox
+                            checked={Boolean(form.symptomsDetail?.[key])}
+                            onChange={(e) => setForm((prev) => ({ ...prev, symptomsDetail: { ...prev.symptomsDetail, [key]: e.target.checked } }))}
+                            sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }}
+                          />
+                        )}
+                        label={label}
+                        sx={{ minHeight: 42, mr: 0.5, '& .MuiFormControlLabel-label': { color: formLabelColor, fontSize: { xs: '0.95rem', sm: '1rem' } } }}
+                      />
+                    ))}
+                  </Box>
                 </Box>
-              </Box>
+              )}
 
               <FormControl>
                 <FormLabel sx={{ color: `${formLabelColor} !important`, fontWeight: 700 }}>2. ¿Tenés fiebre?</FormLabel>
                 <RadioGroup value={form.hasFever} onChange={(e) => setForm((prev) => ({ ...prev, hasFever: e.target.value }))}>
-                  <FormControlLabel value="si" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="Sí" sx={{ '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
-                  <FormControlLabel value="no" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="No" sx={{ '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
+                  <FormControlLabel value="si" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="Sí" sx={{ minHeight: 42, '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
+                  <FormControlLabel value="no" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="No" sx={{ minHeight: 42, '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
                 </RadioGroup>
               </FormControl>
 
               <FormControl>
                 <FormLabel sx={{ color: `${formLabelColor} !important`, fontWeight: 700 }}>3. ¿Tuviste contacto reciente con alguien enfermo?</FormLabel>
                 <RadioGroup value={form.recentContact} onChange={(e) => setForm((prev) => ({ ...prev, recentContact: e.target.value }))}>
-                  <FormControlLabel value="si" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="Sí" sx={{ '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
-                  <FormControlLabel value="no" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="No" sx={{ '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
+                  <FormControlLabel value="si" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="Sí" sx={{ minHeight: 42, '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
+                  <FormControlLabel value="no" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="No" sx={{ minHeight: 42, '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
                 </RadioGroup>
               </FormControl>
 
               <FormControl>
                 <FormLabel sx={{ color: `${formLabelColor} !important`, fontWeight: 700 }}>4. ¿Te comprometés a informar síntomas durante la jornada?</FormLabel>
                 <RadioGroup value={form.commitInform} onChange={(e) => setForm((prev) => ({ ...prev, commitInform: e.target.value }))}>
-                  <FormControlLabel value="si" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="Sí" sx={{ '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
-                  <FormControlLabel value="no" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="No" sx={{ '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
+                  <FormControlLabel value="si" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="Sí" sx={{ minHeight: 42, '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
+                  <FormControlLabel value="no" control={<Radio sx={{ color: '#8ab4ff', '&.Mui-checked': { color: '#2F6BFF' } }} />} label="No" sx={{ minHeight: 42, '& .MuiFormControlLabel-label': { color: formLabelColor } }} />
                 </RadioGroup>
               </FormControl>
 
@@ -361,15 +389,16 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
               />
 
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button variant="outlined" onClick={onOpenPolicies} sx={{ color: formLabelColor, borderColor: formBorder, '&:hover': { borderColor: '#5f7fa8', bgcolor: 'rgba(47,107,255,0.08)' } }}>
+                <Button variant="outlined" onClick={onOpenPolicies} sx={{ minHeight: 46, width: { xs: '100%', sm: 'auto' }, color: formLabelColor, borderColor: formBorder, '&:hover': { borderColor: '#5f7fa8', bgcolor: 'rgba(47,107,255,0.08)' } }}>
                   Ver política
                 </Button>
-                <Button variant="contained" onClick={submit} disabled={saving}>{saving ? 'Guardando...' : (editingId ? 'Guardar cambios' : 'Enviar declaración')}</Button>
-                {editingId && <Button variant="text" onClick={() => setEditingId(null)} sx={{ color: formHelperColor }}>Cancelar edición</Button>}
-                {!editingId && !completedToday && <Button variant="text" onClick={() => setShowForm(false)} sx={{ color: formHelperColor }}>Volver</Button>}
+                <Button variant="contained" onClick={submit} disabled={saving} sx={{ minHeight: 46, width: { xs: '100%', sm: 'auto' } }}>{saving ? 'Guardando...' : (editingId ? 'Guardar cambios' : 'Enviar declaración')}</Button>
+                {editingId && <Button variant="text" onClick={() => setEditingId(null)} sx={{ minHeight: 46, width: { xs: '100%', sm: 'auto' }, color: formHelperColor }}>Cancelar edición</Button>}
+                {!editingId && !completedToday && <Button variant="text" onClick={() => setShowForm(false)} sx={{ minHeight: 46, width: { xs: '100%', sm: 'auto' }, color: formHelperColor }}>Volver</Button>}
               </Box>
               {(() => {
-                const evalPreview = buildHealthEvaluation({ hasSymptoms: Object.values(form.symptomsDetail || {}).some(Boolean) || yesNoValue(form.hasSymptoms) === true, hasFever: yesNoValue(form.hasFever) === true, recentContact: yesNoValue(form.recentContact) === true, symptomsDetail: form.symptomsDetail });
+                const normalizedSymptomsPreview = hasSymptomsChoice ? form.symptomsDetail : emptySymptomsDetail();
+                const evalPreview = buildHealthEvaluation({ hasSymptoms: hasSymptomsChoice === true, hasFever: yesNoValue(form.hasFever) === true, recentContact: yesNoValue(form.recentContact) === true, symptomsDetail: normalizedSymptomsPreview });
                 const isRed = evalPreview.trafficLight === 'Rojo';
                 const isYellow = evalPreview.trafficLight === 'Amarillo';
                 const sx = isRed
