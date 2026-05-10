@@ -41,7 +41,22 @@ function classifyDeviationScope({
     'falto comida para',
     'faltó comida para',
     'falta de coccion reclamada por',
-    'falta de cocción reclamada por'
+    'falta de cocción reclamada por',
+    'falta de entrega',
+    'entrega de almuerzo',
+    'almuerzo para celiacos',
+    'almuerzo para celiacos'
+  ]);
+  const hasCustomerServiceImpact = includesAny([
+    'segunda movilidad',
+    'movilidad a',
+    'se manda una segunda movilidad',
+    'servicio al cliente',
+    'servicio prestado',
+    'incumplimiento al cliente',
+    'falta de producto enviado',
+    'reclamo de cliente',
+    'reclamo del cliente'
   ]);
   const hasLogisticsImpact = includesAny([
     'despacho',
@@ -86,8 +101,8 @@ function classifyDeviationScope({
   const hasExternalComplaint = includesAny(['cliente reclama', 'reclamo del cliente', 'queja del cliente']) || hasGenericClaim;
   const hasExternalDeliveryImpact = includesAny(['no se envio', 'no se envió', 'no se envia', 'no se envía', 'no se enviaron', 'no se envian', 'no se envían', 'no se entrego', 'no se entregó', 'entrega incompleta', 'despacho incompleto', 'demora en entrega', 'demora de entrega', 'evento enviado en fecha incorrecta', 'fecha incorrecta', 'sale tarde', 'llega tarde', 'llegan tarde']) && includesAny(['cliente', 'entrega', 'despacho', 'envio', 'envío', 'enviaron', 'envian', 'envían', 'recorrido', 'movilidad', 'transporte']);
   const hasExternalThirdParty = includesAny(['proveedor', 'establecimiento externo', 'en establecimiento del cliente', 'sede externa']);
-  const hasExternalByCompanyAndImpact = hasCompanyMention && (hasLogisticsImpact || hasExternalComplaint || hasServiceNotDelivered);
-  if ((hasExternalComplaint || hasExternalDeliveryImpact || hasExternalThirdParty || hasServiceNotDelivered || hasExternalByCompanyAndImpact || (hasCompanyMention && hasSensitiveDietRisk)) && !hasExplicitInternalContainment) {
+  const hasExternalByCompanyAndImpact = hasCompanyMention && (hasLogisticsImpact || hasExternalComplaint || hasServiceNotDelivered || hasCustomerServiceImpact);
+  if ((hasExternalComplaint || hasExternalDeliveryImpact || hasExternalThirdParty || hasServiceNotDelivered || hasCustomerServiceImpact || hasExternalByCompanyAndImpact || (hasCompanyMention && hasSensitiveDietRisk)) && !hasExplicitInternalContainment) {
     return {
       scope: 'Externo',
       reason: 'El desvío impacta al cliente, la entrega/despacho o un tercero externo',

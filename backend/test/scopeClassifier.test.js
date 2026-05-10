@@ -29,6 +29,10 @@ test('Ajuste fino de alcance logístico interno/externo', () => {
   assert.equal(scopeOf('No sale cena de bodega'), 'Interno');
   assert.equal(scopeOf('No se envió fruta al Easy'), 'Externo');
   assert.equal(scopeOf('No se enviaron almuerzos para celíacos para Monteverde'), 'Externo');
+  assert.equal(
+    scopeOf('Se manda una segunda movilidad a La Laja por falta de entrega de almuerzo para celíacos'),
+    'Externo'
+  );
 });
 
 test('Alcance externo para riesgo en dieta especial con empresa/cliente', () => {
