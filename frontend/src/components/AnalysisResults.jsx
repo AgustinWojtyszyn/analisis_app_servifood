@@ -123,6 +123,55 @@ function getRecordScope(record = {}) {
   return '-';
 }
 
+function getExportOriginalClassification(record = {}) {
+  return normalizeCellValue(
+    record.classification_original
+    || findOriginalValueByAliases(record, [
+      'Clasificacion del desvio',
+      'Clasificación del desvío',
+      'Clasificacion del desvío',
+      'Clasificación del desvio'
+    ])
+    || record.categoriaDesvio
+  ).trim();
+}
+
+function getExportOriginalScope(record = {}) {
+  return normalizeCellValue(
+    record.scope_original
+    || findOriginalValueByAliases(record, [
+      'Desvio externo/ Interno',
+      'Desvío externo / Interno',
+      'Desvío interno/externo',
+      'Desvio interno/externo',
+      'Origen',
+      'origen'
+    ])
+    || record.alcanceDesvio
+  ).trim();
+}
+
+function getExportImmediateAction(record = {}) {
+  return normalizeCellValue(
+    record.immediate_action
+    || findOriginalValueByAliases(record, ['Acción inmediata', 'Accion inmediata'])
+    || record.accionInmediata
+  ).trim();
+}
+
+function getExportCorrectiveAction(record = {}) {
+  return normalizeCellValue(
+    record.corrective_action
+    || findOriginalValueByAliases(record, [
+      'Acción Correctiva Propuesta',
+      'Accion Correctiva Propuesta',
+      'Acción correctiva propuesta',
+      'Accion correctiva propuesta'
+    ])
+    || record.accionCorrectiva
+  ).trim();
+}
+
 export default function AnalysisResults({
   records,
   analysisId,
@@ -307,14 +356,14 @@ export default function AnalysisResults({
         Fecha: normalizeCellValue(record.fecha),
         'Hallazgo detectado': normalizeCellValue(record.hallazgoDetectado),
         'Área clasificada': normalizeCellValue(record.areaClasificada),
-        'Clasificación del desvío': normalizeCellValue(record.classification_original || record.categoriaDesvio),
+        'Clasificación del desvío': getExportOriginalClassification(record),
         'Tipo desvío': normalizeCellValue(record.tipoDesvio),
-        'Desvío interno/externo': getRecordScope(record),
+        'Desvío interno/externo': getExportOriginalScope(record),
         'ISO 22000': normalizeCellValue(record.iso22000),
         'Razón técnica': normalizeCellValue(record.explicacionClasificacion || record.alcanceReason),
         Confianza: normalizeCellValue(record.confianza || record.alcanceConfidence),
-        'Acción inmediata': normalizeCellValue(record.immediate_action || record.accionInmediata),
-        'Acción Correctiva Propuesta': normalizeCellValue(record.corrective_action || record.accionCorrectiva),
+        'Acción inmediata': getExportImmediateAction(record),
+        'Acción Correctiva Propuesta': getExportCorrectiveAction(record),
         'Estado acción': normalizeCellValue(record.estadoAccion),
         'Área / Proceso': normalizeCellValue(record.areaProceso),
         'Actividad realizada': normalizeCellValue(record.actividadRealizada),
