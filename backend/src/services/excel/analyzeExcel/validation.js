@@ -22,6 +22,7 @@ function ensureSingleArea(areaClasificada = '') {
 
 function validateFinalRecord(record = {}) {
   const validated = { ...record };
+  const preserveOriginalClassification = Boolean(validated.preserveOriginalClassification);
   const hallazgo = normalizeIncidentText(validated.hallazgoDetectado || '');
   const normalizedRule = classifyNormalizedRule([
     validated.hallazgoDetectado,
@@ -48,22 +49,22 @@ function validateFinalRecord(record = {}) {
     validated.areaClasificada = 'Área no identificada';
   }
 
-  if (!explicitNoFinding && normalizedRule) {
+  if (!preserveOriginalClassification && !explicitNoFinding && normalizedRule) {
     validated.resultadoClasificado = normalizedRule.resultadoClasificado;
     validated.tipoDesvio = normalizedRule.tipoDesvio;
     validated.iso22000 = normalizedRule.iso22000;
-  } else if (!explicitNoFinding && priorityOperationalRule) {
+  } else if (!preserveOriginalClassification && !explicitNoFinding && priorityOperationalRule) {
     validated.resultadoClasificado = priorityOperationalRule.resultadoClasificado;
     validated.tipoDesvio = priorityOperationalRule.tipoDesvio;
     validated.iso22000 = priorityOperationalRule.iso22000;
-  } else if (!explicitNoFinding && technicalControlRule) {
+  } else if (!preserveOriginalClassification && !explicitNoFinding && technicalControlRule) {
     validated.resultadoClasificado = technicalControlRule.resultadoClasificado;
     validated.tipoDesvio = technicalControlRule.tipoDesvio;
     validated.iso22000 = technicalControlRule.iso22000;
   }
 
   validated.areaClasificada = ensureSingleArea(validated.areaClasificada);
-  if (!explicitNoFinding) {
+  if (!preserveOriginalClassification && !explicitNoFinding) {
     validated.iso22000 = resolveIsoWithContextFallback({
       iso22000: validated.iso22000,
       hallazgoDetectado: validated.hallazgoDetectado,
@@ -92,7 +93,7 @@ function validateFinalRecord(record = {}) {
     validated.categoriaDesvio = governanceAdjusted.categoriaDesvio || validated.categoriaDesvio;
   }
 
-  if (!validated.categoriaDesvio) {
+  if (!preserveOriginalClassification && !validated.categoriaDesvio) {
     validated.categoriaDesvio = classifyCategoriaDesvio({
       hallazgoDetectado: validated.hallazgoDetectado,
       actividadRealizada: validated.actividadRealizada,
@@ -102,17 +103,21 @@ function validateFinalRecord(record = {}) {
     });
   }
 
-  const triad = normalizeToTriadClassification({
-    categoriaDesvio: validated.categoriaDesvio,
-    resultadoClasificado: validated.resultadoClasificado,
-    tipoDesvio: validated.tipoDesvio
-  });
-  validated.resultadoClasificado = triad.resultadoClasificado;
-  validated.tipoDesvio = triad.tipoDesvio;
-  validated.categoriaDesvio = triad.categoriaDesvio || validated.categoriaDesvio;
-  validated.tipoDesvio = mapTipoFromCategoria(validated.categoriaDesvio, validated.tipoDesvio);
+  if (!preserveOriginalClassification) {
+    const triad = normalizeToTriadClassification({
+      categoriaDesvio: validated.categoriaDesvio,
+      resultadoClasificado: validated.resultadoClasificado,
+      tipoDesvio: validated.tipoDesvio
+    });
+    validated.resultadoClasificado = triad.resultadoClasificado;
+    validated.tipoDesvio = triad.tipoDesvio;
+    validated.categoriaDesvio = triad.categoriaDesvio || validated.categoriaDesvio;
+    validated.tipoDesvio = mapTipoFromCategoria(validated.categoriaDesvio, validated.tipoDesvio);
+  }
 
   if (
+    !preserveOriginalClassification
+    &&
     validated.resultadoClasificado !== 'Conforme'
     && (!normalizeCellValue(validated.tipoDesvio).trim() || normalizeCellValue(validated.tipoDesvio).trim() === '-')
   ) {
@@ -136,6 +141,8 @@ function validateFinalRecord(record = {}) {
   validated.tipoDesvio = normalizedOutcome.tipoDesvio;
 
   if (
+    !preserveOriginalClassification
+    &&
     normalizeIncidentText(validated.categoriaDesvio || '').startsWith('desvio')
     && normalizeIncidentText(validated.resultadoClasificado || '') === 'conforme'
   ) {

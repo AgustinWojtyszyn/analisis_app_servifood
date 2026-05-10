@@ -114,67 +114,13 @@ function formatEstadoAccion(value) {
   return normalized.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
-function buildCorrectiveActionFallback(record = {}) {
-  const text = normalizeCellValue([
-    record.hallazgoDetectado,
-    record.categoriaDesvio,
-    record.iso22000,
-    record.areaClasificada
-  ].filter(Boolean).join(' | ')).toLowerCase();
-
-  const includesAny = (arr) => arr.some((term) => text.includes(term));
-
-  if (includesAny(['producto no conforme', 'carteleria de producto no conforme', 'cartelería de producto no conforme'])) {
-    return 'Identificar y sectorizar el producto no conforme. Colocar cartelería visible y reforzar el procedimiento de segregación.';
-  }
-  if (includesAny(['desvío de logística', 'desvio de logistica', 'faltaron', 'entrega incompleta', 'despacho', 'logistica', 'faltante'])) {
-    return 'Verificar el faltante, corregir entrega o reposición si corresponde. Aplicar doble control antes del despacho.';
-  }
-  if (includesAny(['sin rotular', 'rotulacion', 'rotulación', 'trazabilidad', '8.5.2'])) {
-    return 'Rotular inmediatamente los alimentos o productos involucrados. Reforzar capacitación y control diario de rótulos.';
-  }
-  if (includesAny(['limpieza', 'sucio', 'sucia', 'restos', 'charcos', 'piso sucio'])) {
-    return 'Limpiar y desinfectar el sector afectado. Reforzar frecuencia de limpieza y control por checklist diario.';
-  }
-  if (includesAny(['residuos', 'basura', 'contenedor', 'segregacion', 'segregación'])) {
-    return 'Ordenar y retirar residuos del sector. Identificar contenedores y reforzar la segregación por tipo de residuo.';
-  }
-  if (includesAny(['desorden', 'falta de orden', 'heladeras desordenadas'])) {
-    return 'Ordenar el sector y retirar elementos innecesarios. Reforzar rutina de orden y verificación por turno.';
-  }
-  if (includesAny(['bandejas rotas', 'mal estado', 'envases sin integridad', 'equipamiento', 'equipo'])) {
-    return 'Retirar o reemplazar elementos en mal estado. Verificar disponibilidad de equipamiento apto antes del uso.';
-  }
-  if (includesAny(['objetos personales', 'elementos personales', 'productos ajenos', 'ajenos al sector', 'riñonera', 'rinonera'])) {
-    return 'Retirar elementos personales o ajenos al sector productivo. Implementar uso de lockers y reforzar control del área.';
-  }
-  if (includesAny(['baño', 'bano', 'armario de baños', 'armario de banos', 'carteleria', 'cartelería'])) {
-    return 'Colocar la cartelería correspondiente y verificar la identificación del sector. Reforzar el control visual con el responsable.';
-  }
-  if (includesAny(['desvío legal', 'desvio legal', 'carnet', 'documentacion legal', 'documentación legal', 'caa'])) {
-    return 'Regularizar la documentación requerida antes de permitir tareas asociadas. Informar a Calidad o Recursos Humanos para seguimiento.';
-  }
-
-  const existing = normalizeCellValue(
-    record.accionCorrectiva
-    || record.accion_correctiva
-    || record.correctiveAction
-    || record.correction
-    || record.correccion
-  ).trim();
-  if (existing) return existing;
-
-  return 'Corregir el desvío detectado, registrar la acción tomada y reforzar el criterio con el responsable del sector.';
-}
-
 function getRecordScope(record = {}) {
-  const normalized = normalizeCellValue(record.alcanceDesvio || record.desvioInternoExterno).trim().toLowerCase();
-  if (normalized === 'interno') return 'Interno';
-  if (normalized === 'externo') return 'Externo';
+  const originalScope = normalizeCellValue(record.scope_original || record.alcanceDesvio || record.desvioInternoExterno).trim();
+  if (originalScope) return originalScope;
   const original = normalizeCellValue(findOriginalValueByAliases(record, ['Desvío interno/externo', 'Desvio interno/externo', 'Origen', 'origen'])).trim().toLowerCase();
   if (original === 'interno') return 'Interno';
   if (original === 'externo') return 'Externo';
-  return 'Interno';
+  return '-';
 }
 
 export default function AnalysisResults({
@@ -231,9 +177,9 @@ export default function AnalysisResults({
 
   const countsByCategory = {
     todos: records.length,
-    inocuidad: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío de Inocuidad').length,
-    logistica: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío de Logística').length,
-    legal: records.filter((record) => normalizeCellValue(record.categoriaDesvio) === 'Desvío Legal').length
+    inocuidad: records.filter((record) => normalizeCellValue(record.classification_normalized || record.categoriaDesvio) === 'Desvío de Inocuidad').length,
+    logistica: records.filter((record) => normalizeCellValue(record.classification_normalized || record.categoriaDesvio) === 'Desvío de Logística').length,
+    legal: records.filter((record) => normalizeCellValue(record.classification_normalized || record.categoriaDesvio) === 'Desvío Legal').length
   };
 
   const filteredRecords = records.filter((record) => {
@@ -252,7 +198,7 @@ export default function AnalysisResults({
     ].map((value) => normalizeCellValue(value).toLowerCase()).join(' | ');
 
     const areaParts = splitAreas(record.areaClasificada);
-    const categoriaDesvio = normalizeCellValue(record.categoriaDesvio);
+    const categoriaDesvio = normalizeCellValue(record.classification_normalized || record.categoriaDesvio);
 
     const matchesSearch = textSearch.includes(searchTerm.toLowerCase());
     const matchesArea = filterArea === 'all' || areaParts.includes(filterArea);
@@ -335,14 +281,14 @@ export default function AnalysisResults({
       'Fecha',
       'Hallazgo detectado',
       'Área clasificada',
-      'Categoría desvío',
+      'Clasificación del desvío',
       'Tipo desvío',
       'Desvío interno/externo',
       'ISO 22000',
       'Razón técnica',
       'Confianza',
       'Acción inmediata',
-      'Acción correctiva',
+      'Acción Correctiva Propuesta',
       'Estado acción',
       'Área / Proceso',
       'Actividad realizada',
@@ -361,14 +307,14 @@ export default function AnalysisResults({
         Fecha: normalizeCellValue(record.fecha),
         'Hallazgo detectado': normalizeCellValue(record.hallazgoDetectado),
         'Área clasificada': normalizeCellValue(record.areaClasificada),
-        'Categoría desvío': normalizeCellValue(record.categoriaDesvio),
+        'Clasificación del desvío': normalizeCellValue(record.classification_original || record.categoriaDesvio),
         'Tipo desvío': normalizeCellValue(record.tipoDesvio),
         'Desvío interno/externo': getRecordScope(record),
         'ISO 22000': normalizeCellValue(record.iso22000),
         'Razón técnica': normalizeCellValue(record.explicacionClasificacion || record.alcanceReason),
         Confianza: normalizeCellValue(record.confianza || record.alcanceConfidence),
-        'Acción inmediata': normalizeCellValue(record.accionInmediata),
-        'Acción correctiva': normalizeCellValue(record.accionCorrectiva),
+        'Acción inmediata': normalizeCellValue(record.immediate_action || record.accionInmediata),
+        'Acción Correctiva Propuesta': normalizeCellValue(record.corrective_action || record.accionCorrectiva),
         'Estado acción': normalizeCellValue(record.estadoAccion),
         'Área / Proceso': normalizeCellValue(record.areaProceso),
         'Actividad realizada': normalizeCellValue(record.actividadRealizada),
@@ -655,7 +601,7 @@ export default function AnalysisResults({
               <TableCell sx={{ fontWeight: 700 }}>Fecha</TableCell>
               <TableCell sx={{ fontWeight: 700, minWidth: 300 }}>Hallazgo detectado</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Área</TableCell>
-              <TableCell sx={{ fontWeight: 700, minWidth: 180 }}>Categoría</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 180 }}>Clasificación</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Tipo</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Alcance</TableCell>
               <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>ISO</TableCell>
@@ -695,7 +641,7 @@ export default function AnalysisResults({
                     </TableCell>
                     <TableCell>{normalizeCellValue(record.areaClasificada) || '-'}</TableCell>
                     <TableCell sx={{ maxWidth: 220 }}>
-                      <Typography variant="body2">{normalizeCellValue(record.categoriaDesvio) || '-'}</Typography>
+                      <Typography variant="body2">{normalizeCellValue(record.classification_original || record.categoriaDesvio) || '-'}</Typography>
                     </TableCell>
                     <TableCell>
                       {normalizeCellValue(record.tipoDesvio) ? (
@@ -717,11 +663,11 @@ export default function AnalysisResults({
                     </TableCell>
                     <TableCell>{formatEstadoAccion(record.estadoAccion)}</TableCell>
                     <TableCell sx={{ maxWidth: 360 }}>
-                      <Typography variant="body2">{normalizeCellValue(record.accionInmediata) || '-'}</Typography>
+                      <Typography variant="body2">{normalizeCellValue(record.immediate_action || record.accionInmediata) || '-'}</Typography>
                     </TableCell>
                     <TableCell sx={{ maxWidth: 380 }}>
                       <Typography variant="body2">
-                        {buildCorrectiveActionFallback(record)}
+                        {normalizeCellValue(record.corrective_action || record.accionCorrectiva) || '-'}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -733,11 +679,11 @@ export default function AnalysisResults({
                           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.25 }}>
                             <Box>
                               <Typography variant="caption" color="text.secondary">Acción inmediata</Typography>
-                              <Typography variant="body2">{normalizeCellValue(record.accionInmediata) || '-'}</Typography>
+                              <Typography variant="body2">{normalizeCellValue(record.immediate_action || record.accionInmediata) || '-'}</Typography>
                             </Box>
                             <Box>
                               <Typography variant="caption" color="text.secondary">Acción correctiva</Typography>
-                              <Typography variant="body2">{normalizeCellValue(record.accionCorrectiva) || '-'}</Typography>
+                              <Typography variant="body2">{normalizeCellValue(record.corrective_action || record.accionCorrectiva) || '-'}</Typography>
                             </Box>
                             <Box>
                               <Typography variant="caption" color="text.secondary">Área / Proceso original</Typography>

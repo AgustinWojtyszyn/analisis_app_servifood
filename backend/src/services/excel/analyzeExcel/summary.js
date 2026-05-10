@@ -103,9 +103,10 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
   const finalResultado = normalizeCellValue(finalRecord.resultadoClasificado).trim();
   const finalTipo = normalizeCellValue(finalRecord.tipoDesvio).trim();
   const finalIso = normalizeCellValue(finalRecord.iso22000).trim() || 'Revisar manualmente';
-  const finalCategoria = normalizeCellValue(finalRecord.categoriaDesvio).trim() || 'Revisar manualmente';
+  const finalCategoriaOriginal = normalizeCellValue(finalRecord.classification_original || finalRecord.categoriaDesvio).trim();
+  const finalCategoria = normalizeCellValue(finalRecord.classification_normalized || finalCategoriaOriginal).trim() || 'Revisar manualmente';
   const finalEstadoAccion = normalizeCellValue(finalRecord.estadoAccion).trim();
-  const finalAlcance = normalizeCellValue(finalRecord.alcanceDesvio).trim();
+  const finalAlcance = normalizeCellValue(finalRecord.scope_normalized || finalRecord.alcanceDesvio).trim();
   const isConforme = finalResultado === 'Conforme';
   const isRevisionManual = finalCategoria === 'Revisar manualmente';
   const isDesvio = !isConforme && !normalizeForMatch(finalCategoria).includes('conforme');
@@ -137,7 +138,7 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
       area: normalizeCellValue(finalRecord.areaClasificada).trim() || '-',
       hallazgo: normalizeCellValue(finalRecord.hallazgoDetectado).trim() || '-',
       resultado: finalResultado || '-',
-      categoria: finalCategoria || '-'
+      categoria: finalCategoriaOriginal || finalCategoria || '-'
     });
   }
 

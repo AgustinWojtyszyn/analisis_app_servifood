@@ -75,7 +75,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     if (deriveFromRecords) {
       records.forEach((record) => {
         const area = String(record.areaClasificada || '').trim();
-        const categoria = String(record.categoriaDesvio || '').trim();
+        const categoria = String(record.classification_normalized || record.categoriaDesvio || '').trim();
         const iso = String(record.iso22000 || '').trim();
         const estadoAccion = normalizeEstadoAccion(record.estadoAccion);
         if (categoria) fallbackByCategoria[categoria] = (fallbackByCategoria[categoria] || 0) + 1;

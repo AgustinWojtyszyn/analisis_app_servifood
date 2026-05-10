@@ -324,6 +324,23 @@ function buildAnalysisText(record) {
   ].map(normalizeCellValue).join(' | '));
 }
 
+function normalizeClassificationForStats(value = '') {
+  const normalized = normalizeIncidentText(value);
+  if (!normalized) return '';
+  if (normalized.includes('inocuidad')) return 'Desvío de Inocuidad';
+  if (normalized.includes('logistica')) return 'Desvío de Logística';
+  if (normalized.includes('calidad')) return 'Desvío de Calidad';
+  if (normalized.includes('legal')) return 'Desvío Legal';
+  return normalizeCellValue(value).trim();
+}
+
+function normalizeScopeForStats(value = '') {
+  const normalized = normalizeIncidentText(value);
+  if (normalized === 'interno') return 'Interno';
+  if (normalized === 'externo') return 'Externo';
+  return normalizeCellValue(value).trim();
+}
+
 function processRow({
   index,
   rowValues,
@@ -422,6 +439,15 @@ function processRow({
     'Tipo',
     'Clasificación',
     'Clasificacion'
+  ]) || '').trim();
+  const scopeOriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
+    'Desvío interno/externo',
+    'Desvio interno/externo',
+    'Desvío externo/ Interno',
+    'Desvio externo/ Interno',
+    'Desvío externo / Interno',
+    'Desvio externo / Interno',
+    'Desvio externo/interno'
   ]) || '').trim();
 
   const desvioDetectadoOriginal = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
@@ -738,8 +764,9 @@ function processRow({
   }
 
   const tipoOriginal = parseOriginalTipoDesvio(rawRecord.tipoDesvioOriginal || rawRecord.resultado);
+  const hasOriginalClassification = normalizeCellValue(tipoDesvioOriginalRaw).trim().length > 0;
   const hasStrongNeutralEvidence = neutralTechnicalRow && !explicitNegativeInRow && !inheritedNegativeContext;
-  if (tipoOriginal === 'NC') {
+  if (!hasOriginalClassification && tipoOriginal === 'NC') {
     if (explicitNegativeInRow || inheritedNegativeContext || !hasStrongNeutralEvidence) {
       resultadoClasificado = 'No conforme';
       tipoDesvio = 'NC';
@@ -749,7 +776,7 @@ function processRow({
       tipoDesvio = '-';
       outcomeReason = 'texto técnico neutro; se evita override NC ambiguo del Excel';
     }
-  } else if (tipoOriginal === 'OBS') {
+  } else if (!hasOriginalClassification && tipoOriginal === 'OBS') {
     if (!criticalSignal) {
       resultadoClasificado = 'Observación';
       tipoDesvio = 'OBS';
@@ -757,11 +784,11 @@ function processRow({
     } else {
       outcomeReason = `Tipo original del Excel ignorado por señal crítica: ${criticalSignal}`;
     }
-  } else if (tipoOriginal === 'OM') {
+  } else if (!hasOriginalClassification && tipoOriginal === 'OM') {
     resultadoClasificado = 'Oportunidad de mejora';
     tipoDesvio = 'OM';
     outcomeReason = 'Resultado original del Excel aplicado (OM)';
-  } else if (tipoOriginal === 'NA') {
+  } else if (!hasOriginalClassification && tipoOriginal === 'NA') {
     if (!criticalSignal) {
       resultadoClasificado = 'Conforme';
       tipoDesvio = '-';
@@ -771,13 +798,13 @@ function processRow({
     }
   }
 
-  if (auditComplianceRule) {
+  if (!hasOriginalClassification && auditComplianceRule) {
     resultadoClasificado = auditComplianceRule.classification;
     tipoDesvio = auditComplianceRule.tipoDesvio;
     outcomeReason = auditComplianceRule.reason;
   }
 
-  if (criticalSignal && !explicitNoFindingRow) {
+  if (!hasOriginalClassification && criticalSignal && !explicitNoFindingRow) {
     resultadoClasificado = 'No conforme';
     tipoDesvio = 'NC';
     outcomeReason = `NC por señal crítica: ${criticalSignal}`;
@@ -796,7 +823,7 @@ function processRow({
   });
 
   const normalizedRule = classifyNormalizedRule(textForClassification);
-  if (normalizedRule) {
+  if (!hasOriginalClassification && normalizedRule) {
     resultadoClasificado = normalizedRule.resultadoClasificado;
     tipoDesvio = normalizedRule.tipoDesvio;
     iso22000 = normalizedRule.iso22000;
@@ -804,7 +831,7 @@ function processRow({
   }
 
   const priorityOperationalRule = classifyPriorityOperationalRule(textForClassification);
-  if (priorityOperationalRule && !normalizedRule) {
+  if (!hasOriginalClassification && priorityOperationalRule && !normalizedRule) {
     resultadoClasificado = priorityOperationalRule.resultadoClasificado;
     tipoDesvio = priorityOperationalRule.tipoDesvio;
     iso22000 = priorityOperationalRule.iso22000;
@@ -812,7 +839,7 @@ function processRow({
   }
 
   const technicalControlRule = classifyTechnicalControlRule(textForClassification);
-  if (technicalControlRule && !priorityOperationalRule && !normalizedRule) {
+  if (!hasOriginalClassification && technicalControlRule && !priorityOperationalRule && !normalizedRule) {
     resultadoClasificado = technicalControlRule.resultadoClasificado;
     tipoDesvio = technicalControlRule.tipoDesvio;
     iso22000 = technicalControlRule.iso22000;
@@ -834,7 +861,12 @@ function processRow({
     iso22000
   });
 
-  const governanceAdjusted = applyGovernanceTypeAndCategory({
+  const governanceAdjusted = hasOriginalClassification ? {
+    resultadoClasificado,
+    tipoDesvio,
+    iso22000,
+    categoriaDesvio
+  } : applyGovernanceTypeAndCategory({
     hallazgoDetectado: rawRecord.hallazgoDetectado,
     actividadRealizada: rawRecord.actividadRealizada,
     areaClasificada,
@@ -874,7 +906,7 @@ function processRow({
     rawRecord.hallazgoDetectado,
     rawRecord.actividadRealizada
   ].join(' | '));
-  if (finalAuditRule && finalAuditRule.classification === 'No conforme') {
+  if (!hasOriginalClassification && finalAuditRule && finalAuditRule.classification === 'No conforme') {
     resultadoClasificado = 'No conforme';
     tipoDesvio = 'NC';
     iso22000 = '9.2 Auditoría interna';
@@ -926,15 +958,7 @@ function processRow({
 
   const explicacionClasificacion = preExplicacionClasificacion;
   const confianza = preConfianza;
-  const scopeFromSource = normalizeScope(getRowValueByCandidates(row, rowKeyMap, [
-    'Desvío interno/externo',
-    'Desvio interno/externo',
-    'Desvío externo/ Interno',
-    'Desvio externo/ Interno',
-    'Desvio externo/interno',
-    'Origen',
-    'origen'
-  ]));
+  const scopeFromSource = normalizeScope(scopeOriginalRaw || getRowValueByCandidates(row, rowKeyMap, ['Origen', 'origen']));
   const scopeClassified = classifyDeviationScope({
     text: [textForClassification, rawRecord.hallazgoDetectado, rawRecord.descripcion, rawRecord.observaciones].filter(Boolean).join(' | '),
     detectedArea: areaClasificadaFinal,
@@ -981,11 +1005,40 @@ function processRow({
     refinadoPorIA,
     explicacionClasificacion,
     confianza,
-    analisisTexto
+    analisisTexto,
+    classification_original: hasOriginalClassification ? tipoDesvioOriginalRaw : null,
+    classification_normalized: normalizeClassificationForStats(hasOriginalClassification ? tipoDesvioOriginalRaw : categoriaDesvio),
+    scope_original: scopeOriginalRaw || null,
+    scope_normalized: normalizeScopeForStats(alcanceDesvio),
+    immediate_action: normalizeCellValue(accionInmediataRaw).trim(),
+    corrective_action: normalizeCellValue(accionCorrectivaRaw).trim(),
+    preserveOriginalClassification: hasOriginalClassification
   });
 
+  if (hasOriginalClassification) {
+    const originalNorm = normalizeIncidentText(tipoDesvioOriginalRaw);
+    finalRecord.categoriaDesvio = tipoDesvioOriginalRaw;
+    finalRecord.classification = tipoDesvioOriginalRaw;
+    finalRecord.tipoDesvio = tipoOriginal === 'NC' ? 'NC' : (tipoOriginal === 'OM' ? 'OM' : (tipoOriginal === 'OBS' ? 'OBS' : finalRecord.tipoDesvio));
+    if (originalNorm === 'no conforme') {
+      finalRecord.resultadoClasificado = 'No conforme';
+    } else if (tipoOriginal === 'OM') {
+      finalRecord.resultadoClasificado = 'Oportunidad de mejora';
+    } else if (tipoOriginal === 'OBS') {
+      finalRecord.resultadoClasificado = 'Observación';
+    } else {
+      finalRecord.resultadoClasificado = 'Conforme';
+    }
+  }
+
+  finalRecord.alcanceDesvio = scopeOriginalRaw || finalRecord.alcanceDesvio;
+  finalRecord.scope_original = scopeOriginalRaw || null;
+  finalRecord.scope_normalized = normalizeScopeForStats(finalRecord.alcanceDesvio);
+  finalRecord.immediate_action = normalizeCellValue(accionInmediataRaw).trim();
+  finalRecord.corrective_action = normalizeCellValue(accionCorrectivaRaw).trim();
+
   // Ajuste final: la acción correctiva debe responder a la categoría final validada.
-  if (normalizeCellValue(finalRecord.resultadoClasificado).trim() === 'No conforme') {
+  if (!hasOriginalClassification && normalizeCellValue(finalRecord.resultadoClasificado).trim() === 'No conforme') {
     const finalActions = buildActions({
       resultadoClasificado: finalRecord.resultadoClasificado,
       text: [finalRecord.hallazgoDetectado, finalRecord.descripcion, finalRecord.observaciones, finalRecord.actividadRealizada].filter(Boolean).join(' | '),

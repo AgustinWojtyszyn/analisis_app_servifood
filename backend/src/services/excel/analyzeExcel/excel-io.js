@@ -189,9 +189,11 @@ function detectHeaders(headerRow) {
     desvio: ['desvio', 'desvio?', 'desvio ?', '¿desvio?', '¿desvio ?', 'hay desvio', 'no conformidad'],
     accion: ['accion', 'accion?', 'accion ?', '¿accion?', '¿accion ?', 'plan de accion'],
     accionInmediata: ['accion inmediata', 'acción inmediata'],
-    accionCorrectiva: ['accion correctiva', 'acción correctiva'],
+    accionCorrectiva: ['accion correctiva', 'acción correctiva', 'accion correctiva propuesta', 'acción correctiva propuesta'],
     numeroAccion: ['n accion', 'n° accion', 'nro accion', 'numero accion', 'id accion'],
-    notaTecnica: ['nota tecnica', 'nota', 'detalle tecnico']
+    notaTecnica: ['nota tecnica', 'nota', 'detalle tecnico'],
+    scope: ['desvio interno externo', 'desvío interno externo', 'desvio externo interno', 'desvío externo interno', 'origen'],
+    classificationOriginal: ['clasificacion del desvio', 'clasificación del desvío', 'clasificacion del desvío', 'clasificación del desvio']
   };
 
   const scoreHeaderMatch = (headerValue, aliasValue) => {
