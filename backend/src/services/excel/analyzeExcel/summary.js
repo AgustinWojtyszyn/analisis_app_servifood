@@ -131,6 +131,7 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
   }
 
   summary.totalRecords += 1;
+  summary.totalDesvios += 1;
   summary.excelAudit.totalRegistrosCreados += 1;
   if (summary.excelAudit.ejemplosRegistrosCreados.length < 5) {
     summary.excelAudit.ejemplosRegistrosCreados.push({
@@ -154,7 +155,6 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
   if (finalAlcance) summary.byAlcance[finalAlcance] = (summary.byAlcance[finalAlcance] || 0) + 1;
 
   if (isDesvio) {
-    summary.totalDesvios += 1;
     const areasForSummary = normalizeCellValue(finalRecord.areaClasificada)
       .split(',')
       .flatMap((value) => value.split('/'))
