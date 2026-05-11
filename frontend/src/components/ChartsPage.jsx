@@ -56,7 +56,23 @@ function normalizeIsoKey(value) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
   if (!normalized || normalized === '-' || normalized.includes('revisar manualmente') || normalized.includes('revision manual')) return '';
-  return raw;
+  const codeMatch = normalized.match(/\b\d+(?:\.\d+){0,2}\b/);
+  const code = codeMatch ? codeMatch[0] : '';
+  if (!code) return shortLabel(raw, 40);
+
+  const canonicalByCode = {
+    '8.2': '8.2 PRP',
+    '8.5': '8.5 HACCP',
+    '8.5.1': '8.5.1 Control operacional',
+    '8.5.2': '8.5.2 Trazabilidad',
+    '7.1': '7.1 Recursos',
+    '7.2': '7.2 Competencia',
+    '7.5': '7.5 Información documentada',
+    '9.2': '9.2 Auditoría interna',
+    '10.2': '10.2 Acción correctiva'
+  };
+
+  return canonicalByCode[code] || code;
 }
 
 function shortLabel(value, max = 26) {
@@ -292,10 +308,13 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     const desviosPorCategoria = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
     const desviosPorCategoriaCompleta = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
     const isoRaw = hasRecords ? fallbackByIso : (summaryByIso || fallbackByIso);
-    const isoFiltered = Object.fromEntries(
-      Object.entries(isoRaw).filter(([key]) => normalizeIsoKey(key))
-    );
-    const desviosPorIso = buildTopWithOthers(objectToChartData(isoFiltered), 10);
+    const isoGrouped = Object.entries(isoRaw).reduce((acc, [key, value]) => {
+      const canonicalIso = normalizeIsoKey(key);
+      if (!canonicalIso) return acc;
+      acc[canonicalIso] = (acc[canonicalIso] || 0) + Number(value || 0);
+      return acc;
+    }, {});
+    const desviosPorIso = buildTopWithOthers(objectToChartData(isoGrouped), 10);
 
     const resumenHallazgos = [
       { name: 'Desvíos reales', value: Number(safeSummary.totalDesvios || 0) },
