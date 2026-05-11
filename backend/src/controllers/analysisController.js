@@ -206,6 +206,50 @@ function normalizeExportEstado(record = {}) {
   return (raw === 'cerrado' || raw === 'cerrada') ? 'Cerrado' : 'Abierto';
 }
 
+function normalizeExportIso(record = {}) {
+  const raw = normalizeCellValue(record.relacionIso22000 || record.iso22000).trim();
+  if (!raw || raw === '-') return '';
+
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (normalized.includes('revisar manualmente') || normalized.includes('revision manual')) return 'Revisar manualmente';
+
+  const codes = Array.from(normalized.matchAll(/\b\d+(?:\.\d+){0,2}\b/g)).map((m) => m[0]);
+  if (codes.length === 0) return raw;
+
+  const uniqueCodes = [...new Set(codes)];
+  const selectPreferredCode = () => {
+    if (uniqueCodes.includes('8.5.1')) return '8.5.1';
+    if (uniqueCodes.includes('8.5.2')) return '8.5.2';
+    if (uniqueCodes.some((c) => c.startsWith('8.5'))) return '8.5';
+    if (uniqueCodes.some((c) => c.startsWith('8.2'))) return '8.2';
+    if (uniqueCodes.includes('7.1')) return '7.1';
+    if (uniqueCodes.includes('7.2')) return '7.2';
+    if (uniqueCodes.includes('7.5')) return '7.5';
+    if (uniqueCodes.includes('9.2')) return '9.2';
+    if (uniqueCodes.includes('10.2')) return '10.2';
+    return uniqueCodes[0];
+  };
+
+  const code = selectPreferredCode();
+
+  const canonicalByCode = {
+    '8.2': '8.2 PRP',
+    '8.5': '8.5 HACCP',
+    '8.5.1': '8.5.1 Control operacional',
+    '8.5.2': '8.5.2 Trazabilidad',
+    '7.1': '7.1 Recursos',
+    '7.2': '7.2 Competencia',
+    '7.5': '7.5 Información documentada',
+    '9.2': '9.2 Auditoría interna',
+    '10.2': '10.2 Acción correctiva'
+  };
+
+  return canonicalByCode[code] || code;
+}
+
 function reclassifyStoredRecord(record = {}) {
   if (isManualCategoryOverride(record)) return record;
 
@@ -874,7 +918,7 @@ export async function exportBulkAnalyses(req, res) {
           'Desvío detectado': normalizeCellValue(record.desvioDetectado || record.hallazgoDetectado),
           'Clasificación del desvío': normalizeExportClassification(record),
           'Tipo de desvío': normalizeExportTipo(record),
-          'Relación ISO 22000': normalizeCellValue(record.relacionIso22000 || record.iso22000),
+          'Relación ISO 22000': normalizeExportIso(record),
           'Estado de acciones': normalizeExportEstado(record),
           'Acción inmediata': normalizeCellValue(record.immediate_action || record.accionInmediata),
           'Acción correctiva': normalizeCellValue(record.corrective_action || record.accionCorrectiva)
