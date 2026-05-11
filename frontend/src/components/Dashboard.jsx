@@ -67,6 +67,10 @@ export function SummaryGrid({ summary, processedAt = null }) {
   const dynamicCategoryCards = Object.entries(summary.byCategoria || {})
     .filter(([name]) => name && name !== 'Conforme')
     .filter(([name]) => ![
+      'Inocuidad',
+      'Logística',
+      'Calidad',
+      'Legales',
       'Desvío de Inocuidad',
       'Desvío de Logística',
       'Desvío de Calidad',
