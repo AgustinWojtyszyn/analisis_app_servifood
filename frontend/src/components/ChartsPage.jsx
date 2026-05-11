@@ -36,6 +36,14 @@ function normalizeArea(value) {
   return raw;
 }
 
+function pickFirstValue(record = {}, keys = []) {
+  for (const key of keys) {
+    const value = record?.[key];
+    if (value != null && String(value).trim() !== '') return value;
+  }
+  return '';
+}
+
 function normalizeIsoKey(value) {
   const raw = String(value || '').trim();
   if (!raw) return '';
@@ -80,6 +88,11 @@ function normalizeEstadoAccion(value) {
   return null;
 }
 
+function normalizeEstadoAccionFromRecord(record = {}) {
+  const value = pickFirstValue(record, ['estadoAcciones', 'estadoAccion', 'estado', 'actionStatus', 'status']);
+  return normalizeEstadoAccion(value);
+}
+
 export default function ChartsPage({ records = [], summary = null, analysisTotalRecords = 0 }) {
   const hasAnalysisData = useMemo(() => {
     const totalRegistros = Number(summary?.totalRegistros ?? summary?.totalRecords ?? 0);
@@ -109,15 +122,19 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     const fallbackByIso = {};
     const fallbackActions = { abierto: 0, cerrado: 0 };
     records.forEach((record) => {
-      const categoria = String(record.clasificacionDesvio || record.classification_normalized || record.categoriaDesvio || '').trim();
-      const iso = normalizeIsoKey(record.relacionIso22000 || record.iso22000);
-      const estadoAccion = normalizeEstadoAccion(record.estadoAcciones || record.estadoAccion);
+      const categoria = String(
+        pickFirstValue(record, ['clasificacionDesvio', 'classification_normalized', 'categoriaDesvio', 'classification_original'])
+      ).trim();
+      const iso = normalizeIsoKey(
+        pickFirstValue(record, ['relacionIso22000', 'relacionISO', 'isoRelation', 'iso22000', 'iso'])
+      );
+      const estadoAccion = normalizeEstadoAccionFromRecord(record);
       if (categoria) {
         const canonical = normalizeCategoryKey(categoria);
         fallbackByCategoria[canonical] = (fallbackByCategoria[canonical] || 0) + 1;
       }
 
-      const areaRaw = record.areaSector || record.area_sector || record.area_normalized || record.areaClasificada || record.area;
+      const areaRaw = pickFirstValue(record, ['areaSector', 'area_sector', 'area_normalized', 'areaClasificada', 'area', 'sector']);
       const areaList = splitAreas(areaRaw);
       if (areaList.length === 0) {
         fallbackByArea[AREA_FALLBACK] = (fallbackByArea[AREA_FALLBACK] || 0) + 1;
@@ -135,12 +152,13 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       if (estadoAccion === 'abierto') fallbackActions.abierto += 1;
     });
 
+    const hasRecords = Array.isArray(records) && records.length > 0;
     const summaryByArea = safeSummary.byArea && Object.keys(safeSummary.byArea).length > 0 ? safeSummary.byArea : null;
     const summaryByCategoria = safeSummary.byCategoria && Object.keys(safeSummary.byCategoria).length > 0 ? safeSummary.byCategoria : null;
     const summaryByIso = safeSummary.byIso22000 && Object.keys(safeSummary.byIso22000).length > 0 ? safeSummary.byIso22000 : null;
 
-    const desviosPorArea = objectToChartData(summaryByArea || fallbackByArea);
-    const categoriaRaw = summaryByCategoria || fallbackByCategoria;
+    const desviosPorArea = objectToChartData(hasRecords ? fallbackByArea : (summaryByArea || fallbackByArea));
+    const categoriaRaw = hasRecords ? fallbackByCategoria : (summaryByCategoria || fallbackByCategoria);
     const categoriasCompletas = {
       Legales: Number(categoriaRaw.Legales ?? categoriaRaw['Desvío Legal'] ?? safeSummary.totalLegal ?? 0),
       'Logística': Number(categoriaRaw['Logística'] ?? categoriaRaw['Desvío de Logística'] ?? safeSummary.totalLogistica ?? 0),
@@ -150,8 +168,8 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       'Recursos Humanos': Number(categoriaRaw['Recursos Humanos'] ?? categoriaRaw['Desvío de Recursos Humanos'] ?? 0)
     };
     const desviosPorCategoria = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
-    const desviosPorCategoriaCompleta = objectToChartData(categoriasCompletas);
-    const isoRaw = summaryByIso || fallbackByIso;
+    const desviosPorCategoriaCompleta = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
+    const isoRaw = hasRecords ? fallbackByIso : (summaryByIso || fallbackByIso);
     const isoFiltered = Object.fromEntries(
       Object.entries(isoRaw).filter(([key]) => normalizeIsoKey(key))
     );
@@ -166,7 +184,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       { name: 'Rev. manual', value: Number(safeSummary.totalRevisionManual || 0) }
     ];
 
-    const summaryHasActions = safeSummary.actions && (
+    const summaryHasActions = !hasRecords && safeSummary.actions && (
       Number(safeSummary.actions.abiertas ?? 0) > 0 || Number(safeSummary.actions.cerradas ?? 0) > 0
     );
     const estadoAcciones = [
@@ -227,7 +245,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 2.5 }}>
               <Typography sx={{ fontWeight: 700, mb: 2 }}>Desvíos por área</Typography>
-              <Box sx={{ width: '100%', height: 320 }}>
+              <Box sx={{ width: '100%', height: data.desviosPorArea.length === 0 ? 180 : 300 }}>
                 {data.desviosPorArea.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
                     No hay datos por área
@@ -255,7 +273,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 2.5 }}>
               <Typography sx={{ fontWeight: 700, mb: 2 }}>Desvíos por categoría</Typography>
-              <Box sx={{ width: '100%', height: 320 }}>
+              <Box sx={{ width: '100%', height: data.desviosPorCategoria.length === 0 ? 180 : 300 }}>
                 {data.desviosPorCategoria.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
                     No hay datos por categoría
@@ -290,7 +308,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 2.5 }}>
               <Typography sx={{ fontWeight: 700, mb: 2 }}>Desvíos por categoría (barras)</Typography>
-              <Box sx={{ width: '100%', height: 320 }}>
+              <Box sx={{ width: '100%', height: data.desviosPorCategoriaCompleta.length === 0 ? 180 : 300 }}>
                 {data.desviosPorCategoriaCompleta.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
                     No hay datos por categoría
@@ -314,7 +332,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 2.5 }}>
               <Typography sx={{ fontWeight: 700, mb: 2 }}>Estado de acciones</Typography>
-              <Box sx={{ width: '100%', height: 320 }}>
+              <Box sx={{ width: '100%', height: data.estadoAcciones.every((item) => item.value === 0) ? 180 : 300 }}>
                 {data.estadoAcciones.every((item) => item.value === 0) ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
                     No hay estados de acción registrados
@@ -349,7 +367,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
           <Card>
             <CardContent sx={{ p: 2.5 }}>
               <Typography sx={{ fontWeight: 700, mb: 2 }}>Vinculación con requisitos ISO 22000</Typography>
-              <Box sx={{ width: '100%', height: 340 }}>
+              <Box sx={{ width: '100%', height: data.desviosPorIso.length === 0 ? 190 : 320 }}>
                 {data.desviosPorIso.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
                     No hay datos ISO
