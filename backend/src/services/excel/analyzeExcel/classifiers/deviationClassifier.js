@@ -10,6 +10,14 @@ const CATEGORY = {
   MANUAL: 'Revisar manualmente'
 };
 
+const CLASSIFIER_BUILD_TS = '2026-05-11T00:00:00Z';
+console.log('[CLASSIFIER ACTIVE]', {
+  module: 'deviationClassifier.js',
+  buildTs: CLASSIFIER_BUILD_TS,
+  loadedAt: new Date().toISOString(),
+  pid: process.pid
+});
+
 function buildText({ text = '', area = '', immediateAction = '', correctiveAction = '', iso = '' } = {}) {
   return normalizeIncidentText([text, area, immediateAction, correctiveAction, iso].filter(Boolean).join(' | '));
 }
@@ -68,6 +76,15 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
 
   const logisticsScore = (logisticHits * 1.4) + (logisticBoostHits * 4.0);
   const qualityScore = (qualityHits * 1.7) + (qualityVisualHits * 3.0);
+  const scoring = {
+    logisticsScore,
+    qualityScore,
+    inocuidadStrongHits,
+    logisticHits,
+    logisticBoostHits,
+    qualityHits,
+    qualityVisualHits
+  };
 
   if (logisticsScore >= 5 && inocuidadStrongHits === 0) {
     const matched = [
@@ -162,6 +179,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
             correctiveAction,
             iso,
             normalizedText: combined,
+            scoring,
             matchedRules: [...new Set(matchedRules)],
             clasificacion: group.category,
             confidence: group.confidence
@@ -198,6 +216,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
       correctiveAction,
       iso,
       normalizedText: combined,
+      scoring,
       matchedRules: [],
       clasificacion: CATEGORY.MANUAL,
       confidence: 0.45

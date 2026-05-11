@@ -16,6 +16,7 @@ const supabaseAdmin = supabaseUrl && serviceRoleKey
 const prisma = new PrismaClient();
 const STATUS_VALUES = new Set(['active', 'exported', 'archived']);
 const ENABLE_DEBUG_EXCEL_ANALYSIS = process.env.DEBUG_EXCEL_ANALYSIS === 'true';
+const ENABLE_REPROCESS_CLASSIFICATION_TRACE = process.env.REPROCESS_CLASSIFICATION_TRACE === '1';
 
 function buildBatchUploadResponse(results = []) {
   const normalized = Array.isArray(results) ? results : [];
@@ -196,6 +197,27 @@ function reclassifyStoredRecord(record = {}) {
     'Revisar manualmente': 'Revisar manualmente'
   };
   const categoria = mapNewToLegacy[classified.clasificacion] || 'Revisar manualmente';
+  if (ENABLE_REPROCESS_CLASSIFICATION_TRACE) {
+    console.log('[REPROCESS BEFORE]', {
+      id: record?.id || null,
+      classification_original: record?.classification_original || null,
+      classification_normalized: record?.classification_normalized || null,
+      categoriaDesvio: record?.categoriaDesvio || null,
+      clasificacionDesvio: record?.clasificacionDesvio || null
+    });
+    console.log('[REPROCESS SCORE/RULES]', {
+      id: record?.id || null,
+      clasificacionNueva: classified.clasificacion,
+      confidence: classified.confidence,
+      matchedRules: classified.matchedRules || []
+    });
+    console.log('[REPROCESS AFTER]', {
+      id: record?.id || null,
+      classification_normalized: categoria,
+      categoriaDesvio: categoria,
+      clasificacionDesvio: categoria
+    });
+  }
 
   return {
     ...record,
@@ -1037,12 +1059,31 @@ export async function reprocessHistoryClassifications(req, res) {
     let updated = 0;
     for (const row of (data || [])) {
       const normalized = normalizeStoredAnalysisResults(row.results || {});
+      if (ENABLE_REPROCESS_CLASSIFICATION_TRACE) {
+        console.log('[REPROCESS UPDATE TRY]', {
+          analysisId: row.id,
+          records: Array.isArray(row?.results?.records) ? row.results.records.length : 0,
+          totalLogisticaBefore: row?.results?.summary?.totalLogistica ?? null,
+          totalLogisticaAfter: normalized?.summary?.totalLogistica ?? null,
+          byCategoriaAfter: normalized?.summary?.byCategoria || {}
+        });
+      }
       const updateRes = await supabaseAdmin
         .from('analysis_history')
         .update({ results: normalized })
         .eq('id', row.id)
         .eq('user_id', req.user.id);
-      if (!updateRes.error) updated += 1;
+      if (!updateRes.error) {
+        updated += 1;
+        if (ENABLE_REPROCESS_CLASSIFICATION_TRACE) {
+          console.log('[REPROCESS PERSISTED]', { analysisId: row.id, updated: true });
+        }
+      } else if (ENABLE_REPROCESS_CLASSIFICATION_TRACE) {
+        console.log('[REPROCESS PERSIST FAILED]', {
+          analysisId: row.id,
+          error: updateRes.error?.message || 'unknown_error'
+        });
+      }
     }
 
     return res.json({ success: true, total: (data || []).length, updated });
