@@ -117,6 +117,34 @@ function normalizeEstado(record = {}) {
   return (raw === 'cerrado' || raw === 'cerrada') ? 'Cerrado' : 'Abierto';
 }
 
+function normalizeIsoForExport(value) {
+  const raw = normalizeCellValue(value).trim();
+  if (!raw || raw === '-') return '';
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (normalized.includes('revisar manualmente') || normalized.includes('revision manual')) return '';
+
+  const codeMatch = normalized.match(/\b\d+(?:\.\d+){0,2}\b/);
+  const code = codeMatch ? codeMatch[0] : '';
+  if (!code) return raw;
+
+  const canonicalByCode = {
+    '8.2': '8.2 PRP',
+    '8.5': '8.5 HACCP',
+    '8.5.1': '8.5.1 Control operacional',
+    '8.5.2': '8.5.2 Trazabilidad',
+    '7.1': '7.1 Recursos',
+    '7.2': '7.2 Competencia',
+    '7.5': '7.5 Información documentada',
+    '9.2': '9.2 Auditoría interna',
+    '10.2': '10.2 Acción correctiva'
+  };
+
+  return canonicalByCode[code] || code;
+}
+
 function splitAreas(areaClasificada) {
   return normalizeCellValue(areaClasificada)
     .split(/[\/,]/)
@@ -263,7 +291,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
       'Tipo de desvío': normalizeTipo(record),
       'Acción inmediata': normalizeCellValue(record.immediate_action || record.accionInmediata),
       'Acción correctiva': normalizeCellValue(record.corrective_action || record.accionCorrectiva),
-      'Relación ISO 22000': normalizeCellValue(record.relacionIso22000 || record.iso22000),
+      'Relación ISO 22000': normalizeIsoForExport(record.relacionIso22000 || record.iso22000),
       'Estado de acciones': normalizeEstado(record)
     }));
 
