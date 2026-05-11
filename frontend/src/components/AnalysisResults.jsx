@@ -88,13 +88,16 @@ function normalizeClassification(record = {}) {
         'Clasificación del desvio'
       ])
   ).trim().toLowerCase();
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
-  if (raw.includes('legal')) return 'Legales';
-  if (raw.includes('logistica')) return 'Logística';
-  if (raw.includes('inocuidad')) return 'Inocuidad';
-  if (raw.includes('mantenimiento')) return 'Mantenimiento';
-  if (raw.includes('rrhh') || raw.includes('recursos humanos') || raw.includes('personal')) return 'Recursos Humanos';
-  if (raw.includes('calidad')) return 'Calidad';
+  if (normalized.includes('legal')) return 'Legales';
+  if (normalized.includes('logistica')) return 'Logística';
+  if (normalized.includes('inocuidad')) return 'Inocuidad';
+  if (normalized.includes('mantenimiento')) return 'Mantenimiento';
+  if (normalized.includes('rrhh') || normalized.includes('recursos humanos') || normalized.includes('personal')) return 'Recursos Humanos';
+  if (normalized.includes('calidad')) return 'Calidad';
   return 'Revisar manualmente';
 }
 

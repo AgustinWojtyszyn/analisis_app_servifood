@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import { analyzeExcel } from '../services/analyzeExcel.js';
 import { normalizeCellValue } from '../services/analyzeExcel/normalizers.js';
 import { classifyDeviation } from '../services/excel/analyzeExcel/classifiers/deviationClassifier.js';
+import { normalizeCategory, CANONICAL } from '../services/excel/analyzeExcel/categoryNormalization.js';
 import defaultRules from '../../../shared/businessRules/defaultRules.json' with { type: 'json' };
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -177,15 +178,7 @@ function isManualCategoryOverride(record = {}) {
 }
 
 function normalizeModernCategory(category = '') {
-  const raw = String(category || '').trim().toLowerCase();
-  if (raw.includes('inocuidad')) return 'Desvío de Inocuidad';
-  if (raw.includes('mantenimiento')) return 'Desvío de Mantenimiento';
-  if (raw.includes('recursos humanos')) return 'Desvío de Recursos Humanos';
-  if (raw.includes('logistica')) return 'Desvío de Logística';
-  if (raw.includes('legal')) return 'Desvío Legal';
-  if (raw.includes('calidad')) return 'Desvío de Calidad';
-  if (raw.includes('revision manual') || raw.includes('revisar manualmente')) return 'Revisar manualmente';
-  return 'Revisar manualmente';
+  return normalizeCategory(category);
 }
 
 function reclassifyStoredRecord(record = {}) {
@@ -205,15 +198,15 @@ function reclassifyStoredRecord(record = {}) {
 
   const classified = classifyDeviation(baseText, area, immediateAction, correctiveAction, iso);
   const mapNewToLegacy = {
-    Inocuidad: 'Desvío de Inocuidad',
-    'Mantenimiento': 'Desvío de Mantenimiento',
-    'Recursos Humanos': 'Desvío de Recursos Humanos',
-    'Logística': 'Desvío de Logística',
-    Legales: 'Desvío Legal',
-    Calidad: 'Desvío de Calidad',
-    'Revisar manualmente': 'Revisar manualmente'
+    Inocuidad: CANONICAL.INOCUIDAD,
+    'Mantenimiento': CANONICAL.MANTENIMIENTO,
+    'Recursos Humanos': CANONICAL.RRHH,
+    'Logística': CANONICAL.LOGISTICA,
+    Legales: CANONICAL.LEGALES,
+    Calidad: CANONICAL.CALIDAD,
+    'Revisar manualmente': CANONICAL.MANUAL
   };
-  const categoria = mapNewToLegacy[classified.clasificacion] || 'Revisar manualmente';
+  const categoria = mapNewToLegacy[classified.clasificacion] || CANONICAL.MANUAL;
   if (ENABLE_REPROCESS_CLASSIFICATION_TRACE) {
     console.log('[REPROCESS BEFORE]', {
       id: record?.id || null,
@@ -257,13 +250,13 @@ function normalizeStoredAnalysisResults(results = {}) {
     return acc;
   }, {});
 
-  const totalInocuidad = Number(byCategoria['Desvío de Inocuidad'] || 0);
-  const totalLogistica = Number(byCategoria['Desvío de Logística'] || 0);
-  const totalCalidad = Number(byCategoria['Desvío de Calidad'] || 0);
-  const totalLegal = Number(byCategoria['Desvío Legal'] || 0);
-  const totalMantenimiento = Number(byCategoria['Desvío de Mantenimiento'] || 0);
-  const totalRRHH = Number(byCategoria['Desvío de Recursos Humanos'] || 0);
-  const totalRevisionManual = Number(byCategoria['Revisar manualmente'] || 0);
+  const totalInocuidad = Number(byCategoria[CANONICAL.INOCUIDAD] || 0);
+  const totalLogistica = Number(byCategoria[CANONICAL.LOGISTICA] || 0);
+  const totalCalidad = Number(byCategoria[CANONICAL.CALIDAD] || 0);
+  const totalLegal = Number(byCategoria[CANONICAL.LEGALES] || 0);
+  const totalMantenimiento = Number(byCategoria[CANONICAL.MANTENIMIENTO] || 0);
+  const totalRRHH = Number(byCategoria[CANONICAL.RRHH] || 0);
+  const totalRevisionManual = Number(byCategoria[CANONICAL.MANUAL] || 0);
 
   const baseSummary = results?.summary || {};
   const normalizedSummary = {

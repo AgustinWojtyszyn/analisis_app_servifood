@@ -14,6 +14,21 @@ import {
 
 const palette = ['#1d4ed8', '#2563eb', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626', '#334155', '#16a34a'];
 
+function normalizeCategoryKey(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (!normalized) return 'Revisar manualmente';
+  if (normalized.includes('legal')) return 'Legales';
+  if (normalized.includes('logistica')) return 'Logística';
+  if (normalized.includes('inocuidad')) return 'Inocuidad';
+  if (normalized.includes('mantenimiento')) return 'Mantenimiento';
+  if (normalized.includes('rrhh') || normalized.includes('recursos humanos') || normalized.includes('personal')) return 'Recursos Humanos';
+  if (normalized.includes('calidad')) return 'Calidad';
+  return 'Revisar manualmente';
+}
+
 function objectToChartData(mapObject = {}) {
   return Object.entries(mapObject)
     .map(([name, value]) => ({ name, value }))
@@ -75,7 +90,10 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         const categoria = String(record.clasificacionDesvio || record.classification_normalized || record.categoriaDesvio || '').trim();
         const iso = String(record.iso22000 || '').trim();
         const estadoAccion = normalizeEstadoAccion(record.estadoAccion);
-        if (categoria) fallbackByCategoria[categoria] = (fallbackByCategoria[categoria] || 0) + 1;
+        if (categoria) {
+          const canonical = normalizeCategoryKey(categoria);
+          fallbackByCategoria[canonical] = (fallbackByCategoria[canonical] || 0) + 1;
+        }
 
         if (area) {
           const areaList = splitAreas(area);
@@ -99,9 +117,9 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       Legales: Number(categoriaRaw.Legales ?? categoriaRaw['Desvío Legal'] ?? safeSummary.totalLegal ?? 0),
       'Logística': Number(categoriaRaw['Logística'] ?? categoriaRaw['Desvío de Logística'] ?? safeSummary.totalLogistica ?? 0),
       Calidad: Number(categoriaRaw.Calidad ?? categoriaRaw['Desvío de Calidad'] ?? safeSummary.totalCalidad ?? 0),
-      Mantenimiento: Number(categoriaRaw.Mantenimiento ?? 0),
+      Mantenimiento: Number(categoriaRaw.Mantenimiento ?? categoriaRaw['Desvío de Mantenimiento'] ?? 0),
       Inocuidad: Number(categoriaRaw.Inocuidad ?? categoriaRaw['Desvío de Inocuidad'] ?? safeSummary.totalInocuidad ?? 0),
-      'Recursos Humanos': Number(categoriaRaw['Recursos Humanos'] ?? 0)
+      'Recursos Humanos': Number(categoriaRaw['Recursos Humanos'] ?? categoriaRaw['Desvío de Recursos Humanos'] ?? 0)
     };
     const desviosPorCategoria = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
     const desviosPorCategoriaCompleta = objectToChartData(categoriasCompletas);

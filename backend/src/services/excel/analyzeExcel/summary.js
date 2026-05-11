@@ -1,25 +1,13 @@
 import { normalizeCellValue, normalizeForMatch } from '../../analyzeExcel/normalizers.js';
 import { sanitizeOperationalAreaList } from './classifiers/areaClassifier.js';
 import { classifyDeviationCasesFromRecords } from '../../caseClassifier.js';
+import { normalizeCategory, CANONICAL } from './categoryNormalization.js';
 
 function stripLegacyResultadoFields(record = {}) {
   const sanitized = { ...record };
   delete sanitized.resultado;
   delete sanitized.responsable;
   return sanitized;
-}
-
-function normalizeSummaryCategory(value = '') {
-  const raw = normalizeForMatch(normalizeCellValue(value).trim());
-  if (!raw) return 'Revisar manualmente';
-  if (raw.includes('inocuidad')) return 'Desvío de Inocuidad';
-  if (raw.includes('logistica')) return 'Desvío de Logística';
-  if (raw.includes('calidad')) return 'Desvío de Calidad';
-  if (raw.includes('legal')) return 'Desvío Legal';
-  if (raw.includes('mantenimiento')) return 'Desvío de Mantenimiento';
-  if (raw.includes('recursos humanos') || raw.includes('rrhh') || raw.includes('personal')) return 'Desvío de Recursos Humanos';
-  if (raw.includes('revisar manualmente') || raw.includes('revision manual') || raw.includes('revisión manual')) return 'Revisar manualmente';
-  return 'Revisar manualmente';
 }
 
 function createSummary() {
@@ -116,8 +104,13 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
   const finalResultado = normalizeCellValue(finalRecord.resultadoClasificado).trim();
   const finalTipo = normalizeCellValue(finalRecord.tipoDesvio).trim();
   const finalIso = normalizeCellValue(finalRecord.iso22000).trim() || 'Revisar manualmente';
-  const finalCategoriaOriginal = normalizeCellValue(finalRecord.categoriaDesvio || finalRecord.classification_original).trim();
-  const finalCategoria = normalizeSummaryCategory(finalRecord.classification_normalized || finalCategoriaOriginal);
+  const finalCategoriaOriginal = normalizeCellValue(
+    finalRecord.categoriaDesvio
+      || finalRecord.clasificacionDesvio
+      || finalRecord.classification_normalized
+      || finalRecord.classification_original
+  ).trim();
+  const finalCategoria = normalizeCategory(finalCategoriaOriginal);
   const finalEstadoAccion = normalizeCellValue(finalRecord.estadoAccion).trim();
   const finalAlcance = normalizeCellValue(finalRecord.scope_normalized || finalRecord.alcanceDesvio).trim();
   const isConforme = finalResultado === 'Conforme';
@@ -159,10 +152,10 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
   if (isConforme) summary.totalConformes += 1;
   if (isRevisionManual) summary.totalRevisionManual += 1;
   summary.byCategoria[finalCategoria] = (summary.byCategoria[finalCategoria] || 0) + 1;
-  if (finalCategoria === 'Desvío de Inocuidad') summary.totalInocuidad += 1;
-  if (finalCategoria === 'Desvío de Calidad') summary.totalCalidad += 1;
-  if (finalCategoria === 'Desvío de Logística') summary.totalLogistica += 1;
-  if (finalCategoria === 'Desvío Legal') summary.totalLegal += 1;
+  if (finalCategoria === CANONICAL.INOCUIDAD) summary.totalInocuidad += 1;
+  if (finalCategoria === CANONICAL.CALIDAD) summary.totalCalidad += 1;
+  if (finalCategoria === CANONICAL.LOGISTICA) summary.totalLogistica += 1;
+  if (finalCategoria === CANONICAL.LEGALES) summary.totalLegal += 1;
   if (finalAlcance === 'Interno') summary.totalInternos += 1;
   if (finalAlcance === 'Externo') summary.totalExternos += 1;
   if (finalAlcance) summary.byAlcance[finalAlcance] = (summary.byAlcance[finalAlcance] || 0) + 1;
