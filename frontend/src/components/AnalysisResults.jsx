@@ -42,7 +42,8 @@ const categoryColors = {
   Calidad: { bg: 'rgba(126, 34, 206, 0.14)', text: '#5b21b6' },
   Mantenimiento: { bg: 'rgba(51, 65, 85, 0.16)', text: '#334155' },
   Inocuidad: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
-  'Recursos Humanos': { bg: 'rgba(22, 163, 74, 0.14)', text: '#166534' }
+  'Recursos Humanos': { bg: 'rgba(22, 163, 74, 0.14)', text: '#166534' },
+  'Revisar manualmente': { bg: 'rgba(100, 116, 139, 0.16)', text: '#334155' }
 };
 
 function normalizeCellValue(value) {
@@ -77,9 +78,9 @@ function findOriginalValueByAliases(record, aliases = []) {
 function normalizeClassification(record = {}) {
   const raw = normalizeCellValue(
     record.clasificacionDesvio
-      || record.classification_original
       || record.classification_normalized
       || record.categoriaDesvio
+      || record.classification_original
       || findOriginalValueByAliases(record, [
         'Clasificacion del desvio',
         'Clasificación del desvío',
@@ -93,7 +94,8 @@ function normalizeClassification(record = {}) {
   if (raw.includes('inocuidad')) return 'Inocuidad';
   if (raw.includes('mantenimiento')) return 'Mantenimiento';
   if (raw.includes('rrhh') || raw.includes('recursos humanos') || raw.includes('personal')) return 'Recursos Humanos';
-  return 'Calidad';
+  if (raw.includes('calidad')) return 'Calidad';
+  return 'Revisar manualmente';
 }
 
 function normalizeTipo(record = {}) {
@@ -140,7 +142,8 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     { key: 'Calidad', short: 'Calidad' },
     { key: 'Mantenimiento', short: 'Mantenimiento' },
     { key: 'Inocuidad', short: 'Inocuidad' },
-    { key: 'Recursos Humanos', short: 'RRHH' }
+    { key: 'Recursos Humanos', short: 'RRHH' },
+    { key: 'Revisar manualmente', short: 'Manual' }
   ];
 
   const resetLocalState = () => {

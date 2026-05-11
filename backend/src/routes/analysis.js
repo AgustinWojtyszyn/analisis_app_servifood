@@ -11,7 +11,8 @@ import {
   getActiveAnalysis,
   deleteActiveAnalysis,
   updateAnalysisStatus,
-  archiveAnalysis
+  archiveAnalysis,
+  reprocessHistoryClassifications
 } from '../controllers/analysisController.js';
 import { authenticateToken, requireAdmin } from '../middlewares/auth.js';
 import { upload } from '../middlewares/upload.js';
@@ -35,5 +36,6 @@ router.get('/:id', authenticateToken, requireAdmin, getAnalysis);
 router.delete('/:id', authenticateToken, requireAdmin, deleteAnalysis);
 router.patch('/:id/status', authenticateToken, requireAdmin, updateAnalysisStatus);
 router.patch('/:id/archive', authenticateToken, requireAdmin, archiveAnalysis);
+router.post('/reprocess-history', authenticateToken, requireAdmin, reprocessHistoryClassifications);
 
 export default router;

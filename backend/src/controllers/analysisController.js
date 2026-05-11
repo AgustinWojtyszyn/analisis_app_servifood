@@ -214,11 +214,27 @@ function normalizeStoredAnalysisResults(results = {}) {
     return acc;
   }, {});
 
+  const totalInocuidad = Number(byCategoria['Desvío de Inocuidad'] || 0);
+  const totalLogistica = Number(byCategoria['Desvío de Logística'] || 0);
+  const totalCalidad = Number(byCategoria['Desvío de Calidad'] || 0);
+  const totalLegal = Number(byCategoria['Desvío Legal'] || 0);
+  const totalMantenimiento = Number(byCategoria['Desvío de Mantenimiento'] || 0);
+  const totalRRHH = Number(byCategoria['Desvío de Recursos Humanos'] || 0);
+  const totalRevisionManual = Number(byCategoria['Revisar manualmente'] || 0);
+
   const baseSummary = results?.summary || {};
   const normalizedSummary = {
     ...baseSummary,
+    totalRecords: normalizedRecords.length,
+    totalDesvios: normalizedRecords.length,
+    totalInocuidad,
+    totalLogistica,
+    totalCalidad,
+    totalLegal,
+    totalMantenimiento,
+    totalRRHH,
+    totalRevisionManual,
     byCategoria: {
-      ...(baseSummary.byCategoria || {}),
       ...byCategoria
     }
   };
@@ -995,5 +1011,39 @@ export async function archiveAnalysis(req, res) {
   } catch (error) {
     console.error('Error archivando análisis:', error?.message || error);
     return res.status(500).json({ error: 'Error archivando análisis' });
+  }
+}
+
+export async function reprocessHistoryClassifications(req, res) {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('analysis_history')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return returnSupabaseError(res, 'reprocess_history_select', error);
+    }
+
+    let updated = 0;
+    for (const row of (data || [])) {
+      const normalized = normalizeStoredAnalysisResults(row.results || {});
+      const updateRes = await supabaseAdmin
+        .from('analysis_history')
+        .update({ results: normalized })
+        .eq('id', row.id)
+        .eq('user_id', req.user.id);
+      if (!updateRes.error) updated += 1;
+    }
+
+    return res.json({ success: true, total: (data || []).length, updated });
+  } catch (error) {
+    console.error('Error reprocesando historial:', error);
+    return res.status(500).json({ error: 'Error reprocesando historial' });
   }
 }
