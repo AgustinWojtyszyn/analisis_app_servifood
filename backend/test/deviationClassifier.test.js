@@ -75,3 +75,55 @@ test('Input realista desde parser (texto + area + acciones + ISO) matchea Inocui
   assert.equal(result.clasificacion, 'Inocuidad');
   assert.ok(result.matchedRules.length > 0);
 });
+
+test('Se envia una segunda movilidad de bifes => Logística', () => {
+  assert.equal(c('Se envia una segunda movilidad de bifes'), 'Logística');
+});
+
+test('No se envia postre a callia => Logística', () => {
+  assert.equal(c('No se envia postre a callia'), 'Logística');
+});
+
+test('No se enviaron las papas fritas => Logística', () => {
+  assert.equal(c('No se enviaron las papas fritas'), 'Logística');
+});
+
+test('Almuerzo no llega a tiempo => Logística', () => {
+  assert.equal(c('Almuerzo no llega a tiempo'), 'Logística');
+});
+
+test('Demora del camion => Logística', () => {
+  assert.equal(c('Demora del camion'), 'Logística');
+});
+
+test('Falta de bebidas => Logística', () => {
+  assert.equal(c('Falta de bebidas'), 'Logística');
+});
+
+test('Cambio en recorrido y logística => Logística', () => {
+  assert.equal(c('Cambio en recorrido y logística'), 'Logística');
+});
+
+test('Control de despacho => Logística', () => {
+  assert.equal(c('Control de despacho'), 'Logística');
+});
+
+test('La carne del menú estaba rígida => Calidad', () => {
+  assert.equal(c('La carne del menú estaba rígida'), 'Calidad');
+});
+
+test('Las tartas le falta dorado => Calidad', () => {
+  assert.equal(c('Las tartas le falta dorado'), 'Calidad');
+});
+
+test('Producto seco => Calidad', () => {
+  assert.equal(c('Producto seco'), 'Calidad');
+});
+
+test('Comida fría => Calidad', () => {
+  assert.equal(c('Comida fría'), 'Calidad');
+});
+
+test('Mal sabor => Calidad', () => {
+  assert.equal(c('Mal sabor'), 'Calidad');
+});

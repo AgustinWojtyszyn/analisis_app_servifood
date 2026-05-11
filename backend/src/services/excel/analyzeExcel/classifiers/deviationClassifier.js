@@ -18,6 +18,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
   const combined = buildText({ text, area, immediateAction, correctiveAction, iso });
   const debugEnabled = process.env.DEVIATION_CLASSIFIER_DEBUG === '1';
   const hasAny = (terms) => containsAny(combined, terms);
+  const countMatches = (terms = []) => terms.filter((term) => hasAny([term])).length;
 
   const rules = [
     {
@@ -49,12 +50,13 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     },
     {
       category: CATEGORY.LOGISTICA,
-      confidence: 0.91,
+      confidence: 0.89,
       entries: [
-        ['falta de entrega', 'faltaron', 'falta aceite', 'falta de aceite', 'falta aceite de oliva', 'falta postre', 'falta producto'],
+        ['falta de entrega', 'faltaron', 'falta aceite', 'falta de aceite', 'falta aceite de oliva', 'falta postre', 'falta producto', 'falta de bebidas'],
         ['no se envia', 'no se envía', 'no se envio', 'no se envió', 'no trajo pedido', 'no trajo el pedido'],
         ['segunda movilidad', 'despacho', 'entrega', 'tardanza', 'tardanzas', 'movilidad', 'recorrido', 'distribucion', 'distribución', 'enviar', 'se envía', 'sale tarde', 'llega tarde'],
-        ['no sale', 'no salio', 'no salió']
+        ['no sale', 'no salio', 'no salió'],
+        ['sale una movilidad', 'enviar nuevamente', 'no se enviaron', 'falta bebidas', 'falta mercaderia', 'falta mercadería', 'demora del camion', 'demora del camión', 'entrega tarde', 'no llega a tiempo', 'control de despacho', 'reposicion', 'reposición', 'faltante', 'envio', 'envío', 'entregar', 'demoras', 'redistribucion', 'redistribución', 'transporte', 'chofer', 'camion', 'camión']
       ]
     },
     {
@@ -67,10 +69,11 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     },
     {
       category: CATEGORY.CALIDAD,
-      confidence: 0.88,
+      confidence: 0.86,
       entries: [
         ['no fresco', 'no fresca', 'no estaba fresca', 'fresca', 'chicas y verdes', 'exceso de grasa', 'mal estado'],
-        ['sabor', 'textura', 'presentacion', 'presentación', 'producto pasado', 'fruta pasada', 'calidad del producto', 'quemado', 'quemada', 'se queman', 'pasadas de peso', 'gramaje', 'peso']
+        ['sabor', 'textura', 'presentacion', 'presentación', 'producto pasado', 'fruta pasada', 'calidad del producto', 'quemado', 'quemada', 'se queman', 'pasadas de peso', 'gramaje', 'peso'],
+        ['carne rigida', 'carne rígida', 'rigida', 'rígida', 'falta dorado', 'poco cocido', 'sobre cocido', 'consistencia', 'producto duro', 'comida fria', 'comida fría', 'producto quemado', 'producto seco', 'mala calidad', 'aspecto del producto', 'mal sabor']
       ]
     }
   ];
@@ -100,6 +103,28 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
         };
       }
     }
+  }
+
+  // Ajuste incremental de sensibilidad: si hay señales múltiples de logística o calidad,
+  // evita caer en revisión manual aunque no haya match de frase exacta de un bloque.
+  const logisticTerms = [
+    'segunda movilidad', 'movilidad', 'despacho', 'entrega', 'entregar', 'envio', 'envío', 'enviar',
+    'falta producto', 'falta postre', 'falta bebidas', 'falta mercaderia', 'falta mercadería',
+    'demora', 'demoras', 'tardanza', 'tardanzas', 'recorrido', 'reposicion', 'reposición',
+    'faltante', 'transporte', 'chofer', 'camion', 'camión', 'no llega a tiempo', 'entrega tarde'
+  ];
+  const qualityTerms = [
+    'carne rigida', 'carne rígida', 'falta dorado', 'poco cocido', 'sobre cocido', 'textura', 'sabor',
+    'consistencia', 'presentacion', 'presentación', 'producto duro', 'comida fria', 'comida fría',
+    'producto quemado', 'producto seco', 'mala calidad', 'calidad del producto', 'aspecto del producto'
+  ];
+  const logisticHits = countMatches(logisticTerms);
+  const qualityHits = countMatches(qualityTerms);
+  if (logisticHits >= 2 && logisticHits >= qualityHits) {
+    return { clasificacion: CATEGORY.LOGISTICA, confidence: 0.84, matchedRules: logisticTerms.filter((k) => hasAny([k])) };
+  }
+  if (qualityHits >= 2) {
+    return { clasificacion: CATEGORY.CALIDAD, confidence: 0.82, matchedRules: qualityTerms.filter((k) => hasAny([k])) };
   }
 
   if (debugEnabled) {
