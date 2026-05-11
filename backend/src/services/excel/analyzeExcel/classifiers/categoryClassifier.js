@@ -2,6 +2,16 @@ import { normalizeCellValue, normalizeIncidentText, containsAny } from '../../..
 import { isExplicitNoFindingText } from './outcomeClassifier.js';
 import { hasAnyIsoTerm, mergeCompositeIsoLabels } from './isoClassifier.js';
 
+const CATEGORY = {
+  INOCUIDAD: 'Desvío de Inocuidad',
+  MANTENIMIENTO: 'Desvío de Mantenimiento',
+  RRHH: 'Desvío de Recursos Humanos',
+  LOGISTICA: 'Desvío de Logística',
+  LEGAL: 'Desvío Legal',
+  CALIDAD: 'Desvío de Calidad',
+  MANUAL: 'Revisar manualmente'
+};
+
 function classifyDeviationAreaDetailed({
   textoCompleto = '',
   accionInmediata = '',
@@ -23,6 +33,7 @@ function classifyDeviationAreaDetailed({
     hallazgoDetectado,
     actividadRealizada
   ].filter(Boolean).join(' | '));
+
   const hasAny = (terms) => containsAny(text, terms);
   const resultado = normalizeCellValue(resultadoClasificado).trim();
   const iso = normalizeIncidentText(iso22000 || '');
@@ -31,53 +42,65 @@ function classifyDeviationAreaDetailed({
   if (!text || isExplicitNoFindingText(text) || resultado === 'Conforme') {
     return { area: 'Conforme', reason: 'Sin evidencia de desvío en el texto normalizado', confidence: 0.8 };
   }
+
   if (hasAny(['reclamo de']) && !hasAny([
     'falta', 'faltante', 'demora', 'tardanza', 'no se envio', 'no se envió', 'no se enviaron', 'coccion', 'cocción', 'sanitizar', 'mal estado', 'picada', 'picado', 'oxidada', 'oxidado', 'gramaje', 'peso', 'documentacion', 'permiso', 'credencial'
   ])) {
-    return { area: 'Revisar manualmente', reason: 'Reclamo sin detalle técnico suficiente para clasificar', confidence: 0.4 };
+    return { area: CATEGORY.MANUAL, reason: 'Reclamo sin detalle técnico suficiente para clasificar', confidence: 0.4 };
   }
 
-  const legalSignals = [
-    { hit: hasAny(['documentacion', 'documental', 'registro administrativo', 'requisito administrativo']), reason: 'Incumplimiento documental o administrativo' },
-    { hit: hasAny(['no pudo ingresar', 'ingreso denegado', 'acceso denegado', 'ingreso bloqueado']) && hasAny(['establecimiento', 'cliente', 'plataforma', 'credencial', 'permiso', 'habilitacion']), reason: 'Bloqueo de ingreso por requisitos administrativos' },
-    { hit: hasAny(['plataforma', 'credencial', 'cubre franco', 'permiso', 'habilitacion', 'habilitación']), reason: 'Incumplimiento de plataforma/credenciales/habilitaciones' },
-    { hit: hasAny(['contrato', 'contractual', 'libreta sanitaria', 'certificado', 'art vigente']), reason: 'Incumplimiento contractual o documental legal' }
+  const inocuidadSignals = [
+    { hit: hasAny(['falta de coccion', 'falta de cocción', 'coccion', 'cocción', 'crudo', 'mal cocido', 'sin coccion', 'sin cocción']), reason: 'Riesgo por cocción insuficiente' },
+    { hit: hasAny(['higiene', 'sucio', 'sucia', 'sin higiene', 'meson', 'mesones', 'platina', 'platinas', 'limpieza', 'desinfeccion', 'desinfección', 'sin sanitizar', 'sanitizacion', 'sanitización']), reason: 'Problema de higiene/limpieza' },
+    { hit: hasAny(['contaminacion', 'contaminación', 'contaminacion cruzada', 'contaminación cruzada', 'pelo', 'cuerpo extrano', 'cuerpo extraño']), reason: 'Riesgo de contaminación' },
+    { hit: hasAny(['sin etiquetar', 'sin rotular', 'mal rotulado', 'rotulado incorrecto', 'etiquetado']), reason: 'Falla de etiquetado/trazabilidad' },
+    { hit: hasAny(['fuera de refrigeracion', 'fuera de refrigeración', 'sin refrigeracion', 'sin refrigeración', 'cadena de frio', 'cadena de frío']), reason: 'Riesgo por refrigeración/temperatura' },
+    { hit: hasAny(['mal estado', 'oxidado', 'oxidada', 'picado', 'picada']) && !hasAny(['pasado de peso', 'gramaje', 'peso']), reason: 'Producto potencialmente no inocuo' },
+    { hit: hasAny(['vencimiento ilegible', 'fecha de vencimiento ilegible', 'vencido', 'vencida']), reason: 'Problema de vencimiento/legibilidad' },
+    { hit: hasAny(['bpm', 'prp', 'haccp', 'trazabilidad', 'manipulacion incorrecta', 'manipulación incorrecta']), reason: 'Incumplimiento de control de inocuidad' },
+    { hit: tipo === 'NC' && containsAny(iso, ['8.2 prp', '8.5.2 trazabilidad', '8.7 control de salidas no conformes']), reason: 'NC vinculada a PRP/HACCP/trazabilidad' }
   ];
 
-  const inocuidadSignals = [
-    { hit: hasAny(['falta de coccion', 'falta de cocción', 'coccion', 'cocción', 'crudo', 'mal cocido', 'sin coccion', 'sin cocción']), reason: 'Riesgo directo por cocción insuficiente' },
-    { hit: hasAny(['pelo en alimento', 'pelo', 'cuerpo extrano', 'cuerpo extraño', 'contaminacion fisica', 'contaminación física']), reason: 'Contaminación física en alimento' },
-    { hit: hasAny(['contaminacion cruzada', 'contaminación cruzada', 'alergeno', 'alergenos', 'sin tacc', 'celiaco', 'celiacos']) && hasAny(['contaminado', 'mezclado', 'mal rotulado', 'sin rotular', 'no apto']), reason: 'Riesgo por contaminación cruzada/alérgenos' },
-    { hit: hasAny(['sin sanitizar', 'falta de sanitizacion', 'falta de sanitización', 'desinfeccion incompleta', 'desinfección incompleta']), reason: 'Alimento o insumo sin sanitizar' },
-    { hit: (hasAny(['mal estado', 'oxidado', 'oxidada', 'picado', 'picada', 'no inocuo']) || (hasAny(['pasado', 'pasada']) && hasAny(['alimento', 'producto', 'fruta', 'materia prima']))) && !hasAny(['pasado de peso', 'pasadas de peso', 'gramaje', 'peso']), reason: 'Producto potencialmente no inocuo' },
-    { hit: hasAny(['temperatura peligrosa', 'fuera de rango', 'cadena de frio', 'cadena de frío', 'temperatura de conservacion']) && hasAny(['producto', 'alimento', 'materia prima', 'comprometido', 'comprometida']), reason: 'Temperatura peligrosa con producto comprometido' },
-    { hit: hasAny(['camara no funciona', 'cámara no funciona', 'cadena de frio', 'cadena de frío']) && hasAny(['conservacion', 'conservación', 'producto', 'alimento', 'materia prima']), reason: 'Falla de frío con impacto en conservación/inocuidad' }
+  const mantenimientoSignals = [
+    { hit: hasAny(['se rompe', 'rotura', 'roto', 'rota', 'deja de funcionar', 'no funciona', 'falla tecnica', 'falla técnica']), reason: 'Rotura/falla de equipo' },
+    { hit: hasAny(['batidora', 'batidor', 'horno', 'calefon', 'calefón', 'maquinaria', 'equipo', 'equipamiento']), reason: 'Incidente de mantenimiento en maquinaria/equipo' },
+    { hit: hasAny(['movilidad rota', 'se rompe movilidad']) && !hasAny(['falta', 'faltante', 'no se envio', 'demora']), reason: 'Falla mecánica de movilidad' }
+  ];
+
+  const rrhhSignals = [
+    { hit: hasAny(['se ausenta', 'ausencia', 'falta personal', 'faltas', 'licencia', 'sancion', 'sanción', 'llamado de atencion', 'llamado de atención']), reason: 'Incidente de personal/RRHH' },
+    { hit: hasAny(['reorganizacion de personal', 'reorganización de personal', 'conflicto laboral', 'personal']) && hasAny(['ausente', 'ausencia', 'falta']), reason: 'Problema laboral de dotación' }
   ];
 
   const logisticaSignals = [
-    { hit: hasAny(['despacho', 'entrega', 'horario', 'recorrido', 'movilidad', 'transporte']), reason: 'Incidencia de despacho/entrega/transporte' },
-    { hit: hasAny(['no se envio', 'no se envió', 'no se envia', 'no se envía', 'no se enviaron', 'no se envian', 'no se envían', 'comida no enviada', 'producto no salio', 'producto no salió', 'no salieron productos', 'no sale', 'no salen', 'limonada no enviada', 'fruta no enviada', 'guarniciones no enviadas']), reason: 'Producto no enviado o no despachado' },
-    { hit: hasAny(['demora', 'tardanza', 'llega tarde', 'llegaron tarde', 'sale tarde', 'salen tarde', 'evento enviado en fecha incorrecta', 'fecha incorrecta', 'salio 26', 'salio 27', 'salió 26', 'salió 27']), reason: 'Demora o programación incorrecta de entrega' },
-    { hit: hasAny(['faltante', 'faltan cajones', 'falta de cajones', 'faltan platinas', 'falta de platinas']), reason: 'Faltantes logísticos para despacho' },
-    { hit: hasAny(['materia prima faltante', 'falta de materia prima', 'sin stock', 'falta de stock']) && hasAny(['impide enviar', 'no se envio', 'no se envia', 'despacho', 'entrega']), reason: 'Falta de materia prima que bloquea envío' },
-    { hit: hasAny(['falta de aceite', 'aceite faltante', 'falta aceite', 'reclama aceite', 'aceite de oliva']), reason: 'Faltante de insumo para envío o producción' },
-    { hit: hasAny(['personal llega tarde']) && hasAny(['despacho', 'entrega', 'envio', 'envío']), reason: 'Demora operativa de personal con impacto logístico' },
-    { hit: hasAny(['reclamo']) && hasAny(['entrega', 'despacho', 'faltante', 'demora', 'tardanza', 'aceite', 'no se envio', 'no se envia']), reason: 'Reclamo por incidencia logística' },
-    { hit: hasAny(['celiaco', 'celiacos', 'sin tacc', 'dieta especial', 'menu diferenciado', 'menú diferenciado']) && hasAny(['no se envio', 'no se envió', 'no se enviaron', 'no se envian', 'no se envían', 'falto', 'faltó', 'faltante']), reason: 'No envío de menú especial/dieta diferenciada' }
+    { hit: hasAny(['faltante', 'falta de', 'faltan']) && hasAny(['pedido', 'producto', 'postre', 'aceite', 'almuerzo', 'despacho', 'entrega']), reason: 'Faltante logístico de producto/despacho' },
+    { hit: hasAny(['no se envio', 'no se envió', 'no se enviaron', 'no se envia', 'no se envía', 'no trajo el pedido', 'pedido no entregado', 'no sale', 'no salio', 'no salió']), reason: 'Pedido no enviado/entregado' },
+    { hit: hasAny(['entrega incompleta', 'error de despacho', 'despacho incompleto']), reason: 'Error en despacho/entrega' },
+    { hit: hasAny(['tardanza', 'tardanzas', 'demora', 'llega tarde', 'salio tarde', 'salió tarde', 'sale tarde']), reason: 'Demora logística' },
+    { hit: hasAny(['movilidad', 'segunda movilidad', 'distribucion', 'distribución', 'recorrido', 'transporte']) && !mantenimientoSignals.some((signal) => signal.hit), reason: 'Incidencia de distribución/transporte' },
+    { hit: hasAny(['proveedor']) && hasAny(['no entrega', 'no trajo', 'faltante', 'pedido']), reason: 'Proveedor no entrega pedido' },
+    { hit: hasAny(['celiaco', 'celiacos', 'sin tacc', 'dieta especial']) && hasAny(['no se envio', 'no se envió', 'faltante']), reason: 'No entrega de menú especial' }
+  ];
+
+  const legalSignals = [
+    { hit: hasAny(['documentacion', 'documentación', 'permiso', 'habilitacion', 'habilitación', 'plataforma', 'credencial', 'regulatorio', 'cubre franco', 'libreta sanitaria']), reason: 'Incumplimiento documental/regulatorio' },
+    { hit: hasAny(['no dejan ingresar', 'ingreso denegado', 'no pudo ingresar']) && hasAny(['documentacion', 'credencial', 'permiso', 'habilitacion', 'plataforma']), reason: 'Bloqueo de ingreso por documentación/permisos' }
   ];
 
   const calidadSignals = [
-    { hit: hasAny(['incumplimiento de especificacion', 'incumplimiento de especificación', 'especificacion', 'especificación', 'presentacion', 'presentación']), reason: 'Incumplimiento de especificación/presentación' },
-    { hit: hasAny(['gramaje', 'peso', 'pasadas de peso', 'pasado de peso']), reason: 'Desvío de gramaje o peso' },
-    { hit: hasAny(['quemado', 'quemada', 'queman', 'oxidado', 'oxidada', 'picado', 'picada', 'pasado', 'pasada']) && !hasAny(['alimento no inocuo', 'contaminacion', 'contaminación']), reason: 'Defecto de calidad del producto' },
-    { hit: hasAny(['equipo roto', 'camara no funciona', 'cámara no funciona', 'batidor roto', 'se rompe el batidor', 'sifon roto', 'sifón roto', 'se rompe sifon', 'se rompe sifón', 'bacha rota', 'mantenimiento']) && !inocuidadSignals.some((signal) => signal.hit), reason: 'Falla de equipo/mantenimiento sin riesgo claro de inocuidad' }
+    { hit: hasAny(['sabor', 'insipido', 'insípido', 'presentacion', 'presentación', 'tamaño', 'tamano', 'chicas', 'chicos', 'grasa', 'quemado', 'quemada', 'queman', 'se queman']), reason: 'Afecta calidad percibida del producto' },
+    { hit: hasAny(['frescura', 'fresco', 'fresca', 'no fresca', 'estado del alimento', 'manzanas chicas y verdes']), reason: 'Afecta características organolépticas del producto' },
+    { hit: hasAny(['exceso de grasa', 'matambre', 'gramaje', 'peso']) && !hasAny(['fuera de refrigeracion', 'sin etiquetar', 'contaminacion']), reason: 'Desvío de calidad del alimento' }
   ];
 
+  // Prioridad solicitada: Inocuidad > Mantenimiento > RRHH > Logística > Legales > Calidad
   const priority = [
-    { category: 'Desvío Legal', signals: legalSignals, confidence: 0.94 },
-    { category: 'Desvío de Inocuidad', signals: inocuidadSignals, confidence: 0.95 },
-    { category: 'Desvío de Logística', signals: logisticaSignals, confidence: 0.92 },
-    { category: 'Desvío de Calidad', signals: calidadSignals, confidence: 0.9 }
+    { category: CATEGORY.INOCUIDAD, signals: inocuidadSignals, confidence: 0.95 },
+    { category: CATEGORY.MANTENIMIENTO, signals: mantenimientoSignals, confidence: 0.93 },
+    { category: CATEGORY.RRHH, signals: rrhhSignals, confidence: 0.92 },
+    { category: CATEGORY.LOGISTICA, signals: logisticaSignals, confidence: 0.91 },
+    { category: CATEGORY.LEGAL, signals: legalSignals, confidence: 0.9 },
+    { category: CATEGORY.CALIDAD, signals: calidadSignals, confidence: 0.88 }
   ];
 
   for (const group of priority) {
@@ -87,25 +110,11 @@ function classifyDeviationAreaDetailed({
     }
   }
 
-  if (tipo === 'NC' && containsAny(iso, [
-    '8.2 prp limpieza',
-    '8.2 prp higiene',
-    '8.2 prp identificacion',
-    '8.2 prp identificación',
-    '8.2 prp manejo residuos',
-    '8.5.2 trazabilidad',
-    '8.7 control de salidas no conformes'
-  ])) return { area: 'Desvío de Inocuidad', reason: 'No conformidad en controles PRP/trazabilidad de inocuidad', confidence: 0.86 };
-
-  if (tipo === 'NC' && iso.includes('8.5.1 control operacional') && hasAny([
-    'temperatura', 'registro', 'control sanitario', 'inocuidad', 'heladera', 'camara', 'cámara', 'freezer'
-  ])) return { area: 'Desvío de Inocuidad', reason: 'No conformidad operacional vinculada a control sanitario', confidence: 0.84 };
-
   if (['NC', 'OBS', 'OM'].includes(tipo) || resultado === 'No conforme' || resultado === 'Observación' || resultado === 'Oportunidad de mejora') {
-    return { area: 'Revisar manualmente', reason: 'Desvío sin contexto concluyente; requiere análisis manual', confidence: 0.45 };
+    return { area: CATEGORY.MANUAL, reason: 'Desvío sin contexto concluyente; requiere revisión manual', confidence: 0.45 };
   }
 
-  return { area: 'Revisar manualmente', reason: 'Sin señales contextuales suficientes para clasificar', confidence: 0.45 };
+  return { area: CATEGORY.MANUAL, reason: 'Sin señales contextuales suficientes para clasificar', confidence: 0.45 };
 }
 
 function classifyCategoriaDesvio({
@@ -136,24 +145,28 @@ function classifyCategoriaDesvio({
 
 function normalizeToTriadClassification({ categoriaDesvio = '', resultadoClasificado = '', tipoDesvio = '' }) {
   const categoria = normalizeCellValue(categoriaDesvio).trim();
-  if (categoria === 'Desvío Legal') return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: 'Desvío Legal' };
-  if (categoria === 'Desvío de Logística') return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: 'Desvío de Logística' };
-  if (categoria === 'Desvío de Inocuidad') return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: 'Desvío de Inocuidad' };
-  if (categoria === 'Desvío de Calidad') return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: 'Desvío de Calidad' };
+  if (categoria === CATEGORY.LEGAL) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.LEGAL };
+  if (categoria === CATEGORY.LOGISTICA) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.LOGISTICA };
+  if (categoria === CATEGORY.INOCUIDAD) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.INOCUIDAD };
+  if (categoria === CATEGORY.CALIDAD) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.CALIDAD };
+  if (categoria === CATEGORY.MANTENIMIENTO) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.MANTENIMIENTO };
+  if (categoria === CATEGORY.RRHH) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.RRHH };
 
   const tipo = normalizeCellValue(tipoDesvio).trim();
-  if (['NC', 'OBS', 'OM'].includes(tipo)) return { resultadoClasificado, tipoDesvio: tipo, categoriaDesvio: 'Desvío de Inocuidad' };
+  if (['NC', 'OBS', 'OM'].includes(tipo)) return { resultadoClasificado, tipoDesvio: tipo, categoriaDesvio: CATEGORY.MANUAL };
   if (tipo === '-') return { resultadoClasificado, tipoDesvio: '-', categoriaDesvio: categoria || 'Conforme' };
 
-  return { resultadoClasificado, tipoDesvio, categoriaDesvio };
+  return { resultadoClasificado, tipoDesvio, categoriaDesvio: categoria || CATEGORY.MANUAL };
 }
 
 function mapTipoFromCategoria(categoriaDesvio = '', fallbackTipo = '') {
   const categoria = normalizeCellValue(categoriaDesvio).trim();
-  if (categoria === 'Desvío de Inocuidad') return 'IN';
-  if (categoria === 'Desvío Legal') return 'LE';
-  if (categoria === 'Desvío de Logística') return 'LGT';
-  if (categoria === 'Desvío de Calidad') return 'CAL';
+  if (categoria === CATEGORY.INOCUIDAD) return 'IN';
+  if (categoria === CATEGORY.LEGAL) return 'LE';
+  if (categoria === CATEGORY.LOGISTICA) return 'LGT';
+  if (categoria === CATEGORY.CALIDAD) return 'CAL';
+  if (categoria === CATEGORY.MANTENIMIENTO) return 'MNT';
+  if (categoria === CATEGORY.RRHH) return 'RRHH';
   return normalizeCellValue(fallbackTipo).trim();
 }
 
@@ -184,14 +197,11 @@ function applyGovernanceTypeAndCategory({
   const hasCompetenciaLegal = hasAnyIsoTerm(text, [
     'carnet de manipulador', 'carne de manipulador', 'manipulador de alimentos', 'carnet sanitario', 'libreta sanitaria', 'carnet vencido', 'carnet faltante', 'sin carnet', 'no presenta carnet', 'personal sin carnet'
   ]);
-  const hasConcienciaCapacitacion = hasAnyIsoTerm(text, [
-    'capacitacion', 'capacitaciones', 'personal no capacitado', 'falta de capacitacion', 'capacitacion vencida', 'capacitacion desactualizada', 'bpm', 'buenas practicas de manufactura', 'poe', 'poes', 'procedimiento operativo estandarizado', 'toma de conciencia', 'induccion', 'entrenamiento'
-  ]);
-  const hasInformacionDocumentada = hasAnyIsoTerm(text, [
-    'procedimiento documentado', 'falta procedimiento', 'falta de procedimiento', 'procedimiento inexistente', 'procedimiento desactualizado', 'documentacion desactualizada', 'informacion documentada', 'registros incompletos', 'registros ausentes', 'falta de registros', 'control de versiones', 'version desactualizada', 'documento sin actualizar', 'planilla incompleta', 'evidencia documental', 'sin evidencia documental'
+
+  const hasGovernanceSignal = hasCompetenciaLegal || hasAnyIsoTerm(text, [
+    'capacitacion', 'capacitaciones', 'procedimiento documentado', 'falta de registros', 'documentacion desactualizada', 'informacion documentada'
   ]);
 
-  const hasGovernanceSignal = hasCompetenciaLegal || hasConcienciaCapacitacion || hasInformacionDocumentada;
   if (!hasGovernanceSignal) return { resultadoClasificado, tipoDesvio, iso22000, categoriaDesvio };
 
   let nextTipo = tipoDesvio;
@@ -205,13 +215,13 @@ function applyGovernanceTypeAndCategory({
     if (hasCompetenciaLegal || strongNc) {
       nextTipo = 'NC';
       nextResultado = 'No conforme';
-    } else if (hasConcienciaCapacitacion || hasInformacionDocumentada || omSignal) {
+    } else if (omSignal) {
       nextTipo = 'OM';
       nextResultado = 'Oportunidad de mejora';
     }
   }
 
-  if (hasCompetenciaLegal) nextCategoria = 'Desvío Legal';
+  if (hasCompetenciaLegal) nextCategoria = CATEGORY.LEGAL;
 
   const nextIso = mergeCompositeIsoLabels({
     iso22000,

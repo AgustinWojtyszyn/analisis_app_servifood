@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { analyzeExcel } from '../services/analyzeExcel.js';
+import { classifyDeviationAreaDetailed } from '../services/excel/analyzeExcel/classifiers/categoryClassifier.js';
+import { normalizeCellValue } from '../services/analyzeExcel/normalizers.js';
 import defaultRules from '../../../shared/businessRules/defaultRules.json' with { type: 'json' };
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -134,7 +136,8 @@ function isUpdatedAtColumnMissing(error) {
 }
 
 function mapAnalysisRowToApi(row) {
-  const summary = row.results?.summary || null;
+  const normalizedResults = normalizeStoredAnalysisResults(row.results || {});
+  const summary = normalizedResults?.summary || null;
   const processedAt = summary?.processedAt || row.created_at;
   return {
     id: row.id,
@@ -143,11 +146,87 @@ function mapAnalysisRowToApi(row) {
     userId: row.user_id,
     uploadDate: row.created_at,
     processedAt,
-    totalRecords: row.results?.totalRecords || 0,
+    totalRecords: normalizedResults?.totalRecords || 0,
     summary,
-    records: row.results?.records || [],
-    cases: row.results?.cases || [],
-    diagnostics: row.results?.diagnostics || null
+    records: normalizedResults?.records || [],
+    cases: normalizedResults?.cases || [],
+    diagnostics: normalizedResults?.diagnostics || null
+  };
+}
+
+function isManualCategoryOverride(record = {}) {
+  return Boolean(record?.classification_manual || record?.clasificacionManual || record?.manualOverride);
+}
+
+function normalizeModernCategory(category = '') {
+  const raw = String(category || '').trim().toLowerCase();
+  if (raw.includes('inocuidad')) return 'Desvío de Inocuidad';
+  if (raw.includes('mantenimiento')) return 'Desvío de Mantenimiento';
+  if (raw.includes('recursos humanos')) return 'Desvío de Recursos Humanos';
+  if (raw.includes('logistica')) return 'Desvío de Logística';
+  if (raw.includes('legal')) return 'Desvío Legal';
+  if (raw.includes('calidad')) return 'Desvío de Calidad';
+  if (raw.includes('revision manual') || raw.includes('revisar manualmente')) return 'Revisar manualmente';
+  return 'Revisar manualmente';
+}
+
+function reclassifyStoredRecord(record = {}) {
+  if (isManualCategoryOverride(record)) return record;
+
+  const text = [
+    record.hallazgoDetectado,
+    record.desvioDetectado,
+    record.descripcion,
+    record.observaciones,
+    record.actividadRealizada,
+    record.areaProceso,
+    record.areaClasificada
+  ].map((v) => normalizeCellValue(v).trim()).filter(Boolean).join(' | ');
+
+  const detailed = classifyDeviationAreaDetailed({
+    textoCompleto: text,
+    descripcion: normalizeCellValue(record.descripcion),
+    observaciones: normalizeCellValue(record.observaciones),
+    hallazgoDetectado: normalizeCellValue(record.desvioDetectado || record.hallazgoDetectado),
+    actividadRealizada: normalizeCellValue(record.actividadRealizada),
+    resultadoClasificado: normalizeCellValue(record.resultadoClasificado || 'No conforme'),
+    tipoDesvio: normalizeCellValue(record.tipoDesvio || 'NC'),
+    iso22000: normalizeCellValue(record.iso22000)
+  });
+
+  const categoria = normalizeModernCategory(detailed.area);
+  return {
+    ...record,
+    categoriaDesvio: categoria,
+    classification_normalized: categoria,
+    clasificacionDesvio: categoria
+  };
+}
+
+function normalizeStoredAnalysisResults(results = {}) {
+  const originalRecords = Array.isArray(results?.records) ? results.records : [];
+  if (originalRecords.length === 0) return results;
+
+  const normalizedRecords = originalRecords.map(reclassifyStoredRecord);
+  const byCategoria = normalizedRecords.reduce((acc, record) => {
+    const key = normalizeModernCategory(record?.clasificacionDesvio || record?.classification_normalized || record?.categoriaDesvio);
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  const baseSummary = results?.summary || {};
+  const normalizedSummary = {
+    ...baseSummary,
+    byCategoria: {
+      ...(baseSummary.byCategoria || {}),
+      ...byCategoria
+    }
+  };
+
+  return {
+    ...results,
+    records: normalizedRecords,
+    summary: normalizedSummary
   };
 }
 

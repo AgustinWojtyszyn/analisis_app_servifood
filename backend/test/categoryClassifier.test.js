@@ -58,12 +58,12 @@ test('Falta de aceite de oliva => Logística', () => {
   assert.equal(classify('El gerente de callia reclama la falta de aceite de oliva'), 'Desvío de Logística');
 });
 
-test('Se rompe sifón de bacha => Inocuidad', () => {
-  assert.equal(classify('Se rompe sifon de bacha sin contacto con producto'), 'Desvío de Calidad');
+test('Se rompe sifón de bacha => Mantenimiento', () => {
+  assert.equal(classify('Se rompe sifon de bacha sin contacto con producto'), 'Desvío de Mantenimiento');
 });
 
-test('Se rompe el batidor => Inocuidad', () => {
-  assert.equal(classify('Se rompe el batidor durante mantenimiento'), 'Desvío de Calidad');
+test('Se rompe el batidor => Mantenimiento', () => {
+  assert.equal(classify('Se rompe el batidor durante mantenimiento'), 'Desvío de Mantenimiento');
 });
 
 test('No se enviaron almuerzos para celíacos => Logística', () => {
@@ -74,8 +74,8 @@ test('Menú celíaco contaminado => Inocuidad', () => {
   assert.equal(classify('Menu celiaco contaminado con alergenos y mal rotulado'), 'Desvío de Inocuidad');
 });
 
-test('Prioridad: Legal sobre Inocuidad cuando conviven señales', () => {
-  assert.equal(classify('No pudo ingresar al establecimiento por credencial vencida y producto crudo detectado'), 'Desvío Legal');
+test('Prioridad: Inocuidad sobre Legales cuando conviven señales', () => {
+  assert.equal(classify('No pudo ingresar al establecimiento por credencial vencida y producto crudo detectado'), 'Desvío de Inocuidad');
 });
 
 test('Naturaleza manda sobre área: área caliente + falta de cocción => Inocuidad', () => {
@@ -103,4 +103,20 @@ test('Detailed classifier returns technical reason and confidence', () => {
   assert.ok(detailed.reason.length > 10);
   assert.equal(typeof detailed.confidence, 'number');
   assert.ok(detailed.confidence >= 0 && detailed.confidence <= 1);
+});
+
+test('German Ramirez se ausenta => Recursos Humanos', () => {
+  assert.equal(classify('German Ramirez se ausenta del turno noche'), 'Desvío de Recursos Humanos');
+});
+
+test('Movilidad rota y demora en entrega => Mantenimiento por prioridad', () => {
+  assert.equal(classify('Movilidad rota y demora en entrega a cliente'), 'Desvío de Mantenimiento');
+});
+
+test('Producto fuera de refrigeración => Inocuidad', () => {
+  assert.equal(classify('Producto fuera de refrigeración durante despacho'), 'Desvío de Inocuidad');
+});
+
+test('Texto ambiguo no cae en Calidad por fallback', () => {
+  assert.equal(classify('Se revisa novedad general del día sin detalle técnico'), 'Revisar manualmente');
 });
