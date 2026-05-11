@@ -42,8 +42,8 @@ test('Faltan cajones para despacho => Logística', () => {
   assert.equal(classify('Faltan cajones para despacho'), 'Desvío de Logística');
 });
 
-test('Banana oxidada o pasada en bandejas de refrigerio => Inocuidad', () => {
-  assert.equal(classify('Banana oxidada o pasada en bandejas de refrigerio'), 'Desvío de Inocuidad');
+test('Banana oxidada o pasada en bandejas de refrigerio => Calidad', () => {
+  assert.equal(classify('Banana oxidada o pasada en bandejas de refrigerio'), 'Desvío de Calidad');
 });
 
 test('Carne no apta por exceder gramaje solicitado => Calidad', () => {

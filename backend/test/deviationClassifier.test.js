@@ -127,3 +127,19 @@ test('Comida fría => Calidad', () => {
 test('Mal sabor => Calidad', () => {
   assert.equal(c('Mal sabor'), 'Calidad');
 });
+
+test('No llegan cucharitas descartables => Logística', () => {
+  assert.equal(c('No llegan cucharitas descartables'), 'Logística');
+});
+
+test('Tomates picados => Calidad', () => {
+  assert.equal(c('Tomates picados'), 'Calidad');
+});
+
+test('Apariencia no fresca => Calidad', () => {
+  assert.equal(c('Apariencia no fresca'), 'Calidad');
+});
+
+test('Fruta pasada => Calidad', () => {
+  assert.equal(c('Fruta pasada'), 'Calidad');
+});

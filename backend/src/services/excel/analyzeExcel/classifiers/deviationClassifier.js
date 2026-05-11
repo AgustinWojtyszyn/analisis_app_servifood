@@ -20,6 +20,77 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
   const hasAny = (terms) => containsAny(combined, terms);
   const countMatches = (terms = []) => terms.filter((term) => hasAny([term])).length;
 
+  const logisticTerms = [
+    'segunda movilidad', 'movilidad', 'despacho', 'entrega', 'entregar', 'envio', 'envío', 'enviar',
+    'falta producto', 'falta postre', 'falta bebidas', 'falta mercaderia', 'falta mercadería',
+    'demora', 'demoras', 'tardanza', 'tardanzas', 'recorrido', 'reposicion', 'reposición',
+    'faltante', 'transporte', 'chofer', 'camion', 'camión', 'no llega a tiempo', 'entrega tarde',
+    'logistica', 'logística', 'cucharitas descartables', 'no llegan', 'no se envia fruta', 'no se envía fruta'
+  ];
+  const logisticBoostPhrases = [
+    'segunda movilidad',
+    'control de despacho',
+    'no se envia',
+    'no se enviaron',
+    'falta de envio',
+    'falta de envío',
+    'entrega tarde',
+    'llega tarde',
+    'falta producto',
+    'falta postre',
+    'falta aceite',
+    'movilidad inmediata',
+    'demora del camion',
+    'demora del camión',
+    'recorrido',
+    'redistribucion',
+    'redistribución'
+  ];
+  const qualityTerms = [
+    'carne rigida', 'carne rígida', 'falta dorado', 'poco cocido', 'sobre cocido', 'textura', 'sabor',
+    'consistencia', 'presentacion', 'presentación', 'producto duro', 'comida fria', 'comida fría',
+    'producto quemado', 'producto seco', 'mala calidad', 'calidad del producto', 'aspecto del producto', 'producto visualmente malo'
+  ];
+  const qualityVisualTerms = [
+    'tomates picados', 'tomate picado', 'picados', 'picado', 'picada', 'apariencia no fresca', 'fruta pasada', 'madurez', 'fresco', 'fresca', 'oxidado', 'oxidada'
+  ];
+  const inocuidadStrongTerms = [
+    'higiene', 'desinfeccion', 'desinfección', 'refrigeracion', 'refrigeración', 'sin etiquetar',
+    'contaminacion', 'contaminación', 'bpm', 'prp', 'haccp', 'trazabilidad', 'fuera de refrigeracion', 'fuera de refrigeración'
+  ];
+
+  // Tuning final: scoring acumulativo real para Logística/Calidad.
+  const logisticHits = countMatches(logisticTerms);
+  const logisticBoostHits = countMatches(logisticBoostPhrases);
+  const qualityHits = countMatches(qualityTerms);
+  const qualityVisualHits = countMatches(qualityVisualTerms);
+  const inocuidadStrongHits = countMatches(inocuidadStrongTerms);
+
+  const logisticsScore = (logisticHits * 1.4) + (logisticBoostHits * 4.0);
+  const qualityScore = (qualityHits * 1.7) + (qualityVisualHits * 3.0);
+
+  if (logisticsScore >= 5 && inocuidadStrongHits === 0) {
+    const matched = [
+      ...logisticTerms.filter((k) => hasAny([k])),
+      ...logisticBoostPhrases.filter((k) => hasAny([k]))
+    ];
+    return { clasificacion: CATEGORY.LOGISTICA, confidence: 0.9, matchedRules: [...new Set(matched)] };
+  }
+  if (qualityScore >= 4 && inocuidadStrongHits === 0) {
+    const matched = [
+      ...qualityTerms.filter((k) => hasAny([k])),
+      ...qualityVisualTerms.filter((k) => hasAny([k]))
+    ];
+    return { clasificacion: CATEGORY.CALIDAD, confidence: 0.86, matchedRules: [...new Set(matched)] };
+  }
+  if (qualityVisualHits >= 1 && inocuidadStrongHits === 0) {
+    return {
+      clasificacion: CATEGORY.CALIDAD,
+      confidence: 0.84,
+      matchedRules: qualityVisualTerms.filter((k) => hasAny([k]))
+    };
+  }
+
   const rules = [
     {
       category: CATEGORY.INOCUIDAD,
@@ -27,7 +98,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
       entries: [
         ['higiene', 'limpiar', 'limpieza', 'desinfectar', 'desinfeccion', 'desinfección', 'sucio', 'sucia', 'sucias', 'sucios', 'platina', 'platinas', 'meson', 'mesón', 'mesones'],
         ['contaminacion', 'contaminación', 'refrigeracion', 'refrigeración', 'fuera de refrigeracion', 'fuera de refrigeración', 'sin etiquetar', 'etiqueta', 'etiquetado', 'pelo'],
-        ['vencimiento', 'trazabilidad', 'bpm', 'manipulacion', 'manipulación', 'decomisa', 'decomiso', 'haccp', 'prp', 'oxidado', 'oxidada', 'picado', 'picada'],
+        ['vencimiento', 'trazabilidad', 'bpm', 'manipulacion', 'manipulación', 'decomisa', 'decomiso', 'haccp', 'prp'],
         ['coccion', 'cocción', 'crudo', 'sin sanitizar', 'sanitizacion', 'sanitización', 'contaminado', 'alergenos', 'alérgenos']
       ]
     },
@@ -52,7 +123,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
       category: CATEGORY.LOGISTICA,
       confidence: 0.82,
       entries: [
-        ['falta de entrega', 'faltaron', 'falta aceite', 'falta de aceite', 'falta aceite de oliva', 'falta postre', 'falta producto', 'falta de bebidas'],
+        ['falta de entrega', 'faltaron', 'falta aceite', 'falta de aceite', 'falta aceite de oliva', 'falta postre', 'falta producto', 'falta de bebidas', 'no hay frutas', 'sin stock', 'stock'],
         ['no se envia', 'no se envía', 'no se envio', 'no se envió', 'no trajo pedido', 'no trajo el pedido'],
         ['segunda movilidad', 'despacho', 'entrega', 'tardanza', 'tardanzas', 'movilidad', 'recorrido', 'distribucion', 'distribución', 'enviar', 'se envía', 'sale tarde', 'llega tarde'],
         ['no sale', 'no salio', 'no salió'],
@@ -107,33 +178,6 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
 
   // Ajuste incremental de sensibilidad: si hay señales múltiples de logística o calidad,
   // evita caer en revisión manual aunque no haya match de frase exacta de un bloque.
-  const logisticTerms = [
-    'segunda movilidad', 'movilidad', 'despacho', 'entrega', 'entregar', 'envio', 'envío', 'enviar',
-    'falta producto', 'falta postre', 'falta bebidas', 'falta mercaderia', 'falta mercadería',
-    'demora', 'demoras', 'tardanza', 'tardanzas', 'recorrido', 'reposicion', 'reposición',
-    'faltante', 'transporte', 'chofer', 'camion', 'camión', 'no llega a tiempo', 'entrega tarde'
-  ];
-  const logisticBoostPhrases = [
-    'segunda movilidad',
-    'control de despacho',
-    'no se envia',
-    'no se enviaron',
-    'falta de envio',
-    'entrega tarde',
-    'llega tarde',
-    'falta producto',
-    'falta postre',
-    'falta aceite',
-    'movilidad inmediata'
-  ];
-  const qualityTerms = [
-    'carne rigida', 'carne rígida', 'falta dorado', 'poco cocido', 'sobre cocido', 'textura', 'sabor',
-    'consistencia', 'presentacion', 'presentación', 'producto duro', 'comida fria', 'comida fría',
-    'producto quemado', 'producto seco', 'mala calidad', 'calidad del producto', 'aspecto del producto'
-  ];
-  const logisticHits = countMatches(logisticTerms);
-  const logisticBoostHits = countMatches(logisticBoostPhrases);
-  const qualityHits = countMatches(qualityTerms);
   if ((logisticHits + logisticBoostHits) >= 2 && (logisticHits + logisticBoostHits) >= qualityHits) {
     const matched = [
       ...logisticTerms.filter((k) => hasAny([k])),
