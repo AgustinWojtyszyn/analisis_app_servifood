@@ -247,6 +247,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     const classification = normalizeClassification(record);
     const tipo = normalizeTipo(record);
     const estado = normalizeEstado(record).toLowerCase();
+    const isoNormalized = normalizeIsoForExport(record.relacionIso22000 || record.iso22000);
 
     const textSearch = [
       record.fecha,
@@ -256,7 +257,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
       tipo,
       record.accionInmediata,
       record.accionCorrectiva,
-      record.iso22000,
+      isoNormalized,
       estado
     ].map((value) => normalizeCellValue(value).toLowerCase()).join(' | ');
 
@@ -473,7 +474,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
                     <TableCell>{normalizeCellValue(record.areaSector || record.areaClasificada) || '-'}</TableCell>
                     <TableCell><Chip size="small" label={clasificacion} sx={{ backgroundColor: (categoryColors[clasificacion] || categoryColors.Calidad).bg, color: (categoryColors[clasificacion] || categoryColors.Calidad).text }} /></TableCell>
                     <TableCell><Chip size="small" label={tipo} sx={{ backgroundColor: (typeColors[tipo] || typeColors.Interno).bg, color: (typeColors[tipo] || typeColors.Interno).text }} /></TableCell>
-                    <TableCell>{normalizeCellValue(record.relacionIso22000 || record.iso22000) || '-'}</TableCell>
+                    <TableCell>{normalizeIsoForExport(record.relacionIso22000 || record.iso22000) || '-'}</TableCell>
                     <TableCell><Chip size="small" label={estado} /></TableCell>
                     <TableCell>{normalizeCellValue(record.immediate_action || record.accionInmediata) || '-'}</TableCell>
                     <TableCell>{normalizeCellValue(record.corrective_action || record.accionCorrectiva) || '-'}</TableCell>
