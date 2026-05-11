@@ -134,6 +134,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
   const topScrollRef = useRef(null);
   const tableContainerRef = useRef(null);
   const [scrollContentWidth, setScrollContentWidth] = useState(1600);
+  const classificationTraceEnabled = import.meta.env.VITE_CLASSIFICATION_FLOW_TRACE === '1';
 
   const categories = [
     { key: 'todos', short: 'Todos' },
@@ -177,6 +178,24 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     });
     return base;
   }, [records]);
+
+  useEffect(() => {
+    if (!classificationTraceEnabled) return;
+    const sample = (records || []).slice(0, 15).map((record) => ({
+      rawRowNumber: record?.rawRowNumber ?? null,
+      usedByUI: normalizeClassification(record),
+      clasificacionDesvio: record?.clasificacionDesvio ?? null,
+      classification_normalized: record?.classification_normalized ?? null,
+      categoriaDesvio: record?.categoriaDesvio ?? null,
+      classification: record?.classification ?? null,
+      classification_original: record?.classification_original ?? null
+    }));
+    console.log('[FRONTEND CLASSIFICATION RENDER]', {
+      analysisId,
+      totalRecords: (records || []).length,
+      sample
+    });
+  }, [analysisId, records, classificationTraceEnabled]);
 
   const filteredRecords = records.filter((record) => {
     const areaDisplay = normalizeCellValue(record.areaSector || record.areaClasificada);

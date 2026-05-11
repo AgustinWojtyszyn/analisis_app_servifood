@@ -17,6 +17,7 @@ const prisma = new PrismaClient();
 const STATUS_VALUES = new Set(['active', 'exported', 'archived']);
 const ENABLE_DEBUG_EXCEL_ANALYSIS = process.env.DEBUG_EXCEL_ANALYSIS === 'true';
 const ENABLE_REPROCESS_CLASSIFICATION_TRACE = process.env.REPROCESS_CLASSIFICATION_TRACE === '1';
+const ENABLE_CLASSIFICATION_FLOW_TRACE = process.env.CLASSIFICATION_FLOW_TRACE === '1';
 
 function buildBatchUploadResponse(results = []) {
   const normalized = Array.isArray(results) ? results : [];
@@ -140,7 +141,7 @@ function mapAnalysisRowToApi(row) {
   const normalizedResults = normalizeStoredAnalysisResults(row.results || {});
   const summary = normalizedResults?.summary || null;
   const processedAt = summary?.processedAt || row.created_at;
-  return {
+  const payload = {
     id: row.id,
     filename: row.filename,
     status: row.status || null,
@@ -153,6 +154,22 @@ function mapAnalysisRowToApi(row) {
     cases: normalizedResults?.cases || [],
     diagnostics: normalizedResults?.diagnostics || null
   };
+  if (ENABLE_CLASSIFICATION_FLOW_TRACE) {
+    const sample = (payload.records || []).slice(0, 5).map((r) => ({
+      row: r?.rawRowNumber ?? null,
+      clasificacionDesvio: r?.clasificacionDesvio ?? null,
+      classification_normalized: r?.classification_normalized ?? null,
+      categoriaDesvio: r?.categoriaDesvio ?? null,
+      classification_original: r?.classification_original ?? null
+    }));
+    console.log('[API PAYLOAD CLASSIFICATION]', {
+      analysisId: payload.id,
+      totalRecords: payload.totalRecords,
+      summaryTotalLogistica: payload.summary?.totalLogistica ?? null,
+      sample
+    });
+  }
+  return payload;
 }
 
 function isManualCategoryOverride(record = {}) {
@@ -1076,7 +1093,19 @@ export async function reprocessHistoryClassifications(req, res) {
       if (!updateRes.error) {
         updated += 1;
         if (ENABLE_REPROCESS_CLASSIFICATION_TRACE) {
-          console.log('[REPROCESS PERSISTED]', { analysisId: row.id, updated: true });
+          const verifyRes = await supabaseAdmin
+            .from('analysis_history')
+            .select('results')
+            .eq('id', row.id)
+            .eq('user_id', req.user.id)
+            .single();
+          const persistedSummary = verifyRes?.data?.results?.summary || {};
+          console.log('[REPROCESS PERSISTED]', {
+            analysisId: row.id,
+            updated: true,
+            totalLogisticaPersisted: persistedSummary.totalLogistica ?? null,
+            byCategoriaPersisted: persistedSummary.byCategoria || {}
+          });
         }
       } else if (ENABLE_REPROCESS_CLASSIFICATION_TRACE) {
         console.log('[REPROCESS PERSIST FAILED]', {
