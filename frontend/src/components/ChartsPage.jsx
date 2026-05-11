@@ -129,13 +129,26 @@ function wrapIsoLabelLines(value = '') {
 function normalizeAreaDisplayName(value = '') {
   const raw = String(value || '').trim();
   if (!raw) return AREA_FALLBACK;
-  const noParens = raw.replace(/\s*\(.+?\)\s*/g, '').trim();
+  const noParens = raw.replace(/\s*\(.+?\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
   const normalized = noParens
-    .replace(/^area de pre elaborados$/i, 'Pre elaborados')
-    .replace(/^área de pre elaborados$/i, 'Pre elaborados')
-    .replace(/^area de residuos$/i, 'Residuos')
-    .replace(/^área de residuos$/i, 'Residuos');
-  return normalized || AREA_FALLBACK;
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (normalized.includes('pre elaborados')) return 'Pre elaborados';
+  if (normalized.includes('residuos')) return 'Residuos';
+  if (normalized.includes('area caliente') || normalized.includes('agua caliente') || normalized === 'ac') return 'Área caliente';
+  if (normalized.includes('area fria') || normalized.includes('camara') || normalized === 'af') return 'Área fría';
+  if (normalized.includes('deposito')) return 'Depósito';
+  if (normalized.includes('logistica')) return 'Logística';
+  if (normalized.includes('lavadero') || normalized.includes('linea de lavado') || normalized.includes('linea lavado')) return 'Lavadero';
+  if (normalized.includes('pasillo') || normalized.includes('area comun') || normalized.includes('areas comunes') || normalized.includes('comedor')) return 'Áreas comunes';
+
+  const compact = noParens
+    .replace(/^area de /i, '')
+    .replace(/^área de /i, '')
+    .trim();
+  return compact || AREA_FALLBACK;
 }
 
 function buildTopWithOthers(items = [], maxItems = 8) {
