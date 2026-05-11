@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { analyzeExcel } from '../services/analyzeExcel.js';
-import { classifyDeviationAreaDetailed } from '../services/excel/analyzeExcel/classifiers/categoryClassifier.js';
 import { normalizeCellValue } from '../services/analyzeExcel/normalizers.js';
+import { classifyDeviation } from '../services/excel/analyzeExcel/classifiers/deviationClassifier.js';
 import defaultRules from '../../../shared/businessRules/defaultRules.json' with { type: 'json' };
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -173,33 +173,37 @@ function normalizeModernCategory(category = '') {
 function reclassifyStoredRecord(record = {}) {
   if (isManualCategoryOverride(record)) return record;
 
-  const text = [
+  const baseText = [
     record.hallazgoDetectado,
     record.desvioDetectado,
     record.descripcion,
     record.observaciones,
-    record.actividadRealizada,
-    record.areaProceso,
-    record.areaClasificada
+    record.actividadRealizada
   ].map((v) => normalizeCellValue(v).trim()).filter(Boolean).join(' | ');
+  const area = normalizeCellValue(record.areaSector || record.areaClasificada || record.areaProceso).trim();
+  const immediateAction = normalizeCellValue(record.immediate_action || record.accionInmediata).trim();
+  const correctiveAction = normalizeCellValue(record.corrective_action || record.accionCorrectiva).trim();
+  const iso = normalizeCellValue(record.relacionIso22000 || record.iso22000).trim();
 
-  const detailed = classifyDeviationAreaDetailed({
-    textoCompleto: text,
-    descripcion: normalizeCellValue(record.descripcion),
-    observaciones: normalizeCellValue(record.observaciones),
-    hallazgoDetectado: normalizeCellValue(record.desvioDetectado || record.hallazgoDetectado),
-    actividadRealizada: normalizeCellValue(record.actividadRealizada),
-    resultadoClasificado: normalizeCellValue(record.resultadoClasificado || 'No conforme'),
-    tipoDesvio: normalizeCellValue(record.tipoDesvio || 'NC'),
-    iso22000: normalizeCellValue(record.iso22000)
-  });
+  const classified = classifyDeviation(baseText, area, immediateAction, correctiveAction, iso);
+  const mapNewToLegacy = {
+    Inocuidad: 'Desvío de Inocuidad',
+    'Mantenimiento': 'Desvío de Mantenimiento',
+    'Recursos Humanos': 'Desvío de Recursos Humanos',
+    'Logística': 'Desvío de Logística',
+    Legales: 'Desvío Legal',
+    Calidad: 'Desvío de Calidad',
+    'Revisar manualmente': 'Revisar manualmente'
+  };
+  const categoria = mapNewToLegacy[classified.clasificacion] || 'Revisar manualmente';
 
-  const categoria = normalizeModernCategory(detailed.area);
   return {
     ...record,
     categoriaDesvio: categoria,
     classification_normalized: categoria,
-    clasificacionDesvio: categoria
+    clasificacionDesvio: categoria,
+    classification_confidence: classified.confidence,
+    classification_matched_rules: classified.matchedRules
   };
 }
 

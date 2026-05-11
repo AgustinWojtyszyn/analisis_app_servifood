@@ -63,3 +63,15 @@ test('Adium reclama que las manzanas estaban chicas y verdes => Calidad', () => 
 test('Igarreta reclama que la ensalada de tomate no estaba fresca => Calidad', () => {
   assert.equal(c('Igarreta reclama que la ensalada de tomate no estaba fresca'), 'Calidad');
 });
+
+test('Input realista desde parser (texto + area + acciones + ISO) matchea Inocuidad', () => {
+  const result = classifyDeviation(
+    'Se detecta falta de higiene en mesones',
+    'Area Fria',
+    'Limpiar y desinfectar mesones',
+    'Refuerzo de POES',
+    '8.2 PRP higiene'
+  );
+  assert.equal(result.clasificacion, 'Inocuidad');
+  assert.ok(result.matchedRules.length > 0);
+});

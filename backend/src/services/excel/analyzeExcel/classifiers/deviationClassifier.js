@@ -16,6 +16,7 @@ function buildText({ text = '', area = '', immediateAction = '', correctiveActio
 
 export function classifyDeviation(text = '', area = '', immediateAction = '', correctiveAction = '', iso = '') {
   const combined = buildText({ text, area, immediateAction, correctiveAction, iso });
+  const debugEnabled = process.env.DEVIATION_CLASSIFIER_DEBUG === '1';
   const hasAny = (terms) => containsAny(combined, terms);
 
   const rules = [
@@ -79,6 +80,19 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     for (const entry of group.entries) {
       if (hasAny(entry)) {
         matchedRules.push(...entry.filter((kw) => hasAny([kw])));
+        if (debugEnabled) {
+          console.log('[deviation-classifier]', {
+            text,
+            area,
+            immediateAction,
+            correctiveAction,
+            iso,
+            normalizedText: combined,
+            matchedRules: [...new Set(matchedRules)],
+            clasificacion: group.category,
+            confidence: group.confidence
+          });
+        }
         return {
           clasificacion: group.category,
           confidence: group.confidence,
@@ -88,6 +102,19 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     }
   }
 
+  if (debugEnabled) {
+    console.log('[deviation-classifier]', {
+      text,
+      area,
+      immediateAction,
+      correctiveAction,
+      iso,
+      normalizedText: combined,
+      matchedRules: [],
+      clasificacion: CATEGORY.MANUAL,
+      confidence: 0.45
+    });
+  }
   return {
     clasificacion: CATEGORY.MANUAL,
     confidence: 0.45,
