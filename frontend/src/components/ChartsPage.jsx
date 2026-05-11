@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 
 const palette = ['#1d4ed8', '#2563eb', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626', '#334155', '#16a34a'];
+const AREA_FALLBACK = 'Área no identificada';
 
 function normalizeCategoryKey(value) {
   const raw = String(value || '').trim().toLowerCase();
@@ -29,6 +30,29 @@ function normalizeCategoryKey(value) {
   return 'Revisar manualmente';
 }
 
+function normalizeArea(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return AREA_FALLBACK;
+  return raw;
+}
+
+function normalizeIsoKey(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (!normalized || normalized === '-' || normalized.includes('revisar manualmente') || normalized.includes('revision manual')) return '';
+  return raw;
+}
+
+function shortLabel(value, max = 26) {
+  const text = String(value || '').trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1)}…`;
+}
+
 function objectToChartData(mapObject = {}) {
   return Object.entries(mapObject)
     .map(([name, value]) => ({ name, value }))
@@ -37,23 +61,23 @@ function objectToChartData(mapObject = {}) {
 
 function splitAreas(areaClasificada) {
   return String(areaClasificada || '')
-    .split(',')
+    .split(/[\/,]/)
     .map((area) => area.trim())
     .filter(Boolean);
 }
 
 function normalizeEstadoAccion(value) {
   const raw = String(value ?? '').trim().toLowerCase();
-  if (!raw || raw === '-') return 'sin_accion';
+  if (!raw || raw === '-') return null;
   const normalized = raw
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, '_');
 
-  if (!normalized || normalized === '-') return 'sin_accion';
+  if (!normalized || normalized === '-') return null;
   if (normalized === 'abierta' || normalized === 'abierto') return 'abierto';
   if (normalized === 'cerrada' || normalized === 'cerrado') return 'cerrado';
-  return 'abierto';
+  return null;
 }
 
 export default function ChartsPage({ records = [], summary = null, analysisTotalRecords = 0 }) {
@@ -80,42 +104,43 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
 
   const data = useMemo(() => {
     const safeSummary = summary || {};
-    const deriveFromRecords = !summary || (!summary.byArea && !summary.byCategoria && !summary.byIso22000);
-
     const fallbackByArea = {};
     const fallbackByCategoria = {};
     const fallbackByIso = {};
     const fallbackActions = { abierto: 0, cerrado: 0 };
+    records.forEach((record) => {
+      const categoria = String(record.clasificacionDesvio || record.classification_normalized || record.categoriaDesvio || '').trim();
+      const iso = normalizeIsoKey(record.relacionIso22000 || record.iso22000);
+      const estadoAccion = normalizeEstadoAccion(record.estadoAcciones || record.estadoAccion);
+      if (categoria) {
+        const canonical = normalizeCategoryKey(categoria);
+        fallbackByCategoria[canonical] = (fallbackByCategoria[canonical] || 0) + 1;
+      }
 
-    if (deriveFromRecords) {
-      records.forEach((record) => {
-        const area = String(record.areaClasificada || '').trim();
-        const categoria = String(record.clasificacionDesvio || record.classification_normalized || record.categoriaDesvio || '').trim();
-        const iso = String(record.iso22000 || '').trim();
-        const estadoAccion = normalizeEstadoAccion(record.estadoAccion);
-        if (categoria) {
-          const canonical = normalizeCategoryKey(categoria);
-          fallbackByCategoria[canonical] = (fallbackByCategoria[canonical] || 0) + 1;
-        }
+      const areaRaw = record.areaSector || record.area_sector || record.area_normalized || record.areaClasificada || record.area;
+      const areaList = splitAreas(areaRaw);
+      if (areaList.length === 0) {
+        fallbackByArea[AREA_FALLBACK] = (fallbackByArea[AREA_FALLBACK] || 0) + 1;
+      } else {
+        areaList.map(normalizeArea).forEach((areaItem) => {
+          fallbackByArea[areaItem] = (fallbackByArea[areaItem] || 0) + 1;
+        });
+      }
 
-        if (area) {
-          const areaList = splitAreas(area);
-          areaList.forEach((areaItem) => {
-            fallbackByArea[areaItem] = (fallbackByArea[areaItem] || 0) + 1;
-          });
-        }
+      if (iso) {
+        fallbackByIso[iso] = (fallbackByIso[iso] || 0) + 1;
+      }
 
-        if (iso) {
-          fallbackByIso[iso] = (fallbackByIso[iso] || 0) + 1;
-        }
+      if (estadoAccion === 'cerrado') fallbackActions.cerrado += 1;
+      if (estadoAccion === 'abierto') fallbackActions.abierto += 1;
+    });
 
-        if (estadoAccion === 'cerrado') fallbackActions.cerrado += 1;
-        else fallbackActions.abierto += 1;
-      });
-    }
+    const summaryByArea = safeSummary.byArea && Object.keys(safeSummary.byArea).length > 0 ? safeSummary.byArea : null;
+    const summaryByCategoria = safeSummary.byCategoria && Object.keys(safeSummary.byCategoria).length > 0 ? safeSummary.byCategoria : null;
+    const summaryByIso = safeSummary.byIso22000 && Object.keys(safeSummary.byIso22000).length > 0 ? safeSummary.byIso22000 : null;
 
-    const desviosPorArea = objectToChartData(safeSummary.byArea || fallbackByArea);
-    const categoriaRaw = safeSummary.byCategoria || fallbackByCategoria;
+    const desviosPorArea = objectToChartData(summaryByArea || fallbackByArea);
+    const categoriaRaw = summaryByCategoria || fallbackByCategoria;
     const categoriasCompletas = {
       Legales: Number(categoriaRaw.Legales ?? categoriaRaw['Desvío Legal'] ?? safeSummary.totalLegal ?? 0),
       'Logística': Number(categoriaRaw['Logística'] ?? categoriaRaw['Desvío de Logística'] ?? safeSummary.totalLogistica ?? 0),
@@ -126,7 +151,11 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     };
     const desviosPorCategoria = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
     const desviosPorCategoriaCompleta = objectToChartData(categoriasCompletas);
-    const desviosPorIso = objectToChartData(safeSummary.byIso22000 || fallbackByIso);
+    const isoRaw = summaryByIso || fallbackByIso;
+    const isoFiltered = Object.fromEntries(
+      Object.entries(isoRaw).filter(([key]) => normalizeIsoKey(key))
+    );
+    const desviosPorIso = objectToChartData(isoFiltered);
 
     const resumenHallazgos = [
       { name: 'Desvíos reales', value: Number(safeSummary.totalDesvios || 0) },
@@ -137,9 +166,12 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       { name: 'Rev. manual', value: Number(safeSummary.totalRevisionManual || 0) }
     ];
 
+    const summaryHasActions = safeSummary.actions && (
+      Number(safeSummary.actions.abiertas ?? 0) > 0 || Number(safeSummary.actions.cerradas ?? 0) > 0
+    );
     const estadoAcciones = [
-      { name: 'Abierto', value: Number(safeSummary.actions?.abiertas ?? fallbackActions.abierto) },
-      { name: 'Cerrado', value: Number(safeSummary.actions?.cerradas ?? fallbackActions.cerrado) }
+      { name: 'Abierto', value: Number(summaryHasActions ? (safeSummary.actions?.abiertas ?? 0) : fallbackActions.abierto) },
+      { name: 'Cerrado', value: Number(summaryHasActions ? (safeSummary.actions?.cerradas ?? 0) : fallbackActions.cerrado) }
     ];
 
     return {
@@ -202,8 +234,8 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                   </Box>
                 ) : (
                   <ResponsiveContainer>
-                    <BarChart data={data.desviosPorArea}>
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-10} textAnchor="end" height={68} />
+                    <BarChart data={data.desviosPorArea} margin={{ top: 8, right: 12, left: 4, bottom: 54 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} tickFormatter={(value) => shortLabel(value, 20)} interval={0} angle={-18} textAnchor="end" height={78} />
                       <YAxis allowDecimals={false} />
                       <Tooltip />
                       <Bar dataKey="value" radius={[6, 6, 0, 0]}>
@@ -265,8 +297,8 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                   </Box>
                 ) : (
                   <ResponsiveContainer>
-                    <BarChart data={data.desviosPorCategoriaCompleta}>
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-6} textAnchor="end" height={64} />
+                    <BarChart data={data.desviosPorCategoriaCompleta} margin={{ top: 8, right: 12, left: 4, bottom: 54 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} tickFormatter={(value) => shortLabel(value, 18)} interval={0} angle={-18} textAnchor="end" height={78} />
                       <YAxis allowDecimals={false} />
                       <Tooltip />
                       <Bar dataKey="value" fill="#1d4ed8" radius={[6, 6, 0, 0]} />
@@ -324,8 +356,8 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                   </Box>
                 ) : (
                   <ResponsiveContainer>
-                    <BarChart data={data.desviosPorIso}>
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-10} textAnchor="end" height={88} />
+                    <BarChart data={data.desviosPorIso} margin={{ top: 8, right: 12, left: 4, bottom: 70 }}>
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} tickFormatter={(value) => shortLabel(value, 28)} interval={0} angle={-20} textAnchor="end" height={98} />
                       <YAxis allowDecimals={false} />
                       <Tooltip />
                       <Bar dataKey="value" radius={[6, 6, 0, 0]}>
