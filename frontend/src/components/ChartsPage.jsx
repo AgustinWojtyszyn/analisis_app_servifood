@@ -17,6 +17,7 @@ const AREA_FALLBACK = 'Área no identificada';
 const PIE_COLORS = ['#1d4ed8', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626'];
 const TEXT_PRIMARY = '#0f172a';
 const TEXT_SECONDARY = '#334155';
+const TEXT_MUTED = '#475569';
 
 function normalizeCategoryKey(value) {
   const raw = String(value || '').trim().toLowerCase();
@@ -62,6 +63,17 @@ function shortLabel(value, max = 26) {
   const text = String(value || '').trim();
   if (text.length <= max) return text;
   return `${text.slice(0, max - 1)}…`;
+}
+
+function abbreviateAreaLabel(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return AREA_FALLBACK;
+  const normalized = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (/^area de pre elaborados$/i.test(normalized) || /^área de pre elaborados$/i.test(raw)) return 'Pre elaborados';
+  if (/adium/i.test(raw)) return 'Adium';
+  return shortLabel(raw, 20);
 }
 
 function abbreviateIsoLabel(value = '') {
@@ -127,11 +139,12 @@ function IsoYAxisTick({ x, y, payload }) {
         <text
           key={`${payload?.value}-${idx}`}
           x={0}
-          y={idx * 13}
-          dy={4}
+          y={idx * 16}
+          dy={5}
           textAnchor="end"
-          fill="#334155"
-          fontSize={12}
+          fill={TEXT_PRIMARY}
+          fontSize={13}
+          fontWeight={700}
         >
           {line}
         </text>
@@ -152,10 +165,11 @@ function tooltipStyle() {
       border: '1px solid #cbd5e1',
       borderRadius: 10,
       color: TEXT_PRIMARY,
-      fontWeight: 600
+      fontWeight: 700,
+      fontSize: 13
     },
-    labelStyle: { color: TEXT_PRIMARY, fontWeight: 700 },
-    itemStyle: { color: TEXT_SECONDARY, fontWeight: 600 }
+    labelStyle: { color: TEXT_PRIMARY, fontWeight: 800, fontSize: 13 },
+    itemStyle: { color: TEXT_SECONDARY, fontWeight: 700, fontSize: 13 }
   };
 }
 
@@ -355,19 +369,19 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 1.75 }}>
-              <Typography sx={{ fontWeight: 800, mb: 2, color: TEXT_PRIMARY, fontSize: 16 }}>Desvíos por área</Typography>
-              <Box sx={{ width: '100%', height: data.desviosPorArea.length === 0 ? 165 : 350 }}>
+              <Typography sx={{ fontWeight: 900, mb: 2, color: TEXT_PRIMARY, fontSize: 17 }}>Desvíos por área</Typography>
+              <Box sx={{ width: '100%', height: data.desviosPorArea.length === 0 ? 165 : 360 }}>
                 {data.desviosPorArea.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
                     No hay datos por área
                   </Box>
                 ) : (
                   <ResponsiveContainer>
-                    <BarChart data={data.desviosPorArea} margin={{ top: 6, right: 10, left: 6, bottom: 36 }} barCategoryGap={20}>
-                      <XAxis dataKey="name" tick={{ fontSize: 12, fontWeight: 600, fill: TEXT_SECONDARY }} tickFormatter={(value) => shortLabel(value, 18)} interval={0} angle={-10} textAnchor="end" height={56} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 12, fontWeight: 700, fill: TEXT_SECONDARY }} />
+                    <BarChart data={data.desviosPorArea} layout="vertical" margin={{ top: 8, right: 12, left: 8, bottom: 8 }} barCategoryGap={16}>
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 13, fontWeight: 700, fill: TEXT_MUTED }} />
+                      <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 13, fontWeight: 700, fill: TEXT_PRIMARY }} tickFormatter={(value) => abbreviateAreaLabel(value)} />
                       <Tooltip {...tooltipStyle()} formatter={(value) => [value, 'Cantidad']} labelFormatter={(label) => String(label || '')} />
-                      <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                      <Bar dataKey="value" radius={[0, 7, 7, 0]}>
                         {data.desviosPorArea.map((entry, idx) => (
                           <Cell key={entry.name} fill={palette[idx % palette.length]} />
                         ))}
@@ -383,7 +397,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 1.75 }}>
-              <Typography sx={{ fontWeight: 800, mb: 2, color: TEXT_PRIMARY, fontSize: 16 }}>Desvíos por categoría</Typography>
+              <Typography sx={{ fontWeight: 900, mb: 2, color: TEXT_PRIMARY, fontSize: 17 }}>Desvíos por categoría</Typography>
               <Box sx={{ width: '100%', height: data.desviosPorCategoria.length === 0 ? 165 : 260 }}>
                 {data.desviosPorCategoria.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
@@ -394,7 +408,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                     <Box sx={{ flex: '0 0 54%', minWidth: 0, height: '100%' }}>
                       <ResponsiveContainer>
                         <PieChart>
-                          <Pie data={data.desviosPorCategoria} dataKey="value" nameKey="name" outerRadius={78} label={piePercentLabel} labelLine={false}>
+                          <Pie data={data.desviosPorCategoria} dataKey="value" nameKey="name" outerRadius={74} label={piePercentLabel} labelLine={false}>
                             {data.desviosPorCategoria.map((entry, idx) => (
                               <Cell key={entry.name} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                             ))}
@@ -407,8 +421,8 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                       {data.desviosPorCategoria.map((item, idx) => (
                         <Box key={item.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                           <Box sx={{ width: 10, height: 10, borderRadius: '999px', backgroundColor: PIE_COLORS[idx % PIE_COLORS.length], flexShrink: 0 }} />
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: TEXT_SECONDARY, minWidth: 0 }}>
-                            {shortLabel(item.name, 20)}: {item.value}
+                          <Typography variant="body2" sx={{ fontWeight: 800, color: TEXT_PRIMARY, minWidth: 0, fontSize: 13.5 }}>
+                            {item.name}: {item.value}
                           </Typography>
                         </Box>
                       ))}
@@ -423,8 +437,8 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 1.75 }}>
-              <Typography sx={{ fontWeight: 800, mb: 2, color: TEXT_PRIMARY, fontSize: 16 }}>Desvíos por categoría (barras)</Typography>
-              <Box sx={{ width: '100%', height: data.desviosPorCategoriaCompleta.length === 0 ? 165 : 330 }}>
+              <Typography sx={{ fontWeight: 900, mb: 2, color: TEXT_PRIMARY, fontSize: 17 }}>Desvíos por categoría (barras)</Typography>
+              <Box sx={{ width: '100%', height: data.desviosPorCategoriaCompleta.length === 0 ? 165 : 340 }}>
                 {data.desviosPorCategoriaCompleta.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
                     No hay datos por categoría
@@ -432,9 +446,8 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                 ) : (
                   <ResponsiveContainer>
                     <BarChart data={data.desviosPorCategoriaCompleta} layout="vertical" margin={{ top: 6, right: 10, left: 6, bottom: 8 }} barCategoryGap={18}>
-                      <XAxis type="number" allowDecimals={false} />
-                      <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12, fontWeight: 700, fill: TEXT_SECONDARY }} tickFormatter={(value) => shortLabel(value, 18)} />
-                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12, fontWeight: 700, fill: TEXT_SECONDARY }} />
+                      <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 13, fontWeight: 800, fill: TEXT_PRIMARY }} />
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 13, fontWeight: 700, fill: TEXT_MUTED }} />
                       <Tooltip {...tooltipStyle()} formatter={(value) => [value, 'Cantidad']} labelFormatter={(label) => String(label || '')} />
                       <Bar dataKey="value" fill="#1d4ed8" radius={[0, 6, 6, 0]} />
                     </BarChart>
@@ -448,7 +461,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 1.75 }}>
-              <Typography sx={{ fontWeight: 800, mb: 2, color: TEXT_PRIMARY, fontSize: 16 }}>Estado de acciones</Typography>
+              <Typography sx={{ fontWeight: 900, mb: 2, color: TEXT_PRIMARY, fontSize: 17 }}>Estado de acciones</Typography>
               <Box sx={{ width: '100%', height: data.estadoAcciones.every((item) => item.value === 0) ? 165 : 270 }}>
                 {data.estadoAcciones.every((item) => item.value === 0) ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
@@ -471,10 +484,10 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                     <Typography variant="h4" sx={{ fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
                       {data.estadoSingle.value}
                     </Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 700, color: '#334155', mt: 0.75 }}>
+                    <Typography variant="body1" sx={{ fontWeight: 800, color: TEXT_PRIMARY, mt: 0.75, fontSize: 18 }}>
                       {`${data.estadoSingle.name.toLowerCase()}${Number(data.estadoSingle.value) === 1 ? '' : 's'}`}
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#64748b', mt: 1 }}>
+                    <Typography variant="body2" sx={{ color: TEXT_MUTED, mt: 1, fontWeight: 700 }}>
                       {`0 ${data.estadoSingle.name.toLowerCase() === 'cerrado' ? 'abiertos' : 'cerrados'}`}
                     </Typography>
                   </Box>
@@ -505,7 +518,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                     </ResponsiveContainer>
                     <Box sx={{ mt: 1.25, display: 'flex', flexWrap: 'wrap', gap: 1.25 }}>
                       {(data.estadoSingle ? [data.estadoSingle] : data.estadoAcciones).map((item, idx) => (
-                        <Typography key={item.name} variant="body2" sx={{ color: TEXT_SECONDARY, fontWeight: 800 }}>
+                        <Typography key={item.name} variant="body2" sx={{ color: TEXT_PRIMARY, fontWeight: 800, fontSize: 13.5 }}>
                           {item.name}: {item.value}
                         </Typography>
                       ))}
@@ -520,17 +533,17 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         <Grid item xs={12}>
           <Card>
             <CardContent sx={{ p: 1.75 }}>
-              <Typography sx={{ fontWeight: 800, mb: 2, color: TEXT_PRIMARY, fontSize: 16 }}>Vinculación con requisitos ISO 22000</Typography>
-              <Box sx={{ width: '100%', height: data.desviosPorIso.length === 0 ? 170 : 580 }}>
+              <Typography sx={{ fontWeight: 900, mb: 2, color: TEXT_PRIMARY, fontSize: 17 }}>Vinculación con requisitos ISO 22000</Typography>
+              <Box sx={{ width: '100%', height: data.desviosPorIso.length === 0 ? 170 : 640 }}>
                 {data.desviosPorIso.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
                     No hay datos ISO
                   </Box>
                 ) : (
                   <ResponsiveContainer>
-                    <BarChart data={data.desviosPorIso} layout="vertical" margin={{ top: 8, right: 16, left: 18, bottom: 8 }} barCategoryGap={20}>
-                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12, fontWeight: 700, fill: TEXT_SECONDARY }} />
-                      <YAxis type="category" dataKey="name" width={240} tick={<IsoYAxisTick />} />
+                    <BarChart data={data.desviosPorIso} layout="vertical" margin={{ top: 8, right: 16, left: 18, bottom: 8 }} barCategoryGap={24}>
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 13, fontWeight: 700, fill: TEXT_MUTED }} />
+                      <YAxis type="category" dataKey="name" width={280} tick={<IsoYAxisTick />} />
                       <Tooltip {...tooltipStyle()} formatter={(value) => [value, 'Cantidad']} labelFormatter={(label) => String(label || '')} />
                       <Bar dataKey="value" radius={[0, 6, 6, 0]}>
                         {data.desviosPorIso.map((entry, idx) => (
@@ -541,7 +554,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                   </ResponsiveContainer>
                 )}
               </Box>
-              <Typography variant="body2" sx={{ mt: 1, color: TEXT_SECONDARY, fontWeight: 600 }}>
+              <Typography variant="body2" sx={{ mt: 1, color: TEXT_MUTED, fontWeight: 700, fontSize: 13.5 }}>
                 Total analizado: {data.totalRecords}
               </Typography>
             </CardContent>
