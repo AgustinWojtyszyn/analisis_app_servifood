@@ -50,7 +50,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     },
     {
       category: CATEGORY.LOGISTICA,
-      confidence: 0.89,
+      confidence: 0.82,
       entries: [
         ['falta de entrega', 'faltaron', 'falta aceite', 'falta de aceite', 'falta aceite de oliva', 'falta postre', 'falta producto', 'falta de bebidas'],
         ['no se envia', 'no se envía', 'no se envio', 'no se envió', 'no trajo pedido', 'no trajo el pedido'],
@@ -113,15 +113,34 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     'demora', 'demoras', 'tardanza', 'tardanzas', 'recorrido', 'reposicion', 'reposición',
     'faltante', 'transporte', 'chofer', 'camion', 'camión', 'no llega a tiempo', 'entrega tarde'
   ];
+  const logisticBoostPhrases = [
+    'segunda movilidad',
+    'control de despacho',
+    'no se envia',
+    'no se enviaron',
+    'falta de envio',
+    'entrega tarde',
+    'llega tarde',
+    'falta producto',
+    'falta postre',
+    'falta aceite',
+    'movilidad inmediata'
+  ];
   const qualityTerms = [
     'carne rigida', 'carne rígida', 'falta dorado', 'poco cocido', 'sobre cocido', 'textura', 'sabor',
     'consistencia', 'presentacion', 'presentación', 'producto duro', 'comida fria', 'comida fría',
     'producto quemado', 'producto seco', 'mala calidad', 'calidad del producto', 'aspecto del producto'
   ];
   const logisticHits = countMatches(logisticTerms);
+  const logisticBoostHits = countMatches(logisticBoostPhrases);
   const qualityHits = countMatches(qualityTerms);
-  if (logisticHits >= 2 && logisticHits >= qualityHits) {
-    return { clasificacion: CATEGORY.LOGISTICA, confidence: 0.84, matchedRules: logisticTerms.filter((k) => hasAny([k])) };
+  if ((logisticHits + logisticBoostHits) >= 2 && (logisticHits + logisticBoostHits) >= qualityHits) {
+    const matched = [
+      ...logisticTerms.filter((k) => hasAny([k])),
+      ...logisticBoostPhrases.filter((k) => hasAny([k]))
+    ];
+    const boostedConfidence = logisticBoostHits >= 1 ? 0.9 : 0.84;
+    return { clasificacion: CATEGORY.LOGISTICA, confidence: boostedConfidence, matchedRules: [...new Set(matched)] };
   }
   if (qualityHits >= 2) {
     return { clasificacion: CATEGORY.CALIDAD, confidence: 0.82, matchedRules: qualityTerms.filter((k) => hasAny([k])) };
