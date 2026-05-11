@@ -63,9 +63,22 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
   const qualityVisualTerms = [
     'tomates picados', 'tomate picado', 'picados', 'picado', 'picada', 'apariencia no fresca', 'fruta pasada', 'madurez', 'fresco', 'fresca', 'oxidado', 'oxidada', 'aspecto del producto'
   ];
+  const qualityPriorityTerms = [
+    'tomates picados', 'tomate picado', 'picados', 'picado', 'picada',
+    'apariencia de fresco', 'apariencia no fresca', 'fruta pasada', 'fruta pasada de madurez',
+    'producto visualmente malo', 'aspecto del producto', 'textura', 'sabor', 'carne rigida', 'carne rígida',
+    'falta dorado', 'producto seco', 'mala presentacion', 'mala presentación', 'presentacion', 'presentación',
+    'madurez', 'fresco', 'fresca', 'frescura'
+  ];
   const inocuidadStrongTerms = [
     'higiene', 'desinfeccion', 'desinfección', 'refrigeracion', 'refrigeración', 'sin etiquetar',
     'contaminacion', 'contaminación', 'bpm', 'prp', 'haccp', 'trazabilidad', 'fuera de refrigeracion', 'fuera de refrigeración',
+    'bichos', 'insectos', 'gusanos'
+  ];
+  const inocuidadCriticalTerms = [
+    'higiene', 'sucio', 'sucia', 'suciedad', 'contaminacion', 'contaminación',
+    'refrigeracion', 'refrigeración', 'fuera de temperatura', 'fuera de refrigeracion', 'fuera de refrigeración',
+    'sin etiquetar', 'trazabilidad', 'bpm', 'prp', 'haccp', 'desinfeccion', 'desinfección',
     'bichos', 'insectos', 'gusanos'
   ];
   const rrhhPriorityTerms = [
@@ -79,7 +92,9 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
   const logisticBoostHits = countMatches(logisticBoostPhrases);
   const qualityHits = countMatches(qualityTerms);
   const qualityVisualHits = countMatches(qualityVisualTerms);
+  const qualityPriorityHits = countMatches(qualityPriorityTerms);
   const inocuidadStrongHits = countMatches(inocuidadStrongTerms);
+  const inocuidadCriticalHits = countMatches(inocuidadCriticalTerms);
   const rrhhPriorityHits = countMatches(rrhhPriorityTerms);
 
   const logisticsScore = (logisticHits * 1.4) + (logisticBoostHits * 4.0);
@@ -88,6 +103,8 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     logisticsScore,
     qualityScore,
     inocuidadStrongHits,
+    inocuidadCriticalHits,
+    qualityPriorityHits,
     rrhhPriorityHits,
     logisticHits,
     logisticBoostHits,
@@ -101,6 +118,17 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
       confidence: 0.93,
       matchedRules: rrhhPriorityTerms.filter((k) => hasAny([k]))
     };
+  }
+
+  // Prioridad semántica: calidad perceptual/comercial por encima de inocuidad,
+  // salvo que haya señal sanitaria crítica explícita.
+  if (qualityPriorityHits >= 1 && inocuidadCriticalHits === 0) {
+    const matched = [
+      ...qualityPriorityTerms.filter((k) => hasAny([k])),
+      ...qualityTerms.filter((k) => hasAny([k])),
+      ...qualityVisualTerms.filter((k) => hasAny([k]))
+    ];
+    return { clasificacion: CATEGORY.CALIDAD, confidence: 0.9, matchedRules: [...new Set(matched)] };
   }
 
   if (logisticsScore >= 5 && inocuidadStrongHits === 0) {
