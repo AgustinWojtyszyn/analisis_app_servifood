@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useRef, useState } from 'react';
+import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
   Paper,
@@ -17,68 +17,44 @@ import {
   Tab,
   Tooltip,
   Collapse,
-  IconButton
+  IconButton,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded';
 import CleaningServicesRoundedIcon from '@mui/icons-material/CleaningServicesRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import * as XLSX from 'xlsx';
 import excelIcon from '../assets/excel.png';
 import whatsappIcon from '../assets/whatsappicon.png';
 
 const typeColors = {
-  IN: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
-  LE: { bg: 'rgba(3, 105, 161, 0.16)', text: '#0c4a6e' },
-  LGT: { bg: 'rgba(2, 132, 199, 0.16)', text: '#075985' },
-  CAL: { bg: 'rgba(126, 34, 206, 0.14)', text: '#5b21b6' },
-  NC: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
-  OBS: { bg: 'rgba(245, 158, 11, 0.15)', text: '#92400e' },
-  OM: { bg: 'rgba(139, 92, 246, 0.14)', text: '#5b21b6' }
+  Interno: { bg: 'rgba(2, 132, 199, 0.16)', text: '#075985' },
+  Externo: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' }
 };
 
-const tabStyleByCategory = {
-  todos: { bg: 'rgba(100, 116, 139, 0.16)', color: '#334155' },
-  inocuidad: { bg: 'rgba(220, 38, 38, 0.15)', color: '#991b1b' },
-  logistica: { bg: 'rgba(2, 132, 199, 0.16)', color: '#075985' },
-  legal: { bg: 'rgba(3, 105, 161, 0.16)', color: '#0c4a6e' }
+const categoryColors = {
+  Legales: { bg: 'rgba(3, 105, 161, 0.16)', text: '#0c4a6e' },
+  'Logística': { bg: 'rgba(2, 132, 199, 0.16)', text: '#075985' },
+  Calidad: { bg: 'rgba(126, 34, 206, 0.14)', text: '#5b21b6' },
+  Mantenimiento: { bg: 'rgba(51, 65, 85, 0.16)', text: '#334155' },
+  Inocuidad: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
+  'Recursos Humanos': { bg: 'rgba(22, 163, 74, 0.14)', text: '#166534' }
 };
 
 function normalizeCellValue(value) {
   if (value == null) return '';
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(normalizeCellValue).filter(Boolean).join(' ');
-  }
-
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map(normalizeCellValue).filter(Boolean).join(' ');
   if (typeof value === 'object') {
-    if (Array.isArray(value.richText)) {
-      return value.richText
-        .map((part) => normalizeCellValue(part?.text))
-        .filter(Boolean)
-        .join('');
-    }
-
-    if (typeof value.text === 'string') {
-      return value.text;
-    }
-
-    if (value.result != null) {
-      return normalizeCellValue(value.result);
-    }
+    if (Array.isArray(value.richText)) return value.richText.map((part) => normalizeCellValue(part?.text)).filter(Boolean).join('');
+    if (typeof value.text === 'string') return value.text;
+    if (value.result != null) return normalizeCellValue(value.result);
   }
-
   return String(value);
-}
-
-function splitAreas(areaClasificada) {
-  return normalizeCellValue(areaClasificada)
-    .split(/[\/,]/)
-    .map((area) => area.trim())
-    .filter(Boolean);
 }
 
 function getOriginalColumns(record) {
@@ -98,92 +74,58 @@ function findOriginalValueByAliases(record, aliases = []) {
   return '';
 }
 
-function formatEstadoAccion(value) {
-  const raw = normalizeCellValue(value).trim().toLowerCase();
-  if (!raw || raw === '-') return 'Pendiente';
-  const normalized = raw
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '_');
+function normalizeClassification(record = {}) {
+  const raw = normalizeCellValue(
+    record.clasificacionDesvio
+      || record.classification_original
+      || record.classification_normalized
+      || record.categoriaDesvio
+      || findOriginalValueByAliases(record, [
+        'Clasificacion del desvio',
+        'Clasificación del desvío',
+        'Clasificacion del desvío',
+        'Clasificación del desvio'
+      ])
+  ).trim().toLowerCase();
 
-  if (normalized === 'sin_accion' || normalized === 'sinaccion') return 'Pendiente';
-  if (normalized === 'en_proceso' || normalized === 'enproceso') return 'En proceso';
-  if (normalized === 'cerrada' || normalized === 'cerrado') return 'Cerrado';
-  if (normalized === 'archivada' || normalized === 'archivado') return 'Archivado';
-  if (normalized === 'abierta' || normalized === 'abierto') return 'Abierto';
-  return normalized.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+  if (raw.includes('legal')) return 'Legales';
+  if (raw.includes('logistica')) return 'Logística';
+  if (raw.includes('inocuidad')) return 'Inocuidad';
+  if (raw.includes('mantenimiento')) return 'Mantenimiento';
+  if (raw.includes('rrhh') || raw.includes('recursos humanos') || raw.includes('personal')) return 'Recursos Humanos';
+  return 'Calidad';
 }
 
-function getRecordScope(record = {}) {
-  const originalScope = normalizeCellValue(record.scope_original || record.alcanceDesvio || record.desvioInternoExterno).trim();
-  if (originalScope) return originalScope;
-  const original = normalizeCellValue(findOriginalValueByAliases(record, ['Desvío interno/externo', 'Desvio interno/externo', 'Origen', 'origen'])).trim().toLowerCase();
-  if (original === 'interno') return 'Interno';
-  if (original === 'externo') return 'Externo';
-  return '-';
-}
-
-function getExportOriginalClassification(record = {}) {
-  return normalizeCellValue(
-    record.classification_original
-    || findOriginalValueByAliases(record, [
-      'Clasificacion del desvio',
-      'Clasificación del desvío',
-      'Clasificacion del desvío',
-      'Clasificación del desvio'
-    ])
-    || record.categoriaDesvio
-  ).trim();
-}
-
-function getExportOriginalScope(record = {}) {
-  return normalizeCellValue(
-    record.scope_original
-    || findOriginalValueByAliases(record, [
-      'Desvio externo/ Interno',
-      'Desvío externo / Interno',
-      'Desvío interno/externo',
-      'Desvio interno/externo',
-      'Origen',
-      'origen'
-    ])
+function normalizeTipo(record = {}) {
+  const raw = normalizeCellValue(
+    record.tipoDesvioOrigen
+    || record.scope_normalized
+    || record.scope_original
     || record.alcanceDesvio
-  ).trim();
+    || findOriginalValueByAliases(record, ['Desvío interno/externo', 'Desvio interno/externo', 'Origen', 'origen'])
+  ).trim().toLowerCase();
+  return raw === 'externo' ? 'Externo' : 'Interno';
 }
 
-function getExportImmediateAction(record = {}) {
-  return normalizeCellValue(
-    record.immediate_action
-    || findOriginalValueByAliases(record, ['Acción inmediata', 'Accion inmediata'])
-    || record.accionInmediata
-  ).trim();
+function normalizeEstado(record = {}) {
+  const raw = normalizeCellValue(record.estadoAcciones || record.estadoAccion).trim().toLowerCase();
+  return (raw === 'cerrado' || raw === 'cerrada') ? 'Cerrado' : 'Abierto';
 }
 
-function getExportCorrectiveAction(record = {}) {
-  return normalizeCellValue(
-    record.corrective_action
-    || findOriginalValueByAliases(record, [
-      'Acción Correctiva Propuesta',
-      'Accion Correctiva Propuesta',
-      'Acción correctiva propuesta',
-      'Accion correctiva propuesta'
-    ])
-    || record.accionCorrectiva
-  ).trim();
+function splitAreas(areaClasificada) {
+  return normalizeCellValue(areaClasificada)
+    .split(/[\/,]/)
+    .map((area) => area.trim())
+    .filter(Boolean);
 }
 
-export default function AnalysisResults({
-  records,
-  analysisId,
-  onExportSuccess,
-  onReprocessExcel,
-  onDeleteCurrent
-}) {
+export default function AnalysisResults({ records, analysisId, onExportSuccess, onReprocessExcel, onDeleteCurrent }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterArea, setFilterArea] = useState('all');
-  const [scopeFilter, setScopeFilter] = useState('all');
+  const [filterClassification, setFilterClassification] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
   const [activeCategory, setActiveCategory] = useState('todos');
   const [exportMode, setExportMode] = useState('all');
   const [expandedRows, setExpandedRows] = useState({});
@@ -191,12 +133,23 @@ export default function AnalysisResults({
   const tableContainerRef = useRef(null);
   const [scrollContentWidth, setScrollContentWidth] = useState(1600);
 
+  const categories = [
+    { key: 'todos', short: 'Todos' },
+    { key: 'Legales', short: 'Legales' },
+    { key: 'Logística', short: 'Logística' },
+    { key: 'Calidad', short: 'Calidad' },
+    { key: 'Mantenimiento', short: 'Mantenimiento' },
+    { key: 'Inocuidad', short: 'Inocuidad' },
+    { key: 'Recursos Humanos', short: 'RRHH' }
+  ];
+
   const resetLocalState = () => {
     setPage(0);
     setRowsPerPage(10);
     setSearchTerm('');
     setFilterArea('all');
-    setScopeFilter('all');
+    setFilterClassification('all');
+    setFilterStatus('all');
     setActiveCategory('todos');
     setExportMode('all');
     setExpandedRows({});
@@ -205,189 +158,91 @@ export default function AnalysisResults({
   if (!records || records.length === 0) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
-          No hay análisis aún
-        </Typography>
-        <Typography color="text.secondary">
-          Cargá un archivo desde la sección “Cargar Archivo” para ver resultados.
-        </Typography>
+        <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>No hay análisis aún</Typography>
+        <Typography color="text.secondary">Cargá un archivo desde la sección “Cargar Archivo” para ver resultados.</Typography>
       </Paper>
     );
   }
 
-  const categories = [
-    { key: 'todos', label: 'Todos', short: 'Todos' },
-    { key: 'inocuidad', label: 'Desvío de inocuidad', short: 'Inocuidad' },
-    { key: 'logistica', label: 'Desvío de logística', short: 'Logística' },
-    { key: 'legal', label: 'Desvío legal', short: 'Legal' }
-  ];
+  const availableAreas = [...new Set(records.flatMap((record) => splitAreas(record.areaSector || record.areaClasificada)).filter(Boolean))];
 
-  const availableAreas = [...new Set(records.flatMap((record) => splitAreas(record.areaClasificada)).filter(Boolean))];
-
-  const countsByCategory = {
-    todos: records.length,
-    inocuidad: records.filter((record) => normalizeCellValue(record.classification_normalized || record.categoriaDesvio) === 'Desvío de Inocuidad').length,
-    logistica: records.filter((record) => normalizeCellValue(record.classification_normalized || record.categoriaDesvio) === 'Desvío de Logística').length,
-    legal: records.filter((record) => normalizeCellValue(record.classification_normalized || record.categoriaDesvio) === 'Desvío Legal').length
-  };
+  const countsByCategory = useMemo(() => {
+    const base = { todos: records.length };
+    categories.forEach((category) => {
+      if (category.key === 'todos') return;
+      base[category.key] = records.filter((r) => normalizeClassification(r) === category.key).length;
+    });
+    return base;
+  }, [records]);
 
   const filteredRecords = records.filter((record) => {
+    const areaDisplay = normalizeCellValue(record.areaSector || record.areaClasificada);
+    const classification = normalizeClassification(record);
+    const tipo = normalizeTipo(record);
+    const estado = normalizeEstado(record).toLowerCase();
+
     const textSearch = [
-      record.areaProceso,
-      record.actividadRealizada,
-      record.tipoActividad,
-      record.resultado,
-      record.notaTecnica,
-      record.areaClasificada,
+      record.fecha,
+      areaDisplay,
+      record.desvioDetectado || record.hallazgoDetectado,
+      classification,
+      tipo,
+      record.accionInmediata,
+      record.accionCorrectiva,
       record.iso22000,
-      record.categoriaDesvio,
-      record.hallazgoDetectado,
-      record.responsable,
-      record.estadoAccion
+      estado
     ].map((value) => normalizeCellValue(value).toLowerCase()).join(' | ');
 
-    const areaParts = splitAreas(record.areaClasificada);
-    const categoriaDesvio = normalizeCellValue(record.classification_normalized || record.categoriaDesvio);
-
     const matchesSearch = textSearch.includes(searchTerm.toLowerCase());
-    const matchesArea = filterArea === 'all' || areaParts.includes(filterArea);
-    const matchesScope = scopeFilter === 'all' || getRecordScope(record).toLowerCase() === scopeFilter;
-    const matchesCategory = (() => {
-      if (activeCategory === 'todos') return true;
-      if (activeCategory === 'inocuidad') return categoriaDesvio === 'Desvío de Inocuidad';
-      if (activeCategory === 'logistica') return categoriaDesvio === 'Desvío de Logística';
-      if (activeCategory === 'legal') return categoriaDesvio === 'Desvío Legal';
-      return true;
-    })();
+    const matchesArea = filterArea === 'all' || splitAreas(areaDisplay).includes(filterArea);
+    const matchesClassification = filterClassification === 'all' || classification === filterClassification;
+    const matchesStatus = filterStatus === 'all' || estado === filterStatus;
+    const matchesCategory = activeCategory === 'todos' || classification === activeCategory;
 
-    return matchesSearch && matchesArea && matchesScope && matchesCategory;
+    return matchesSearch && matchesArea && matchesClassification && matchesStatus && matchesCategory;
   });
+
+  const displayedRecords = filteredRecords.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+  const recordsForExport = exportMode === 'filtered' ? filteredRecords : records;
 
   const exportConfigByFilter = {
     todos: { label: 'Exportar todos', fileName: 'analisis_todos.xlsx' },
-    inocuidad: { label: 'Exportar desvío inocuidad', fileName: 'analisis_desvio_inocuidad.xlsx' },
-    logistica: { label: 'Exportar desvío logística', fileName: 'analisis_desvio_logistica.xlsx' },
-    legal: { label: 'Exportar desvío legal', fileName: 'analisis_desvio_legal.xlsx' }
+    Legales: { label: 'Exportar Legales', fileName: 'analisis_desvio_legales.xlsx' },
+    'Logística': { label: 'Exportar Logística', fileName: 'analisis_desvio_logistica.xlsx' },
+    Calidad: { label: 'Exportar Calidad', fileName: 'analisis_desvio_calidad.xlsx' },
+    Mantenimiento: { label: 'Exportar Mantenimiento', fileName: 'analisis_desvio_mantenimiento.xlsx' },
+    Inocuidad: { label: 'Exportar Inocuidad', fileName: 'analisis_desvio_inocuidad.xlsx' },
+    'Recursos Humanos': { label: 'Exportar RRHH', fileName: 'analisis_desvio_rrhh.xlsx' }
   };
   const activeExportConfig = exportConfigByFilter[activeCategory] || exportConfigByFilter.todos;
-  const recordsForExport = exportMode === 'filtered' ? filteredRecords : records;
-
-  const displayedRecords = filteredRecords.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
-
-  const handleChangePage = (_event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const toggleExpandedRow = (rowKey) => {
-    setExpandedRows((prev) => ({ ...prev, [rowKey]: !prev[rowKey] }));
-  };
-
-  const handleShareWhatsApp = async () => {
-    const byTipo = filteredRecords.reduce((acc, record) => {
-      const tipo = normalizeCellValue(record.tipoDesvio) || 'Conforme';
-      acc[tipo] = (acc[tipo] || 0) + 1;
-      return acc;
-    }, {});
-
-    const previewLimit = 12;
-    const simplifiedRows = filteredRecords.slice(0, previewLimit).map((record, index) => {
-      const area = normalizeCellValue(record.areaClasificada) || 'Sin área';
-      const tipo = normalizeCellValue(record.tipoDesvio) || 'Conforme';
-      const iso = normalizeCellValue(record.iso22000) || 'Sin ISO';
-      return `${index + 1}. ${area} | ${tipo} | ${iso}`;
-    });
-
-    const remaining = filteredRecords.length - simplifiedRows.length;
-    const message = [
-      '*Resumen automático de desvíos*',
-      `Registros filtrados: ${filteredRecords.length}`,
-      `IN: ${byTipo.IN || 0} | LE: ${byTipo.LE || 0} | LGT: ${byTipo.LGT || 0}`,
-      '',
-      '*Detalle:*',
-      ...simplifiedRows,
-      remaining > 0 ? `... y ${remaining} registros más` : ''
-    ]
-      .filter(Boolean)
-      .join('\n');
-
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-
-    resetLocalState();
-    await onExportSuccess?.(analysisId);
-  };
 
   const handleExportExcel = async () => {
     const baseHeaders = [
       'Fecha',
-      'Hallazgo detectado',
-      'Área clasificada',
+      'Área/Sector',
+      'Desvío detectado',
       'Clasificación del desvío',
-      'Tipo desvío',
-      'Desvío interno/externo',
-      'ISO 22000',
-      'Razón técnica',
-      'Confianza',
+      'Tipo de desvío',
       'Acción inmediata',
-      'Acción Correctiva Propuesta',
-      'Estado acción',
-      'Área / Proceso',
-      'Actividad realizada',
-      'Descripción',
-      'Observaciones',
-      'N° Acción',
-      'Nota técnica'
+      'Acción correctiva',
+      'Relación ISO 22000',
+      'Estado de acciones'
     ];
 
-    const originalHeaders = [...new Set(
-      recordsForExport.flatMap((record) => Object.keys(getOriginalColumns(record)))
-    )];
+    const rows = recordsForExport.map((record) => ({
+      Fecha: normalizeCellValue(record.fecha),
+      'Área/Sector': normalizeCellValue(record.areaSector || record.areaClasificada),
+      'Desvío detectado': normalizeCellValue(record.desvioDetectado || record.hallazgoDetectado),
+      'Clasificación del desvío': normalizeClassification(record),
+      'Tipo de desvío': normalizeTipo(record),
+      'Acción inmediata': normalizeCellValue(record.immediate_action || record.accionInmediata),
+      'Acción correctiva': normalizeCellValue(record.corrective_action || record.accionCorrectiva),
+      'Relación ISO 22000': normalizeCellValue(record.relacionIso22000 || record.iso22000),
+      'Estado de acciones': normalizeEstado(record)
+    }));
 
-    const rows = recordsForExport.map((record) => {
-      const base = {
-        Fecha: normalizeCellValue(record.fecha),
-        'Hallazgo detectado': normalizeCellValue(record.hallazgoDetectado),
-        'Área clasificada': normalizeCellValue(record.areaClasificada),
-        'Clasificación del desvío': getExportOriginalClassification(record),
-        'Tipo desvío': normalizeCellValue(record.tipoDesvio),
-        'Desvío interno/externo': getExportOriginalScope(record),
-        'ISO 22000': normalizeCellValue(record.iso22000),
-        'Razón técnica': normalizeCellValue(record.explicacionClasificacion || record.alcanceReason),
-        Confianza: normalizeCellValue(record.confianza || record.alcanceConfidence),
-        'Acción inmediata': getExportImmediateAction(record),
-        'Acción Correctiva Propuesta': getExportCorrectiveAction(record),
-        'Estado acción': normalizeCellValue(record.estadoAccion),
-        'Área / Proceso': normalizeCellValue(record.areaProceso),
-        'Actividad realizada': normalizeCellValue(record.actividadRealizada),
-        Descripción: findOriginalValueByAliases(record, [
-          'Descripción',
-          'Descripcion',
-          'Descripción del desvío',
-          'Descripcion del desvio',
-          'Detalle del desvío',
-          'Detalle del desvio'
-        ]) || normalizeCellValue(record.descripcion),
-        Observaciones: findOriginalValueByAliases(record, ['Observaciones', 'Observación', 'Observacion']) || normalizeCellValue(record.observaciones),
-        'N° Acción': findOriginalValueByAliases(record, ['N° Acción', 'N° Accion', 'Nro Acción', 'Nro Accion', 'Numero accion']) || normalizeCellValue(record.numeroAccion),
-        'Nota técnica': findOriginalValueByAliases(record, ['Nota técnica', 'Nota tecnica']) || normalizeCellValue(record.notaTecnica)
-      };
-
-      const originals = getOriginalColumns(record);
-      originalHeaders.forEach((key) => {
-        base[key] = normalizeCellValue(originals[key]);
-      });
-      return base;
-    });
-
-    const sheet = XLSX.utils.json_to_sheet(rows, { header: [...baseHeaders, ...originalHeaders] });
+    const sheet = XLSX.utils.json_to_sheet(rows, { header: baseHeaders });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, 'Resultados');
     XLSX.writeFile(workbook, activeExportConfig.fileName);
@@ -396,20 +251,22 @@ export default function AnalysisResults({
     await onExportSuccess?.(analysisId);
   };
 
-  const handleReprocessExcel = () => {
-    const confirmed = window.confirm('¿Querés reprocesar con un nuevo Excel?');
-    if (!confirmed) return;
+  const handleShareWhatsApp = async () => {
+    const byEstado = filteredRecords.reduce((acc, record) => {
+      const estado = normalizeEstado(record);
+      acc[estado] = (acc[estado] || 0) + 1;
+      return acc;
+    }, {});
 
+    const message = [
+      '*Resumen automático de desvíos*',
+      `Registros filtrados: ${filteredRecords.length}`,
+      `Abiertos: ${byEstado.Abierto || 0} | Cerrados: ${byEstado.Cerrado || 0}`
+    ].join('\n');
+
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
     resetLocalState();
-    onReprocessExcel?.();
-  };
-
-  const handleDeleteCurrent = async () => {
-    const confirmed = window.confirm('¿Eliminar análisis actual?');
-    if (!confirmed) return;
-
-    resetLocalState();
-    await onDeleteCurrent?.();
+    await onExportSuccess?.(analysisId);
   };
 
   useEffect(() => {
@@ -419,9 +276,7 @@ export default function AnalysisResults({
 
     const computeWidth = () => {
       const innerTable = tableEl.querySelector('table');
-      if (innerTable) {
-        setScrollContentWidth(innerTable.scrollWidth || 1600);
-      }
+      if (innerTable) setScrollContentWidth(innerTable.scrollWidth || 1500);
     };
 
     computeWidth();
@@ -454,335 +309,115 @@ export default function AnalysisResults({
   return (
     <Paper sx={{ p: { xs: 1.25, md: 1.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)', overflowX: 'auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 1.5, mb: 1.5, flexWrap: 'wrap' }}>
-        <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: 19, md: 21 } }}>
-          Registros procesados ({filteredRecords.length})
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Mostrando {filteredRecords.length} de {records.length}
-        </Typography>
+        <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: 19, md: 21 } }}>Registros procesados ({filteredRecords.length})</Typography>
+        <Typography variant="body2" color="text.secondary">Mostrando {filteredRecords.length} de {records.length}</Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.25 }}>
-          <Button
-            variant="text"
-            startIcon={<CleaningServicesRoundedIcon />}
-            onClick={handleReprocessExcel}
-            size="small"
-            sx={{ borderRadius: 2, px: 1.5, py: 0.75 }}
-          >
-            Reprocesar Excel
-          </Button>
-          <Button
-            variant="text"
-            color="error"
-            startIcon={<DeleteOutlineRoundedIcon />}
-            onClick={handleDeleteCurrent}
-            size="small"
-            sx={{ borderRadius: 2, px: 1.5, py: 0.75 }}
-          >
-            Eliminar análisis actual
-          </Button>
+          <Button variant="text" startIcon={<CleaningServicesRoundedIcon />} onClick={() => onReprocessExcel?.()} size="small">Reprocesar Excel</Button>
+          <Button variant="text" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => onDeleteCurrent?.()} size="small">Eliminar análisis actual</Button>
         </Box>
       </Box>
 
-      <Box sx={{ mb: 1.5 }}>
-        <Tabs
-          value={activeCategory}
-          onChange={(_event, value) => {
-            setActiveCategory(value);
-            setPage(0);
-          }}
-          variant="scrollable"
-          scrollButtons="auto"
-          allowScrollButtonsMobile
-          sx={{
-            minHeight: 44,
-            '.MuiTabs-indicator': { display: 'none' },
-            '.MuiTabs-flexContainer': { gap: 1 }
-          }}
-        >
-          {categories.map((category) => {
-            const palette = tabStyleByCategory[category.key];
-            const isActive = activeCategory === category.key;
-            return (
-              <Tab
-                key={category.key}
-                value={category.key}
-                label={`${category.short} (${countsByCategory[category.key] || 0})`}
-                sx={{
-                  minHeight: 36,
-                  height: 36,
-                  borderRadius: 999,
-                  px: 1.5,
-                  py: 0.5,
-                  minWidth: 0,
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  color: isActive ? palette.color : '#475569',
-                  backgroundColor: isActive ? palette.bg : 'rgba(148,163,184,0.12)',
-                  border: isActive ? `1px solid ${palette.color}33` : '1px solid rgba(148,163,184,0.22)'
-                }}
-              />
-            );
-          })}
-        </Tabs>
-      </Box>
+      <Tabs value={activeCategory} onChange={(_event, value) => { setActiveCategory(value); setPage(0); }} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile sx={{ mb: 1.5, '.MuiTabs-indicator': { display: 'none' }, '.MuiTabs-flexContainer': { gap: 1 } }}>
+        {categories.map((category) => (
+          <Tab key={category.key} value={category.key} label={`${category.short} (${countsByCategory[category.key] || 0})`} sx={{ minHeight: 36, height: 36, borderRadius: 999, px: 1.5, py: 0.5, minWidth: 0, textTransform: 'none', fontWeight: 700 }} />
+        ))}
+      </Tabs>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 240px auto auto' }, gap: 1.25, mb: 2 }}>
-        <TextField
-          placeholder="Buscar..."
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            setPage(0);
-          }}
-          size="small"
-          fullWidth
-        />
-        <TextField
-          select
-          label="Área clasificada"
-          value={filterArea}
-          onChange={(e) => {
-            setFilterArea(e.target.value);
-            setPage(0);
-          }}
-          size="small"
-          fullWidth
-          SelectProps={{ native: true }}
-        >
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 240px 240px 180px' }, gap: 1.25, mb: 1.5 }}>
+        <TextField placeholder="Buscar..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }} size="small" fullWidth />
+        <TextField select label="Área/Sector" value={filterArea} onChange={(e) => { setFilterArea(e.target.value); setPage(0); }} size="small" fullWidth SelectProps={{ native: true }}>
           <option value="all">Todas</option>
-          {availableAreas.map((area) => (
-            <option key={area} value={area}>{area}</option>
-          ))}
+          {availableAreas.map((area) => <option key={area} value={area}>{area}</option>)}
         </TextField>
-        <TextField
-          select
-          label="Alcance"
-          value={scopeFilter}
-          onChange={(e) => {
-            setScopeFilter(e.target.value);
-            setPage(0);
-          }}
-          size="small"
-          fullWidth
-          SelectProps={{ native: true }}
-        >
+        <TextField select label="Clasificación" value={filterClassification} onChange={(e) => { setFilterClassification(e.target.value); setPage(0); }} size="small" fullWidth SelectProps={{ native: true }}>
+          <option value="all">Todas</option>
+          {categories.filter((c) => c.key !== 'todos').map((c) => <option key={c.key} value={c.key}>{c.key}</option>)}
+        </TextField>
+        <TextField select label="Estado" value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(0); }} size="small" fullWidth SelectProps={{ native: true }}>
           <option value="all">Todos</option>
-          <option value="interno">Solo internos</option>
-          <option value="externo">Solo externos</option>
+          <option value="abierto">Abierto</option>
+          <option value="cerrado">Cerrado</option>
         </TextField>
-        <TextField
-          select
-          label="Exportación"
-          value={exportMode}
-          onChange={(e) => setExportMode(e.target.value)}
-          size="small"
-          fullWidth
-          SelectProps={{ native: true }}
-        >
-          <option value="all">Exportar todos</option>
-          <option value="filtered">Exportar vista filtrada</option>
-        </TextField>
-        <Button
-          variant="contained"
-          onClick={handleExportExcel}
-          disabled={recordsForExport.length === 0}
-          size="small"
-          sx={{
-            backgroundColor: '#1d6f42',
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            borderRadius: 2,
-            px: 1.75,
-            py: 0.75,
-            boxShadow: '0 2px 8px rgba(29, 111, 66, 0.25)',
-            '&:hover': {
-              backgroundColor: '#155c36',
-              boxShadow: '0 6px 12px rgba(21, 92, 54, 0.32)',
-              transform: 'translateY(-1px)'
-            },
-            '&.Mui-disabled': {
-              backgroundColor: '#9ca3af',
-              color: '#f3f4f6',
-              boxShadow: 'none'
-            }
-          }}
-        >
-          <img src={excelIcon} alt="" width={16} height={16} />
-          {exportMode === 'filtered' ? `${activeExportConfig.label} (vista)` : `${activeExportConfig.label} (todos)`}
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleShareWhatsApp}
-          size="small"
-          sx={{
-            backgroundColor: '#25d366',
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            borderRadius: 2,
-            px: 1.75,
-            py: 0.75,
-            boxShadow: '0 2px 8px rgba(37, 211, 102, 0.24)',
-            '&:hover': {
-              backgroundColor: '#1ebc59',
-              boxShadow: '0 6px 12px rgba(30, 188, 89, 0.30)',
-              transform: 'translateY(-1px)'
-            }
-          }}
-        >
-          <img src={whatsappIcon} alt="" width={16} height={16} />
-          Exportar por WhatsApp
-        </Button>
       </Box>
 
-      <Box ref={topScrollRef} sx={{ overflowX: 'auto', overflowY: 'hidden', mb: 0.75 }}>
-        <Box sx={{ width: scrollContentWidth, height: 1 }} />
-      </Box>
+      <Accordion sx={{ mb: 1.5, backgroundColor: 'rgba(148,163,184,0.08)', border: '1px solid rgba(148,163,184,0.22)' }}>
+        <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>Sección avanzada</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '220px 1fr 1fr' }, gap: 1.25 }}>
+            <TextField select label="Exportación" value={exportMode} onChange={(e) => setExportMode(e.target.value)} size="small" fullWidth SelectProps={{ native: true }}>
+              <option value="all">Exportar todos</option>
+              <option value="filtered">Exportar vista filtrada</option>
+            </TextField>
+            <Button variant="contained" onClick={handleExportExcel} disabled={recordsForExport.length === 0} size="small" sx={{ backgroundColor: '#1d6f42', color: '#fff' }}>
+              <img src={excelIcon} alt="" width={16} height={16} style={{ marginRight: 8 }} />
+              {exportMode === 'filtered' ? `${activeExportConfig.label} (vista)` : `${activeExportConfig.label} (todos)`}
+            </Button>
+            <Button variant="contained" onClick={handleShareWhatsApp} size="small" sx={{ backgroundColor: '#25d366', color: '#fff' }}>
+              <img src={whatsappIcon} alt="" width={16} height={16} style={{ marginRight: 8 }} />
+              Exportar por WhatsApp
+            </Button>
+          </Box>
+        </AccordionDetails>
+      </Accordion>
 
-      <TableContainer ref={tableContainerRef} sx={{ overflowX: 'auto', backgroundColor: 'transparent', mx: { xs: -0.5, md: 0 }, width: '100%' }}>
-        <Table sx={{ minWidth: 1380 }}>
+      <Box ref={topScrollRef} sx={{ overflowX: 'auto', overflowY: 'hidden', mb: 0.75 }}><Box sx={{ width: scrollContentWidth, height: 1 }} /></Box>
+
+      <TableContainer ref={tableContainerRef} sx={{ overflowX: 'auto', backgroundColor: 'transparent', width: '100%' }}>
+        <Table sx={{ minWidth: 1500 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 700, width: 52 }} />
               <TableCell sx={{ fontWeight: 700 }}>Fecha</TableCell>
-              <TableCell sx={{ fontWeight: 700, minWidth: 300 }}>Hallazgo detectado</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Área</TableCell>
-              <TableCell sx={{ fontWeight: 700, minWidth: 180 }}>Clasificación</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 300 }}>Desvío detectado</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Área/Sector</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Clasificación</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Tipo</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Alcance</TableCell>
-              <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>ISO</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>Relación ISO 22000</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
-              <TableCell sx={{ fontWeight: 700, minWidth: 280 }}>Acción inmediata</TableCell>
-              <TableCell sx={{ fontWeight: 700, minWidth: 320 }}>Acción correctiva</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 260 }}>Acción inmediata</TableCell>
+              <TableCell sx={{ fontWeight: 700, minWidth: 300 }}>Acción correctiva</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {displayedRecords.map((record, index) => {
               const rowKey = `${page}-${index}-${normalizeCellValue(record.fecha)}-${normalizeCellValue(record.hallazgoDetectado).slice(0, 20)}`;
               const isExpanded = Boolean(expandedRows[rowKey]);
-              const fullHallazgo = normalizeCellValue(record.hallazgoDetectado);
+              const fullHallazgo = normalizeCellValue(record.desvioDetectado || record.hallazgoDetectado);
+              const clasificacion = normalizeClassification(record);
+              const tipo = normalizeTipo(record);
+              const estado = normalizeEstado(record);
+
               return (
                 <Fragment key={rowKey}>
-                  <TableRow hover sx={{ '&:hover': { backgroundColor: 'rgba(29, 78, 216, 0.025)' } }}>
+                  <TableRow hover>
                     <TableCell>
-                      <IconButton size="small" onClick={() => toggleExpandedRow(rowKey)} aria-label="ver detalle">
+                      <IconButton size="small" onClick={() => setExpandedRows((prev) => ({ ...prev, [rowKey]: !prev[rowKey] }))} aria-label="ver detalle">
                         {isExpanded ? <KeyboardArrowUpRoundedIcon fontSize="small" /> : <KeyboardArrowDownRoundedIcon fontSize="small" />}
                       </IconButton>
                     </TableCell>
                     <TableCell>{normalizeCellValue(record.fecha)}</TableCell>
                     <TableCell>
                       <Tooltip title={fullHallazgo || '-'} arrow placement="top-start">
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            display: '-webkit-box',
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden'
-                          }}
-                        >
-                          {fullHallazgo || '-'}
-                        </Typography>
+                        <Typography variant="body2" sx={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{fullHallazgo || '-'}</Typography>
                       </Tooltip>
                     </TableCell>
-                    <TableCell>{normalizeCellValue(record.areaClasificada) || '-'}</TableCell>
-                    <TableCell sx={{ maxWidth: 220 }}>
-                      <Typography variant="body2">{normalizeCellValue(record.classification_original || record.categoriaDesvio) || '-'}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      {normalizeCellValue(record.tipoDesvio) ? (
-                        <Chip
-                          label={normalizeCellValue(record.tipoDesvio)}
-                          size="small"
-                          sx={{
-                            backgroundColor: (typeColors[record.tipoDesvio] || typeColors.OBS).bg,
-                            color: (typeColors[record.tipoDesvio] || typeColors.OBS).text
-                          }}
-                        />
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">-</Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>{getRecordScope(record)}</TableCell>
-                    <TableCell sx={{ maxWidth: 250 }}>
-                      <Typography variant="body2">{normalizeCellValue(record.iso22000) || '-'}</Typography>
-                    </TableCell>
-                    <TableCell>{formatEstadoAccion(record.estadoAccion)}</TableCell>
-                    <TableCell sx={{ maxWidth: 360 }}>
-                      <Typography variant="body2">{normalizeCellValue(record.immediate_action || record.accionInmediata) || '-'}</Typography>
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 380 }}>
-                      <Typography variant="body2">
-                        {normalizeCellValue(record.corrective_action || record.accionCorrectiva) || '-'}
-                      </Typography>
-                    </TableCell>
+                    <TableCell>{normalizeCellValue(record.areaSector || record.areaClasificada) || '-'}</TableCell>
+                    <TableCell><Chip size="small" label={clasificacion} sx={{ backgroundColor: (categoryColors[clasificacion] || categoryColors.Calidad).bg, color: (categoryColors[clasificacion] || categoryColors.Calidad).text }} /></TableCell>
+                    <TableCell><Chip size="small" label={tipo} sx={{ backgroundColor: (typeColors[tipo] || typeColors.Interno).bg, color: (typeColors[tipo] || typeColors.Interno).text }} /></TableCell>
+                    <TableCell>{normalizeCellValue(record.relacionIso22000 || record.iso22000) || '-'}</TableCell>
+                    <TableCell><Chip size="small" label={estado} /></TableCell>
+                    <TableCell>{normalizeCellValue(record.immediate_action || record.accionInmediata) || '-'}</TableCell>
+                    <TableCell>{normalizeCellValue(record.corrective_action || record.accionCorrectiva) || '-'}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={11}>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={10}>
                       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                         <Box sx={{ px: 2, py: 1.5, backgroundColor: 'rgba(148,163,184,0.08)', borderRadius: 1, mb: 1.25 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Detalle del registro</Typography>
-                          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.25 }}>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">Acción inmediata</Typography>
-                              <Typography variant="body2">{normalizeCellValue(record.immediate_action || record.accionInmediata) || '-'}</Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">Acción correctiva</Typography>
-                              <Typography variant="body2">{normalizeCellValue(record.corrective_action || record.accionCorrectiva) || '-'}</Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">Área / Proceso original</Typography>
-                              <Typography variant="body2">{normalizeCellValue(record.areaProceso) || '-'}</Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">Actividad realizada original</Typography>
-                              <Typography variant="body2">{normalizeCellValue(record.actividadRealizada) || '-'}</Typography>
-                            </Box>
-                            <Box sx={{ gridColumn: { xs: 'auto', md: '1 / span 2' } }}>
-                              <Typography variant="caption" color="text.secondary">Hallazgo completo</Typography>
-                              <Typography variant="body2">{fullHallazgo || '-'}</Typography>
-                            </Box>
-                            <Box sx={{ gridColumn: { xs: 'auto', md: '1 / span 2' } }}>
-                              <Typography variant="caption" color="text.secondary">Desvío interno/externo (origen)</Typography>
-                              <Typography variant="body2">
-                                {getRecordScope(record)}
-                              </Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">Acción inmediata (origen)</Typography>
-                              <Typography variant="body2">
-                                {findOriginalValueByAliases(record, ['Acción inmediata', 'Accion inmediata']) || '-'}
-                              </Typography>
-                            </Box>
-                            <Box>
-                              <Typography variant="caption" color="text.secondary">Acción correctiva propuesta (origen)</Typography>
-                              <Typography variant="body2">
-                                {findOriginalValueByAliases(record, ['Acción correctiva propuesta', 'Accion correctiva propuesta', 'Acción Correctiva Propuesta']) || '-'}
-                              </Typography>
-                            </Box>
-                            <Box sx={{ gridColumn: { xs: 'auto', md: '1 / span 2' } }}>
-                              <Typography variant="caption" color="text.secondary">Observaciones (origen)</Typography>
-                              <Typography variant="body2">
-                                {findOriginalValueByAliases(record, ['Observaciones', 'Observación', 'Observacion']) || '-'}
-                              </Typography>
-                            </Box>
-                            {Object.keys(getOriginalColumns(record)).length > 0 && (
-                              <Box sx={{ gridColumn: { xs: 'auto', md: '1 / span 2' } }}>
-                                <Typography variant="caption" color="text.secondary">Datos originales</Typography>
-                                <Box sx={{ mt: 0.5, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 0.6 }}>
-                                  {Object.entries(getOriginalColumns(record)).map(([key, value]) => (
-                                    <Typography key={`${rowKey}-${key}`} variant="body2">
-                                      <strong>{key}:</strong> {normalizeCellValue(value) || '-'}
-                                    </Typography>
-                                  ))}
-                                </Box>
-                              </Box>
-                            )}
-                          </Box>
+                          <Typography variant="body2">Área / Proceso original: {normalizeCellValue(record.areaProceso) || '-'}</Typography>
+                          <Typography variant="body2">Actividad realizada original: {normalizeCellValue(record.actividadRealizada) || '-'}</Typography>
                         </Box>
                       </Collapse>
                     </TableCell>
@@ -800,8 +435,11 @@ export default function AnalysisResults({
         count={filteredRecords.length}
         rowsPerPage={rowsPerPage}
         page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
+        onPageChange={(_event, newPage) => setPage(newPage)}
+        onRowsPerPageChange={(event) => {
+          setRowsPerPage(parseInt(event.target.value, 10));
+          setPage(0);
+        }}
       />
     </Paper>
   );

@@ -20,6 +20,47 @@ function ensureSingleArea(areaClasificada = '') {
   return normalized[0];
 }
 
+function normalizeCategoriaPermitida(categoria = '') {
+  const value = normalizeIncidentText(categoria);
+  if (!value) return 'Calidad';
+  if (value.includes('legal')) return 'Legales';
+  if (value.includes('logistica')) return 'Logística';
+  if (value.includes('inocuidad')) return 'Inocuidad';
+  if (value.includes('mantenimiento')) return 'Mantenimiento';
+  if (value.includes('rrhh') || value.includes('recursos humanos') || value.includes('personal')) return 'Recursos Humanos';
+  if (value.includes('calidad')) return 'Calidad';
+  return 'Calidad';
+}
+
+function normalizeTipoPermitido(tipo = '', alcance = '', hallazgo = '') {
+  const tipoNorm = normalizeIncidentText(tipo);
+  if (tipoNorm === 'interno' || tipoNorm === 'externo') return tipoNorm === 'interno' ? 'Interno' : 'Externo';
+
+  const alcanceNorm = normalizeIncidentText(alcance);
+  if (alcanceNorm === 'interno' || alcanceNorm === 'externo') return alcanceNorm === 'interno' ? 'Interno' : 'Externo';
+
+  const hallazgoNorm = normalizeIncidentText(hallazgo);
+  if (hallazgoNorm.includes('reclamo') || hallazgoNorm.includes('cliente')) return 'Externo';
+  return 'Interno';
+}
+
+function normalizeEstadoPermitido(estado = '', fecha = '') {
+  const value = normalizeIncidentText(estado);
+  if (value === 'abierto' || value === 'abierta') return 'Abierto';
+  if (value === 'cerrado' || value === 'cerrada' || value === 'finalizado' || value === 'finalizada') return 'Cerrado';
+
+  const match = normalizeCellValue(fecha).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const y = Number(match[1]);
+    const m = Number(match[2]);
+    const d = Number(match[3]);
+    const rowDate = new Date(y, m - 1, d);
+    const cutoff = new Date(2026, 4, 1);
+    return rowDate < cutoff ? 'Cerrado' : 'Abierto';
+  }
+  return 'Abierto';
+}
+
 function validateFinalRecord(record = {}) {
   const validated = { ...record };
   const preserveOriginalClassification = Boolean(validated.preserveOriginalClassification);
@@ -149,6 +190,17 @@ function validateFinalRecord(record = {}) {
     validated.resultadoClasificado = 'No conforme';
     validated.tipoDesvio = mapTipoFromCategoria(validated.categoriaDesvio, validated.tipoDesvio || 'NC') || 'NC';
   }
+
+  // Normalización al nuevo esquema de desvíos (no destructiva).
+  validated.areaSector = normalizeCellValue(validated.areaClasificada || validated.areaProceso).trim();
+  validated.desvioDetectado = normalizeCellValue(validated.hallazgoDetectado).trim();
+  validated.clasificacionDesvio = normalizeCategoriaPermitida(validated.categoriaDesvio || validated.classification_original);
+  validated.tipoDesvioOrigen = normalizeTipoPermitido(validated.tipoDesvio, validated.alcanceDesvio || validated.scope_normalized, validated.hallazgoDetectado);
+  validated.relacionIso22000 = normalizeCellValue(validated.iso22000).trim();
+  validated.estadoAcciones = normalizeEstadoPermitido(validated.estadoAccion, validated.fecha);
+
+  // Mantener compatibilidad con consumidores actuales sin alterar métricas legacy.
+  validated.estadoAccion = validated.estadoAcciones;
 
   return validated;
 }

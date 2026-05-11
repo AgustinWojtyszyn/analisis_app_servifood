@@ -172,8 +172,8 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
   if (finalTipo === 'OBS') summary.totalOBS += 1;
   if (finalTipo === 'OM') summary.totalOM += 1;
 
-  if (finalEstadoAccion === 'abierta') summary.actions.abiertas += 1;
-  if (finalEstadoAccion === 'cerrada') summary.actions.cerradas += 1;
+  if (finalEstadoAccion === 'abierta' || finalEstadoAccion === 'abierto') summary.actions.abiertas += 1;
+  if (finalEstadoAccion === 'cerrada' || finalEstadoAccion === 'cerrado') summary.actions.cerradas += 1;
   if (finalEstadoAccion === 'en_proceso') summary.actions.enProceso += 1;
   if (finalEstadoAccion === 'sin_accion') summary.actions.sinAccion += 1;
   if (finalEstadoAccion === 'pendiente') summary.actions.sinAccion += 1;

@@ -388,8 +388,8 @@ function classifyActionStatusFromRow({
 }) {
   const explicit = normalizeIncidentText(estadoExplicito || '');
   if (explicit) {
-    if (containsAny(explicit, ['cerrado', 'cerrada', 'finalizado', 'finalizada', 'cumplido'])) return 'cerrada';
-    if (containsAny(explicit, ['pendiente', 'abierto', 'abierta', 'en proceso', 'en_proceso'])) return 'pendiente';
+    if (containsAny(explicit, ['cerrado', 'cerrada', 'finalizado', 'finalizada', 'cumplido'])) return 'cerrado';
+    if (containsAny(explicit, ['pendiente', 'abierto', 'abierta', 'en proceso', 'en_proceso'])) return 'abierto';
   }
 
   const parseIsoDateOnly = (value) => {
@@ -408,9 +408,13 @@ function classifyActionStatusFromRow({
   };
   const fecha = parseIsoDateOnly(fechaRegistro);
   const today = startOfToday();
+  const cutoffLegacyClosed = new Date(2026, 4, 1); // 2026-05-01
   if (fecha) {
-    if (fecha < today) return 'cerrada';
-    return 'pendiente';
+    // Regla solicitada: abril 2026 o anterior => Cerrado, mayo 2026 (mes vigente) => Abierto.
+    // Mantenemos el comportamiento general para fechas futuras también como abiertas.
+    if (fecha < cutoffLegacyClosed) return 'cerrado';
+    if (fecha >= cutoffLegacyClosed && fecha <= today) return 'abierto';
+    return 'abierto';
   }
 
   const sourceActionText = normalizeIncidentText([
@@ -458,13 +462,13 @@ function classifyActionStatusFromRow({
     'se subio'
   ]);
 
-  if (hasClosedEvidence) return 'cerrada';
-  if (hasProgressEvidence) return 'pendiente';
-  if (hasExecutedEvidence) return 'pendiente';
+  if (hasClosedEvidence) return 'cerrado';
+  if (hasProgressEvidence) return 'abierto';
+  if (hasExecutedEvidence) return 'abierto';
 
-  if (!tieneNumeroAccion && !hasImplicitActionVerb) return 'pendiente';
-  if (tieneNumeroAccion || hasImplicitActionVerb) return 'pendiente';
-  return 'pendiente';
+  if (!tieneNumeroAccion && !hasImplicitActionVerb) return 'abierto';
+  if (tieneNumeroAccion || hasImplicitActionVerb) return 'abierto';
+  return 'abierto';
 }
 
 export {

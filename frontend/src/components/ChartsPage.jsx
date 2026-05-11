@@ -36,12 +36,9 @@ function normalizeEstadoAccion(value) {
     .replace(/\s+/g, '_');
 
   if (!normalized || normalized === '-') return 'sin_accion';
-  if (normalized === 'sin_accion' || normalized === 'sinaccion') return 'sin_accion';
-  if (normalized === 'en_proceso' || normalized === 'enproceso') return 'en_proceso';
   if (normalized === 'abierta' || normalized === 'abierto') return 'abierto';
   if (normalized === 'cerrada' || normalized === 'cerrado') return 'cerrado';
-  if (normalized === 'archivada' || normalized === 'archivado') return 'archivado';
-  return normalized;
+  return 'abierto';
 }
 
 export default function ChartsPage({ records = [], summary = null, analysisTotalRecords = 0 }) {
@@ -70,12 +67,12 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     const fallbackByArea = {};
     const fallbackByCategoria = {};
     const fallbackByIso = {};
-    const fallbackActions = { abierto: 0, cerrado: 0, archivado: 0, enProceso: 0, sinAccion: 0 };
+    const fallbackActions = { abierto: 0, cerrado: 0 };
 
     if (deriveFromRecords) {
       records.forEach((record) => {
         const area = String(record.areaClasificada || '').trim();
-        const categoria = String(record.classification_normalized || record.categoriaDesvio || '').trim();
+        const categoria = String(record.clasificacionDesvio || record.classification_normalized || record.categoriaDesvio || '').trim();
         const iso = String(record.iso22000 || '').trim();
         const estadoAccion = normalizeEstadoAccion(record.estadoAccion);
         if (categoria) fallbackByCategoria[categoria] = (fallbackByCategoria[categoria] || 0) + 1;
@@ -91,22 +88,20 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
           fallbackByIso[iso] = (fallbackByIso[iso] || 0) + 1;
         }
 
-        if (estadoAccion === 'abierto') fallbackActions.abierto += 1;
-        else if (estadoAccion === 'cerrado') fallbackActions.cerrado += 1;
-        else if (estadoAccion === 'archivado') fallbackActions.archivado += 1;
-        else if (estadoAccion === 'en_proceso') fallbackActions.enProceso += 1;
-        else fallbackActions.sinAccion += 1;
+        if (estadoAccion === 'cerrado') fallbackActions.cerrado += 1;
+        else fallbackActions.abierto += 1;
       });
     }
 
     const desviosPorArea = objectToChartData(safeSummary.byArea || fallbackByArea);
     const categoriaRaw = safeSummary.byCategoria || fallbackByCategoria;
     const categoriasCompletas = {
-      'Desvío de Inocuidad': Number(safeSummary.totalInocuidad ?? categoriaRaw['Desvío de Inocuidad'] ?? 0),
-      'Desvío de Logística': Number(safeSummary.totalLogistica ?? categoriaRaw['Desvío de Logística'] ?? 0),
-      'Desvío de Calidad': Number(safeSummary.totalCalidad ?? categoriaRaw['Desvío de Calidad'] ?? 0),
-      'Desvío Legal': Number(safeSummary.totalLegal ?? categoriaRaw['Desvío Legal'] ?? 0),
-      'Revisar manualmente': Number(safeSummary.totalRevisionManual ?? categoriaRaw['Revisar manualmente'] ?? 0)
+      Legales: Number(categoriaRaw.Legales ?? categoriaRaw['Desvío Legal'] ?? safeSummary.totalLegal ?? 0),
+      'Logística': Number(categoriaRaw['Logística'] ?? categoriaRaw['Desvío de Logística'] ?? safeSummary.totalLogistica ?? 0),
+      Calidad: Number(categoriaRaw.Calidad ?? categoriaRaw['Desvío de Calidad'] ?? safeSummary.totalCalidad ?? 0),
+      Mantenimiento: Number(categoriaRaw.Mantenimiento ?? 0),
+      Inocuidad: Number(categoriaRaw.Inocuidad ?? categoriaRaw['Desvío de Inocuidad'] ?? safeSummary.totalInocuidad ?? 0),
+      'Recursos Humanos': Number(categoriaRaw['Recursos Humanos'] ?? 0)
     };
     const desviosPorCategoria = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
     const desviosPorCategoriaCompleta = objectToChartData(categoriasCompletas);
@@ -123,10 +118,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
 
     const estadoAcciones = [
       { name: 'Abierto', value: Number(safeSummary.actions?.abiertas ?? fallbackActions.abierto) },
-      { name: 'Cerrado', value: Number(safeSummary.actions?.cerradas ?? fallbackActions.cerrado) },
-      { name: 'Archivado', value: Number(safeSummary.actions?.archivadas ?? fallbackActions.archivado) },
-      { name: 'En proceso', value: Number(safeSummary.actions?.enProceso ?? fallbackActions.enProceso) },
-      { name: 'Sin acción', value: Number(safeSummary.actions?.sinAccion ?? fallbackActions.sinAccion) }
+      { name: 'Cerrado', value: Number(safeSummary.actions?.cerradas ?? fallbackActions.cerrado) }
     ];
 
     return {
