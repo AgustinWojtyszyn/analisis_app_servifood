@@ -181,6 +181,31 @@ function normalizeModernCategory(category = '') {
   return normalizeCategory(category);
 }
 
+function normalizeExportClassification(record = {}) {
+  const raw = normalizeCellValue(
+    record.clasificacionDesvio
+      || record.categoriaDesvio
+      || record.classification_normalized
+      || record.classification_original
+  ).trim();
+  return normalizeCategory(raw);
+}
+
+function normalizeExportTipo(record = {}) {
+  const raw = normalizeCellValue(
+    record.tipoDesvioOrigen
+      || record.scope_normalized
+      || record.scope_original
+      || record.alcanceDesvio
+  ).trim().toLowerCase();
+  return raw === 'externo' ? 'Externo' : 'Interno';
+}
+
+function normalizeExportEstado(record = {}) {
+  const raw = normalizeCellValue(record.estadoAcciones || record.estadoAccion).trim().toLowerCase();
+  return (raw === 'cerrado' || raw === 'cerrada') ? 'Cerrado' : 'Abierto';
+}
+
 function reclassifyStoredRecord(record = {}) {
   if (isManualCategoryOverride(record)) return record;
 
@@ -835,18 +860,26 @@ export async function exportBulkAnalyses(req, res) {
 
     const rows = [];
     for (const item of data || []) {
-      const summary = item.results?.summary || {};
-      rows.push({
-        analysisId: item.id,
-        filename: item.filename,
-        status: item.status || '',
-        createdAt: item.created_at,
-        totalRecords: item.results?.totalRecords || 0,
-        totalNC: summary.totalNC || 0,
-        totalOBS: summary.totalOBS || 0,
-        totalConformes: summary.totalConformes || 0,
-        totalOM: summary.totalOM || 0
-      });
+      const normalized = normalizeStoredAnalysisResults(item.results || {});
+      const records = Array.isArray(normalized?.records) ? normalized.records : [];
+      const processedAt = normalizeCellValue(normalized?.summary?.processedAt || item.created_at).trim();
+
+      for (const record of records) {
+        rows.push({
+          analysisId: item.id,
+          filename: item.filename || '',
+          processedAt,
+          Fecha: normalizeCellValue(record.fecha),
+          'Área/Sector': normalizeCellValue(record.areaSector || record.areaClasificada),
+          'Desvío detectado': normalizeCellValue(record.desvioDetectado || record.hallazgoDetectado),
+          'Clasificación del desvío': normalizeExportClassification(record),
+          'Tipo de desvío': normalizeExportTipo(record),
+          'Relación ISO 22000': normalizeCellValue(record.relacionIso22000 || record.iso22000),
+          'Estado de acciones': normalizeExportEstado(record),
+          'Acción inmediata': normalizeCellValue(record.immediate_action || record.accionInmediata),
+          'Acción correctiva': normalizeCellValue(record.corrective_action || record.accionCorrectiva)
+        });
+      }
     }
 
     const sheet = XLSX.utils.json_to_sheet(rows);

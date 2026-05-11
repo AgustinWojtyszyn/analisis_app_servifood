@@ -64,7 +64,10 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     const categorias = (
       Number(summary?.totalInocuidad ?? 0) +
       Number(summary?.totalLogistica ?? 0) +
-      Number(summary?.totalLegal ?? 0)
+      Number(summary?.totalCalidad ?? 0) +
+      Number(summary?.totalLegal ?? 0) +
+      Number(summary?.totalMantenimiento ?? 0) +
+      Number(summary?.totalRRHH ?? 0)
     );
     return (
       (Array.isArray(records) && records.length > 0) ||
