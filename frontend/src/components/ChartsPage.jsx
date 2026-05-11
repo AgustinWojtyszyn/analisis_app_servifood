@@ -410,13 +410,8 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                           ))}
                         </Pie>
                         {data.estadoSingle && (
-                          <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}>
-                            {`${data.estadoSingle.value}`}
-                          </text>
-                        )}
-                        {data.estadoSingle && (
-                          <text x="50%" y="56%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: 11, fill: '#475569' }}>
-                            {data.estadoSingle.name.toLowerCase()}
+                          <text x="50%" y="51%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: 12, fontWeight: 700, fill: '#0f172a' }}>
+                            {`${data.estadoSingle.value} ${data.estadoSingle.name.toLowerCase()}${Number(data.estadoSingle.value) === 1 ? '' : 's'}`}
                           </text>
                         )}
                         <Tooltip formatter={(value) => [value, 'Cantidad']} />
