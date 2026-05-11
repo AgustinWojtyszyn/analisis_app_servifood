@@ -86,8 +86,8 @@ test('Naturaleza manda sobre área: área caliente + viandas pasadas de peso => 
   assert.equal(classify('Area caliente: viandas pasadas de peso'), 'Desvío de Calidad');
 });
 
-test('Naturaleza manda sobre área: área caliente + personal llega tarde para despacho => Logística', () => {
-  assert.equal(classify('Area caliente: personal llega tarde y se demora el despacho'), 'Desvío de Logística');
+test('Prioridad RRHH: área caliente + personal llega tarde para despacho => RRHH', () => {
+  assert.equal(classify('Area caliente: personal llega tarde y se demora el despacho'), 'Desvío de Recursos Humanos');
 });
 
 test('Detailed classifier returns technical reason and confidence', () => {

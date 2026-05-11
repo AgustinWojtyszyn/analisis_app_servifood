@@ -57,14 +57,21 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
   const qualityTerms = [
     'carne rigida', 'carne rígida', 'falta dorado', 'poco cocido', 'sobre cocido', 'textura', 'sabor',
     'consistencia', 'presentacion', 'presentación', 'producto duro', 'comida fria', 'comida fría',
-    'producto quemado', 'producto seco', 'mala calidad', 'calidad del producto', 'aspecto del producto', 'producto visualmente malo'
+    'producto quemado', 'producto seco', 'mala calidad', 'calidad del producto', 'aspecto del producto', 'producto visualmente malo',
+    'problema visual', 'presentacion del producto', 'presentación del producto', 'aspecto visual', 'fruta pasada de madurez'
   ];
   const qualityVisualTerms = [
-    'tomates picados', 'tomate picado', 'picados', 'picado', 'picada', 'apariencia no fresca', 'fruta pasada', 'madurez', 'fresco', 'fresca', 'oxidado', 'oxidada'
+    'tomates picados', 'tomate picado', 'picados', 'picado', 'picada', 'apariencia no fresca', 'fruta pasada', 'madurez', 'fresco', 'fresca', 'oxidado', 'oxidada', 'aspecto del producto'
   ];
   const inocuidadStrongTerms = [
     'higiene', 'desinfeccion', 'desinfección', 'refrigeracion', 'refrigeración', 'sin etiquetar',
-    'contaminacion', 'contaminación', 'bpm', 'prp', 'haccp', 'trazabilidad', 'fuera de refrigeracion', 'fuera de refrigeración'
+    'contaminacion', 'contaminación', 'bpm', 'prp', 'haccp', 'trazabilidad', 'fuera de refrigeracion', 'fuera de refrigeración',
+    'bichos', 'insectos', 'gusanos'
+  ];
+  const rrhhPriorityTerms = [
+    'no asiste', 'no asistio', 'no asistió', 'ausencia', 'ausenta', 'falta personal', 'falta el personal',
+    'llamado de atencion', 'llamado de atención', 'sancion', 'sanción', 'suspension', 'suspensión',
+    'tardanza del personal', 'personal llega tarde', 'personal de lavadero'
   ];
 
   // Tuning final: scoring acumulativo real para Logística/Calidad.
@@ -73,6 +80,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
   const qualityHits = countMatches(qualityTerms);
   const qualityVisualHits = countMatches(qualityVisualTerms);
   const inocuidadStrongHits = countMatches(inocuidadStrongTerms);
+  const rrhhPriorityHits = countMatches(rrhhPriorityTerms);
 
   const logisticsScore = (logisticHits * 1.4) + (logisticBoostHits * 4.0);
   const qualityScore = (qualityHits * 1.7) + (qualityVisualHits * 3.0);
@@ -80,11 +88,20 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     logisticsScore,
     qualityScore,
     inocuidadStrongHits,
+    rrhhPriorityHits,
     logisticHits,
     logisticBoostHits,
     qualityHits,
     qualityVisualHits
   };
+
+  if (rrhhPriorityHits >= 1) {
+    return {
+      clasificacion: CATEGORY.RRHH,
+      confidence: 0.93,
+      matchedRules: rrhhPriorityTerms.filter((k) => hasAny([k]))
+    };
+  }
 
   if (logisticsScore >= 5 && inocuidadStrongHits === 0) {
     const matched = [
@@ -114,7 +131,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
       confidence: 0.95,
       entries: [
         ['higiene', 'limpiar', 'limpieza', 'desinfectar', 'desinfeccion', 'desinfección', 'sucio', 'sucia', 'sucias', 'sucios', 'platina', 'platinas', 'meson', 'mesón', 'mesones'],
-        ['contaminacion', 'contaminación', 'refrigeracion', 'refrigeración', 'fuera de refrigeracion', 'fuera de refrigeración', 'sin etiquetar', 'etiqueta', 'etiquetado', 'pelo'],
+        ['contaminacion', 'contaminación', 'refrigeracion', 'refrigeración', 'fuera de refrigeracion', 'fuera de refrigeración', 'sin etiquetar', 'etiqueta', 'etiquetado', 'pelo', 'bichos', 'insectos', 'gusanos'],
         ['vencimiento', 'trazabilidad', 'bpm', 'manipulacion', 'manipulación', 'decomisa', 'decomiso', 'haccp', 'prp'],
         ['coccion', 'cocción', 'crudo', 'sin sanitizar', 'sanitizacion', 'sanitización', 'contaminado', 'alergenos', 'alérgenos']
       ]

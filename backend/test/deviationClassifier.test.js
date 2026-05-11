@@ -143,3 +143,11 @@ test('Apariencia no fresca => Calidad', () => {
 test('Fruta pasada => Calidad', () => {
   assert.equal(c('Fruta pasada'), 'Calidad');
 });
+
+test('Lechuga con bichos => Inocuidad', () => {
+  assert.equal(c('Lechuga con bichos en bandeja de servicio'), 'Inocuidad');
+});
+
+test('Daniel no asiste a trabajar y se demora el envio => Recursos Humanos', () => {
+  assert.equal(c('Daniel no asiste a trabajar y se demora el envio'), 'Recursos Humanos');
+});
