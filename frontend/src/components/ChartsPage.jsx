@@ -15,6 +15,8 @@ import {
 const palette = ['#1d4ed8', '#2563eb', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626', '#334155', '#16a34a'];
 const AREA_FALLBACK = 'Área no identificada';
 const PIE_COLORS = ['#1d4ed8', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626'];
+const TEXT_PRIMARY = '#0f172a';
+const TEXT_SECONDARY = '#334155';
 
 function normalizeCategoryKey(value) {
   const raw = String(value || '').trim().toLowerCase();
@@ -141,6 +143,20 @@ function IsoYAxisTick({ x, y, payload }) {
 function piePercentLabel({ percent = 0 }) {
   if (!percent || percent < 0.04) return '';
   return `${Math.round(percent * 100)}%`;
+}
+
+function tooltipStyle() {
+  return {
+    contentStyle: {
+      backgroundColor: '#ffffff',
+      border: '1px solid #cbd5e1',
+      borderRadius: 10,
+      color: TEXT_PRIMARY,
+      fontWeight: 600
+    },
+    labelStyle: { color: TEXT_PRIMARY, fontWeight: 700 },
+    itemStyle: { color: TEXT_SECONDARY, fontWeight: 600 }
+  };
 }
 
 function objectToChartData(mapObject = {}) {
@@ -302,10 +318,10 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     return (
       <Card>
         <CardContent sx={{ p: 3.5, textAlign: 'center' }}>
-          <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5, color: TEXT_PRIMARY }}>
             No hay datos suficientes para mostrar gráficos
           </Typography>
-          <Typography color="text.secondary">
+          <Typography sx={{ color: TEXT_SECONDARY, fontWeight: 500 }}>
             Cargá un análisis para visualizar desvíos, resultados e ISO 22000.
           </Typography>
         </CardContent>
@@ -319,13 +335,13 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         <Grid item xs={12}>
           <Card>
             <CardContent sx={{ p: 2.5 }}>
-              <Typography sx={{ fontWeight: 700, mb: 1.5 }}>Resumen de hallazgos</Typography>
+              <Typography sx={{ fontWeight: 800, mb: 1.5, color: TEXT_PRIMARY, fontSize: 17 }}>Resumen de hallazgos</Typography>
               <Grid container spacing={1.5}>
                 {data.resumenHallazgos.map((item) => (
                   <Grid item xs={6} sm={4} md={2.4} key={item.name}>
                     <Box sx={{ borderRadius: 2, p: 1.5, border: '1px solid', borderColor: 'divider', backgroundColor: 'rgba(248,250,252,0.9)' }}>
-                      <Typography variant="body2" color="text.secondary">{item.name}</Typography>
-                      <Typography variant="h5" sx={{ fontWeight: 800 }}>{item.value}</Typography>
+                      <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontWeight: 700 }}>{item.name}</Typography>
+                      <Typography variant="h5" sx={{ fontWeight: 900, color: TEXT_PRIMARY }}>{item.value}</Typography>
                     </Box>
                   </Grid>
                 ))}
@@ -339,7 +355,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 1.75 }}>
-              <Typography sx={{ fontWeight: 700, mb: 2 }}>Desvíos por área</Typography>
+              <Typography sx={{ fontWeight: 800, mb: 2, color: TEXT_PRIMARY, fontSize: 16 }}>Desvíos por área</Typography>
               <Box sx={{ width: '100%', height: data.desviosPorArea.length === 0 ? 165 : 350 }}>
                 {data.desviosPorArea.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
@@ -348,9 +364,9 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                 ) : (
                   <ResponsiveContainer>
                     <BarChart data={data.desviosPorArea} margin={{ top: 6, right: 10, left: 6, bottom: 36 }} barCategoryGap={20}>
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} tickFormatter={(value) => shortLabel(value, 18)} interval={0} angle={-10} textAnchor="end" height={56} />
-                      <YAxis allowDecimals={false} />
-                      <Tooltip formatter={(value) => [value, 'Cantidad']} labelFormatter={(label) => String(label || '')} />
+                      <XAxis dataKey="name" tick={{ fontSize: 12, fontWeight: 600, fill: TEXT_SECONDARY }} tickFormatter={(value) => shortLabel(value, 18)} interval={0} angle={-10} textAnchor="end" height={56} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 12, fontWeight: 700, fill: TEXT_SECONDARY }} />
+                      <Tooltip {...tooltipStyle()} formatter={(value) => [value, 'Cantidad']} labelFormatter={(label) => String(label || '')} />
                       <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                         {data.desviosPorArea.map((entry, idx) => (
                           <Cell key={entry.name} fill={palette[idx % palette.length]} />
@@ -367,7 +383,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 1.75 }}>
-              <Typography sx={{ fontWeight: 700, mb: 2 }}>Desvíos por categoría</Typography>
+              <Typography sx={{ fontWeight: 800, mb: 2, color: TEXT_PRIMARY, fontSize: 16 }}>Desvíos por categoría</Typography>
               <Box sx={{ width: '100%', height: data.desviosPorCategoria.length === 0 ? 165 : 260 }}>
                 {data.desviosPorCategoria.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
@@ -383,7 +399,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                               <Cell key={entry.name} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(value) => [value, 'Cantidad']} />
+                          <Tooltip {...tooltipStyle()} formatter={(value) => [value, 'Cantidad']} />
                         </PieChart>
                       </ResponsiveContainer>
                     </Box>
@@ -391,7 +407,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                       {data.desviosPorCategoria.map((item, idx) => (
                         <Box key={item.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                           <Box sx={{ width: 10, height: 10, borderRadius: '999px', backgroundColor: PIE_COLORS[idx % PIE_COLORS.length], flexShrink: 0 }} />
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: '#334155', minWidth: 0 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: TEXT_SECONDARY, minWidth: 0 }}>
                             {shortLabel(item.name, 20)}: {item.value}
                           </Typography>
                         </Box>
@@ -407,7 +423,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 1.75 }}>
-              <Typography sx={{ fontWeight: 700, mb: 2 }}>Desvíos por categoría (barras)</Typography>
+              <Typography sx={{ fontWeight: 800, mb: 2, color: TEXT_PRIMARY, fontSize: 16 }}>Desvíos por categoría (barras)</Typography>
               <Box sx={{ width: '100%', height: data.desviosPorCategoriaCompleta.length === 0 ? 165 : 330 }}>
                 {data.desviosPorCategoriaCompleta.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
@@ -417,8 +433,9 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                   <ResponsiveContainer>
                     <BarChart data={data.desviosPorCategoriaCompleta} layout="vertical" margin={{ top: 6, right: 10, left: 6, bottom: 8 }} barCategoryGap={18}>
                       <XAxis type="number" allowDecimals={false} />
-                      <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12 }} tickFormatter={(value) => shortLabel(value, 18)} />
-                      <Tooltip formatter={(value) => [value, 'Cantidad']} labelFormatter={(label) => String(label || '')} />
+                      <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 12, fontWeight: 700, fill: TEXT_SECONDARY }} tickFormatter={(value) => shortLabel(value, 18)} />
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12, fontWeight: 700, fill: TEXT_SECONDARY }} />
+                      <Tooltip {...tooltipStyle()} formatter={(value) => [value, 'Cantidad']} labelFormatter={(label) => String(label || '')} />
                       <Bar dataKey="value" fill="#1d4ed8" radius={[0, 6, 6, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -431,7 +448,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent sx={{ p: 1.75 }}>
-              <Typography sx={{ fontWeight: 700, mb: 2 }}>Estado de acciones</Typography>
+              <Typography sx={{ fontWeight: 800, mb: 2, color: TEXT_PRIMARY, fontSize: 16 }}>Estado de acciones</Typography>
               <Box sx={{ width: '100%', height: data.estadoAcciones.every((item) => item.value === 0) ? 165 : 270 }}>
                 {data.estadoAcciones.every((item) => item.value === 0) ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
@@ -483,12 +500,12 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                             {`${data.estadoSingle.value} ${data.estadoSingle.name.toLowerCase()}${Number(data.estadoSingle.value) === 1 ? '' : 's'}`}
                           </text>
                         )}
-                        <Tooltip formatter={(value) => [value, 'Cantidad']} />
+                        <Tooltip {...tooltipStyle()} formatter={(value) => [value, 'Cantidad']} />
                       </PieChart>
                     </ResponsiveContainer>
                     <Box sx={{ mt: 1.25, display: 'flex', flexWrap: 'wrap', gap: 1.25 }}>
                       {(data.estadoSingle ? [data.estadoSingle] : data.estadoAcciones).map((item, idx) => (
-                        <Typography key={item.name} variant="body2" sx={{ color: PIE_COLORS[idx % PIE_COLORS.length], fontWeight: 700 }}>
+                        <Typography key={item.name} variant="body2" sx={{ color: TEXT_SECONDARY, fontWeight: 800 }}>
                           {item.name}: {item.value}
                         </Typography>
                       ))}
@@ -503,7 +520,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
         <Grid item xs={12}>
           <Card>
             <CardContent sx={{ p: 1.75 }}>
-              <Typography sx={{ fontWeight: 700, mb: 2 }}>Vinculación con requisitos ISO 22000</Typography>
+              <Typography sx={{ fontWeight: 800, mb: 2, color: TEXT_PRIMARY, fontSize: 16 }}>Vinculación con requisitos ISO 22000</Typography>
               <Box sx={{ width: '100%', height: data.desviosPorIso.length === 0 ? 170 : 580 }}>
                 {data.desviosPorIso.length === 0 ? (
                   <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
@@ -512,9 +529,9 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                 ) : (
                   <ResponsiveContainer>
                     <BarChart data={data.desviosPorIso} layout="vertical" margin={{ top: 8, right: 16, left: 18, bottom: 8 }} barCategoryGap={20}>
-                      <XAxis type="number" allowDecimals={false} />
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12, fontWeight: 700, fill: TEXT_SECONDARY }} />
                       <YAxis type="category" dataKey="name" width={240} tick={<IsoYAxisTick />} />
-                      <Tooltip formatter={(value) => [value, 'Cantidad']} labelFormatter={(label) => String(label || '')} />
+                      <Tooltip {...tooltipStyle()} formatter={(value) => [value, 'Cantidad']} labelFormatter={(label) => String(label || '')} />
                       <Bar dataKey="value" radius={[0, 6, 6, 0]}>
                         {data.desviosPorIso.map((entry, idx) => (
                           <Cell key={entry.name} fill={palette[idx % palette.length]} />
@@ -524,7 +541,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
                   </ResponsiveContainer>
                 )}
               </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography variant="body2" sx={{ mt: 1, color: TEXT_SECONDARY, fontWeight: 600 }}>
                 Total analizado: {data.totalRecords}
               </Typography>
             </CardContent>
