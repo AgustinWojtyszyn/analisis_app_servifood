@@ -124,12 +124,26 @@ function normalizeIsoForExport(value) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
-  if (normalized.includes('revisar manualmente') || normalized.includes('revision manual')) return '';
+  if (normalized.includes('revisar manualmente') || normalized.includes('revision manual')) return 'Revisar manualmente';
 
-  const codeMatch = normalized.match(/\b\d+(?:\.\d+){0,2}\b/);
-  const code = codeMatch ? codeMatch[0] : '';
-  if (!code) return raw;
+  const codes = Array.from(normalized.matchAll(/\b\d+(?:\.\d+){0,2}\b/g)).map((m) => m[0]);
+  if (codes.length === 0) return raw;
 
+  const uniqueCodes = [...new Set(codes)];
+  const selectPreferredCode = () => {
+    if (uniqueCodes.includes('8.5.1')) return '8.5.1';
+    if (uniqueCodes.includes('8.5.2')) return '8.5.2';
+    if (uniqueCodes.some((c) => c.startsWith('8.5'))) return '8.5';
+    if (uniqueCodes.some((c) => c.startsWith('8.2'))) return '8.2';
+    if (uniqueCodes.includes('7.1')) return '7.1';
+    if (uniqueCodes.includes('7.2')) return '7.2';
+    if (uniqueCodes.includes('7.5')) return '7.5';
+    if (uniqueCodes.includes('9.2')) return '9.2';
+    if (uniqueCodes.includes('10.2')) return '10.2';
+    return uniqueCodes[0];
+  };
+
+  const preferredCode = selectPreferredCode();
   const canonicalByCode = {
     '8.2': '8.2 PRP',
     '8.5': '8.5 HACCP',
@@ -142,7 +156,7 @@ function normalizeIsoForExport(value) {
     '10.2': '10.2 Acción correctiva'
   };
 
-  return canonicalByCode[code] || code;
+  return canonicalByCode[preferredCode] || preferredCode;
 }
 
 function splitAreas(areaClasificada) {
