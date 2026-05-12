@@ -128,6 +128,56 @@ function resolveHistorySort(query = {}) {
   }
 }
 
+function ensureSupabaseConfigured(res, supabaseAdmin) {
+  if (supabaseAdmin) return true;
+  res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+  return false;
+}
+
+function isAdminUser(user = {}) {
+  return Boolean(user?.isAdmin) || String(user?.role || '').toLowerCase() === 'admin';
+}
+
+function parseHistoryRequestParams(query = {}) {
+  const page = parsePositiveInt(query.page, 1);
+  const limit = Math.min(parsePositiveInt(query.limit, 10), 100);
+  const offset = (page - 1) * limit;
+  const search = escapeIlike(query.search);
+  const status = String(query.status || '').trim();
+  const userId = String(query.userId || '').trim();
+  const fromValue = query.dateFrom || query.from || '';
+  const toValue = query.dateTo || query.to || '';
+  const minRecords = parseNonNegativeInt(query.minRecords);
+  const maxRecords = parseNonNegativeInt(query.maxRecords);
+  const minNC = parseNonNegativeInt(query.minNC);
+  const minOBS = parseNonNegativeInt(query.minOBS);
+  const minConformes = parseNonNegativeInt(query.minConformes);
+  const fromDateIso = parseDateStart(fromValue);
+  const toDateIso = parseDateEnd(toValue);
+  const sortConfig = resolveHistorySort(query || {});
+  const rangeFrom = offset;
+  const rangeTo = offset + limit - 1;
+
+  return {
+    page,
+    limit,
+    offset,
+    search,
+    status,
+    userId,
+    minRecords,
+    maxRecords,
+    minNC,
+    minOBS,
+    minConformes,
+    fromDateIso,
+    toDateIso,
+    sortConfig,
+    rangeFrom,
+    rangeTo
+  };
+}
+
 function normalizeKeywords(value) {
   if (Array.isArray(value)) return value;
 
@@ -301,5 +351,8 @@ export {
   getRulesForAnalysis,
   isValidExcelFilename,
   insertAnalysisHistory,
-  processExcelFile
+  processExcelFile,
+  ensureSupabaseConfigured,
+  isAdminUser,
+  parseHistoryRequestParams
 };

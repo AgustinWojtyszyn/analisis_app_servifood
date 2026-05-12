@@ -18,13 +18,10 @@ import {
   returnSupabaseError,
   isStatusColumnMissing,
   isUpdatedAtColumnMissing,
-  parsePositiveInt,
-  parseNonNegativeInt,
-  parseDateStart,
-  parseDateEnd,
-  escapeIlike,
-  resolveHistorySort,
-  processExcelFile
+  processExcelFile,
+  ensureSupabaseConfigured,
+  isAdminUser,
+  parseHistoryRequestParams
 } from './analysisController.utils.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -40,9 +37,7 @@ const ENABLE_REPROCESS_CLASSIFICATION_TRACE = process.env.REPROCESS_CLASSIFICATI
 
 export async function uploadAndAnalyze(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     if (!req.file) {
       return res.status(400).json({ error: 'Excel file is required' });
@@ -83,9 +78,7 @@ export async function uploadAndAnalyze(req, res) {
 
 export async function uploadAndAnalyzeMultiple(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const files = req.files || [];
     const uploadDiagnostics = {
@@ -212,9 +205,7 @@ export { buildBatchUploadResponse };
 
 export async function getAnalysis(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const { id } = req.params;
 
@@ -238,29 +229,26 @@ export async function getAnalysis(req, res) {
 
 export async function getHistory(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
-    const page = parsePositiveInt(req.query.page, 1);
-    const limit = Math.min(parsePositiveInt(req.query.limit, 10), 100);
-    const offset = (page - 1) * limit;
-    const isAdmin = Boolean(req.user?.isAdmin) || String(req.user?.role || '').toLowerCase() === 'admin';
-    const search = escapeIlike(req.query.search);
-    const status = String(req.query.status || '').trim();
-    const userId = String(req.query.userId || '').trim();
-    const fromValue = req.query.dateFrom || req.query.from || '';
-    const toValue = req.query.dateTo || req.query.to || '';
-    const minRecords = parseNonNegativeInt(req.query.minRecords);
-    const maxRecords = parseNonNegativeInt(req.query.maxRecords);
-    const minNC = parseNonNegativeInt(req.query.minNC);
-    const minOBS = parseNonNegativeInt(req.query.minOBS);
-    const minConformes = parseNonNegativeInt(req.query.minConformes);
-    const fromDateIso = parseDateStart(fromValue);
-    const toDateIso = parseDateEnd(toValue);
-    const sortConfig = resolveHistorySort(req.query || {});
-    const rangeFrom = offset;
-    const rangeTo = offset + limit - 1;
+    const {
+      page,
+      limit,
+      search,
+      status,
+      userId,
+      minRecords,
+      maxRecords,
+      minNC,
+      minOBS,
+      minConformes,
+      fromDateIso,
+      toDateIso,
+      sortConfig,
+      rangeFrom,
+      rangeTo
+    } = parseHistoryRequestParams(req.query || {});
+    const isAdmin = isAdminUser(req.user);
 
     let query = supabaseAdmin
       .from('analysis_history')
@@ -335,13 +323,11 @@ export async function getHistory(req, res) {
 
 export async function deleteAnalysis(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const { id } = req.params;
 
-    const isAdmin = Boolean(req.user?.isAdmin) || String(req.user?.role || '').toLowerCase() === 'admin';
+    const isAdmin = isAdminUser(req.user);
 
     let query = supabaseAdmin
       .from('analysis_history')
@@ -367,9 +353,7 @@ export async function deleteAnalysis(req, res) {
 
 export async function deleteAnalysisBulk(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
     if (!ids.length) {
@@ -396,16 +380,14 @@ export async function deleteAnalysisBulk(req, res) {
 
 export async function deleteAllAnalyses(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const { confirmText = '', userId = '' } = req.body || {};
     if (confirmText !== 'BORRAR') {
       return res.status(400).json({ error: 'Confirmación inválida. Debe ser BORRAR' });
     }
 
-    const isAdmin = Boolean(req.user?.isAdmin) || String(req.user?.role || '').toLowerCase() === 'admin';
+    const isAdmin = isAdminUser(req.user);
     const targetUserId = isAdmin && userId ? userId : req.user.id;
 
     const { error } = await supabaseAdmin
@@ -426,9 +408,7 @@ export async function deleteAllAnalyses(req, res) {
 
 export async function exportBulkAnalyses(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
     if (!ids.length) {
@@ -486,9 +466,7 @@ export async function exportBulkAnalyses(req, res) {
 
 export async function getActiveAnalysis(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     let query = await supabaseAdmin
       .from('analysis_history')
@@ -520,9 +498,7 @@ export async function getActiveAnalysis(req, res) {
 
 export async function deleteActiveAnalysis(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const activeResult = await supabaseAdmin
       .from('analysis_history')
@@ -562,9 +538,7 @@ export async function deleteActiveAnalysis(req, res) {
 
 export async function updateAnalysisStatus(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const { id } = req.params;
     const { status } = req.body || {};
@@ -601,9 +575,7 @@ export async function updateAnalysisStatus(req, res) {
 
 export async function archiveAnalysis(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const { id } = req.params;
 
@@ -679,9 +651,7 @@ export function __setSupabaseAdminForTests(client) {
 
 export async function reprocessHistoryClassifications(req, res) {
   try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const { data, error } = await supabaseAdmin
       .from('analysis_history')
