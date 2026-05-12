@@ -56,7 +56,12 @@ export async function uploadMultipleAnalysis(files) {
   }
 
   const formData = new FormData();
-  files.forEach((file) => formData.append('files', file));
+  const clientFileIds = [];
+  files.forEach((file) => {
+    formData.append('files', file);
+    clientFileIds.push(file.clientFileId || '');
+  });
+  formData.append('clientFileIds', JSON.stringify(clientFileIds));
 
   const response = await fetch(`${API_BASE_URL}/analysis/upload-multiple`, {
     method: 'POST',

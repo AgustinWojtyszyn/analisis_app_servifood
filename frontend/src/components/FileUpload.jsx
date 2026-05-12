@@ -18,6 +18,13 @@ function isExcel(file) {
   return name.endsWith('.xlsx') || name.endsWith('.xls');
 }
 
+function generateClientFileId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function FileUpload({ onUploadSuccess, showHeader = true }) {
   const inputId = useMemo(() => `file-input-${Math.random().toString(36).slice(2, 10)}`, []);
   const [dragActive, setDragActive] = useState(false);
@@ -31,7 +38,11 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
   const canProcess = useMemo(() => files.length > 0 && !uploading, [files.length, uploading]);
 
   const resetStatuses = (nextFiles) => {
-    setFileStatuses(nextFiles.map((file) => ({ filename: file.name, status: 'pendiente' })));
+    setFileStatuses(nextFiles.map((file) => ({ 
+      filename: file.name, 
+      clientFileId: file.clientFileId, 
+      status: 'pendiente' 
+    })));
   };
 
   const applyFiles = (incoming) => {
@@ -49,9 +60,14 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
       return;
     }
 
+    const filesWithId = list.map((file) => ({
+      ...file,
+      clientFileId: generateClientFileId()
+    }));
+
     setError('');
-    setFiles(list);
-    resetStatuses(list);
+    setFiles(filesWithId);
+    resetStatuses(filesWithId);
   };
 
   const handleDrag = (e) => {
@@ -114,12 +130,13 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
       const response = await uploadMultipleAnalysis(files);
       const payload = response?.data ?? response ?? {};
       const rawResults = Array.isArray(payload.results) ? payload.results : [];
-      const resultMap = new Map(rawResults.map((r) => [r.filename, r]));
+      const resultMapByClientId = new Map(rawResults.map((r) => [r.clientFileId, r]));
+      const resultMapByFilename = new Map(rawResults.map((r) => [r.filename, r]));
       const okCount = Number(payload.successfulFiles ?? payload.ok ?? rawResults.filter((r) => r?.success).length);
       const failCount = Number(payload.failedFiles ?? payload.fail ?? rawResults.filter((r) => !r?.success).length);
 
       setFileStatuses((prev) => prev.map((item) => {
-        const result = resultMap.get(item.filename) || rawResults.find((r) => r.fileName === item.filename);
+        const result = resultMapByClientId.get(item.clientFileId) || resultMapByFilename.get(item.filename) || rawResults.find((r) => r.fileName === item.filename);
         if (!result) return { ...item, status: 'error', error: 'Sin respuesta del servidor' };
         if (result.success) return { ...item, status: 'listo', analysisId: result.analysisId, totalRecords: result.totalRecords };
         return {
