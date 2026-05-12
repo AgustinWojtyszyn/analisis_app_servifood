@@ -45,6 +45,30 @@ const ISO_RULES = [
   }
 ];
 
+const HACCP_SAFETY_TERMS = [
+  'decomiso', 'decomisa', 'vida util', 'vida útil', 'vencido', 'vencida', 'vencimiento',
+  'contaminacion', 'contaminación', 'bichos', 'plagas', 'insectos', 'gusanos',
+  'podrido', 'podrida', 'no apto', 'alimento no apto',
+  'fuera de temperatura', 'temperatura insegura',
+  'riesgo sanitario', 'riesgo para el consumidor', 'peligro alimentario'
+];
+
+const PRP_HYGIENE_TERMS = [
+  'falta de higiene', 'higiene', 'suciedad', 'sucio', 'sucia', 'desinfeccion deficiente',
+  'desinfección deficiente', 'desinfeccion', 'desinfección', 'limpieza', 'sin limpiar'
+];
+
+const OPERATIONAL_QUALITY_TERMS = [
+  'apariencia no fresca', 'no tiene apariencia de fresco', 'no parece fresco', 'aspecto no fresco',
+  'aspecto visual', 'producto visualmente malo', 'frescura visual', 'madurez visual',
+  'presentacion', 'presentación', 'presentacion deficiente', 'presentación deficiente',
+  'textura', 'sabor',
+  'no respetar receta', 'receta incorrecta', 'incumplimiento de receta',
+  'unidades de mas', 'unidades de más', 'unidades de menos',
+  'porciones de mas', 'porciones de más', 'porciones de menos',
+  'gramaje', 'gramaje incorrecto', 'error de emplatado', 'incumplimiento de especificacion', 'incumplimiento de especificación'
+];
+
 function classifyIso22000FromDescription(
   { descripcionDetectada, actividadRealizada, areaClasificada, resultadoClasificado }
 ) {
@@ -59,6 +83,10 @@ function classifyIso22000FromDescription(
 
   const technicalControlRule = classifyTechnicalControlRule(text);
   if (technicalControlRule) return technicalControlRule.iso22000;
+
+  if (containsAny(text, HACCP_SAFETY_TERMS)) return '8.5 HACCP';
+  if (containsAny(text, PRP_HYGIENE_TERMS)) return '8.2 PRP';
+  if (containsAny(text, OPERATIONAL_QUALITY_TERMS)) return '8.5.1 Control operacional';
 
   if (containsAny(text, ['capacitacion', 'curso', 'formacion'])) return '7.2 Competencia / capacitación';
   if (containsAny(text, ['drive', 'documentacion', 'documentación', 'respaldo', 'informacion disponible', 'información disponible'])) return '7.5 Información documentada';
@@ -215,13 +243,15 @@ function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadR
   if (normalizeIncidentText(iso22000) && normalizeIncidentText(iso22000) !== 'revisar manualmente') return iso22000;
   const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
+  if (containsAny(text, HACCP_SAFETY_TERMS)) return '8.5 HACCP';
+  if (containsAny(text, PRP_HYGIENE_TERMS)) return '8.2 PRP';
+  if (containsAny(text, OPERATIONAL_QUALITY_TERMS)) return '8.5.1 Control operacional';
   if (containsAny(text, ['capacitacion', 'curso', 'formacion'])) return '7.2 Competencia / capacitación';
   if (containsAny(text, ['drive', 'documentacion', 'documentación', 'respaldo', 'informacion disponible', 'información disponible', 'registro', 'planilla'])) {
     return '7.5 Información documentada';
   }
   if (containsAny(text, ['falta de personal', 'falto personal', 'faltó personal', 'ausencia de personal', 'sin personal'])) return '7.1 Recursos';
   if (containsAny(text, ['equipo fallando', 'robocoupe fallando', 'no funciona equipo', 'no funciona', 'fallando'])) return '7.1 Recursos';
-  if (containsAny(text, ['mal estado', 'ensalada', 'ensaladas', 'tomate'])) return '8.5 Control de peligros / HACCP / OPRP / PCC';
   if (containsAny(text, ['sucio', 'suciedad', 'sin limpiar', 'limpieza', 'agua caliente', 'bachas', 'sanitiza', 'sanitizacion', 'plagas', 'cebos', 'cucarachas'])) {
     return '8.2 Programas prerrequisito / POES / BPM';
   }
