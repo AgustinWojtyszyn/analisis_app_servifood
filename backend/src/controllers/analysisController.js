@@ -4,9 +4,27 @@ import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { analyzeExcel } from '../services/analyzeExcel.js';
 import { normalizeCellValue } from '../services/analyzeExcel/normalizers.js';
-import { classifyDeviation } from '../services/excel/analyzeExcel/classifiers/deviationClassifier.js';
-import { normalizeCategory, CANONICAL } from '../services/excel/analyzeExcel/categoryNormalization.js';
 import defaultRules from '../../../shared/businessRules/defaultRules.json' with { type: 'json' };
+import {
+  mapAnalysisRowToApi,
+  normalizeStoredAnalysisResults,
+  normalizeExportClassification,
+  normalizeExportTipo,
+  normalizeExportEstado,
+  normalizeExportIso
+} from './analysisController.mappers.js';
+import {
+  buildBatchUploadResponse,
+  returnSupabaseError,
+  isStatusColumnMissing,
+  isUpdatedAtColumnMissing,
+  parsePositiveInt,
+  parseNonNegativeInt,
+  parseDateStart,
+  parseDateEnd,
+  escapeIlike,
+  resolveHistorySort
+} from './analysisController.utils.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -19,36 +37,6 @@ const STATUS_VALUES = new Set(['active', 'exported', 'archived']);
 const ENABLE_DEBUG_EXCEL_ANALYSIS = process.env.DEBUG_EXCEL_ANALYSIS === 'true';
 const ENABLE_REPROCESS_CLASSIFICATION_TRACE = process.env.REPROCESS_CLASSIFICATION_TRACE === '1';
 const ENABLE_CLASSIFICATION_FLOW_TRACE = process.env.CLASSIFICATION_FLOW_TRACE === '1';
-
-function buildBatchUploadResponse(results = []) {
-  const normalized = Array.isArray(results) ? results : [];
-  const successful = normalized.filter((r) => r.success);
-  const failed = normalized.filter((r) => !r.success);
-  return {
-    success: failed.length === 0,
-    totalFiles: normalized.length,
-    successfulFiles: successful.length,
-    failedFiles: failed.length,
-    results: normalized,
-    errors: failed.map((f) => ({
-      fileName: f.fileName || f.filename,
-      message: f.error || 'Error procesando archivo',
-      stage: f.stage || 'processing',
-      diagnostics: f.diagnostics || null
-    }))
-  };
-}
-
-function returnSupabaseError(res, context, error, fallbackMessage = 'Error en Supabase') {
-  const details = {
-    message: error?.message || fallbackMessage,
-    code: error?.code || null,
-    details: error?.details || null,
-    hint: error?.hint || null
-  };
-  console.error(`[Supabase:${context}]`, details);
-  return res.status(500).json({ error: details.message });
-}
 
 function normalizeKeywords(value) {
   if (Array.isArray(value)) return value;
@@ -116,242 +104,6 @@ async function getRulesForAnalysis() {
   } catch {
     return defaultRules;
   }
-}
-
-function isStatusColumnMissing(error) {
-  const message = String(error?.message || '').toLowerCase();
-  return message.includes('status') && (
-    message.includes('does not exist') ||
-    message.includes('column') ||
-    message.includes('schema cache')
-  );
-}
-
-function isUpdatedAtColumnMissing(error) {
-  const message = String(error?.message || '').toLowerCase();
-  return message.includes('updated_at') && (
-    message.includes('does not exist') ||
-    message.includes('has no field') ||
-    message.includes('record "new"') ||
-    message.includes('record "old"') ||
-    message.includes('column')
-  );
-}
-
-function mapAnalysisRowToApi(row) {
-  const normalizedResults = normalizeStoredAnalysisResults(row.results || {});
-  const summary = normalizedResults?.summary || null;
-  const processedAt = summary?.processedAt || row.created_at;
-  const payload = {
-    id: row.id,
-    filename: row.filename,
-    status: row.status || null,
-    userId: row.user_id,
-    uploadDate: row.created_at,
-    processedAt,
-    totalRecords: normalizedResults?.totalRecords || 0,
-    summary,
-    records: normalizedResults?.records || [],
-    cases: normalizedResults?.cases || [],
-    diagnostics: normalizedResults?.diagnostics || null
-  };
-  if (ENABLE_CLASSIFICATION_FLOW_TRACE) {
-    const sample = (payload.records || []).slice(0, 5).map((r) => ({
-      row: r?.rawRowNumber ?? null,
-      clasificacionDesvio: r?.clasificacionDesvio ?? null,
-      classification_normalized: r?.classification_normalized ?? null,
-      categoriaDesvio: r?.categoriaDesvio ?? null,
-      classification_original: r?.classification_original ?? null
-    }));
-    console.log('[API PAYLOAD CLASSIFICATION]', {
-      analysisId: payload.id,
-      totalRecords: payload.totalRecords,
-      summaryTotalLogistica: payload.summary?.totalLogistica ?? null,
-      sample
-    });
-  }
-  return payload;
-}
-
-function isManualCategoryOverride(record = {}) {
-  return Boolean(record?.classification_manual || record?.clasificacionManual || record?.manualOverride);
-}
-
-function normalizeModernCategory(category = '') {
-  return normalizeCategory(category);
-}
-
-function normalizeExportClassification(record = {}) {
-  const raw = normalizeCellValue(
-    record.clasificacionDesvio
-      || record.categoriaDesvio
-      || record.classification_normalized
-      || record.classification_original
-  ).trim();
-  return normalizeCategory(raw);
-}
-
-function normalizeExportTipo(record = {}) {
-  const raw = normalizeCellValue(
-    record.tipoDesvioOrigen
-      || record.scope_normalized
-      || record.scope_original
-      || record.alcanceDesvio
-  ).trim().toLowerCase();
-  return raw === 'externo' ? 'Externo' : 'Interno';
-}
-
-function normalizeExportEstado(record = {}) {
-  const rawValue = normalizeCellValue(record.estadoAcciones || record.estadoAccion).trim();
-  if (!rawValue) return 'No informado';
-  const raw = rawValue.toLowerCase();
-  if (raw === 'cerrado' || raw === 'cerrada') return 'Cerrado';
-  if (raw === 'abierto' || raw === 'abierta') return 'Abierto';
-  if (raw === 'no informado') return 'No informado';
-  return rawValue;
-}
-
-function normalizeExportIso(record = {}) {
-  const raw = normalizeCellValue(record.relacionIso22000 || record.iso22000).trim();
-  if (!raw || raw === '-') return '';
-
-  const normalized = raw
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-  if (normalized.includes('revisar manualmente') || normalized.includes('revision manual')) return 'Revisar manualmente';
-
-  const codes = Array.from(normalized.matchAll(/\b\d+(?:\.\d+){0,2}\b/g)).map((m) => m[0]);
-  if (codes.length === 0) return raw;
-
-  const uniqueCodes = [...new Set(codes)];
-  const selectPreferredCode = () => {
-    if (uniqueCodes.includes('8.5.1')) return '8.5.1';
-    if (uniqueCodes.includes('8.5.2')) return '8.5.2';
-    if (uniqueCodes.some((c) => c.startsWith('8.5'))) return '8.5';
-    if (uniqueCodes.some((c) => c.startsWith('8.2'))) return '8.2';
-    if (uniqueCodes.includes('7.1')) return '7.1';
-    if (uniqueCodes.includes('7.2')) return '7.2';
-    if (uniqueCodes.includes('7.5')) return '7.5';
-    if (uniqueCodes.includes('9.2')) return '9.2';
-    if (uniqueCodes.includes('10.2')) return '10.2';
-    return uniqueCodes[0];
-  };
-
-  const code = selectPreferredCode();
-
-  const canonicalByCode = {
-    '8.2': '8.2 PRP',
-    '8.5': '8.5 HACCP',
-    '8.5.1': '8.5.1 Control operacional',
-    '8.5.2': '8.5.2 Trazabilidad',
-    '7.1': '7.1 Recursos',
-    '7.2': '7.2 Competencia',
-    '7.5': '7.5 Información documentada',
-    '9.2': '9.2 Auditoría interna',
-    '10.2': '10.2 Acción correctiva'
-  };
-
-  return canonicalByCode[code] || code;
-}
-
-function reclassifyStoredRecord(record = {}) {
-  if (isManualCategoryOverride(record)) return record;
-
-  const baseText = [
-    record.hallazgoDetectado,
-    record.desvioDetectado,
-    record.descripcion,
-    record.observaciones,
-    record.actividadRealizada
-  ].map((v) => normalizeCellValue(v).trim()).filter(Boolean).join(' | ');
-  const area = normalizeCellValue(record.areaSector || record.areaClasificada || record.areaProceso).trim();
-  const immediateAction = normalizeCellValue(record.immediate_action || record.accionInmediata).trim();
-  const correctiveAction = normalizeCellValue(record.corrective_action || record.accionCorrectiva).trim();
-  const classified = classifyDeviation(baseText, area, immediateAction, correctiveAction, '');
-  const mapNewToLegacy = {
-    Inocuidad: CANONICAL.INOCUIDAD,
-    'Mantenimiento': CANONICAL.MANTENIMIENTO,
-    'Recursos Humanos': CANONICAL.RRHH,
-    'Logística': CANONICAL.LOGISTICA,
-    Legales: CANONICAL.LEGALES,
-    Calidad: CANONICAL.CALIDAD,
-    'Revisar manualmente': CANONICAL.MANUAL
-  };
-  const categoria = mapNewToLegacy[classified.clasificacion] || CANONICAL.MANUAL;
-  if (ENABLE_REPROCESS_CLASSIFICATION_TRACE) {
-    console.log('[REPROCESS BEFORE]', {
-      id: record?.id || null,
-      classification_original: record?.classification_original || null,
-      classification_normalized: record?.classification_normalized || null,
-      categoriaDesvio: record?.categoriaDesvio || null,
-      clasificacionDesvio: record?.clasificacionDesvio || null
-    });
-    console.log('[REPROCESS SCORE/RULES]', {
-      id: record?.id || null,
-      clasificacionNueva: classified.clasificacion,
-      confidence: classified.confidence,
-      matchedRules: classified.matchedRules || []
-    });
-    console.log('[REPROCESS AFTER]', {
-      id: record?.id || null,
-      classification_normalized: categoria,
-      categoriaDesvio: categoria,
-      clasificacionDesvio: categoria
-    });
-  }
-
-  return {
-    ...record,
-    categoriaDesvio: categoria,
-    classification_normalized: categoria,
-    clasificacionDesvio: categoria,
-    classification_confidence: classified.confidence,
-    classification_matched_rules: classified.matchedRules
-  };
-}
-
-function normalizeStoredAnalysisResults(results = {}) {
-  const originalRecords = Array.isArray(results?.records) ? results.records : [];
-  if (originalRecords.length === 0) return results;
-
-  const normalizedRecords = originalRecords.map(reclassifyStoredRecord);
-  const byCategoria = normalizedRecords.reduce((acc, record) => {
-    const key = normalizeModernCategory(record?.clasificacionDesvio || record?.classification_normalized || record?.categoriaDesvio);
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
-
-  const totalInocuidad = Number(byCategoria[CANONICAL.INOCUIDAD] || 0);
-  const totalLogistica = Number(byCategoria[CANONICAL.LOGISTICA] || 0);
-  const totalCalidad = Number(byCategoria[CANONICAL.CALIDAD] || 0);
-  const totalLegal = Number(byCategoria[CANONICAL.LEGALES] || 0);
-  const totalMantenimiento = Number(byCategoria[CANONICAL.MANTENIMIENTO] || 0);
-  const totalRRHH = Number(byCategoria[CANONICAL.RRHH] || 0);
-  const totalRevisionManual = Number(byCategoria[CANONICAL.MANUAL] || 0);
-
-  const baseSummary = results?.summary || {};
-  const normalizedSummary = {
-    ...baseSummary,
-    totalRecords: normalizedRecords.length,
-    totalDesvios: normalizedRecords.length,
-    totalInocuidad,
-    totalLogistica,
-    totalCalidad,
-    totalLegal,
-    totalMantenimiento,
-    totalRRHH,
-    totalRevisionManual,
-    byCategoria: {
-      ...byCategoria
-    }
-  };
-
-  return {
-    ...results,
-    records: normalizedRecords,
-    summary: normalizedSummary
-  };
 }
 
 function isValidExcelFilename(filename = '') {
@@ -432,86 +184,6 @@ export async function processExcelFile(file, userId) {
   }
 
   return mapAnalysisRowToApi(insertResult.data);
-}
-
-function parsePositiveInt(value, fallback) {
-  const parsed = Number.parseInt(String(value ?? ''), 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
-}
-
-function parseNonNegativeInt(value) {
-  if (value === '' || value == null) return null;
-  const parsed = Number.parseInt(String(value), 10);
-  if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return parsed;
-}
-
-function parseDateStart(value) {
-  const raw = String(value ?? '').trim();
-  if (!raw) return null;
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return null;
-  date.setHours(0, 0, 0, 0);
-  return date.toISOString();
-}
-
-function parseDateEnd(value) {
-  const raw = String(value ?? '').trim();
-  if (!raw) return null;
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return null;
-  date.setHours(23, 59, 59, 999);
-  return date.toISOString();
-}
-
-function escapeIlike(value) {
-  return String(value ?? '').replace(/[%_,]/g, ' ').trim();
-}
-
-function resolveHistorySort(query = {}) {
-  const sortBy = String(query.sortBy || '').trim();
-  const sortOrder = String(query.sortOrder || '').trim().toLowerCase();
-  const legacySort = String(query.sort || '').trim().toLowerCase();
-
-  const allowedSortBy = new Map([
-    ['created_at', 'created_at'],
-    ['filename', 'filename'],
-    ['status', 'status'],
-    ['totalrecords', 'results->totalRecords'],
-    ['totalnc', 'results->summary->totalNC']
-  ]);
-
-  if (sortBy) {
-    const normalized = sortBy.toLowerCase();
-    const column = allowedSortBy.get(normalized);
-    if (column) {
-      return {
-        column,
-        ascending: sortOrder === 'asc'
-      };
-    }
-  }
-
-  switch (legacySort) {
-    case 'date_asc':
-      return { column: 'created_at', ascending: true };
-    case 'name_asc':
-      return { column: 'filename', ascending: true };
-    case 'name_desc':
-      return { column: 'filename', ascending: false };
-    case 'records_asc':
-      return { column: 'results->totalRecords', ascending: true };
-    case 'records_desc':
-      return { column: 'results->totalRecords', ascending: false };
-    case 'nc_asc':
-      return { column: 'results->summary->totalNC', ascending: true };
-    case 'nc_desc':
-      return { column: 'results->summary->totalNC', ascending: false };
-    case 'date_desc':
-    default:
-      return { column: 'created_at', ascending: false };
-  }
 }
 
 export async function uploadAndAnalyze(req, res) {
