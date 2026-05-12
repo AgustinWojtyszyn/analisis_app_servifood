@@ -112,6 +112,14 @@ test('La carne del menú estaba rígida => Calidad', () => {
   assert.equal(c('La carne del menú estaba rígida'), 'Calidad');
 });
 
+test('Se desarman todas las viandas por estar pasadas en unidades de milanesa => Calidad', () => {
+  assert.equal(c('Se desarman todas las viandas por estar pasadas en unidades de milanesa'), 'Calidad');
+});
+
+test('Producto pasado con contaminación explícita => Inocuidad', () => {
+  assert.equal(c('Producto pasado por contaminación cruzada y presencia de insectos'), 'Inocuidad');
+});
+
 test('Las tartas le falta dorado => Calidad', () => {
   assert.equal(c('Las tartas le falta dorado'), 'Calidad');
 });
@@ -138,6 +146,18 @@ test('Tomates picados => Calidad', () => {
 
 test('Apariencia no fresca => Calidad', () => {
   assert.equal(c('Apariencia no fresca'), 'Calidad');
+});
+
+test('Unidades de más clasifica como Calidad sin depender de milanesa', () => {
+  assert.equal(c('Se recibieron unidades de más en el pedido'), 'Calidad');
+});
+
+test('Gramaje incorrecto clasifica como Calidad', () => {
+  assert.equal(c('Se detecta gramaje incorrecto en la entrega'), 'Calidad');
+});
+
+test('Contaminación, producto no apto o riesgo sanitario sigue Inocuidad', () => {
+  assert.equal(c('Se detecta contaminación y producto no apto para consumo'), 'Inocuidad');
 });
 
 test('Fruta pasada => Calidad', () => {

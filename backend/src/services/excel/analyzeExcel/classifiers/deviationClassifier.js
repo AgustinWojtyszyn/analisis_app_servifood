@@ -65,10 +65,16 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
   ];
   const qualityPriorityTerms = [
     'tomates picados', 'tomate picado', 'picados', 'picado', 'picada',
-    'apariencia de fresco', 'apariencia no fresca', 'fruta pasada', 'fruta pasada de madurez',
-    'producto visualmente malo', 'aspecto del producto', 'textura', 'sabor', 'carne rigida', 'carne rígida',
-    'falta dorado', 'producto seco', 'mala presentacion', 'mala presentación', 'presentacion', 'presentación',
-    'madurez', 'fresco', 'fresca', 'frescura'
+    'apariencia no fresca', 'no tiene apariencia de fresco', 'no parece fresco', 'aspecto no fresco',
+    'aspecto del producto', 'producto visualmente malo', 'textura', 'sabor',
+    'mala presentacion', 'mala presentación', 'presentacion', 'presentación', 'frescura',
+    'cantidad incorrecta', 'cantidad insuficiente', 'cantidad excesiva',
+    'unidades incorrectas', 'unidades de mas', 'unidades de más', 'unidades de menos',
+    'porciones de mas', 'porciones de más', 'porciones de menos', 'pasadas en unidades',
+    'gramaje', 'gramaje incorrecto',
+    'armado incorrecto de viandas', 'armado incorrecto', 'error de emplatado',
+    'incumplimiento de especificacion', 'incumplimiento de especificación',
+    'exceso de componentes', 'falta de componentes'
   ];
   const inocuidadStrongTerms = [
     'higiene', 'desinfeccion', 'desinfección', 'refrigeracion', 'refrigeración', 'sin etiquetar',
