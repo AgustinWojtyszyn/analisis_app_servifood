@@ -45,21 +45,14 @@ function normalizeTipoPermitido(tipo = '', alcance = '', hallazgo = '') {
   return 'Interno';
 }
 
-function normalizeEstadoPermitido(estado = '', fecha = '') {
-  const value = normalizeIncidentText(estado);
+function normalizeEstadoPermitido(estado = '', fecha = '', estadoOriginal = '') {
+  const explicitOriginal = normalizeCellValue(estadoOriginal).trim();
+  if (!explicitOriginal) return 'No informado';
+
+  const value = normalizeIncidentText(explicitOriginal);
   if (value === 'abierto' || value === 'abierta') return 'Abierto';
   if (value === 'cerrado' || value === 'cerrada' || value === 'finalizado' || value === 'finalizada') return 'Cerrado';
-
-  const match = normalizeCellValue(fecha).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (match) {
-    const y = Number(match[1]);
-    const m = Number(match[2]);
-    const d = Number(match[3]);
-    const rowDate = new Date(y, m - 1, d);
-    const cutoff = new Date(2026, 4, 1);
-    return rowDate < cutoff ? 'Cerrado' : 'Abierto';
-  }
-  return 'Abierto';
+  return explicitOriginal;
 }
 
 function validateFinalRecord(record = {}) {
@@ -198,7 +191,7 @@ function validateFinalRecord(record = {}) {
   validated.clasificacionDesvio = normalizeCategoriaPermitida(validated.categoriaDesvio || validated.classification_original);
   validated.tipoDesvioOrigen = normalizeTipoPermitido(validated.tipoDesvio, validated.alcanceDesvio || validated.scope_normalized, validated.hallazgoDetectado);
   validated.relacionIso22000 = normalizeCellValue(validated.iso22000).trim();
-  validated.estadoAcciones = normalizeEstadoPermitido(validated.estadoAccion, validated.fecha);
+  validated.estadoAcciones = normalizeEstadoPermitido(validated.estadoAccion, validated.fecha, validated.estadoAccionRaw);
 
   // Mantener compatibilidad con consumidores actuales sin alterar métricas legacy.
   validated.estadoAccion = validated.estadoAcciones;

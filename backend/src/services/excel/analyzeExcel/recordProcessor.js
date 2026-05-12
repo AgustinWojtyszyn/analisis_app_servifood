@@ -1001,6 +1001,7 @@ function processRow({
     categoriaDesvio,
     responsable,
     estadoAccion,
+    estadoAccionRaw: rawRecord.estadoAccionRaw,
     alcanceDesvio,
     alcanceReason,
     alcanceConfidence,

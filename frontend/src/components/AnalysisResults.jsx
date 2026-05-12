@@ -113,8 +113,13 @@ function normalizeTipo(record = {}) {
 }
 
 function normalizeEstado(record = {}) {
-  const raw = normalizeCellValue(record.estadoAcciones || record.estadoAccion).trim().toLowerCase();
-  return (raw === 'cerrado' || raw === 'cerrada') ? 'Cerrado' : 'Abierto';
+  const rawValue = normalizeCellValue(record.estadoAcciones || record.estadoAccion).trim();
+  if (!rawValue) return 'No informado';
+  const raw = rawValue.toLowerCase();
+  if (raw === 'cerrado' || raw === 'cerrada') return 'Cerrado';
+  if (raw === 'abierto' || raw === 'abierta') return 'Abierto';
+  if (raw === 'no informado') return 'No informado';
+  return rawValue;
 }
 
 function normalizeIsoForExport(value) {
