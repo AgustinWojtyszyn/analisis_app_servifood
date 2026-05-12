@@ -180,6 +180,10 @@ test('Apariencia no fresca con señal sanitaria crítica => Inocuidad', () => {
   assert.equal(c('Ensalada con apariencia no fresca y producto vencido'), 'Inocuidad');
 });
 
+test('Decomiso por vida útil vencida => Inocuidad', () => {
+  assert.equal(c('Se realiza decomiso por vida útil vencida del producto'), 'Inocuidad');
+});
+
 test('Daniel no asiste a trabajar y se demora el envio => Recursos Humanos', () => {
   assert.equal(c('Daniel no asiste a trabajar y se demora el envio'), 'Recursos Humanos');
 });

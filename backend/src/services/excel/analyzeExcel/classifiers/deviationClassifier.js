@@ -67,7 +67,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     'tomates picados', 'tomate picado', 'picados', 'picado', 'picada',
     'apariencia no fresca', 'no tiene apariencia de fresco', 'no parece fresco', 'aspecto no fresco',
     'aspecto del producto', 'producto visualmente malo', 'textura', 'sabor',
-    'mala presentacion', 'mala presentación', 'presentacion', 'presentación', 'frescura',
+    'mala presentacion', 'mala presentación', 'presentacion', 'presentación', 'presentacion deficiente', 'presentación deficiente', 'frescura', 'frescura visual',
     'cantidad incorrecta', 'cantidad insuficiente', 'cantidad excesiva',
     'unidades incorrectas', 'unidades de mas', 'unidades de más', 'unidades de menos',
     'porciones de mas', 'porciones de más', 'porciones de menos', 'pasadas en unidades',
@@ -91,7 +91,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     'refrigeracion', 'refrigeración', 'fuera de temperatura', 'fuera de refrigeracion', 'fuera de refrigeración',
     'sin etiquetar', 'trazabilidad', 'bpm', 'prp', 'haccp', 'desinfeccion', 'desinfección',
     'bichos', 'insectos', 'gusanos', 'vencido', 'vencida', 'vencimiento',
-    'podrido', 'podrida', 'no apto', 'alimento no apto', 'riesgo sanitario',
+    'podrido', 'podrida', 'no apto', 'alimento no apto', 'vida util vencida', 'vida útil vencida', 'riesgo sanitario',
     'riesgo para el consumidor', 'peligro alimentario'
   ];
   const rrhhPriorityTerms = [
@@ -173,7 +173,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
       entries: [
         ['higiene', 'limpiar', 'limpieza', 'desinfectar', 'desinfeccion', 'desinfección', 'sucio', 'sucia', 'sucias', 'sucios', 'platina', 'platinas', 'meson', 'mesón', 'mesones'],
         ['contaminacion', 'contaminación', 'refrigeracion', 'refrigeración', 'fuera de refrigeracion', 'fuera de refrigeración', 'sin etiquetar', 'etiqueta', 'etiquetado', 'pelo', 'bichos', 'insectos', 'gusanos'],
-        ['vencimiento', 'vencido', 'vencida', 'podrido', 'podrida', 'no apto', 'alimento no apto', 'riesgo sanitario', 'riesgo para el consumidor', 'peligro alimentario', 'trazabilidad', 'bpm', 'manipulacion', 'manipulación', 'decomisa', 'decomiso', 'haccp', 'prp'],
+        ['vencimiento', 'vencido', 'vencida', 'podrido', 'podrida', 'no apto', 'alimento no apto', 'vida util vencida', 'vida útil vencida', 'riesgo sanitario', 'riesgo para el consumidor', 'peligro alimentario', 'trazabilidad', 'bpm', 'manipulacion', 'manipulación', 'decomisa', 'decomiso', 'haccp', 'prp'],
         ['coccion', 'cocción', 'crudo', 'sin sanitizar', 'sanitizacion', 'sanitización', 'contaminado', 'alergenos', 'alérgenos']
       ]
     },
