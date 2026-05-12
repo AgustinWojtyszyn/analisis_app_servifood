@@ -11,7 +11,7 @@ import defaultRules from '../../../shared/businessRules/defaultRules.json' with 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabaseAdmin = supabaseUrl && serviceRoleKey
+let supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey)
   : null;
 const prisma = new PrismaClient();
@@ -836,9 +836,10 @@ export async function deleteAnalysisBulk(req, res) {
       return res.status(400).json({ error: 'Debes enviar ids para eliminar' });
     }
 
-    const { error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('analysis_history')
       .delete()
+      .select('id')
       .eq('user_id', req.user.id)
       .in('id', ids);
 
@@ -846,7 +847,7 @@ export async function deleteAnalysisBulk(req, res) {
       return returnSupabaseError(res, 'delete_analysis_bulk', error);
     }
 
-    return res.json({ success: true, deletedCount: ids.length });
+    return res.json({ success: true, deletedCount: Array.isArray(data) ? data.length : 0 });
   } catch (error) {
     console.error('Error eliminando análisis en lote:', error);
     return res.status(500).json({ error: 'Error eliminando análisis en lote' });
@@ -1070,6 +1071,7 @@ export async function archiveAnalysis(req, res) {
       .from('analysis_history')
       .select('*')
       .eq('id', id)
+      .eq('user_id', req.user.id)
       .single();
 
     if (currentResult.error) {
@@ -1103,6 +1105,7 @@ export async function archiveAnalysis(req, res) {
       .from('analysis_history')
       .update({ status: 'archived' })
       .eq('id', id)
+      .eq('user_id', req.user.id)
       .select('*')
       .single();
 
@@ -1128,6 +1131,10 @@ export async function archiveAnalysis(req, res) {
     console.error('Error archivando análisis:', error?.message || error);
     return res.status(500).json({ error: 'Error archivando análisis' });
   }
+}
+
+export function __setSupabaseAdminForTests(client) {
+  supabaseAdmin = client;
 }
 
 export async function reprocessHistoryClassifications(req, res) {
