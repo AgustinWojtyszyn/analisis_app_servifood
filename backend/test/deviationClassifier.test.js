@@ -168,6 +168,18 @@ test('Lechuga con bichos => Inocuidad', () => {
   assert.equal(c('Lechuga con bichos en bandeja de servicio'), 'Inocuidad');
 });
 
+test('No respetar receta / armado incorrecto => Calidad', () => {
+  assert.equal(c('Se desarma menu de zapallito por no respetar la receta'), 'Calidad');
+});
+
+test('Apariencia no fresca sin señales sanitarias => Calidad', () => {
+  assert.equal(c('Personal de easy devuelve ensalada de tomate porque no tiene apariencia de fresco'), 'Calidad');
+});
+
+test('Apariencia no fresca con señal sanitaria crítica => Inocuidad', () => {
+  assert.equal(c('Ensalada con apariencia no fresca y producto vencido'), 'Inocuidad');
+});
+
 test('Daniel no asiste a trabajar y se demora el envio => Recursos Humanos', () => {
   assert.equal(c('Daniel no asiste a trabajar y se demora el envio'), 'Recursos Humanos');
 });

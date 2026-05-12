@@ -73,6 +73,11 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     'porciones de mas', 'porciones de más', 'porciones de menos', 'pasadas en unidades',
     'gramaje', 'gramaje incorrecto',
     'armado incorrecto de viandas', 'armado incorrecto', 'error de emplatado',
+    'no respetar la receta', 'no se respeta la receta', 'receta incorrecta',
+    'preparacion incorrecta', 'preparación incorrecta', 'ingredientes incorrectos',
+    'incumplimiento de receta', 'error de preparacion', 'error de preparación',
+    'error de armado', 'incumplimiento de especificacion del producto final',
+    'problema de presentacion', 'problema de presentación',
     'incumplimiento de especificacion', 'incumplimiento de especificación',
     'exceso de componentes', 'falta de componentes'
   ];
@@ -85,7 +90,9 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     'higiene', 'sucio', 'sucia', 'suciedad', 'contaminacion', 'contaminación',
     'refrigeracion', 'refrigeración', 'fuera de temperatura', 'fuera de refrigeracion', 'fuera de refrigeración',
     'sin etiquetar', 'trazabilidad', 'bpm', 'prp', 'haccp', 'desinfeccion', 'desinfección',
-    'bichos', 'insectos', 'gusanos'
+    'bichos', 'insectos', 'gusanos', 'vencido', 'vencida', 'vencimiento',
+    'podrido', 'podrida', 'no apto', 'alimento no apto', 'riesgo sanitario',
+    'riesgo para el consumidor', 'peligro alimentario'
   ];
   const rrhhPriorityTerms = [
     'no asiste', 'no asistio', 'no asistió', 'ausencia', 'ausenta', 'falta personal', 'falta el personal',
@@ -144,14 +151,14 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
     ];
     return { clasificacion: CATEGORY.LOGISTICA, confidence: 0.9, matchedRules: [...new Set(matched)] };
   }
-  if (qualityScore >= 4 && inocuidadStrongHits === 0) {
+  if (qualityScore >= 4 && inocuidadStrongHits === 0 && inocuidadCriticalHits === 0) {
     const matched = [
       ...qualityTerms.filter((k) => hasAny([k])),
       ...qualityVisualTerms.filter((k) => hasAny([k]))
     ];
     return { clasificacion: CATEGORY.CALIDAD, confidence: 0.86, matchedRules: [...new Set(matched)] };
   }
-  if (qualityVisualHits >= 1 && inocuidadStrongHits === 0) {
+  if (qualityVisualHits >= 1 && inocuidadStrongHits === 0 && inocuidadCriticalHits === 0) {
     return {
       clasificacion: CATEGORY.CALIDAD,
       confidence: 0.84,
@@ -166,7 +173,7 @@ export function classifyDeviation(text = '', area = '', immediateAction = '', co
       entries: [
         ['higiene', 'limpiar', 'limpieza', 'desinfectar', 'desinfeccion', 'desinfección', 'sucio', 'sucia', 'sucias', 'sucios', 'platina', 'platinas', 'meson', 'mesón', 'mesones'],
         ['contaminacion', 'contaminación', 'refrigeracion', 'refrigeración', 'fuera de refrigeracion', 'fuera de refrigeración', 'sin etiquetar', 'etiqueta', 'etiquetado', 'pelo', 'bichos', 'insectos', 'gusanos'],
-        ['vencimiento', 'trazabilidad', 'bpm', 'manipulacion', 'manipulación', 'decomisa', 'decomiso', 'haccp', 'prp'],
+        ['vencimiento', 'vencido', 'vencida', 'podrido', 'podrida', 'no apto', 'alimento no apto', 'riesgo sanitario', 'riesgo para el consumidor', 'peligro alimentario', 'trazabilidad', 'bpm', 'manipulacion', 'manipulación', 'decomisa', 'decomiso', 'haccp', 'prp'],
         ['coccion', 'cocción', 'crudo', 'sin sanitizar', 'sanitizacion', 'sanitización', 'contaminado', 'alergenos', 'alérgenos']
       ]
     },
