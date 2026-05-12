@@ -1,0 +1,271 @@
+================================================================================
+AUDITORÍA TÉCNICA PUNTUAL - PROYECTO SERVIFOOD
+Fecha: 12 de mayo de 2026
+================================================================================
+
+RESUMEN FINAL
+================================================================================
+
+- Cantidad mínima de archivos a modificar: 3
+- Cantidad ideal/recomendada de archivos a modificar: 4  
+- Cantidad opcional por refactor/mantenibilidad: 2
+
+
+TABLA DE CAMBIOS NECESARIOS
+================================================================================
+
+1. frontend/src/components/FileUpload.jsx
+   Motivo: Bug de carga múltiple - Dos archivos con mismo nombre sobrescriben 
+           resultado en Map (línea 114)
+   Tipo: OBLIGATORIO
+   Cambio necesario: Generar clientFileId único por archivo (uuid o timestamp+random)
+
+2. backend/src/controllers/analysisController.js
+   Motivo: Bug - Respuesta no retorna ID para mapeo seguro
+   Tipo: OBLIGATORIO
+   Cambio necesario: Devolver clientFileId en cada resultado de uploadAndAnalyzeMultiple
+
+3. frontend/src/services/analysis.js
+   Motivo: Bug - No envía clientFileId al backend
+   Tipo: OBLIGATORIO
+   Cambio necesario: Pasar clientFileId en FormData de uploadMultipleAnalysis
+
+4. backend/src/server.js
+   Motivo: Log sensible - Imprime SUPABASE_URL en consola (línea 189)
+   Tipo: RECOMENDADO
+   Cambio necesario: Envolver logs 185-191 en guardia if (process.env.DEBUG === 'true')
+
+5. backend/src/controllers/analysisController.js (línea 49)
+   Motivo: console.error sin guardia - siempre se ejecuta
+   Tipo: RECOMENDADO
+   Cambio necesario: Agregar guardia if (ENABLE_DEBUG_EXCEL_ANALYSIS) o similar
+
+6. backend/src/controllers/analysisController.js
+   Motivo: Archivo muy extenso - 1193 líneas
+           (consolidar lógica de mapeo/normalización)
+   Tipo: OPCIONAL
+   Cambio necesario: Extraer funciones mapAnalysisRowToApi, normalizeExportIso, 
+                     etc. a módulo separado
+
+7. backend/src/services/excel/analyzeExcel/recordProcessor.js
+   Motivo: Archivo muy extenso - 1100 líneas
+           (consolidar clasificadores)
+   Tipo: OPCIONAL
+   Cambio necesario: Refactor - dividir en submódulos por tipo de clasificador
+
+
+CONCLUSIÓN Y PRIORIDADES
+================================================================================
+
+AHORA SÍ O SÍ tienes que tocar (3 archivos - cambios críticos):
+  ✓ frontend/src/components/FileUpload.jsx → Generar ID único
+  ✓ backend/src/controllers/analysisController.js → Retornar ID único  
+  ✓ frontend/src/services/analysis.js → Pasar ID único
+
+DEBERÍAS tocar (1 archivo - limpieza importante):
+  ○ backend/src/server.js → Guardias DEBUG en logs
+
+Puedes dejar para después (2 archivos - refactors opcionales):
+  ○ Refactors de archivos extensos (son opcionales, el código funciona)
+
+
+DETALLES TÉCNICOS - BUG DE CARGA MÚLTIPLE
+================================================================================
+
+PROBLEMA:
+En FileUpload.jsx línea 114, al mapear resultados se usa:
+  const resultMap = new Map(rawResults.map((r) => [r.filename, r]));
+
+Si dos archivos tienen el mismo nombre, el segundo sobrescribe el primero en el Map.
+
+SOLUCIÓN REQUERIDA:
+1. Frontend genera clientFileId único por archivo (uuid4 o Date.now() + random)
+2. Frontend envía clientFileId en FormData junto con file
+3. Backend recibe clientFileId, lo almacena y lo retorna en respuesta
+4. Frontend usa clientFileId como clave del Map en lugar de filename
+
+FLUJO CORREGIDO:
+  FileUpload (genera clientFileId por archivo)
+    → analysis.js (envía clientFileId en FormData)
+    → uploadAndAnalyzeMultiple (backend recibe y retorna clientFileId)
+    → FileUpload (mapea con Map.set(clientFileId, result))
+
+
+LOGS SENSIBLES ENCONTRADOS
+================================================================================
+
+BACKEND:
+  ✗ backend/src/server.js línea 189: console.log('SUPABASE_URL:', process.env.SUPABASE_URL)
+    → Imprime URL pública en logs
+  
+  ✗ backend/src/server.js línea 190: console.log('SUPABASE_KEY_OK:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
+    → Menos crítico, pero innecesario
+
+FRONTEND:
+  ✓ frontend/src/lib/supabaseClient.js línea 7: console.warn() tiene un warning
+    → Aceptable (información de config faltante, no sensible)
+  
+  ✓ frontend/src/components/FileUpload.jsx línea 79: console.log(selectedFileName, ...)
+    → CORRECTO: Dentro de if (import.meta.env.DEV)
+  
+  ✓ frontend/src/components/FileUpload.jsx línea 106: console.log(uploadEndpoint, ...)
+    → CORRECTO: Dentro de if (import.meta.env.DEV)
+
+
+CONSOLE.LOG SIN GUARDIA EN MÓDULOS
+================================================================================
+
+BACKEND - console.log() activos durante import o ejecución:
+
+  backend/src/controllers/analysisController.js:
+    • Línea 49: console.error() en returnSupabaseError() - se ejecuta en errores
+      Guardia actual: NINGUNA
+      Estado: Se ejecuta siempre (no es crítico, es error handler)
+    
+    • Línea 166: console.log() - con guardia ENABLE_CLASSIFICATION_FLOW_TRACE
+      Estado: CORRECTO - Guardado por flag ENV
+    
+    • Línea 280-293: console.log() - con guardia ENABLE_REPROCESS_CLASSIFICATION_TRACE
+      Estado: CORRECTO - Guardado por flag ENV
+    
+    • Línea 525, 565, 587, 608, 619, 640: console.log() - con guardia ENABLE_DEBUG_EXCEL_ANALYSIS
+      Estado: CORRECTO - Guardado por flag ENV
+    
+    • Línea 657: console.error() - sin guardia
+      Estado: Se ejecuta en errores de carga múltiple (aceptable)
+
+  backend/src/server.js:
+    • Línea 82: console.warn() - sin guardia
+      Estado: Se ejecuta en startup (aceptable, información operacional)
+    
+    • Línea 189-191: console.log() - sin guardia
+      Estado: CRÍTICO - Imprime SUPABASE_URL en startup
+      Recomendación: Envolver en if (process.env.DEBUG === 'true')
+
+  backend/src/middlewares/auth.js:
+    • Línea 71: console.error() - sin guardia (error handler)
+      Estado: Aceptable, se ejecuta solo en errores
+    
+    • Línea 77: console.warn() - sin guardia
+      Estado: Aceptable, información diagnóstica
+
+
+ARCHIVOS EXTREMADAMENTE EXTENSOS
+================================================================================
+
+TOP 5 archivos más grandes:
+  1. analysisController.js - 1193 líneas
+     Contiene: rutas, lógica de carga, normalización, mapeo
+     Refactor sugerido: Separar en analysisService.js
+     Criticidad para bugs: NO (es solo mantenibilidad)
+
+  2. recordProcessor.js - 1100 líneas
+     Contiene: clasificadores, procesadores de registros
+     Refactor sugerido: recordProcessor/ (carpeta con submódulos)
+     Criticidad para bugs: NO (es solo mantenibilidad)
+
+  3. ChartsPage.jsx - 598 líneas (frontend)
+     Contiene: charts, lógica de visualización
+     Criticidad para bugs: NO
+
+  4. HealthDeclarationPage.jsx - 524 líneas (frontend)
+     Contiene: formulario, validación
+     Criticidad para bugs: NO
+
+  5. AnalysisResults.jsx - 514 líneas (frontend)
+     Contiene: UI de resultados, clasificación
+     Criticidad para bugs: NO
+
+
+ESTADO FINAL POR CATEGORÍA
+================================================================================
+
+1. BUG DE CARGA MÚLTIPLE (Archivos con mismo nombre)
+   ├─ Detectado: SÍ
+   ├─ Crítico: SÍ
+   ├─ Archivo(s) a modificar: 3
+   │  ├─ FileUpload.jsx (generar ID)
+   │  ├─ analysis.js (enviar ID)
+   │  └─ analysisController.js (retornar ID)
+   └─ Seguridad: Baja (lógica de negocio, no exposición de datos)
+
+2. LOGS SENSIBLES
+   ├─ Detectados: 2 críticos (SUPABASE_URL y KEY_OK en server.js)
+   ├─ Críticos: SÍ
+   ├─ Archivo(s) a modificar: 1
+   │  └─ backend/src/server.js (agregar guardia DEBUG)
+   └─ Seguridad: ALTA (exposición de credenciales en logs)
+
+3. CONSOLE.LOG EN MÓDULOS
+   ├─ Detectados: múltiples con guardia (OK)
+   ├─ Sin guardia problemáticos: 1 (SUPABASE_URL)
+   ├─ Archivo(s) a verificar: 5
+   │  ├─ analysisController.js (logs guardados OK)
+   │  ├─ server.js (1 crítico sin guardia)
+   │  ├─ auth.js (logs en errores, OK)
+   │  ├─ supabaseClient.js (warning aceptable)
+   │  └─ FileUpload.jsx (guardado en DEV, OK)
+   └─ Acción recomendada: Guardia en server.js línea 189-191
+
+4. ARCHIVOS EXTREMADAMENTE EXTENSOS
+   ├─ Detectados: 2
+   ├─ analysisController.js: 1193 líneas
+   ├─ recordProcessor.js: 1100 líneas
+   ├─ Afectan bugs: NO (es solo mantenibilidad)
+   └─ Recomendación: Refactor en sprint futuro
+
+
+PLAN DE IMPLEMENTACIÓN (orden recomendado)
+================================================================================
+
+FASE 1 - CRÍTICO (Fixes obligatorios):
+  Tiempo estimado: 30-45 minutos
+  
+  1. Generar UUID en FileUpload.jsx
+  2. Pasar clientFileId en analysis.js  
+  3. Recibir y retornar clientFileId en analysisController.js
+  4. Mapear resultados con clientFileId en FileUpload.jsx
+  
+  Validación: Subir 2 archivos con mismo nombre, verificar que ambos procesen.
+
+FASE 2 - RECOMENDADO (Limpieza de seguridad):
+  Tiempo estimado: 10 minutos
+  
+  1. Agregar guardia DEBUG en server.js línea 189-191
+  
+  Validación: Iniciar servidor sin DEBUG, verificar que SUPABASE_URL no se imprima.
+
+FASE 3 - OPCIONAL (Refactor por mantenibilidad):
+  Tiempo estimado: 2-4 horas
+  
+  1. Extraer lógica de normalización de analysisController.js
+  2. Dividir recordProcessor.js en submódulos
+  
+  Validación: Tests existentes deben pasar.
+
+
+RESUMEN EJECUTIVO PARA DECISIÓN
+================================================================================
+
+¿Cuántos archivos modificar?
+→ 3 OBLIGATORIOS para resolver el bug crítico
+→ +1 RECOMENDADO para seguridad
+→ +2 OPCIONALES para mantenibilidad
+
+¿Es riesgoso?
+→ NO. Los cambios son localizados y low-risk.
+→ Se mantiene toda la lógica de negocio existente.
+→ Solo se agrega parámetro clientFileId al flujo.
+
+¿Hay refactors enormes?
+→ NO. La prioridad es seguridad y funcionalidad.
+→ Refactors de tamaño de archivo son opcionales.
+
+¿Alcanza el tiempo?
+→ SÍ. Fase 1 + Fase 2 = máximo 1 hora.
+
+Recomendación final:
+→ Implementar FASE 1 + FASE 2 en este sprint.
+→ Dejar FASE 3 para sprint futuro de refactor técnico.
+
+================================================================================
