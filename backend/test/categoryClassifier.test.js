@@ -132,3 +132,15 @@ test('Apariencia no fresca con ISO 8.5 HACCP sigue como Calidad', () => {
   });
   assert.equal(area, 'Desvío de Calidad');
 });
+
+test('Origen logístico + decomiso por vida útil => Inocuidad', () => {
+  const area = classifyCategoriaDesvio({
+    textoCompleto: 'Se merman 100 raciones de ensalada de fruta por no enviarla en el postre del día',
+    descripcion: 'Se merman 100 raciones de ensalada de fruta por no enviarla en el postre del día',
+    hallazgoDetectado: 'Se merman 100 raciones de ensalada de fruta por no enviarla en el postre del día',
+    accionInmediata: 'Se decomisa debido a que no son enviadas dentro de las 24 hs de vida útil.',
+    resultadoClasificado: 'No conforme',
+    tipoDesvio: 'NC'
+  });
+  assert.equal(area, 'Desvío de Inocuidad');
+});

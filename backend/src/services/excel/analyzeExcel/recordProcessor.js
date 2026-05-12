@@ -856,6 +856,8 @@ function processRow({
   let categoriaDesvio = classifyCategoriaDesvio({
     hallazgoDetectado: rawRecord.hallazgoDetectado,
     actividadRealizada: rawRecord.actividadRealizada,
+    accionInmediata: rawRecord.accionInmediata,
+    accionCorrectiva: rawRecord.accionCorrectiva,
     resultadoClasificado,
     tipoDesvio,
     iso22000
