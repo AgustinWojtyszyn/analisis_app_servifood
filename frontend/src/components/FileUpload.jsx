@@ -38,9 +38,9 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
   const canProcess = useMemo(() => files.length > 0 && !uploading, [files.length, uploading]);
 
   const resetStatuses = (nextFiles) => {
-    setFileStatuses(nextFiles.map((file) => ({ 
-      filename: file.name, 
-      clientFileId: file.clientFileId, 
+    setFileStatuses(nextFiles.map((item) => ({
+      filename: item.file?.name || item.name,
+      clientFileId: item.clientFileId,
       status: 'pendiente' 
     })));
   };
@@ -61,7 +61,8 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
     }
 
     const filesWithId = list.map((file) => ({
-      ...file,
+      file,
+      name: file.name,
       clientFileId: generateClientFileId()
     }));
 
@@ -124,7 +125,7 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
           method: 'POST',
           formDataField: 'files',
           filesCount: files.length,
-          filenames: files.map((f) => f.name)
+          filenames: files.map((item) => item.file?.name || item.name)
         });
       }
       const response = await uploadMultipleAnalysis(files);

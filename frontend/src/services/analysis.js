@@ -57,9 +57,10 @@ export async function uploadMultipleAnalysis(files) {
 
   const formData = new FormData();
   const clientFileIds = [];
-  files.forEach((file) => {
-    formData.append('files', file);
-    clientFileIds.push(file.clientFileId || '');
+  files.forEach((item) => {
+    const realFile = item?.file || item;
+    formData.append('files', realFile);
+    clientFileIds.push(item?.clientFileId || '');
   });
   formData.append('clientFileIds', JSON.stringify(clientFileIds));
 
