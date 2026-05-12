@@ -263,9 +263,7 @@ function reclassifyStoredRecord(record = {}) {
   const area = normalizeCellValue(record.areaSector || record.areaClasificada || record.areaProceso).trim();
   const immediateAction = normalizeCellValue(record.immediate_action || record.accionInmediata).trim();
   const correctiveAction = normalizeCellValue(record.corrective_action || record.accionCorrectiva).trim();
-  const iso = normalizeCellValue(record.relacionIso22000 || record.iso22000).trim();
-
-  const classified = classifyDeviation(baseText, area, immediateAction, correctiveAction, iso);
+  const classified = classifyDeviation(baseText, area, immediateAction, correctiveAction, '');
   const mapNewToLegacy = {
     Inocuidad: CANONICAL.INOCUIDAD,
     'Mantenimiento': CANONICAL.MANTENIMIENTO,

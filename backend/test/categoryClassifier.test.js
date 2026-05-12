@@ -120,3 +120,15 @@ test('Producto fuera de refrigeración => Inocuidad', () => {
 test('Texto ambiguo no cae en Calidad por fallback', () => {
   assert.equal(classify('Se revisa novedad general del día sin detalle técnico'), 'Revisar manualmente');
 });
+
+test('Apariencia no fresca con ISO 8.5 HACCP sigue como Calidad', () => {
+  const area = classifyCategoriaDesvio({
+    textoCompleto: 'Personal de easy devuelve ensalada de tomate porque no tiene apariencia de fresco',
+    descripcion: 'Personal de easy devuelve ensalada de tomate porque no tiene apariencia de fresco',
+    hallazgoDetectado: 'Personal de easy devuelve ensalada de tomate porque no tiene apariencia de fresco',
+    resultadoClasificado: 'No conforme',
+    tipoDesvio: 'NC',
+    iso22000: '8.5 HACCP'
+  });
+  assert.equal(area, 'Desvío de Calidad');
+});

@@ -55,7 +55,7 @@ function classifyDeviationAreaDetailed({
     '',
     normalizeCellValue(accionInmediata),
     normalizeCellValue(accionCorrectiva),
-    iso22000
+    ''
   );
   if (result.clasificacion === 'Inocuidad') return { area: CATEGORY.INOCUIDAD, reason: `Reglas: ${result.matchedRules.join(', ')}`, confidence: result.confidence };
   if (result.clasificacion === 'Mantenimiento') return { area: CATEGORY.MANTENIMIENTO, reason: `Reglas: ${result.matchedRules.join(', ')}`, confidence: result.confidence };
