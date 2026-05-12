@@ -23,7 +23,8 @@ import {
   parseDateStart,
   parseDateEnd,
   escapeIlike,
-  resolveHistorySort
+  resolveHistorySort,
+  processExcelFile
 } from './analysisController.utils.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -36,155 +37,6 @@ const prisma = new PrismaClient();
 const STATUS_VALUES = new Set(['active', 'exported', 'archived']);
 const ENABLE_DEBUG_EXCEL_ANALYSIS = process.env.DEBUG_EXCEL_ANALYSIS === 'true';
 const ENABLE_REPROCESS_CLASSIFICATION_TRACE = process.env.REPROCESS_CLASSIFICATION_TRACE === '1';
-const ENABLE_CLASSIFICATION_FLOW_TRACE = process.env.CLASSIFICATION_FLOW_TRACE === '1';
-
-function normalizeKeywords(value) {
-  if (Array.isArray(value)) return value;
-
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value);
-      if (Array.isArray(parsed)) return parsed;
-      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.keywords)) return parsed.keywords;
-    } catch {
-      return value.split(',').map((item) => item.trim()).filter(Boolean);
-    }
-  }
-
-  return [];
-}
-
-function parseRuleMetadata(rawKeywords) {
-  if (Array.isArray(rawKeywords)) return { keywords: rawKeywords };
-
-  if (typeof rawKeywords === 'string') {
-    try {
-      const parsed = JSON.parse(rawKeywords);
-      if (Array.isArray(parsed)) return { keywords: parsed };
-      if (parsed && typeof parsed === 'object') {
-        return {
-          keywords: normalizeKeywords(parsed.keywords),
-          origen: parsed.origen,
-          accion_inmediata: parsed.accion_inmediata,
-          accion_correctiva: parsed.accion_correctiva,
-          peso: parsed.peso
-        };
-      }
-    } catch {
-      return { keywords: normalizeKeywords(rawKeywords) };
-    }
-  }
-
-  return { keywords: [] };
-}
-
-async function getRulesForAnalysis() {
-  try {
-    const dbRules = await prisma.businessRule.findMany({
-      where: { enabled: true },
-      orderBy: { createdAt: 'asc' }
-    });
-
-    if (!dbRules.length) return defaultRules;
-
-    return dbRules.map((rule) => {
-      const metadata = parseRuleMetadata(rule.keywords);
-      return {
-        id: rule.id,
-        nombre: rule.name,
-        categoria: rule.category,
-        origen: metadata.origen || 'interno',
-        gravedad: rule.severity,
-        keywords: normalizeKeywords(metadata.keywords),
-        accion_inmediata: metadata.accion_inmediata || rule.suggestedAction || 'aviso',
-        accion_correctiva: metadata.accion_correctiva || '',
-        peso: metadata.peso
-      };
-    });
-  } catch {
-    return defaultRules;
-  }
-}
-
-function isValidExcelFilename(filename = '') {
-  const lower = String(filename).toLowerCase();
-  return lower.endsWith('.xlsx') || lower.endsWith('.xls');
-}
-
-async function insertAnalysisHistory({ userId, filename, resultPayload, status = 'active' }) {
-  let insertResult = await supabaseAdmin
-    .from('analysis_history')
-    .insert({
-      user_id: userId,
-      filename,
-      status,
-      results: resultPayload
-    })
-    .select()
-    .single();
-
-  if (insertResult.error && isStatusColumnMissing(insertResult.error)) {
-    insertResult = await supabaseAdmin
-      .from('analysis_history')
-      .insert({
-        user_id: userId,
-        filename,
-        results: resultPayload
-      })
-      .select()
-      .single();
-  }
-
-  return insertResult;
-}
-
-export async function processExcelFile(file, userId) {
-  if (!file) {
-    throw new Error('Excel file is required');
-  }
-
-  const filename = file.originalname;
-  if (!isValidExcelFilename(filename)) {
-    throw new Error('Solo se aceptan archivos .xlsx o .xls');
-  }
-
-  const activeRules = await getRulesForAnalysis();
-  const analysisResult = await analyzeExcel(file.buffer, activeRules, null, {
-    filename,
-    uploadedAt: new Date().toISOString()
-  });
-  if (!analysisResult.success) {
-    throw new Error(analysisResult.error || 'Error procesando archivo');
-  }
-
-  const processingTimestamp = new Date().toISOString();
-  const records = analysisResult.records || [];
-
-  const resultPayload = {
-    totalRecords: records.length,
-    summary: {
-      ...analysisResult.summary,
-      totalRecords: records.length,
-      processedAt: processingTimestamp
-    },
-    records,
-    cases: analysisResult.cases || [],
-    ...(analysisResult.diagnostics ? { diagnostics: analysisResult.diagnostics } : {})
-  };
-
-  const insertResult = await insertAnalysisHistory({
-    userId,
-    filename,
-    resultPayload,
-    status: 'archived'
-  });
-
-  if (insertResult.error) {
-    throw new Error(insertResult.error.message || 'Error guardando análisis');
-  }
-
-  return mapAnalysisRowToApi(insertResult.data);
-}
 
 export async function uploadAndAnalyze(req, res) {
   try {
@@ -208,7 +60,15 @@ export async function uploadAndAnalyze(req, res) {
       });
     }
 
-    const analysis = await processExcelFile(req.file, req.user.id);
+    const analysis = await processExcelFile({
+      file: req.file,
+      userId: req.user.id,
+      analyzeExcel,
+      prisma,
+      defaultRules,
+      supabaseAdmin,
+      mapAnalysisRowToApi
+    });
 
     return res.json({
       success: true,
@@ -265,7 +125,15 @@ export async function uploadAndAnalyzeMultiple(req, res) {
             size: file.size
           });
         }
-        const analysis = await processExcelFile(file, req.user.id);
+        const analysis = await processExcelFile({
+          file,
+          userId: req.user.id,
+          analyzeExcel,
+          prisma,
+          defaultRules,
+          supabaseAdmin,
+          mapAnalysisRowToApi
+        });
         const recordsLength = Array.isArray(analysis?.records) ? analysis.records.length : 0;
         if (recordsLength === 0) {
           const emptyResult = {
