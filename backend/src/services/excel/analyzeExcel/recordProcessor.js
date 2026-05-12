@@ -1021,7 +1021,9 @@ function processRow({
   if (hasOriginalClassification) {
     const originalNorm = normalizeIncidentText(tipoDesvioOriginalRaw);
     finalRecord.categoriaDesvio = tipoDesvioOriginalRaw;
+    finalRecord.clasificacionDesvio = tipoDesvioOriginalRaw;
     finalRecord.classification = tipoDesvioOriginalRaw;
+    finalRecord.classification_normalized = normalizeClassificationForStats(tipoDesvioOriginalRaw);
     finalRecord.tipoDesvio = tipoOriginal === 'NC' ? 'NC' : (tipoOriginal === 'OM' ? 'OM' : (tipoOriginal === 'OBS' ? 'OBS' : finalRecord.tipoDesvio));
     if (originalNorm === 'no conforme') {
       finalRecord.resultadoClasificado = 'No conforme';
@@ -1033,6 +1035,17 @@ function processRow({
       finalRecord.resultadoClasificado = 'Conforme';
     }
   }
+
+  const originalClassificationNorm = normalizeIncidentText(tipoDesvioOriginalRaw);
+  const originalClassificationIsManualOrInvalid = (
+    !originalClassificationNorm
+    || originalClassificationNorm === 'revisar manualmente'
+    || originalClassificationNorm === 'revision manual'
+    || originalClassificationNorm === '-'
+    || originalClassificationNorm === 'na'
+    || originalClassificationNorm === 'n a'
+  );
+  const canApplyAutomaticSafetyPriority = !hasOriginalClassification || originalClassificationIsManualOrInvalid;
 
   const inocuidadHardPriorityText = normalizeIncidentText([
     finalRecord.hallazgoDetectado,
@@ -1050,12 +1063,17 @@ function processRow({
     'vencido', 'producto no apto', 'alimento no apto',
     'riesgo sanitario'
   ]);
-  if (hasInocuidadHardPriority) {
+  if (hasInocuidadHardPriority && canApplyAutomaticSafetyPriority) {
     finalRecord.categoriaDesvio = 'Desvío de Inocuidad';
     finalRecord.classification = 'Desvío de Inocuidad';
     finalRecord.clasificacionDesvio = 'Inocuidad';
     finalRecord.resultadoClasificado = 'No conforme';
     finalRecord.tipoDesvio = 'IN';
+    finalRecord.iso22000 = '8.5 HACCP';
+    finalRecord.relacionIso22000 = '8.5 HACCP';
+  } else if (hasInocuidadHardPriority) {
+    // Si la clasificación válida viene del Excel, se respeta categoría original;
+    // solo se alinea ISO al riesgo sanitario explícito.
     finalRecord.iso22000 = '8.5 HACCP';
     finalRecord.relacionIso22000 = '8.5 HACCP';
   }
