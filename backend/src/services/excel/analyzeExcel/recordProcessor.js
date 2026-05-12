@@ -1034,6 +1034,32 @@ function processRow({
     }
   }
 
+  const inocuidadHardPriorityText = normalizeIncidentText([
+    finalRecord.hallazgoDetectado,
+    finalRecord.descripcion,
+    finalRecord.observaciones,
+    finalRecord.actividadRealizada,
+    finalRecord.immediate_action,
+    finalRecord.corrective_action,
+    finalRecord.accionInmediata,
+    finalRecord.accionCorrectiva
+  ].filter(Boolean).join(' | '));
+  const hasInocuidadHardPriority = containsAny(inocuidadHardPriorityText, [
+    'decomisa', 'decomiso', 'decomisar',
+    'vida util', 'vida útil',
+    'vencido', 'producto no apto', 'alimento no apto',
+    'riesgo sanitario'
+  ]);
+  if (hasInocuidadHardPriority) {
+    finalRecord.categoriaDesvio = 'Desvío de Inocuidad';
+    finalRecord.classification = 'Desvío de Inocuidad';
+    finalRecord.clasificacionDesvio = 'Inocuidad';
+    finalRecord.resultadoClasificado = 'No conforme';
+    finalRecord.tipoDesvio = 'IN';
+    finalRecord.iso22000 = '8.5 HACCP';
+    finalRecord.relacionIso22000 = '8.5 HACCP';
+  }
+
   finalRecord.alcanceDesvio = scopeOriginalRaw || finalRecord.alcanceDesvio;
   finalRecord.scope_original = scopeOriginalRaw || null;
   finalRecord.scope_normalized = normalizeScopeForStats(finalRecord.alcanceDesvio);
