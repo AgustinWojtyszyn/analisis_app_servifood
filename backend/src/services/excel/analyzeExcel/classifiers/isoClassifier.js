@@ -46,9 +46,9 @@ const ISO_RULES = [
 ];
 
 const HACCP_SAFETY_TERMS = [
-  'decomiso', 'decomisa', 'vida util', 'vida útil', 'vencido', 'vencida', 'vencimiento',
+  'decomiso', 'decomisa', 'decomisar', 'vida util', 'vida útil', 'fuera de vida util', 'fuera de vida útil', 'vencido', 'vencida', 'vencimiento',
   'contaminacion', 'contaminación', 'bichos', 'plagas', 'insectos', 'gusanos',
-  'podrido', 'podrida', 'no apto', 'alimento no apto',
+  'podrido', 'podrida', 'no apto', 'producto no apto', 'alimento no apto',
   'fuera de temperatura', 'temperatura insegura',
   'riesgo sanitario', 'riesgo para el consumidor', 'peligro alimentario'
 ];
@@ -239,11 +239,11 @@ function mergeCompositeIsoLabels(
 }
 
 function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadRealizada, areaClasificada, resultadoClasificado }) {
+  const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada, areaClasificada].join(' | '));
+  if (containsAny(text, HACCP_SAFETY_TERMS)) return '8.5 HACCP';
   if (normalizeCellValue(iso22000).trim() === '-') return '-';
   if (normalizeIncidentText(iso22000) && normalizeIncidentText(iso22000) !== 'revisar manualmente') return iso22000;
-  const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
-  if (containsAny(text, HACCP_SAFETY_TERMS)) return '8.5 HACCP';
   if (containsAny(text, PRP_HYGIENE_TERMS)) return '8.2 PRP';
   if (containsAny(text, OPERATIONAL_QUALITY_TERMS)) return '8.5.1 Control operacional';
   if (containsAny(text, ['capacitacion', 'curso', 'formacion'])) return '7.2 Competencia / capacitación';

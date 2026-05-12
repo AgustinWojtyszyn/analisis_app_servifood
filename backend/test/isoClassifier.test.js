@@ -66,6 +66,26 @@ test('Decomiso por vida útil => Inocuidad + 8.5 HACCP', () => {
   assert.equal(result.iso22000, '8.5 HACCP');
 });
 
+test('Decomisar fuera de vida útil => Inocuidad + 8.5 HACCP', () => {
+  const result = classifyCategoryAndIso({
+    text: 'Se merman raciones por despacho tardío',
+    immediateAction: 'Se procede a decomisar por fuera de vida útil y riesgo para el consumidor'
+  });
+  assert.equal(result.categoriaDesvio, 'Desvío de Inocuidad');
+  assert.equal(result.iso22000, '8.5 HACCP');
+});
+
+test('Vida útil/decomiso prioriza 8.5 HACCP aunque ISO previo sea 8.5.1', () => {
+  const iso22000 = resolveIsoWithContextFallback({
+    iso22000: '8.5.1 Control operacional',
+    hallazgoDetectado: 'Se merman 100 raciones por no enviarla en el postre del día',
+    actividadRealizada: 'Se decomisa debido a que no son enviadas dentro de las 24 hs de vida útil.',
+    areaClasificada: '',
+    resultadoClasificado: 'No conforme'
+  });
+  assert.equal(iso22000, '8.5 HACCP');
+});
+
 test('Contaminación/higiene/temperatura insegura => Inocuidad', () => {
   const result = classifyCategoryAndIso({
     text: 'Se detecta contaminación con bichos y temperatura insegura por falta de higiene'

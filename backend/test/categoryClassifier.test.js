@@ -144,3 +144,14 @@ test('Origen logístico + decomiso por vida útil => Inocuidad', () => {
   });
   assert.equal(area, 'Desvío de Inocuidad');
 });
+
+test('Prioridad sanitaria explícita en acción inmediata gana sobre logística', () => {
+  const area = classifyCategoriaDesvio({
+    textoCompleto: 'No se envía postre en despacho',
+    hallazgoDetectado: 'No se envía postre en despacho',
+    accionInmediata: 'Se decomisa por vida útil vencida y riesgo sanitario',
+    resultadoClasificado: 'No conforme',
+    tipoDesvio: 'NC'
+  });
+  assert.equal(area, 'Desvío de Inocuidad');
+});

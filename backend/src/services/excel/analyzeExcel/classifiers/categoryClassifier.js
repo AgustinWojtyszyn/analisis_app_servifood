@@ -36,6 +36,12 @@ function classifyDeviationAreaDetailed({
   ].filter(Boolean).join(' | '));
 
   const hasAny = (terms) => containsAny(text, terms);
+  const inocuidadHardPriorityTerms = [
+    'decomisa', 'decomiso', 'decomisar',
+    'vida util', 'vida útil', 'fuera de vida util', 'fuera de vida útil',
+    'vencido', 'producto no apto', 'alimento no apto',
+    'riesgo sanitario', 'riesgo para el consumidor'
+  ];
   const resultado = normalizeCellValue(resultadoClasificado).trim();
   const iso = normalizeIncidentText(iso22000 || '');
   const tipo = normalizeCellValue(tipoDesvio).trim();
@@ -48,6 +54,10 @@ function classifyDeviationAreaDetailed({
     'falta', 'faltante', 'demora', 'tardanza', 'no se envio', 'no se envió', 'no se enviaron', 'coccion', 'cocción', 'sanitizar', 'mal estado', 'picada', 'picado', 'oxidada', 'oxidado', 'gramaje', 'peso', 'documentacion', 'permiso', 'credencial'
   ])) {
     return { area: CATEGORY.MANUAL, reason: 'Reclamo sin detalle técnico suficiente para clasificar', confidence: 0.4 };
+  }
+
+  if (hasAny(inocuidadHardPriorityTerms)) {
+    return { area: CATEGORY.INOCUIDAD, reason: 'Prioridad sanitaria explícita (decomiso/vida útil/no apto/riesgo)', confidence: 0.96 };
   }
 
   const result = classifyDeviation(
