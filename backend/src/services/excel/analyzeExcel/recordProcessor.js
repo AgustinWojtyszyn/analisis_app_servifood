@@ -71,7 +71,10 @@ import {
   classifyConfidence,
   buildAnalysisText,
   normalizeClassificationForStats,
-  normalizeScopeForStats
+  normalizeScopeForStats,
+  resolveScopeMetadata,
+  applyOriginalClassificationOverride,
+  applyInocuidadHardPriority
 } from './recordProcessor.utils.js';
 
 function processRow({
@@ -693,18 +696,22 @@ function processRow({
 
   const explicacionClasificacion = preExplicacionClasificacion;
   const confianza = preConfianza;
-  const scopeFromSource = normalizeScope(scopeOriginalRaw || getRowValueByCandidates(row, rowKeyMap, ['Origen', 'origen']));
-  const scopeClassified = classifyDeviationScope({
-    text: [textForClassification, rawRecord.hallazgoDetectado, rawRecord.descripcion, rawRecord.observaciones].filter(Boolean).join(' | '),
-    detectedArea: areaClasificadaFinal,
-    empresaDetectada: detectedCompanyArea || '',
-    sectorDetectado: rawRecord.areaProceso || ''
+  const {
+    alcanceDesvio,
+    alcanceReason,
+    alcanceConfidence
+  } = resolveScopeMetadata({
+    scopeOriginalRaw,
+    row,
+    rowKeyMap,
+    getRowValueByCandidatesFn: getRowValueByCandidates,
+    normalizeScopeFn: normalizeScope,
+    classifyDeviationScopeFn: classifyDeviationScope,
+    textForClassification,
+    rawRecord,
+    areaClasificadaFinal,
+    detectedCompanyArea
   });
-  const alcanceDesvio = scopeFromSource || scopeClassified.scope;
-  const alcanceReason = scopeFromSource
-    ? 'Alcance informado explícitamente en Excel origen'
-    : scopeClassified.reason;
-  const alcanceConfidence = scopeFromSource ? 0.99 : scopeClassified.confidence;
 
   const analisisTexto = buildAnalysisText(rawRecord);
 
@@ -751,65 +758,17 @@ function processRow({
     preserveOriginalClassification: hasOriginalClassification
   });
 
-  if (hasOriginalClassification) {
-    const originalNorm = normalizeIncidentText(tipoDesvioOriginalRaw);
-    finalRecord.categoriaDesvio = tipoDesvioOriginalRaw;
-    finalRecord.clasificacionDesvio = tipoDesvioOriginalRaw;
-    finalRecord.classification = tipoDesvioOriginalRaw;
-    finalRecord.classification_normalized = normalizeClassificationForStats(tipoDesvioOriginalRaw);
-    finalRecord.tipoDesvio = tipoOriginal === 'NC' ? 'NC' : (tipoOriginal === 'OM' ? 'OM' : (tipoOriginal === 'OBS' ? 'OBS' : finalRecord.tipoDesvio));
-    if (originalNorm === 'no conforme') {
-      finalRecord.resultadoClasificado = 'No conforme';
-    } else if (tipoOriginal === 'OM') {
-      finalRecord.resultadoClasificado = 'Oportunidad de mejora';
-    } else if (tipoOriginal === 'OBS') {
-      finalRecord.resultadoClasificado = 'Observación';
-    } else {
-      finalRecord.resultadoClasificado = 'Conforme';
-    }
-  }
+  applyOriginalClassificationOverride(finalRecord, {
+    hasOriginalClassification,
+    tipoDesvioOriginalRaw,
+    tipoOriginal
+  });
 
-  const originalClassificationNorm = normalizeIncidentText(tipoDesvioOriginalRaw);
-  const originalClassificationIsManualOrInvalid = (
-    !originalClassificationNorm
-    || originalClassificationNorm === 'revisar manualmente'
-    || originalClassificationNorm === 'revision manual'
-    || originalClassificationNorm === '-'
-    || originalClassificationNorm === 'na'
-    || originalClassificationNorm === 'n a'
-  );
-  const canApplyAutomaticSafetyPriority = !hasOriginalClassification || originalClassificationIsManualOrInvalid;
-
-  const inocuidadHardPriorityText = normalizeIncidentText([
-    finalRecord.hallazgoDetectado,
-    finalRecord.descripcion,
-    finalRecord.observaciones,
-    finalRecord.actividadRealizada,
-    finalRecord.immediate_action,
-    finalRecord.corrective_action,
-    finalRecord.accionInmediata,
-    finalRecord.accionCorrectiva
-  ].filter(Boolean).join(' | '));
-  const hasInocuidadHardPriority = containsAny(inocuidadHardPriorityText, [
-    'decomisa', 'decomiso', 'decomisar',
-    'vida util', 'vida útil',
-    'vencido', 'producto no apto', 'alimento no apto',
-    'riesgo sanitario'
-  ]);
-  if (hasInocuidadHardPriority && canApplyAutomaticSafetyPriority) {
-    finalRecord.categoriaDesvio = 'Desvío de Inocuidad';
-    finalRecord.classification = 'Desvío de Inocuidad';
-    finalRecord.clasificacionDesvio = 'Inocuidad';
-    finalRecord.resultadoClasificado = 'No conforme';
-    finalRecord.tipoDesvio = 'IN';
-    finalRecord.iso22000 = '8.5 HACCP';
-    finalRecord.relacionIso22000 = '8.5 HACCP';
-  } else if (hasInocuidadHardPriority) {
-    // Si la clasificación válida viene del Excel, se respeta categoría original;
-    // solo se alinea ISO al riesgo sanitario explícito.
-    finalRecord.iso22000 = '8.5 HACCP';
-    finalRecord.relacionIso22000 = '8.5 HACCP';
-  }
+  applyInocuidadHardPriority({
+    finalRecord,
+    hasOriginalClassification,
+    tipoDesvioOriginalRaw
+  });
 
   finalRecord.alcanceDesvio = scopeOriginalRaw || finalRecord.alcanceDesvio;
   finalRecord.scope_original = scopeOriginalRaw || null;

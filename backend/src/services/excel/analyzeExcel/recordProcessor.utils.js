@@ -295,6 +295,114 @@ function normalizeScopeForStats(value = '') {
   return normalizeCellValue(value).trim();
 }
 
+function resolveScopeMetadata({
+  scopeOriginalRaw = '',
+  row = {},
+  rowKeyMap = {},
+  getRowValueByCandidatesFn,
+  normalizeScopeFn,
+  classifyDeviationScopeFn,
+  textForClassification = '',
+  rawRecord = {},
+  areaClasificadaFinal = '',
+  detectedCompanyArea = ''
+}) {
+  const scopeFromSource = normalizeScopeFn(scopeOriginalRaw || getRowValueByCandidatesFn(row, rowKeyMap, ['Origen', 'origen']));
+  const scopeClassified = classifyDeviationScopeFn({
+    text: [textForClassification, rawRecord.hallazgoDetectado, rawRecord.descripcion, rawRecord.observaciones].filter(Boolean).join(' | '),
+    detectedArea: areaClasificadaFinal,
+    empresaDetectada: detectedCompanyArea || '',
+    sectorDetectado: rawRecord.areaProceso || ''
+  });
+  const alcanceDesvio = scopeFromSource || scopeClassified.scope;
+  const alcanceReason = scopeFromSource
+    ? 'Alcance informado explícitamente en Excel origen'
+    : scopeClassified.reason;
+  const alcanceConfidence = scopeFromSource ? 0.99 : scopeClassified.confidence;
+
+  return {
+    scopeFromSource,
+    scopeClassified,
+    alcanceDesvio,
+    alcanceReason,
+    alcanceConfidence
+  };
+}
+
+function applyOriginalClassificationOverride(finalRecord, { hasOriginalClassification, tipoDesvioOriginalRaw, tipoOriginal }) {
+  if (!hasOriginalClassification) return finalRecord;
+
+  const originalNorm = normalizeIncidentText(tipoDesvioOriginalRaw);
+  finalRecord.categoriaDesvio = tipoDesvioOriginalRaw;
+  finalRecord.clasificacionDesvio = tipoDesvioOriginalRaw;
+  finalRecord.classification = tipoDesvioOriginalRaw;
+  finalRecord.classification_normalized = normalizeClassificationForStats(tipoDesvioOriginalRaw);
+  finalRecord.tipoDesvio = tipoOriginal === 'NC' ? 'NC' : (tipoOriginal === 'OM' ? 'OM' : (tipoOriginal === 'OBS' ? 'OBS' : finalRecord.tipoDesvio));
+  if (originalNorm === 'no conforme') {
+    finalRecord.resultadoClasificado = 'No conforme';
+  } else if (tipoOriginal === 'OM') {
+    finalRecord.resultadoClasificado = 'Oportunidad de mejora';
+  } else if (tipoOriginal === 'OBS') {
+    finalRecord.resultadoClasificado = 'Observación';
+  } else {
+    finalRecord.resultadoClasificado = 'Conforme';
+  }
+  return finalRecord;
+}
+
+function applyInocuidadHardPriority({
+  finalRecord,
+  hasOriginalClassification,
+  tipoDesvioOriginalRaw
+}) {
+  const originalClassificationNorm = normalizeIncidentText(tipoDesvioOriginalRaw);
+  const originalClassificationIsManualOrInvalid = (
+    !originalClassificationNorm
+    || originalClassificationNorm === 'revisar manualmente'
+    || originalClassificationNorm === 'revision manual'
+    || originalClassificationNorm === '-'
+    || originalClassificationNorm === 'na'
+    || originalClassificationNorm === 'n a'
+  );
+  const canApplyAutomaticSafetyPriority = !hasOriginalClassification || originalClassificationIsManualOrInvalid;
+
+  const inocuidadHardPriorityText = normalizeIncidentText([
+    finalRecord.hallazgoDetectado,
+    finalRecord.descripcion,
+    finalRecord.observaciones,
+    finalRecord.actividadRealizada,
+    finalRecord.immediate_action,
+    finalRecord.corrective_action,
+    finalRecord.accionInmediata,
+    finalRecord.accionCorrectiva
+  ].filter(Boolean).join(' | '));
+  const hasInocuidadHardPriority = containsAny(inocuidadHardPriorityText, [
+    'decomisa', 'decomiso', 'decomisar',
+    'vida util', 'vida útil',
+    'vencido', 'producto no apto', 'alimento no apto',
+    'riesgo sanitario'
+  ]);
+
+  if (hasInocuidadHardPriority && canApplyAutomaticSafetyPriority) {
+    finalRecord.categoriaDesvio = 'Desvío de Inocuidad';
+    finalRecord.classification = 'Desvío de Inocuidad';
+    finalRecord.clasificacionDesvio = 'Inocuidad';
+    finalRecord.resultadoClasificado = 'No conforme';
+    finalRecord.tipoDesvio = 'IN';
+    finalRecord.iso22000 = '8.5 HACCP';
+    finalRecord.relacionIso22000 = '8.5 HACCP';
+  } else if (hasInocuidadHardPriority) {
+    finalRecord.iso22000 = '8.5 HACCP';
+    finalRecord.relacionIso22000 = '8.5 HACCP';
+  }
+
+  return {
+    finalRecord,
+    hasInocuidadHardPriority,
+    canApplyAutomaticSafetyPriority
+  };
+}
+
 export {
   splitHallazgos,
   isGestionSgiaText,
@@ -319,5 +427,8 @@ export {
   classifyConfidence,
   buildAnalysisText,
   normalizeClassificationForStats,
-  normalizeScopeForStats
+  normalizeScopeForStats,
+  resolveScopeMetadata,
+  applyOriginalClassificationOverride,
+  applyInocuidadHardPriority
 };
