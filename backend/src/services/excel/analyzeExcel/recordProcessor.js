@@ -72,6 +72,8 @@ import {
   buildAnalysisText,
   normalizeClassificationForStats,
   normalizeScopeForStats,
+  applyActionFallbacks,
+  buildFinalRecordPayload,
   resolveScopeMetadata,
   applyOriginalClassificationOverride,
   applyInocuidadHardPriority
@@ -378,15 +380,11 @@ function processRow({
     hallazgoDetectado: sanitizeHallazgo(desvioDetectadoOriginal),
     accionDetectada
   };
-  rawRecord.accionInmediata = rawRecord.accionInmediata || getRowValueByCandidates(row, rowKeyMap, ['Acción inmediata', 'Accion inmediata']) || '';
-  rawRecord.accionCorrectiva = rawRecord.accionCorrectiva || getRowValueByCandidates(row, rowKeyMap, [
-    'Acción Correctiva Propuesta',
-    'Accion Correctiva Propuesta',
-    'Acción correctiva propuesta',
-    'Accion correctiva propuesta',
-    'Acción correctiva',
-    'Accion correctiva'
-  ]) || '';
+  applyActionFallbacks(rawRecord, {
+    row,
+    rowKeyMap,
+    getRowValueByCandidatesFn: getRowValueByCandidates
+  });
 
   if (isRepeatedHeaderRow(rawRecord)) {
     return {
@@ -715,33 +713,15 @@ function processRow({
 
   const analisisTexto = buildAnalysisText(rawRecord);
 
-  const finalRecord = validateFinalRecord({
-    rawRowNumber: rawRecord.rawRowNumber,
-    rawDesvioDetectado: rawRecord.rawDesvioDetectado,
-    fecha: rawRecord.fecha || '',
-    areaProceso: rawRecord.areaProceso || 'N/A',
-    actividadRealizada: rawRecord.actividadRealizada || '',
-    descripcion: rawRecord.descripcion || '',
-    hallazgoDetectado: rawRecord.hallazgoDetectado || '',
-    accionDetectada: rawRecord.accionDetectada || '',
-    observaciones: rawRecord.observaciones || '',
-    tipoActividad: rawRecord.tipoActividad || '',
-    resultado: rawRecord.resultado || '',
-    desvio: rawRecord.desvio || '',
-    accion: rawRecord.accion || '',
-    accionInmediata: rawRecord.accionInmediata || '',
-    accionCorrectiva: rawRecord.accionCorrectiva || '',
-    numeroAccion: rawRecord.numeroAccion || '',
-    notaTecnica: rawRecord.notaTecnica || '',
-    columnasOriginales: rawRecord.columnasOriginales || {},
-    areaClasificada: areaClasificadaFinal,
+  const finalRecord = validateFinalRecord(buildFinalRecordPayload({
+    rawRecord,
+    areaClasificadaFinal,
     resultadoClasificado,
     tipoDesvio,
     iso22000,
     categoriaDesvio,
     responsable,
     estadoAccion,
-    estadoAccionRaw: rawRecord.estadoAccionRaw,
     alcanceDesvio,
     alcanceReason,
     alcanceConfidence,
@@ -749,14 +729,11 @@ function processRow({
     explicacionClasificacion,
     confianza,
     analisisTexto,
-    classification_original: hasOriginalClassification ? tipoDesvioOriginalRaw : null,
-    classification_normalized: normalizeClassificationForStats(hasOriginalClassification ? tipoDesvioOriginalRaw : categoriaDesvio),
-    scope_original: scopeOriginalRaw || null,
-    scope_normalized: normalizeScopeForStats(alcanceDesvio),
-    immediate_action: normalizeCellValue(accionInmediataRaw).trim(),
-    corrective_action: normalizeCellValue(accionCorrectivaRaw).trim(),
-    preserveOriginalClassification: hasOriginalClassification
-  });
+    hasOriginalClassification,
+    tipoDesvioOriginalRaw,
+    accionInmediataRaw,
+    accionCorrectivaRaw
+  }));
 
   applyOriginalClassificationOverride(finalRecord, {
     hasOriginalClassification,

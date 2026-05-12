@@ -295,6 +295,84 @@ function normalizeScopeForStats(value = '') {
   return normalizeCellValue(value).trim();
 }
 
+function applyActionFallbacks(rawRecord, { row, rowKeyMap, getRowValueByCandidatesFn }) {
+  rawRecord.accionInmediata = rawRecord.accionInmediata || getRowValueByCandidatesFn(row, rowKeyMap, ['Acción inmediata', 'Accion inmediata']) || '';
+  rawRecord.accionCorrectiva = rawRecord.accionCorrectiva || getRowValueByCandidatesFn(row, rowKeyMap, [
+    'Acción Correctiva Propuesta',
+    'Accion Correctiva Propuesta',
+    'Acción correctiva propuesta',
+    'Accion correctiva propuesta',
+    'Acción correctiva',
+    'Accion correctiva'
+  ]) || '';
+  return rawRecord;
+}
+
+function buildFinalRecordPayload({
+  rawRecord,
+  areaClasificadaFinal,
+  resultadoClasificado,
+  tipoDesvio,
+  iso22000,
+  categoriaDesvio,
+  responsable,
+  estadoAccion,
+  alcanceDesvio,
+  alcanceReason,
+  alcanceConfidence,
+  refinadoPorIA,
+  explicacionClasificacion,
+  confianza,
+  analisisTexto,
+  hasOriginalClassification,
+  tipoDesvioOriginalRaw,
+  accionInmediataRaw,
+  accionCorrectivaRaw
+}) {
+  return {
+    rawRowNumber: rawRecord.rawRowNumber,
+    rawDesvioDetectado: rawRecord.rawDesvioDetectado,
+    fecha: rawRecord.fecha || '',
+    areaProceso: rawRecord.areaProceso || 'N/A',
+    actividadRealizada: rawRecord.actividadRealizada || '',
+    descripcion: rawRecord.descripcion || '',
+    hallazgoDetectado: rawRecord.hallazgoDetectado || '',
+    accionDetectada: rawRecord.accionDetectada || '',
+    observaciones: rawRecord.observaciones || '',
+    tipoActividad: rawRecord.tipoActividad || '',
+    resultado: rawRecord.resultado || '',
+    desvio: rawRecord.desvio || '',
+    accion: rawRecord.accion || '',
+    accionInmediata: rawRecord.accionInmediata || '',
+    accionCorrectiva: rawRecord.accionCorrectiva || '',
+    numeroAccion: rawRecord.numeroAccion || '',
+    notaTecnica: rawRecord.notaTecnica || '',
+    columnasOriginales: rawRecord.columnasOriginales || {},
+    areaClasificada: areaClasificadaFinal,
+    resultadoClasificado,
+    tipoDesvio,
+    iso22000,
+    categoriaDesvio,
+    responsable,
+    estadoAccion,
+    estadoAccionRaw: rawRecord.estadoAccionRaw,
+    alcanceDesvio,
+    alcanceReason,
+    alcanceConfidence,
+    refinadoPorIA,
+    explicacionClasificacion,
+    confianza,
+    analisisTexto,
+    classification_original: hasOriginalClassification ? tipoDesvioOriginalRaw : null,
+    classification_normalized: normalizeClassificationForStats(hasOriginalClassification ? tipoDesvioOriginalRaw : categoriaDesvio),
+    scope_original: null,
+    scope_normalized: normalizeScopeForStats(alcanceDesvio),
+    immediate_action: normalizeCellValue(accionInmediataRaw).trim(),
+    corrective_action: normalizeCellValue(accionCorrectivaRaw).trim(),
+    preserveOriginalClassification: hasOriginalClassification
+  };
+}
+
 function resolveScopeMetadata({
   scopeOriginalRaw = '',
   row = {},
@@ -428,6 +506,8 @@ export {
   buildAnalysisText,
   normalizeClassificationForStats,
   normalizeScopeForStats,
+  applyActionFallbacks,
+  buildFinalRecordPayload,
   resolveScopeMetadata,
   applyOriginalClassificationOverride,
   applyInocuidadHardPriority
