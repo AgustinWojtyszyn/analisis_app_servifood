@@ -58,6 +58,19 @@ function normalizeCompare(value = '') {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function toTitleCaseLabel(value = '') {
+  return String(value || '')
+    .split('/')
+    .map((chunk) => chunk
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' '))
+    .filter(Boolean)
+    .join('/');
+}
+
 function resolveCategoryFromRecord(record = {}) {
   const originalColumns = (record?.columnasOriginales && typeof record.columnasOriginales === 'object' && !Array.isArray(record.columnasOriginales))
     ? record.columnasOriginales
@@ -140,23 +153,36 @@ export function SummaryGrid({ summary, processedAt = null, records = [] }) {
     : null;
 
   const dynamicCategoryCards = Object.entries(effectiveSummary.byCategoria || {})
-    .filter(([name]) => name && name !== 'Conforme')
-    .filter(([name]) => ![
-      'Inocuidad',
-      'Logística',
-      'Calidad',
-      'Legales',
-      'Desvío de Inocuidad',
-      'Desvío de Logística',
-      'Desvío de Calidad',
-      'Desvío Legal',
-      'Revisar manualmente'
-    ].includes(name))
-    .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
-    .map(([name, value]) => ({
-      title: name.replace(/^Desvío de\s+/i, ''),
-      value: Number(value || 0)
-    }));
+    .filter(([name]) => Boolean(String(name || '').trim()))
+    .reduce((acc, [name, value]) => {
+      const rawName = String(name || '').trim();
+      const normalizedKey = normalizeCompare(rawName).replace(/^desvio de\s+/, '');
+      if (!normalizedKey || normalizedKey === 'conforme') return acc;
+      const current = acc.get(normalizedKey) || { label: rawName, value: 0 };
+      current.value += Number(value || 0);
+      if (!current.label || rawName.length > current.label.length) current.label = rawName;
+      acc.set(normalizedKey, current);
+      return acc;
+    }, new Map());
+
+  const fixedCategoryNormalized = new Set([
+    'inocuidad',
+    'logistica',
+    'calidad',
+    'legal',
+    'legales',
+    'revisar manualmente',
+    'revision manual'
+  ]);
+
+  const dynamicCards = [...dynamicCategoryCards.entries()]
+    .filter(([normalizedKey]) => !fixedCategoryNormalized.has(normalizedKey))
+    .map(([, item]) => ({
+      title: toTitleCaseLabel(String(item.label || '').replace(/^desvio de\s+/i, '')),
+      value: Number(item.value || 0)
+    }))
+    .filter((item) => item.title && item.value > 0)
+    .sort((a, b) => b.value - a.value || a.title.localeCompare(b.title, 'es'));
 
   return (
     <>
@@ -193,7 +219,7 @@ export function SummaryGrid({ summary, processedAt = null, records = [] }) {
       <Grid item xs={12} sm={6} md={4} lg={2}>
         <MetricCard title="Rev. manual" value={effectiveSummary.totalRevisionManual || 0} variant="warning" />
       </Grid>
-      {dynamicCategoryCards.map((item) => (
+      {dynamicCards.map((item) => (
         <Grid item xs={12} sm={6} md={4} lg={2} key={`cat-${item.title}`}>
           <MetricCard title={item.title} value={item.value} variant="secondary" />
         </Grid>
