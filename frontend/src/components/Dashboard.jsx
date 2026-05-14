@@ -55,11 +55,18 @@ function normalizeCompare(value = '') {
     .trim()
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s*\/\s*/g, '/')
+    .replace(/\s+/g, ' ');
 }
 
 function toTitleCaseLabel(value = '') {
-  return String(value || '')
+  const normalized = String(value || '')
+    .trim()
+    .replace(/\s*\/\s*/g, '/')
+    .replace(/\s+/g, ' ');
+
+  return normalized
     .split('/')
     .map((chunk) => chunk
       .trim()
