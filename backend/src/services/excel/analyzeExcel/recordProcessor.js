@@ -94,6 +94,34 @@ function processRow({
     const indexToUse = Number.isInteger(headerIndex) ? headerIndex : null;
     return indexToUse == null ? '' : rowValues?.[indexToUse];
   };
+  const hasExplicitOriginalValue = (value = '') => {
+    const normalized = normalizeForMatch(normalizeCellValue(value || '').trim());
+    if (!normalized) return false;
+    return ![
+      '-',
+      'na',
+      'n a',
+      'nd',
+      'n d',
+      's d',
+      's/d',
+      'no aplica',
+      'sin dato',
+      'sin datos',
+      'pendiente',
+      'revisar manualmente',
+      'revision manual',
+      'area',
+      'area sector',
+      'area proceso',
+      'clasificacion',
+      'clasificacion del desvio',
+      'clasificación del desvío',
+      'tipo',
+      'estado',
+      'responsable'
+    ].includes(normalized);
+  };
 
   const row = buildRowObjectFromExcel(headerValues, rowValues);
   const rowKeyMap = buildNormalizedRowKeyMap(row);
@@ -167,16 +195,23 @@ function processRow({
     'Clausula ISO',
     'Cláusula ISO'
   ]) || '').trim();
-  const tipoDesvioOriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
+  const classificationOriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
     'Clasificacion del desvio',
     'Clasificación del desvío',
     'Clasificacion del desvío',
     'Clasificación del desvio',
+    'Clasificación',
+    'Clasificacion',
+    'Categoría',
+    'Categoria',
+    'Categoría del desvío',
+    'Categoria del desvio',
+    'Resultado clasificado'
+  ]) || '').trim();
+  const tipoDesvioOriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
     'Tipo desvio',
     'Tipo desvío',
-    'Tipo',
-    'Clasificación',
-    'Clasificacion'
+    'Tipo'
   ]) || '').trim();
   const scopeOriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
     'Desvío interno/externo',
@@ -276,6 +311,7 @@ function processRow({
   const notaTecnica = normalizeCellValue(notaTecnicaRaw).trim();
   const responsableOriginal = responsableOriginalRaw || fillDownState.responsableOriginal;
   const iso22000Original = iso22000OriginalRaw || fillDownState.iso22000Original;
+  const classificationOriginal = classificationOriginalRaw || fillDownState.classificationOriginal;
   const tipoDesvioOriginal = tipoDesvioOriginalRaw || fillDownState.tipoDesvioOriginal;
 
   if (fecha && normalizeForMatch(fecha) !== 'fecha') {
@@ -294,6 +330,7 @@ function processRow({
   if (tipoActividad && normalizeForMatch(tipoActividad) !== 'tipo de actividad') fillDownState.tipoActividad = tipoActividad;
   if (responsableOriginal) fillDownState.responsableOriginal = responsableOriginal;
   if (iso22000Original) fillDownState.iso22000Original = iso22000Original;
+  if (classificationOriginal) fillDownState.classificationOriginal = classificationOriginal;
   if (tipoDesvioOriginal) fillDownState.tipoDesvioOriginal = tipoDesvioOriginal;
 
   const hasRealRowSignal = hasUsefulFindingText(desvioDetectadoOriginal);
@@ -374,6 +411,7 @@ function processRow({
     estadoAccionRaw,
     responsableOriginal,
     iso22000Original,
+    classificationOriginal,
     tipoDesvioOriginal,
     columnasOriginales: row || {},
     textoBase: actividadRealizada,
@@ -497,8 +535,8 @@ function processRow({
     areaClasificada = explicitAreaFromExcel;
   }
 
-  const tipoOriginal = parseOriginalTipoDesvio(rawRecord.tipoDesvioOriginal || rawRecord.resultado);
-  const hasOriginalClassification = normalizeCellValue(tipoDesvioOriginalRaw).trim().length > 0;
+  const tipoOriginal = parseOriginalTipoDesvio(rawRecord.classificationOriginal || rawRecord.tipoDesvioOriginal || rawRecord.resultado);
+  const hasOriginalClassification = normalizeCellValue(classificationOriginalRaw).trim().length > 0;
   const hasStrongNeutralEvidence = neutralTechnicalRow && !explicitNegativeInRow && !inheritedNegativeContext;
   if (!hasOriginalClassification && tipoOriginal === 'NC') {
     if (explicitNegativeInRow || inheritedNegativeContext || !hasStrongNeutralEvidence) {
@@ -673,9 +711,13 @@ function processRow({
       areaOperativaDetectada: areaOperativaClasificada,
       contextText: textForClassification
     });
+  const areaOriginalPreservable = hasExplicitOriginalValue(areaOriginal) ? areaOriginal : '';
   const isAuditText = containsAny(normalizeIncidentText(textForClassification), ['auditoria', 'auditoría']);
   if (isAuditText) {
     areaClasificadaFinal = 'Área no identificada';
+  }
+  if (areaOriginalPreservable) {
+    areaClasificadaFinal = areaOriginalPreservable;
   }
   const responsable = normalizeCellValue(rawRecord.responsableOriginal).trim() || classifyResponsibleByArea(areaClasificadaFinal);
 
@@ -730,21 +772,21 @@ function processRow({
     confianza,
     analisisTexto,
     hasOriginalClassification,
-    tipoDesvioOriginalRaw,
+    tipoDesvioOriginalRaw: classificationOriginalRaw,
     accionInmediataRaw,
     accionCorrectivaRaw
   }));
 
   applyOriginalClassificationOverride(finalRecord, {
     hasOriginalClassification,
-    tipoDesvioOriginalRaw,
+    tipoDesvioOriginalRaw: classificationOriginalRaw,
     tipoOriginal
   });
 
   applyInocuidadHardPriority({
     finalRecord,
     hasOriginalClassification,
-    tipoDesvioOriginalRaw
+    tipoDesvioOriginalRaw: classificationOriginalRaw
   });
 
   finalRecord.alcanceDesvio = scopeOriginalRaw || finalRecord.alcanceDesvio;
@@ -752,6 +794,79 @@ function processRow({
   finalRecord.scope_normalized = normalizeScopeForStats(finalRecord.alcanceDesvio);
   finalRecord.immediate_action = normalizeCellValue(accionInmediataRaw).trim();
   finalRecord.corrective_action = normalizeCellValue(accionCorrectivaRaw).trim();
+
+  if (hasExplicitOriginalValue(estadoAccionRaw)) {
+    finalRecord.estadoAccion = normalizeCellValue(estadoAccionRaw).trim();
+    finalRecord.estadoAcciones = normalizeCellValue(estadoAccionRaw).trim();
+  }
+  if (hasExplicitOriginalValue(responsableOriginalRaw)) {
+    finalRecord.responsable = normalizeCellValue(responsableOriginalRaw).trim();
+  }
+  if (hasExplicitOriginalValue(accionInmediataRaw)) {
+    finalRecord.accionInmediata = normalizeCellValue(accionInmediataRaw).trim();
+    finalRecord.immediate_action = normalizeCellValue(accionInmediataRaw).trim();
+  }
+  if (hasExplicitOriginalValue(accionCorrectivaRaw)) {
+    finalRecord.accionCorrectiva = normalizeCellValue(accionCorrectivaRaw).trim();
+    finalRecord.corrective_action = normalizeCellValue(accionCorrectivaRaw).trim();
+  }
+  if (areaOriginalPreservable) {
+    finalRecord.areaClasificada = areaOriginalPreservable;
+    finalRecord.areaSector = areaOriginalPreservable;
+  }
+  if (hasExplicitOriginalValue(scopeOriginalRaw)) {
+    const scopeOriginal = normalizeCellValue(scopeOriginalRaw).trim();
+    finalRecord.alcanceDesvio = scopeOriginal;
+    finalRecord.scope_original = scopeOriginal;
+    finalRecord.scope_normalized = normalizeScopeForStats(scopeOriginal);
+  }
+  if (hasExplicitOriginalValue(iso22000OriginalRaw)) {
+    const isoOriginal = normalizeCellValue(iso22000OriginalRaw).trim();
+    finalRecord.iso22000 = isoOriginal;
+    finalRecord.relacionIso22000 = isoOriginal;
+  }
+  finalRecord.traceability = {
+    areaSector: {
+      valor_original_excel: areaOriginalPreservable || null,
+      valor_final_usado: finalRecord.areaSector || finalRecord.areaClasificada || null,
+      fuente_del_valor: areaOriginalPreservable ? 'excel' : 'heuristica'
+    },
+    clasificacion: {
+      valor_original_excel: hasOriginalClassification ? normalizeCellValue(classificationOriginalRaw).trim() : null,
+      valor_final_usado: finalRecord.clasificacionDesvio || finalRecord.categoriaDesvio || null,
+      fuente_del_valor: hasOriginalClassification ? 'excel' : 'heuristica'
+    },
+    tipo: {
+      valor_original_excel: hasExplicitOriginalValue(scopeOriginalRaw) ? normalizeCellValue(scopeOriginalRaw).trim() : null,
+      valor_final_usado: finalRecord.scope_normalized || finalRecord.alcanceDesvio || null,
+      fuente_del_valor: hasExplicitOriginalValue(scopeOriginalRaw) ? 'excel' : 'heuristica'
+    },
+    estado: {
+      valor_original_excel: hasExplicitOriginalValue(estadoAccionRaw) ? normalizeCellValue(estadoAccionRaw).trim() : null,
+      valor_final_usado: finalRecord.estadoAcciones || finalRecord.estadoAccion || null,
+      fuente_del_valor: hasExplicitOriginalValue(estadoAccionRaw) ? 'excel' : 'heuristica'
+    },
+    relacionIso22000: {
+      valor_original_excel: hasExplicitOriginalValue(iso22000OriginalRaw) ? normalizeCellValue(iso22000OriginalRaw).trim() : null,
+      valor_final_usado: finalRecord.relacionIso22000 || finalRecord.iso22000 || null,
+      fuente_del_valor: hasExplicitOriginalValue(iso22000OriginalRaw) ? 'excel' : 'heuristica'
+    },
+    accionInmediata: {
+      valor_original_excel: hasExplicitOriginalValue(accionInmediataRaw) ? normalizeCellValue(accionInmediataRaw).trim() : null,
+      valor_final_usado: finalRecord.immediate_action || finalRecord.accionInmediata || null,
+      fuente_del_valor: hasExplicitOriginalValue(accionInmediataRaw) ? 'excel' : 'heuristica'
+    },
+    accionCorrectiva: {
+      valor_original_excel: hasExplicitOriginalValue(accionCorrectivaRaw) ? normalizeCellValue(accionCorrectivaRaw).trim() : null,
+      valor_final_usado: finalRecord.corrective_action || finalRecord.accionCorrectiva || null,
+      fuente_del_valor: hasExplicitOriginalValue(accionCorrectivaRaw) ? 'excel' : 'heuristica'
+    },
+    responsable: {
+      valor_original_excel: hasExplicitOriginalValue(responsableOriginalRaw) ? normalizeCellValue(responsableOriginalRaw).trim() : null,
+      valor_final_usado: finalRecord.responsable || null,
+      fuente_del_valor: hasExplicitOriginalValue(responsableOriginalRaw) ? 'excel' : 'heuristica'
+    }
+  };
 
   // Ajuste final: la acción correctiva debe responder a la categoría final validada.
   if (!hasOriginalClassification && normalizeCellValue(finalRecord.resultadoClasificado).trim() === 'No conforme') {

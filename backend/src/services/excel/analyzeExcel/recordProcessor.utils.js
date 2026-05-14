@@ -422,8 +422,6 @@ function applyOriginalClassificationOverride(finalRecord, { hasOriginalClassific
     finalRecord.resultadoClasificado = 'Oportunidad de mejora';
   } else if (tipoOriginal === 'OBS') {
     finalRecord.resultadoClasificado = 'Observación';
-  } else {
-    finalRecord.resultadoClasificado = 'Conforme';
   }
   return finalRecord;
 }

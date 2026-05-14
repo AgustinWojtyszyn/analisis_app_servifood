@@ -296,6 +296,7 @@ function createFillDownState() {
     tipoActividad: '',
     responsableOriginal: '',
     iso22000Original: '',
+    classificationOriginal: '',
     tipoDesvioOriginal: ''
   };
 }
