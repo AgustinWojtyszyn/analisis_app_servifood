@@ -247,6 +247,7 @@ function MainApp({ user, onLogout }) {
         <SummaryGrid
           summary={selectedAnalysis?.summary}
           processedAt={selectedAnalysis?.processedAt || selectedAnalysis?.uploadDate || null}
+          records={selectedAnalysis?.records || []}
         />
         <AnalysisResults
           records={selectedAnalysis?.records || []}

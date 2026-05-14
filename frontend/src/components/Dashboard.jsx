@@ -50,8 +50,83 @@ function MetricCard({ title, value, variant = 'info' }) {
   );
 }
 
-export function SummaryGrid({ summary, processedAt = null }) {
+function normalizeCompare(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function resolveCategoryFromRecord(record = {}) {
+  const originalColumns = (record?.columnasOriginales && typeof record.columnasOriginales === 'object' && !Array.isArray(record.columnasOriginales))
+    ? record.columnasOriginales
+    : {};
+  const originalEntries = Object.entries(originalColumns);
+  const findOriginalByAliases = (aliases = []) => {
+    for (const alias of aliases) {
+      const aliasNorm = normalizeCompare(alias);
+      const match = originalEntries.find(([key]) => normalizeCompare(key) === aliasNorm);
+      if (match) return String(match[1] || '').trim();
+    }
+    return '';
+  };
+  const excelClassification = String(
+    record?.classification_original
+    || findOriginalByAliases([
+      'Clasificacion del desvio',
+      'Clasificación del desvío',
+      'Clasificacion del desvío',
+      'Clasificación del desvio'
+    ])
+    || ''
+  ).trim();
+  if (excelClassification) return excelClassification;
+
+  if (record?.preserveOriginalClassification && String(record?.classification_original || '').trim()) {
+    return String(record.classification_original).trim();
+  }
+  return String(record?.clasificacionDesvio || record?.classification_normalized || record?.categoriaDesvio || '').trim();
+}
+
+function buildSummaryFromRecords(records = [], baseSummary = {}) {
+  if (!Array.isArray(records) || records.length === 0) return baseSummary;
+
+  const byCategoria = {};
+  let totalInternos = 0;
+  let totalExternos = 0;
+
+  records.forEach((record) => {
+    const cat = resolveCategoryFromRecord(record);
+    if (cat) byCategoria[cat] = (byCategoria[cat] || 0) + 1;
+
+    const alcance = normalizeCompare(record?.scope_normalized || record?.alcanceDesvio || '');
+    if (alcance === 'interno') totalInternos += 1;
+    if (alcance === 'externo') totalExternos += 1;
+  });
+
+  const entries = Object.entries(byCategoria);
+  const sumBy = (predicate) => entries.reduce((acc, [name, value]) => acc + (predicate(name) ? Number(value || 0) : 0), 0);
+  const isExact = (name, expected) => normalizeCompare(name) === normalizeCompare(expected);
+
+  return {
+    ...baseSummary,
+    totalRecords: records.length,
+    totalDesvios: records.length,
+    byCategoria,
+    totalInocuidad: sumBy((name) => isExact(name, 'Inocuidad') || isExact(name, 'Desvío de Inocuidad')),
+    totalLogistica: sumBy((name) => isExact(name, 'Logística') || isExact(name, 'Desvío de Logística')),
+    totalCalidad: sumBy((name) => isExact(name, 'Calidad') || isExact(name, 'Desvío de Calidad')),
+    totalLegal: sumBy((name) => isExact(name, 'Legales') || isExact(name, 'Legal') || isExact(name, 'Desvío Legal')),
+    totalRevisionManual: sumBy((name) => isExact(name, 'Revisar manualmente') || isExact(name, 'Revisión manual')),
+    totalInternos,
+    totalExternos
+  };
+}
+
+export function SummaryGrid({ summary, processedAt = null, records = [] }) {
   if (!summary) return null;
+  const effectiveSummary = buildSummaryFromRecords(records, summary);
 
   const effectiveProcessedAt = summary.processedAt || processedAt;
   const processedAtLabel = effectiveProcessedAt
@@ -64,7 +139,7 @@ export function SummaryGrid({ summary, processedAt = null }) {
     })
     : null;
 
-  const dynamicCategoryCards = Object.entries(summary.byCategoria || {})
+  const dynamicCategoryCards = Object.entries(effectiveSummary.byCategoria || {})
     .filter(([name]) => name && name !== 'Conforme')
     .filter(([name]) => ![
       'Inocuidad',
@@ -92,31 +167,31 @@ export function SummaryGrid({ summary, processedAt = null }) {
       )}
       <Grid container spacing={2.25} sx={{ mb: 3.5 }}>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Total registros" value={summary.totalRecords || 0} variant="info" />
+        <MetricCard title="Total registros" value={effectiveSummary.totalRecords || 0} variant="info" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Total desvíos" value={summary.totalDesvios || 0} variant="error" />
+        <MetricCard title="Total desvíos" value={effectiveSummary.totalDesvios || 0} variant="error" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Inocuidad" value={summary.totalInocuidad || 0} variant="primary" />
+        <MetricCard title="Inocuidad" value={effectiveSummary.totalInocuidad || 0} variant="primary" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Logística" value={summary.totalLogistica || 0} variant="info" />
+        <MetricCard title="Logística" value={effectiveSummary.totalLogistica || 0} variant="info" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Calidad" value={summary.totalCalidad || 0} variant="secondary" />
+        <MetricCard title="Calidad" value={effectiveSummary.totalCalidad || 0} variant="secondary" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Legal" value={summary.totalLegal || 0} variant="warning" />
+        <MetricCard title="Legal" value={effectiveSummary.totalLegal || 0} variant="warning" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Internos" value={summary.totalInternos || 0} variant="info" />
+        <MetricCard title="Internos" value={effectiveSummary.totalInternos || 0} variant="info" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Externos" value={summary.totalExternos || 0} variant="primary" />
+        <MetricCard title="Externos" value={effectiveSummary.totalExternos || 0} variant="primary" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Rev. manual" value={summary.totalRevisionManual || 0} variant="warning" />
+        <MetricCard title="Rev. manual" value={effectiveSummary.totalRevisionManual || 0} variant="warning" />
       </Grid>
       {dynamicCategoryCards.map((item) => (
         <Grid item xs={12} sm={6} md={4} lg={2} key={`cat-${item.title}`}>
