@@ -536,7 +536,7 @@ function processRow({
   }
 
   const tipoOriginal = parseOriginalTipoDesvio(rawRecord.classificationOriginal || rawRecord.tipoDesvioOriginal || rawRecord.resultado);
-  const hasOriginalClassification = normalizeCellValue(classificationOriginalRaw).trim().length > 0;
+  const hasOriginalClassification = hasExplicitOriginalValue(classificationOriginalRaw);
   const hasStrongNeutralEvidence = neutralTechnicalRow && !explicitNegativeInRow && !inheritedNegativeContext;
   if (!hasOriginalClassification && tipoOriginal === 'NC') {
     if (explicitNegativeInRow || inheritedNegativeContext || !hasStrongNeutralEvidence) {
@@ -824,6 +824,15 @@ function processRow({
     const isoOriginal = normalizeCellValue(iso22000OriginalRaw).trim();
     finalRecord.iso22000 = isoOriginal;
     finalRecord.relacionIso22000 = isoOriginal;
+  }
+  if (hasOriginalClassification) {
+    const classificationOriginal = normalizeCellValue(classificationOriginalRaw).trim();
+    finalRecord.categoriaDesvio = classificationOriginal;
+    finalRecord.clasificacionDesvio = classificationOriginal;
+    finalRecord.classification = classificationOriginal;
+    finalRecord.classification_original = classificationOriginal;
+    finalRecord.classification_normalized = classificationOriginal;
+    finalRecord.preserveOriginalClassification = true;
   }
   finalRecord.traceability = {
     areaSector: {

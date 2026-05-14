@@ -110,7 +110,8 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
       || finalRecord.classification_normalized
       || finalRecord.classification_original
   ).trim();
-  const finalCategoria = normalizeCategory(finalCategoriaOriginal);
+  const hasExcelClassificationSource = Boolean(finalRecord.preserveOriginalClassification && normalizeCellValue(finalRecord.classification_original).trim());
+  const finalCategoria = hasExcelClassificationSource ? finalCategoriaOriginal : normalizeCategory(finalCategoriaOriginal);
   const finalEstadoAccion = normalizeCellValue(finalRecord.estadoAccion).trim();
   const finalAlcance = normalizeCellValue(finalRecord.scope_normalized || finalRecord.alcanceDesvio).trim();
   const isConforme = finalResultado === 'Conforme';

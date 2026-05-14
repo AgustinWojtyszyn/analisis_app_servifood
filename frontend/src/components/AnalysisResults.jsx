@@ -61,6 +61,17 @@ function findOriginalValueByAliases(record, aliases = []) {
 }
 
 function normalizeClassification(record = {}) {
+  const excelClassification = normalizeCellValue(
+    record.classification_original
+      || findOriginalValueByAliases(record, [
+        'Clasificacion del desvio',
+        'Clasificación del desvío',
+        'Clasificacion del desvío',
+        'Clasificación del desvio'
+      ])
+  ).trim();
+  if (excelClassification && record?.preserveOriginalClassification) return excelClassification;
+
   const raw = normalizeCellValue(
     record.clasificacionDesvio
       || record.classification_normalized

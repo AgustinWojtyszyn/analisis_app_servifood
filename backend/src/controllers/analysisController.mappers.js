@@ -89,6 +89,8 @@ function normalizeExportIso(record = {}) {
 
 function reclassifyStoredRecord(record = {}) {
   if (isManualCategoryOverride(record)) return record;
+  if (record?.preserveOriginalClassification && normalizeCellValue(record?.classification_original).trim()) return record;
+  if (normalizeCellValue(record?.classification_original).trim() && normalizeCellValue(record?.clasificacionDesvio).trim()) return record;
 
   const baseText = [
     record.hallazgoDetectado,
