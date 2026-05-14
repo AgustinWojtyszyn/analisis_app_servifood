@@ -13,6 +13,28 @@ function normalizeModernCategory(category = '') {
   return normalizeCategory(category);
 }
 
+function normalizeCompare(value = '') {
+  return normalizeCellValue(value)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function hasExcelClassificationSource(record = {}) {
+  return Boolean(
+    record?.preserveOriginalClassification
+    && normalizeCellValue(record?.classification_original).trim()
+  );
+}
+
+function resolveSummaryCategoryKey(record = {}) {
+  if (hasExcelClassificationSource(record)) {
+    return normalizeCellValue(record.classification_original).trim();
+  }
+  return normalizeModernCategory(record?.clasificacionDesvio || record?.classification_normalized || record?.categoriaDesvio);
+}
+
 function normalizeExportClassification(record = {}) {
   const raw = normalizeCellValue(
     record.clasificacionDesvio
@@ -89,7 +111,7 @@ function normalizeExportIso(record = {}) {
 
 function reclassifyStoredRecord(record = {}) {
   if (isManualCategoryOverride(record)) return record;
-  if (record?.preserveOriginalClassification && normalizeCellValue(record?.classification_original).trim()) return record;
+  if (hasExcelClassificationSource(record)) return record;
   if (normalizeCellValue(record?.classification_original).trim() && normalizeCellValue(record?.clasificacionDesvio).trim()) return record;
 
   const baseText = [
@@ -151,18 +173,22 @@ function normalizeStoredAnalysisResults(results = {}) {
 
   const normalizedRecords = originalRecords.map(reclassifyStoredRecord);
   const byCategoria = normalizedRecords.reduce((acc, record) => {
-    const key = normalizeModernCategory(record?.clasificacionDesvio || record?.classification_normalized || record?.categoriaDesvio);
+    const key = resolveSummaryCategoryKey(record);
     acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
 
-  const totalInocuidad = Number(byCategoria[CANONICAL.INOCUIDAD] || 0);
-  const totalLogistica = Number(byCategoria[CANONICAL.LOGISTICA] || 0);
-  const totalCalidad = Number(byCategoria[CANONICAL.CALIDAD] || 0);
-  const totalLegal = Number(byCategoria[CANONICAL.LEGALES] || 0);
-  const totalMantenimiento = Number(byCategoria[CANONICAL.MANTENIMIENTO] || 0);
-  const totalRRHH = Number(byCategoria[CANONICAL.RRHH] || 0);
-  const totalRevisionManual = Number(byCategoria[CANONICAL.MANUAL] || 0);
+  const entries = Object.entries(byCategoria);
+  const sumBy = (predicate) => entries.reduce((acc, [name, value]) => acc + (predicate(name) ? Number(value || 0) : 0), 0);
+  const isExact = (name, expected) => normalizeCompare(name) === normalizeCompare(expected);
+
+  const totalInocuidad = sumBy((name) => isExact(name, CANONICAL.INOCUIDAD) || isExact(name, 'Desvío de Inocuidad'));
+  const totalLogistica = sumBy((name) => isExact(name, CANONICAL.LOGISTICA) || isExact(name, 'Desvío de Logística'));
+  const totalCalidad = sumBy((name) => isExact(name, CANONICAL.CALIDAD) || isExact(name, 'Desvío de Calidad'));
+  const totalLegal = sumBy((name) => isExact(name, CANONICAL.LEGALES) || isExact(name, 'Legal') || isExact(name, 'Desvío Legal'));
+  const totalMantenimiento = sumBy((name) => isExact(name, CANONICAL.MANTENIMIENTO) || isExact(name, 'Desvío de Mantenimiento'));
+  const totalRRHH = sumBy((name) => isExact(name, CANONICAL.RRHH) || isExact(name, 'Desvío de Recursos Humanos'));
+  const totalRevisionManual = sumBy((name) => isExact(name, CANONICAL.MANUAL));
 
   const baseSummary = results?.summary || {};
   const normalizedSummary = {
