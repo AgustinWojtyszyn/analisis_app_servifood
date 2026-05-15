@@ -15,6 +15,13 @@ function statusMeta(status) {
   return { label: 'Borrador', color: 'warning' };
 }
 
+function filesLabel(value) {
+  const count = Number(value || 0);
+  if (count <= 0) return 'Sin archivos';
+  if (count === 1) return '1 archivo';
+  return `${count} archivos`;
+}
+
 export default function NutritionModulesTable({ rows, canManage, onEdit, onPublish, onArchive, onDelete, onDownload, onExportExcel, onViewFiles }) {
   return (
     <TableContainer>
@@ -39,12 +46,12 @@ export default function NutritionModulesTable({ rows, canManage, onEdit, onPubli
                 <TableCell>
                   <Chip size="small" label={meta.label} color={meta.color} variant={meta.color === 'default' ? 'outlined' : 'filled'} />
                 </TableCell>
-                <TableCell>{row.filesCount || 0}</TableCell>
+                <TableCell>{filesLabel(row.filesCount)}</TableCell>
                 <TableCell>{formatDate(row.updatedAt || row.createdAt)}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                     <Button size="small" variant="outlined" onClick={() => onExportExcel(row)}>Excel</Button>
-                    <Button size="small" variant="outlined" onClick={() => onDownload(row)}>Descargar</Button>
+                    <Button size="small" variant="outlined" onClick={() => onDownload(row)}>Descargar módulo</Button>
                     <Button size="small" variant="outlined" onClick={() => onViewFiles(row)}>Ver archivos</Button>
                     {canManage && (
                       <>

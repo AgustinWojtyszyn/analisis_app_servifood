@@ -139,6 +139,22 @@ function ensureAllowedFile(file) {
   return null;
 }
 
+async function ensureStorageBucketExists() {
+  const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
+  if (listError) {
+    throw new Error(listError.message || 'No se pudieron listar buckets de storage');
+  }
+  const exists = (buckets || []).some((bucket) => bucket?.name === STORAGE_BUCKET);
+  if (exists) return;
+
+  const { error: createError } = await supabaseAdmin.storage.createBucket(STORAGE_BUCKET, {
+    public: false
+  });
+  if (createError && !/already exists/i.test(String(createError.message || ''))) {
+    throw new Error(createError.message || `No se pudo crear bucket ${STORAGE_BUCKET}`);
+  }
+}
+
 async function canAccessModule(role, moduleId) {
   const { data, error } = await supabaseAdmin
     .from('nutrition_modules')
@@ -590,6 +606,8 @@ router.post('/nutrition-modules/:id/files', authenticateToken, upload.array('fil
       }
     }
 
+    await ensureStorageBucketExists();
+
     const createdRows = [];
     for (const file of files) {
       const safeName = sanitizeStorageFileName(file.originalname);
@@ -671,6 +689,8 @@ router.delete('/nutrition-modules/files/:fileId', authenticateToken, async (req,
       return res.status(404).json({ error: 'Archivo adjunto no encontrado' });
     }
 
+    await ensureStorageBucketExists();
+
     const removeStorage = await supabaseAdmin.storage
       .from(STORAGE_BUCKET)
       .remove([fileRow.file_path]);
@@ -721,6 +741,8 @@ router.get('/nutrition-modules/files/:fileId/download', authenticateToken, async
     if (!moduleCheck.allowed) {
       return res.status(moduleCheck.status).json({ error: moduleCheck.reason });
     }
+
+    await ensureStorageBucketExists();
 
     const downloadResult = await supabaseAdmin.storage
       .from(STORAGE_BUCKET)

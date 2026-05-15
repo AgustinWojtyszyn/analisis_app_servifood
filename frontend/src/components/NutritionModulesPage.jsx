@@ -21,6 +21,17 @@ function canManageRole(role) {
   return normalized === 'admin' || normalized === 'nutricionista';
 }
 
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = new Set(['pdf', 'xls', 'xlsx', 'csv', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp', 'txt']);
+
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (!value || value < 0) return '-';
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function NutritionModulesPage({ user }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +44,7 @@ export default function NutritionModulesPage({ user }) {
   const [filesDialogOpen, setFilesDialogOpen] = useState(false);
   const [filesDialogRow, setFilesDialogRow] = useState(null);
   const [filesDialogFiles, setFilesDialogFiles] = useState([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   const canManage = useMemo(() => canManageRole(user?.role), [user?.role]);
 
@@ -175,6 +187,41 @@ export default function NutritionModulesPage({ user }) {
     }
   };
 
+  const handleUploadFilesFromDialog = async (event) => {
+    const row = filesDialogRow;
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!row?.id || !files.length) return;
+
+    for (const file of files) {
+      const ext = String(file.name || '').split('.').pop()?.toLowerCase() || '';
+      if (!ALLOWED_EXTENSIONS.has(ext)) {
+        setError(`Archivo no permitido: ${file.name}`);
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        setError(`El archivo "${file.name}" supera el máximo de 25 MB`);
+        return;
+      }
+    }
+
+    try {
+      setError('');
+      setUploadingFiles(true);
+      await uploadNutritionModuleFiles(row.id, files);
+      const updated = await getNutritionModuleFiles(row.id);
+      setFilesDialogFiles(Array.isArray(updated) ? updated : []);
+      if (editingRow?.id === row.id) {
+        setEditingFiles(Array.isArray(updated) ? updated : []);
+      }
+      await loadRows();
+    } catch (err) {
+      setError(err.message || 'No se pudieron subir archivos adjuntos');
+    } finally {
+      setUploadingFiles(false);
+    }
+  };
+
   const handleExportExcel = async (row) => {
     try {
       setError('');
@@ -247,7 +294,9 @@ export default function NutritionModulesPage({ user }) {
             <Box key={file.id} sx={{ display: 'flex', gap: 0.75, alignItems: 'center', justifyContent: 'space-between', py: 0.5 }}>
               <Box>
                 <Typography sx={{ fontWeight: 600 }}>{file.fileName}</Typography>
-                <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{file.fileType || '-'} • {file.createdAt ? new Date(file.createdAt).toLocaleString('es-AR') : '-'}</Typography>
+                <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                  {file.fileType || '-'} • {formatBytes(file.fileSize)} • {file.createdAt ? new Date(file.createdAt).toLocaleString('es-AR') : '-'}
+                </Typography>
               </Box>
               <Box sx={{ display: 'flex', gap: 0.75 }}>
                 <Button size="small" variant="outlined" onClick={() => handleDownloadFile(file)}>Descargar archivo</Button>
@@ -259,6 +308,12 @@ export default function NutritionModulesPage({ user }) {
           ))}
         </DialogContent>
         <DialogActions>
+          {canManage && (
+            <Button component="label" variant="outlined" disabled={uploadingFiles}>
+              {uploadingFiles ? 'Subiendo...' : 'Subir archivos'}
+              <input hidden type="file" multiple onChange={handleUploadFilesFromDialog} />
+            </Button>
+          )}
           <Button onClick={() => setFilesDialogOpen(false)}>Cerrar</Button>
         </DialogActions>
       </Dialog>
