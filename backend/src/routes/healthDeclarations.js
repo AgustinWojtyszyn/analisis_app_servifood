@@ -627,19 +627,7 @@ export async function exportHealthDeclarationsHandler(req, res) {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Declaraciones Salud');
 
-    sheet.columns = [
-      { header: 'Usuario', key: 'usuario', width: 24 },
-      { header: 'Email', key: 'email', width: 34 },
-      { header: 'Fecha', key: 'fecha', width: 14 },
-      { header: 'Hora', key: 'hora', width: 10 },
-      { header: 'Síntomas', key: 'sintomas', width: 12 },
-      { header: 'Fiebre', key: 'fiebre', width: 10 },
-      { header: 'Contacto', key: 'contacto', width: 12 },
-      { header: 'Política aceptada', key: 'politica', width: 16 },
-      { header: 'Estado', key: 'estado', width: 14 },
-      { header: 'Semáforo', key: 'semaforo', width: 12 }
-    ];
-
+    const tableRows = [];
     for (const row of data || []) {
       const profile = profileMap.get(row.user_id) || null;
       const declaredAt = row.declared_at || row.created_at || null;
@@ -650,19 +638,54 @@ export async function exportHealthDeclarationsHandler(req, res) {
         recentContact: Boolean(row.recent_contact),
         symptomsDetail: row.symptoms_detail || {}
       });
-      sheet.addRow({
-        usuario: profile?.full_name || profile?.email || row.user_id,
-        email: profile?.email || '',
+      tableRows.push([
+        profile?.full_name || profile?.email || row.user_id,
+        profile?.email || '',
         fecha,
         hora,
-        sintomas: toYesNo(row.has_symptoms === true),
-        fiebre: toYesNo(row.has_fever === true),
-        contacto: toYesNo(row.recent_contact === true),
-        politica: toPolicyValue(row.policy_accepted === true),
-        estado: normalizeStatus(row.health_status || evalRow.healthStatus),
-        semaforo: normalizeTrafficLight(row.traffic_light || evalRow.trafficLight)
-      });
+        toYesNo(row.has_symptoms === true),
+        toYesNo(row.has_fever === true),
+        toYesNo(row.recent_contact === true),
+        toPolicyValue(row.policy_accepted === true),
+        normalizeStatus(row.health_status || evalRow.healthStatus),
+        normalizeTrafficLight(row.traffic_light || evalRow.trafficLight)
+      ]);
     }
+
+    sheet.addTable({
+      name: 'DeclaracionesSaludTable',
+      ref: 'A1',
+      headerRow: true,
+      totalsRow: false,
+      style: {
+        theme: 'TableStyleLight9',
+        showRowStripes: false
+      },
+      columns: [
+        { name: 'Usuario', filterButton: true },
+        { name: 'Email', filterButton: true },
+        { name: 'Fecha', filterButton: true },
+        { name: 'Hora', filterButton: true },
+        { name: 'Síntomas', filterButton: true },
+        { name: 'Fiebre', filterButton: true },
+        { name: 'Contacto', filterButton: true },
+        { name: 'Política aceptada', filterButton: true },
+        { name: 'Estado', filterButton: true },
+        { name: 'Semáforo', filterButton: true }
+      ],
+      rows: tableRows
+    });
+
+    sheet.getColumn(1).width = 24;
+    sheet.getColumn(2).width = 34;
+    sheet.getColumn(3).width = 14;
+    sheet.getColumn(4).width = 10;
+    sheet.getColumn(5).width = 12;
+    sheet.getColumn(6).width = 10;
+    sheet.getColumn(7).width = 12;
+    sheet.getColumn(8).width = 16;
+    sheet.getColumn(9).width = 14;
+    sheet.getColumn(10).width = 12;
 
     sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
@@ -691,12 +714,6 @@ export async function exportHealthDeclarationsHandler(req, res) {
         row.getCell(col).alignment = { vertical: 'middle', horizontal: 'center' };
       }
     }
-
-    const totalRows = (data || []).length + 1;
-    sheet.autoFilter = {
-      from: 'A1',
-      to: `J${Math.max(totalRows, 1)}`
-    };
 
     const exportedDates = (data || [])
       .map((row) => toIsoDate(row.declared_at || row.created_at))

@@ -99,22 +99,18 @@ function createSupabaseMock({ declarations = [], profiles = [] } = {}) {
 async function readSheetFromBuffer(buffer) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
-  return workbook.getWorksheet('Declaraciones Salud');
+  return {
+    sheet: workbook.getWorksheet('Declaraciones Salud'),
+    workbook
+  };
 }
 
-function assertAutoFilterRange(sheet, expectedRange) {
-  const value = sheet.autoFilter;
-  if (typeof value === 'string') {
-    assert.equal(value, expectedRange);
-    return;
-  }
-  assert.deepEqual(value, {
-    from: expectedRange.split(':')[0],
-    to: expectedRange.split(':')[1]
-  });
+function getTableModel(sheet, name = 'DeclaracionesSaludTable') {
+  const tables = sheet?.model?.tables || [];
+  return tables.find((table) => table.name === name);
 }
 
-test('exportación excel: headers, estilos base, normalización, autofiltro y nombre de archivo por rango', async () => {
+test('exportación excel: headers, estilos base, tabla, nombre de archivo por rango y normalización', async () => {
   __setSupabaseAdminForTests(createSupabaseMock({
     declarations: [
       {
@@ -166,16 +162,26 @@ test('exportación excel: headers, estilos base, normalización, autofiltro y no
     /declaraciones_salud_2026-05-01_a_2026-05-15\.xlsx/
   );
 
-  const sheet = await readSheetFromBuffer(res.buffer);
+  const { sheet } = await readSheetFromBuffer(res.buffer);
   const headers = sheet.getRow(1).values.slice(1);
   assert.deepEqual(headers, [
     'Usuario', 'Email', 'Fecha', 'Hora', 'Síntomas', 'Fiebre', 'Contacto', 'Política aceptada', 'Estado', 'Semáforo'
   ]);
+
+  const table = getTableModel(sheet);
+  assert.ok(table, 'Debe existir una tabla llamada DeclaracionesSaludTable');
+  assert.equal(table.tableRef || table.ref, 'A1:J3');
+  assert.equal(table.headerRow, true);
+  assert.equal(table.totalsRow, false);
+  assert.equal(table.autoFilterRef, 'A1:J3');
+  assert.deepEqual((table.columns || []).map((c) => c.name), headers);
+  assert.ok((table.columns || []).every((c) => c.filterButton !== false), 'Todas las columnas deben tener botón de filtro');
+
+  assert.equal(sheet.autoFilter, undefined);
+
   assert.equal(sheet.views?.[0]?.state, 'frozen');
   assert.equal(sheet.views?.[0]?.ySplit, 1);
   assert.equal(sheet.getRow(1).font?.bold, true);
-
-  assertAutoFilterRange(sheet, 'A1:J3');
 
   const dataRows = [sheet.getRow(2), sheet.getRow(3)].map((r) => r.values.slice(1, 11));
   const anaRow = dataRows.find((r) => r[0] === 'Ana Perez');
@@ -232,9 +238,11 @@ test('exportación excel: con ids visibles exporta solo esas filas', async () =>
   await exportHealthDeclarationsHandler(req, res);
 
   assert.equal(res.statusCode, 200);
-  const sheet = await readSheetFromBuffer(res.buffer);
+  const { sheet } = await readSheetFromBuffer(res.buffer);
   assert.equal(sheet.rowCount, 2);
-  assertAutoFilterRange(sheet, 'A1:J2');
+  const table = getTableModel(sheet);
+  assert.ok(table, 'Debe existir tabla en exportación filtrada');
+  assert.equal(table.autoFilterRef, 'A1:J2');
   assert.equal(sheet.getCell('A2').value, 'Ana Perez');
   assert.equal(sheet.getCell('J2').value, 'Rojo');
 });
