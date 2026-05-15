@@ -47,7 +47,7 @@ const publicPaths = new Set(['/', '/login', '/register']);
 const protectedPathAliases = {
   '/politicas': '/politicas-seguridad'
 };
-const USER_ALLOWED_SECTIONS = new Set(['declaration', 'policies', 'nutritionModules']);
+const USER_ALLOWED_SECTIONS = new Set(['declaration', 'policies']);
 
 function normalizeProtectedPath(pathname) {
   return protectedPathAliases[pathname] || pathname;
@@ -87,8 +87,7 @@ function MainApp({ user, onLogout }) {
     if (!isAdmin) {
       return [
         { id: 'declaration', label: 'Declaración de Salud' },
-        { id: 'policies', label: 'Políticas de Seguridad' },
-        { id: 'nutritionModules', label: 'Módulos Nutricionales' }
+        { id: 'policies', label: 'Políticas de Seguridad' }
       ];
     }
 
@@ -312,6 +311,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'nutritionModules') {
+      if (!isAdmin) return null;
       return <NutritionModulesPage user={layoutUser} />;
     }
 
