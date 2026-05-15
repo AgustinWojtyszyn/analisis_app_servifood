@@ -61,6 +61,12 @@ export async function updateNutritionModuleStatus(id, status) {
   });
 }
 
+export async function deleteNutritionModule(id) {
+  return await authorizedFetch(`/nutrition-modules/${id}`, {
+    method: 'DELETE'
+  });
+}
+
 export async function downloadNutritionModule(id) {
   const token = await getAccessToken();
   if (!token) throw new Error('No hay sesion activa');

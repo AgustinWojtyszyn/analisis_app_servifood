@@ -301,6 +301,42 @@ router.patch('/nutrition-modules/:id/status', authenticateToken, async (req, res
   }
 });
 
+router.delete('/nutrition-modules/:id', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+    }
+
+    const role = await resolveUserRole(req.user);
+    if (!canManageByRole(role)) {
+      return res.status(403).json({ error: 'No autorizado para eliminar módulos' });
+    }
+
+    const { id } = req.params;
+    const { data, error } = await supabaseAdmin
+      .from('nutrition_modules')
+      .delete()
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Error eliminando módulo' });
+    }
+    if (!data) {
+      return res.status(404).json({ error: 'Módulo no encontrado' });
+    }
+
+    return res.json({ success: true, id });
+  } catch (error) {
+    return res.status(error.message === 'Usuario inactivo' ? 403 : 500).json({
+      error: error.message === 'Usuario inactivo'
+        ? 'Usuario inactivo'
+        : 'Error interno eliminando módulo'
+    });
+  }
+});
+
 router.get('/nutrition-modules/:id/download', authenticateToken, async (req, res) => {
   try {
     if (!supabaseAdmin) {

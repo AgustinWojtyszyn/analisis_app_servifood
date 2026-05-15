@@ -4,6 +4,7 @@ import NutritionModuleForm from './NutritionModuleForm';
 import NutritionModulesTable from './NutritionModulesTable';
 import {
   createNutritionModule,
+  deleteNutritionModule,
   downloadNutritionModule,
   getNutritionModules,
   updateNutritionModule,
@@ -97,6 +98,21 @@ export default function NutritionModulesPage({ user }) {
     }
   };
 
+  const handleDelete = async (row) => {
+    const confirmed = window.confirm(`¿Eliminar el módulo "${row.title}"? Esta acción no se puede deshacer.`);
+    if (!confirmed) return;
+
+    try {
+      setError('');
+      setSuccess('');
+      await deleteNutritionModule(row.id);
+      setSuccess('Módulo eliminado correctamente');
+      await loadRows();
+    } catch (err) {
+      setError(err.message || 'No se pudo eliminar módulo');
+    }
+  };
+
   return (
     <Card>
       <CardContent>
@@ -126,6 +142,7 @@ export default function NutritionModulesPage({ user }) {
             onEdit={handleEdit}
             onPublish={(row) => handleStatusChange(row, 'publicado')}
             onArchive={(row) => handleStatusChange(row, 'archivado')}
+            onDelete={handleDelete}
             onDownload={handleDownload}
           />
         )}

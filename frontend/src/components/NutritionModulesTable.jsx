@@ -15,7 +15,7 @@ function statusMeta(status) {
   return { label: 'Borrador', color: 'warning' };
 }
 
-export default function NutritionModulesTable({ rows, canManage, onEdit, onPublish, onArchive, onDownload }) {
+export default function NutritionModulesTable({ rows, canManage, onEdit, onPublish, onArchive, onDelete, onDownload }) {
   return (
     <TableContainer>
       <Table size="small">
@@ -51,6 +51,7 @@ export default function NutritionModulesTable({ rows, canManage, onEdit, onPubli
                         {String(row.status) !== 'archivado' && (
                           <Button size="small" color="warning" variant="outlined" onClick={() => onArchive(row)}>Archivar</Button>
                         )}
+                        <Button size="small" color="error" variant="outlined" onClick={() => onDelete(row)}>Eliminar</Button>
                       </>
                     )}
                   </Box>
