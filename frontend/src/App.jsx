@@ -17,6 +17,7 @@ import HealthDeclarationPage from './components/HealthDeclarationPage';
 import HealthPoliciesPage from './components/HealthPoliciesPage';
 import HealthDeclarationHistoryPage from './components/HealthDeclarationHistoryPage';
 import HealthDeclarationsAdminPage from './components/HealthDeclarationsAdminPage';
+import NutritionModulesPage from './components/NutritionModulesPage';
 import { supabase } from './lib/supabaseClient';
 import { useAuth } from './hooks/useAuth';
 import { deleteAnalysis, getAnalysisById, updateAnalysisStatus } from './services/analysis';
@@ -33,7 +34,8 @@ const sectionPathMap = {
   declaration: '/declaracion-salud',
   policies: '/politicas-seguridad',
   declarationHistory: '/mi-declaraciones',
-  adminHealthDeclarations: '/admin-declaraciones-salud'
+  adminHealthDeclarations: '/admin-declaraciones-salud',
+  nutritionModules: '/modulos-nutricionales'
 };
 
 const publicAuthPathMap = {
@@ -45,7 +47,7 @@ const publicPaths = new Set(['/', '/login', '/register']);
 const protectedPathAliases = {
   '/politicas': '/politicas-seguridad'
 };
-const USER_ALLOWED_SECTIONS = new Set(['declaration', 'policies']);
+const USER_ALLOWED_SECTIONS = new Set(['declaration', 'policies', 'nutritionModules']);
 
 function normalizeProtectedPath(pathname) {
   return protectedPathAliases[pathname] || pathname;
@@ -85,7 +87,8 @@ function MainApp({ user, onLogout }) {
     if (!isAdmin) {
       return [
         { id: 'declaration', label: 'Declaración de Salud' },
-        { id: 'policies', label: 'Políticas de Seguridad' }
+        { id: 'policies', label: 'Políticas de Seguridad' },
+        { id: 'nutritionModules', label: 'Módulos Nutricionales' }
       ];
     }
 
@@ -99,7 +102,8 @@ function MainApp({ user, onLogout }) {
       { id: 'adminUsers', label: 'Gestión de usuarios' },
       { id: 'declaration', label: 'Mi Declaración Salud' },
       { id: 'adminHealthDeclarations', label: 'Gestor Declaraciones' },
-      { id: 'policies', label: 'Políticas' }
+      { id: 'policies', label: 'Políticas' },
+      { id: 'nutritionModules', label: 'Módulos Nutricionales' }
     ];
   }, [isAdmin]);
 
@@ -305,6 +309,10 @@ function MainApp({ user, onLogout }) {
     if (currentSection === 'adminHealthDeclarations') {
       if (!isAdmin) return null;
       return <HealthDeclarationsAdminPage />;
+    }
+
+    if (currentSection === 'nutritionModules') {
+      return <NutritionModulesPage user={layoutUser} />;
     }
 
     if (currentSection === 'panel' || currentSection === 'history') {

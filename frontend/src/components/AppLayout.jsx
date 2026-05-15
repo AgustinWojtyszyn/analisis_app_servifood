@@ -25,6 +25,7 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import HealthAndSafetyRoundedIcon from '@mui/icons-material/HealthAndSafetyRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import RestaurantMenuRoundedIcon from '@mui/icons-material/RestaurantMenuRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
@@ -44,7 +45,8 @@ const sectionIcons = {
   declaration: <HealthAndSafetyRoundedIcon />,
   policies: <DescriptionRoundedIcon />,
   declarationHistory: <HistoryRoundedIcon />,
-  adminHealthDeclarations: <AssignmentRoundedIcon />
+  adminHealthDeclarations: <AssignmentRoundedIcon />,
+  nutritionModules: <RestaurantMenuRoundedIcon />
 };
 
 export default function AppLayout({ user, onLogout, sections, currentSection, onSelectSection, children }) {
@@ -102,6 +104,10 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     adminHealthDeclarations: {
       title: 'Gestor Declaraciones',
       subtitle: 'Administración de solicitudes de salud del personal'
+    },
+    nutritionModules: {
+      title: 'Módulos Nutricionales',
+      subtitle: 'Biblioteca y gestión de módulos para nutrición'
     }
   }), []);
 
