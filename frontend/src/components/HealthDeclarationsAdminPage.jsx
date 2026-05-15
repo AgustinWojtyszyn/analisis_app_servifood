@@ -79,12 +79,25 @@ export default function HealthDeclarationsAdminPage() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      setError('');
+      await exportHealthDeclarations({
+        ids: visibleRows.map((row) => row.id),
+        fromDate: fromDate || null,
+        toDate: toDate || null
+      });
+    } catch (err) {
+      setError(err.message || 'No se pudo exportar declaraciones');
+    }
+  };
+
   return (
     <Card>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
           <Typography variant="h5" sx={{ fontWeight: 800 }}>Gestor de Declaraciones de Salud</Typography>
-          <Button variant="outlined" onClick={exportHealthDeclarations}>Exportar Excel</Button>
+          <Button variant="outlined" onClick={handleExport}>Exportar Excel</Button>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, mb: 1.25, flexWrap: 'wrap' }}>
           <TextField

@@ -64,7 +64,15 @@ export async function deleteHealthDeclarationById(id) {
   });
 }
 
-export async function exportHealthDeclarations() {
+function readFilenameFromDisposition(contentDisposition) {
+  if (!contentDisposition) return null;
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1]);
+  const simpleMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+  return simpleMatch?.[1] || null;
+}
+
+export async function exportHealthDeclarations(payload = {}) {
   const token = await getAccessToken();
   if (!token) {
     throw new Error('No hay sesion activa');
@@ -73,8 +81,10 @@ export async function exportHealthDeclarations() {
   const response = await fetch(`${API_BASE_URL}/health-declarations/export`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`
-    }
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
   });
 
   if (!response.ok) {
@@ -86,7 +96,8 @@ export async function exportHealthDeclarations() {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `health_declarations_${Date.now()}.xlsx`;
+  const contentDisposition = response.headers.get('Content-Disposition');
+  link.download = readFilenameFromDisposition(contentDisposition) || `declaraciones_salud_${Date.now()}.xlsx`;
   document.body.appendChild(link);
   link.click();
   link.remove();

@@ -9,9 +9,13 @@ const router = express.Router();
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const supabaseAdmin = supabaseUrl && serviceRoleKey
+let supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey)
   : null;
+
+export function __setSupabaseAdminForTests(client) {
+  supabaseAdmin = client;
+}
 
 const EDIT_WINDOW_MINUTES = 15;
 const HEALTH_DECLARATION_TIMEZONE = 'America/Argentina/Buenos_Aires';
@@ -116,6 +120,54 @@ function canManageWithinWindow(row) {
   if (!base) return false;
   const diffMs = Date.now() - new Date(base).getTime();
   return diffMs >= 0 && diffMs <= EDIT_WINDOW_MINUTES * 60 * 1000;
+}
+
+function toYesNo(value) {
+  return value === true ? 'Sí' : 'No';
+}
+
+function normalizeStatus(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (v === 'apto') return 'Apto';
+  if (v === 'no apto') return 'No Apto';
+  if (!v) return 'No informado';
+  if (v === 'requiere evaluación' || v === 'requiere evaluacion') return 'No Apto';
+  return value;
+}
+
+function normalizeTrafficLight(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (v === 'verde') return 'Verde';
+  if (v === 'amarillo') return 'Amarillo';
+  if (v === 'rojo') return 'Rojo';
+  return 'No informado';
+}
+
+function getDateTimeParts(value) {
+  if (!value) return { fecha: '', hora: '' };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { fecha: '', hora: '' };
+  const fecha = new Intl.DateTimeFormat('es-AR', {
+    timeZone: HEALTH_DECLARATION_TIMEZONE,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(date);
+  const hora = new Intl.DateTimeFormat('es-AR', {
+    timeZone: HEALTH_DECLARATION_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(date);
+  return { fecha, hora };
+}
+
+function toIsoDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = getLocalDateParts(date, HEALTH_DECLARATION_TIMEZONE);
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function mapDeclaration(row, profileByUserId = new Map()) {
@@ -541,16 +593,26 @@ router.delete('/health-declarations/:id', authenticateToken, requireAdmin, async
   }
 });
 
-router.post('/health-declarations/export', authenticateToken, requireAdmin, async (_req, res) => {
+export async function exportHealthDeclarationsHandler(req, res) {
   try {
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
     }
 
-    const { data, error } = await supabaseAdmin
+    const requestedIds = Array.isArray(req.body?.ids)
+      ? [...new Set(req.body.ids.filter((id) => typeof id === 'string' && id.trim()))]
+      : [];
+
+    let query = supabaseAdmin
       .from('health_declarations')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (requestedIds.length) {
+      query = query.in('id', requestedIds);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return res.status(500).json({ error: error.message || 'Error exportando declaraciones' });
@@ -562,31 +624,22 @@ router.post('/health-declarations/export', authenticateToken, requireAdmin, asyn
     const sheet = workbook.addWorksheet('Declaraciones');
 
     sheet.columns = [
-      { header: 'usuario', key: 'usuario', width: 45 },
-      { header: 'email', key: 'email', width: 40 },
-      { header: 'fecha', key: 'fecha', width: 15 },
-      { header: 'sintomas', key: 'sintomas', width: 12 },
-      { header: 'fiebre', key: 'fiebre', width: 12 },
-      { header: 'tos', key: 'tos', width: 12 },
-      { header: 'dolor_garganta', key: 'dolor_garganta', width: 18 },
-      { header: 'dif_respiratoria', key: 'dif_respiratoria', width: 18 },
-      { header: 'vomitos', key: 'vomitos', width: 12 },
-      { header: 'diarrea', key: 'diarrea', width: 12 },
-      { header: 'ictericia', key: 'ictericia', width: 12 },
-      { header: 'lesiones_cutaneas', key: 'lesiones_cutaneas', width: 18 },
-      { header: 'heridas_sin_cubrir', key: 'heridas_sin_cubrir', width: 20 },
-      { header: 'contacto', key: 'contacto', width: 12 },
-      { header: 'politica', key: 'politica', width: 12 },
-      { header: 'estado', key: 'estado', width: 20 },
-      { header: 'semaforo', key: 'semaforo', width: 12 },
-      { header: 'accion_sugerida', key: 'accion_sugerida', width: 60 },
-      { header: 'hora', key: 'hora', width: 25 }
+      { header: 'Usuario', key: 'usuario', width: 24 },
+      { header: 'Email', key: 'email', width: 34 },
+      { header: 'Fecha', key: 'fecha', width: 14 },
+      { header: 'Hora', key: 'hora', width: 10 },
+      { header: 'Síntomas', key: 'sintomas', width: 12 },
+      { header: 'Fiebre', key: 'fiebre', width: 10 },
+      { header: 'Contacto', key: 'contacto', width: 12 },
+      { header: 'Política', key: 'politica', width: 16 },
+      { header: 'Estado', key: 'estado', width: 14 },
+      { header: 'Semáforo', key: 'semaforo', width: 12 }
     ];
 
     for (const row of data || []) {
       const profile = profileMap.get(row.user_id) || null;
       const declaredAt = row.declared_at || row.created_at || null;
-      const dateObj = declaredAt ? new Date(declaredAt) : null;
+      const { fecha, hora } = getDateTimeParts(declaredAt);
       const evalRow = buildHealthEvaluation({
         hasSymptoms: Boolean(row.has_symptoms),
         hasFever: Boolean(row.has_fever),
@@ -596,33 +649,41 @@ router.post('/health-declarations/export', authenticateToken, requireAdmin, asyn
       sheet.addRow({
         usuario: profile?.full_name || profile?.email || row.user_id,
         email: profile?.email || '',
-        fecha: row.declaration_date || (dateObj ? dateObj.toISOString().slice(0, 10) : ''),
-        sintomas: row.has_symptoms ? 'si' : 'no',
-        fiebre: row.has_fever ? 'si' : 'no',
-        tos: row?.symptoms_detail?.cough ? 'si' : 'no',
-        dolor_garganta: row?.symptoms_detail?.soreThroat ? 'si' : 'no',
-        dif_respiratoria: row?.symptoms_detail?.difficultyBreathing ? 'si' : 'no',
-        vomitos: row?.symptoms_detail?.vomiting ? 'si' : 'no',
-        diarrea: row?.symptoms_detail?.diarrhea ? 'si' : 'no',
-        ictericia: row?.symptoms_detail?.jaundice ? 'si' : 'no',
-        lesiones_cutaneas: row?.symptoms_detail?.skinLesions ? 'si' : 'no',
-        heridas_sin_cubrir: row?.symptoms_detail?.uncoveredWounds ? 'si' : 'no',
-        contacto: row.recent_contact ? 'si' : 'no',
-        politica: row.policy_accepted ? 'aceptada' : 'no aceptada',
-        estado: row.health_status || evalRow.healthStatus,
-        semaforo: row.traffic_light || evalRow.trafficLight,
-        accion_sugerida: row.suggested_action || evalRow.suggestedAction,
-        hora: declaredAt || ''
+        fecha,
+        hora,
+        sintomas: toYesNo(row.has_symptoms === true),
+        fiebre: toYesNo(row.has_fever === true),
+        contacto: toYesNo(row.recent_contact === true),
+        politica: toYesNo(row.policy_accepted === true),
+        estado: normalizeStatus(row.health_status || evalRow.healthStatus),
+        semaforo: normalizeTrafficLight(row.traffic_light || evalRow.trafficLight)
       });
     }
 
+    const totalRows = (data || []).length + 1;
+    sheet.autoFilter = {
+      from: 'A1',
+      to: `J${Math.max(totalRows, 1)}`
+    };
+
+    const exportedDates = (data || [])
+      .map((row) => toIsoDate(row.declared_at || row.created_at))
+      .filter(Boolean)
+      .sort();
+    const defaultIsoDate = new Date().toISOString().slice(0, 10);
+    const fromIso = (typeof req.body?.fromDate === 'string' && req.body.fromDate) || exportedDates[0] || defaultIsoDate;
+    const toIso = (typeof req.body?.toDate === 'string' && req.body.toDate) || exportedDates[exportedDates.length - 1] || defaultIsoDate;
+    const fileName = `declaraciones_salud_${fromIso}_a_${toIso}.xlsx`;
+
     const buffer = await workbook.xlsx.writeBuffer();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="health_declarations_${Date.now()}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     return res.send(Buffer.from(buffer));
   } catch {
     return res.status(500).json({ error: 'Error interno exportando declaraciones' });
   }
-});
+}
+
+router.post('/health-declarations/export', authenticateToken, requireAdmin, exportHealthDeclarationsHandler);
 
 export default router;
