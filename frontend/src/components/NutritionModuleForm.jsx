@@ -42,6 +42,7 @@ export default function NutritionModuleForm({
   useEffect(() => {
     if (!open) return;
     setError('');
+    setSelectedFiles([]);
     if (initialData?.id) {
       setForm({
         title: initialData.title || '',
@@ -52,7 +53,6 @@ export default function NutritionModuleForm({
       return;
     }
     setForm(EMPTY_FORM);
-    setSelectedFiles([]);
   }, [open, initialData]);
 
   const handleChange = (field) => (event) => {
