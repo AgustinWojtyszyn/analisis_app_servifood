@@ -1,13 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Box, Button, Card, CardContent, CircularProgress, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
 import NutritionModuleForm from './NutritionModuleForm';
 import NutritionModulesTable from './NutritionModulesTable';
 import {
   createNutritionModule,
+  deleteNutritionModuleFile,
+  downloadNutritionModuleFile,
   deleteNutritionModule,
   downloadNutritionModule,
   exportNutritionModuleExcel,
+  getNutritionModuleFiles,
   getNutritionModules,
+  uploadNutritionModuleFiles,
   updateNutritionModule,
   updateNutritionModuleStatus
 } from '../services/nutritionModulesService';
@@ -25,6 +29,10 @@ export default function NutritionModulesPage({ user }) {
   const [success, setSuccess] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editingRow, setEditingRow] = useState(null);
+  const [editingFiles, setEditingFiles] = useState([]);
+  const [filesDialogOpen, setFilesDialogOpen] = useState(false);
+  const [filesDialogRow, setFilesDialogRow] = useState(null);
+  const [filesDialogFiles, setFilesDialogFiles] = useState([]);
 
   const canManage = useMemo(() => canManageRole(user?.role), [user?.role]);
 
@@ -53,7 +61,17 @@ export default function NutritionModulesPage({ user }) {
 
   const handleEdit = (row) => {
     setEditingRow(row);
+    void loadFilesForEditing(row.id);
     setFormOpen(true);
+  };
+
+  const loadFilesForEditing = async (moduleId) => {
+    try {
+      const files = await getNutritionModuleFiles(moduleId);
+      setEditingFiles(Array.isArray(files) ? files : []);
+    } catch {
+      setEditingFiles([]);
+    }
   };
 
   const handleSubmit = async (payload) => {
@@ -61,15 +79,23 @@ export default function NutritionModulesPage({ user }) {
       setSaving(true);
       setError('');
       setSuccess('');
+      const files = Array.isArray(payload.files) ? payload.files : [];
       if (editingRow?.id) {
         await updateNutritionModule(editingRow.id, payload);
+        if (files.length) {
+          await uploadNutritionModuleFiles(editingRow.id, files);
+        }
         setSuccess('Módulo actualizado correctamente');
       } else {
-        await createNutritionModule(payload);
+        const created = await createNutritionModule(payload);
+        if (created?.id && files.length) {
+          await uploadNutritionModuleFiles(created.id, files);
+        }
         setSuccess('Módulo creado correctamente');
       }
       setFormOpen(false);
       setEditingRow(null);
+      setEditingFiles([]);
       await loadRows();
     } catch (err) {
       setError(err.message || 'No se pudo guardar módulo');
@@ -114,6 +140,41 @@ export default function NutritionModulesPage({ user }) {
     }
   };
 
+  const handleViewFiles = async (row) => {
+    try {
+      setError('');
+      const files = await getNutritionModuleFiles(row.id);
+      setFilesDialogRow(row);
+      setFilesDialogFiles(Array.isArray(files) ? files : []);
+      setFilesDialogOpen(true);
+    } catch (err) {
+      setError(err.message || 'No se pudieron cargar archivos adjuntos');
+    }
+  };
+
+  const handleDeleteFile = async (file) => {
+    const confirmed = window.confirm('¿Seguro que querés borrar este archivo adjunto? Esta acción no se puede deshacer.');
+    if (!confirmed) return;
+    try {
+      setError('');
+      await deleteNutritionModuleFile(file.id);
+      setEditingFiles((prev) => prev.filter((item) => item.id !== file.id));
+      setFilesDialogFiles((prev) => prev.filter((item) => item.id !== file.id));
+      await loadRows();
+    } catch (err) {
+      setError(err.message || 'No se pudo borrar archivo adjunto');
+    }
+  };
+
+  const handleDownloadFile = async (file) => {
+    try {
+      setError('');
+      await downloadNutritionModuleFile(file.id);
+    } catch (err) {
+      setError(err.message || 'No se pudo descargar archivo adjunto');
+    }
+  };
+
   const handleExportExcel = async (row) => {
     try {
       setError('');
@@ -155,6 +216,7 @@ export default function NutritionModulesPage({ user }) {
             onDelete={handleDelete}
             onDownload={handleDownload}
             onExportExcel={handleExportExcel}
+            onViewFiles={handleViewFiles}
           />
         )}
       </CardContent>
@@ -170,7 +232,36 @@ export default function NutritionModulesPage({ user }) {
         initialData={editingRow}
         canEditStatus={canManage}
         saving={saving}
+        existingFiles={editingFiles}
+        onDownloadFile={handleDownloadFile}
+        onDeleteFile={handleDeleteFile}
       />
+
+      <Dialog open={filesDialogOpen} onClose={() => setFilesDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Archivos adjuntos: {filesDialogRow?.title || ''}</DialogTitle>
+        <DialogContent>
+          {!filesDialogFiles.length && (
+            <Typography color="text.secondary">Este módulo no tiene archivos adjuntos.</Typography>
+          )}
+          {filesDialogFiles.map((file) => (
+            <Box key={file.id} sx={{ display: 'flex', gap: 0.75, alignItems: 'center', justifyContent: 'space-between', py: 0.5 }}>
+              <Box>
+                <Typography sx={{ fontWeight: 600 }}>{file.fileName}</Typography>
+                <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{file.fileType || '-'} • {file.createdAt ? new Date(file.createdAt).toLocaleString('es-AR') : '-'}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 0.75 }}>
+                <Button size="small" variant="outlined" onClick={() => handleDownloadFile(file)}>Descargar archivo</Button>
+                {canManage && (
+                  <Button size="small" color="error" variant="outlined" onClick={() => handleDeleteFile(file)}>Borrar archivo</Button>
+                )}
+              </Box>
+            </Box>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFilesDialogOpen(false)}>Cerrar</Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 }

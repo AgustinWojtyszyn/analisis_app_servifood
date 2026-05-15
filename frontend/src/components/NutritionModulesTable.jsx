@@ -15,7 +15,7 @@ function statusMeta(status) {
   return { label: 'Borrador', color: 'warning' };
 }
 
-export default function NutritionModulesTable({ rows, canManage, onEdit, onPublish, onArchive, onDelete, onDownload, onExportExcel }) {
+export default function NutritionModulesTable({ rows, canManage, onEdit, onPublish, onArchive, onDelete, onDownload, onExportExcel, onViewFiles }) {
   return (
     <TableContainer>
       <Table size="small">
@@ -24,6 +24,7 @@ export default function NutritionModulesTable({ rows, canManage, onEdit, onPubli
             <TableCell sx={{ fontWeight: 700 }}>Título</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Descripción</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
+            <TableCell sx={{ fontWeight: 700 }}>Adjuntos</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Actualizado</TableCell>
             <TableCell sx={{ fontWeight: 700, minWidth: 260 }}>Acciones</TableCell>
           </TableRow>
@@ -38,11 +39,13 @@ export default function NutritionModulesTable({ rows, canManage, onEdit, onPubli
                 <TableCell>
                   <Chip size="small" label={meta.label} color={meta.color} variant={meta.color === 'default' ? 'outlined' : 'filled'} />
                 </TableCell>
+                <TableCell>{row.filesCount || 0}</TableCell>
                 <TableCell>{formatDate(row.updatedAt || row.createdAt)}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                     <Button size="small" variant="outlined" onClick={() => onExportExcel(row)}>Excel</Button>
                     <Button size="small" variant="outlined" onClick={() => onDownload(row)}>Descargar</Button>
+                    <Button size="small" variant="outlined" onClick={() => onViewFiles(row)}>Ver archivos</Button>
                     {canManage && (
                       <>
                         <Button size="small" variant="outlined" onClick={() => onEdit(row)}>Editar</Button>
@@ -62,7 +65,7 @@ export default function NutritionModulesTable({ rows, canManage, onEdit, onPubli
           })}
           {!rows.length && (
             <TableRow>
-              <TableCell colSpan={5}>No hay módulos disponibles.</TableCell>
+              <TableCell colSpan={6}>No hay módulos disponibles.</TableCell>
             </TableRow>
           )}
         </TableBody>

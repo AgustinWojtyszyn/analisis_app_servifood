@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField } from '@mui/material';
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField, Typography } from '@mui/material';
 
 const STATUS_OPTIONS = [
   { value: 'borrador', label: 'Borrador' },
@@ -14,9 +14,28 @@ const EMPTY_FORM = {
   status: 'borrador'
 };
 
-export default function NutritionModuleForm({ open, onClose, onSubmit, initialData, canEditStatus = true, saving = false }) {
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (!value || value < 0) return '-';
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export default function NutritionModuleForm({
+  open,
+  onClose,
+  onSubmit,
+  initialData,
+  canEditStatus = true,
+  saving = false,
+  existingFiles = [],
+  onDownloadFile,
+  onDeleteFile
+}) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState([]);
 
   const mode = useMemo(() => (initialData?.id ? 'edit' : 'create'), [initialData?.id]);
 
@@ -33,10 +52,16 @@ export default function NutritionModuleForm({ open, onClose, onSubmit, initialDa
       return;
     }
     setForm(EMPTY_FORM);
+    setSelectedFiles([]);
   }, [open, initialData]);
 
   const handleChange = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const handleFilesChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    setSelectedFiles(files);
   };
 
   const handleSubmit = async () => {
@@ -49,7 +74,8 @@ export default function NutritionModuleForm({ open, onClose, onSubmit, initialDa
       title: form.title.trim(),
       description: form.description.trim(),
       content: form.content,
-      status: canEditStatus ? form.status : 'borrador'
+      status: canEditStatus ? form.status : 'borrador',
+      files: selectedFiles
     });
   };
 
@@ -62,6 +88,41 @@ export default function NutritionModuleForm({ open, onClose, onSubmit, initialDa
           <TextField label="Título" value={form.title} onChange={handleChange('title')} required fullWidth />
           <TextField label="Descripción" value={form.description} onChange={handleChange('description')} fullWidth multiline minRows={2} />
           <TextField label="Contenido" value={form.content} onChange={handleChange('content')} fullWidth multiline minRows={10} />
+          <Box>
+            <Button component="label" variant="outlined">
+              Adjuntar archivos
+              <input hidden type="file" multiple onChange={handleFilesChange} />
+            </Button>
+            {!!selectedFiles.length && (
+              <Box sx={{ mt: 1 }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 13 }}>Nuevos archivos seleccionados</Typography>
+                {selectedFiles.map((file) => (
+                  <Typography key={`${file.name}-${file.size}`} sx={{ fontSize: 13 }}>
+                    {file.name} ({formatBytes(file.size)})
+                  </Typography>
+                ))}
+              </Box>
+            )}
+          </Box>
+          {initialData?.id && (
+            <Box>
+              <Typography sx={{ fontWeight: 700, fontSize: 13, mb: 0.5 }}>Archivos adjuntos</Typography>
+              {!existingFiles.length && (
+                <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Sin archivos adjuntos.</Typography>
+              )}
+              {existingFiles.map((file) => (
+                <Box key={file.id} sx={{ display: 'flex', gap: 0.75, alignItems: 'center', mb: 0.5, flexWrap: 'wrap' }}>
+                  <Typography sx={{ fontSize: 13 }}>
+                    {file.fileName} ({formatBytes(file.fileSize)})
+                  </Typography>
+                  <Button size="small" variant="outlined" onClick={() => onDownloadFile?.(file)}>Descargar archivo</Button>
+                  {canEditStatus && (
+                    <Button size="small" color="error" variant="outlined" onClick={() => onDeleteFile?.(file)}>Borrar archivo</Button>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          )}
           <TextField
             select
             label="Estado"

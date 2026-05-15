@@ -97,6 +97,68 @@ export async function exportNutritionModuleExcel(id) {
   return { success: true };
 }
 
+export async function getNutritionModuleFiles(moduleId) {
+  return await authorizedFetch(`/nutrition-modules/${moduleId}/files`);
+}
+
+export async function uploadNutritionModuleFiles(moduleId, files = []) {
+  const token = await getAccessToken();
+  if (!token) throw new Error('No hay sesion activa');
+  if (!files.length) return [];
+
+  const formData = new FormData();
+  files.forEach((file) => formData.append('files', file));
+
+  const response = await fetch(`${API_BASE_URL}/nutrition-modules/${moduleId}/files`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    body: formData
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || 'Error cargando archivos adjuntos');
+  }
+  return payload;
+}
+
+export async function deleteNutritionModuleFile(fileId) {
+  return await authorizedFetch(`/nutrition-modules/files/${fileId}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function downloadNutritionModuleFile(fileId) {
+  const token = await getAccessToken();
+  if (!token) throw new Error('No hay sesion activa');
+
+  const response = await fetch(`${API_BASE_URL}/nutrition-modules/files/${fileId}/download`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || 'Error descargando archivo adjunto');
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  const contentDisposition = response.headers.get('Content-Disposition');
+  link.download = readFilenameFromDisposition(contentDisposition) || `adjunto_${fileId}`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+  return { success: true };
+}
+
 export async function downloadNutritionModule(id) {
   const token = await getAccessToken();
   if (!token) throw new Error('No hay sesion activa');
