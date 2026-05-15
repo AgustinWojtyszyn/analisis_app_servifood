@@ -99,7 +99,7 @@ function createSupabaseMock({ declarations = [], profiles = [] } = {}) {
 async function readSheetFromBuffer(buffer) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
-  return workbook.getWorksheet('Declaraciones');
+  return workbook.getWorksheet('Declaraciones Salud');
 }
 
 function assertAutoFilterRange(sheet, expectedRange) {
@@ -114,7 +114,7 @@ function assertAutoFilterRange(sheet, expectedRange) {
   });
 }
 
-test('exportación excel: headers, normalización, autofiltro y nombre de archivo por rango', async () => {
+test('exportación excel: headers, estilos base, normalización, autofiltro y nombre de archivo por rango', async () => {
   __setSupabaseAdminForTests(createSupabaseMock({
     declarations: [
       {
@@ -169,8 +169,11 @@ test('exportación excel: headers, normalización, autofiltro y nombre de archiv
   const sheet = await readSheetFromBuffer(res.buffer);
   const headers = sheet.getRow(1).values.slice(1);
   assert.deepEqual(headers, [
-    'Usuario', 'Email', 'Fecha', 'Hora', 'Síntomas', 'Fiebre', 'Contacto', 'Política', 'Estado', 'Semáforo'
+    'Usuario', 'Email', 'Fecha', 'Hora', 'Síntomas', 'Fiebre', 'Contacto', 'Política aceptada', 'Estado', 'Semáforo'
   ]);
+  assert.equal(sheet.views?.[0]?.state, 'frozen');
+  assert.equal(sheet.views?.[0]?.ySplit, 1);
+  assert.equal(sheet.getRow(1).font?.bold, true);
 
   assertAutoFilterRange(sheet, 'A1:J3');
 
@@ -180,9 +183,11 @@ test('exportación excel: headers, normalización, autofiltro y nombre de archiv
   assert.equal(anaRow[4], 'Sí');
   assert.equal(anaRow[5], 'No');
   assert.equal(anaRow[6], 'No');
-  assert.equal(anaRow[7], 'Sí');
+  assert.equal(anaRow[7], 'Aceptada');
   assert.equal(anaRow[8], 'No Apto');
   assert.equal(anaRow[9], 'Amarillo');
+  assert.equal(sheet.getRow(2).getCell(1).alignment?.horizontal, 'left');
+  assert.equal(sheet.getRow(2).getCell(3).alignment?.horizontal, 'center');
 });
 
 test('exportación excel: con ids visibles exporta solo esas filas', async () => {

@@ -126,6 +126,10 @@ function toYesNo(value) {
   return value === true ? 'Sí' : 'No';
 }
 
+function toPolicyValue(value) {
+  return value === true ? 'Aceptada' : 'No aceptada';
+}
+
 function normalizeStatus(value) {
   const v = String(value || '').trim().toLowerCase();
   if (v === 'apto') return 'Apto';
@@ -621,7 +625,7 @@ export async function exportHealthDeclarationsHandler(req, res) {
     const profileMap = await loadProfilesMap((data || []).map((item) => item.user_id));
 
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Declaraciones');
+    const sheet = workbook.addWorksheet('Declaraciones Salud');
 
     sheet.columns = [
       { header: 'Usuario', key: 'usuario', width: 24 },
@@ -631,7 +635,7 @@ export async function exportHealthDeclarationsHandler(req, res) {
       { header: 'Síntomas', key: 'sintomas', width: 12 },
       { header: 'Fiebre', key: 'fiebre', width: 10 },
       { header: 'Contacto', key: 'contacto', width: 12 },
-      { header: 'Política', key: 'politica', width: 16 },
+      { header: 'Política aceptada', key: 'politica', width: 16 },
       { header: 'Estado', key: 'estado', width: 14 },
       { header: 'Semáforo', key: 'semaforo', width: 12 }
     ];
@@ -654,10 +658,38 @@ export async function exportHealthDeclarationsHandler(req, res) {
         sintomas: toYesNo(row.has_symptoms === true),
         fiebre: toYesNo(row.has_fever === true),
         contacto: toYesNo(row.recent_contact === true),
-        politica: toYesNo(row.policy_accepted === true),
+        politica: toPolicyValue(row.policy_accepted === true),
         estado: normalizeStatus(row.health_status || evalRow.healthStatus),
         semaforo: normalizeTrafficLight(row.traffic_light || evalRow.trafficLight)
       });
+    }
+
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF3F4F6' }
+      };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+        left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+        bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+        right: { style: 'thin', color: { argb: 'FFD1D5DB' } }
+      };
+    });
+
+    for (let rowIndex = 2; rowIndex <= sheet.rowCount; rowIndex += 1) {
+      const row = sheet.getRow(rowIndex);
+      row.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+      row.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
+      for (let col = 3; col <= 10; col += 1) {
+        row.getCell(col).alignment = { vertical: 'middle', horizontal: 'center' };
+      }
     }
 
     const totalRows = (data || []).length + 1;
