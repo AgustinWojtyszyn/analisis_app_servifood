@@ -6,6 +6,7 @@ import {
   createNutritionModule,
   deleteNutritionModule,
   downloadNutritionModule,
+  exportNutritionModuleExcel,
   getNutritionModules,
   updateNutritionModule,
   updateNutritionModuleStatus
@@ -99,7 +100,7 @@ export default function NutritionModulesPage({ user }) {
   };
 
   const handleDelete = async (row) => {
-    const confirmed = window.confirm(`¿Eliminar el módulo "${row.title}"? Esta acción no se puede deshacer.`);
+    const confirmed = window.confirm('¿Seguro que querés borrar este módulo? Esta acción no se puede deshacer.');
     if (!confirmed) return;
 
     try {
@@ -110,6 +111,15 @@ export default function NutritionModulesPage({ user }) {
       await loadRows();
     } catch (err) {
       setError(err.message || 'No se pudo eliminar módulo');
+    }
+  };
+
+  const handleExportExcel = async (row) => {
+    try {
+      setError('');
+      await exportNutritionModuleExcel(row.id);
+    } catch (err) {
+      setError(err.message || 'No se pudo exportar módulo a Excel');
     }
   };
 
@@ -144,6 +154,7 @@ export default function NutritionModulesPage({ user }) {
             onArchive={(row) => handleStatusChange(row, 'archivado')}
             onDelete={handleDelete}
             onDownload={handleDownload}
+            onExportExcel={handleExportExcel}
           />
         )}
       </CardContent>

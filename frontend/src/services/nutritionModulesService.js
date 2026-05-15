@@ -67,6 +67,36 @@ export async function deleteNutritionModule(id) {
   });
 }
 
+export async function exportNutritionModuleExcel(id) {
+  const token = await getAccessToken();
+  if (!token) throw new Error('No hay sesion activa');
+
+  const response = await fetch(`${API_BASE_URL}/nutrition-modules/${id}/export/excel`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || 'Error exportando módulo a Excel');
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  const contentDisposition = response.headers.get('Content-Disposition');
+  link.download = readFilenameFromDisposition(contentDisposition) || `modulo_nutricional_${id}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+
+  return { success: true };
+}
+
 export async function downloadNutritionModule(id) {
   const token = await getAccessToken();
   if (!token) throw new Error('No hay sesion activa');

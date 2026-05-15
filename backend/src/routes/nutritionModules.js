@@ -1,5 +1,6 @@
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
+import ExcelJS from 'exceljs';
 import { authenticateToken } from '../middlewares/auth.js';
 
 const router = express.Router();
@@ -57,6 +58,30 @@ function mapModuleRow(row) {
     updatedAt: row.updated_at || null,
     publishedAt: row.published_at || null
   };
+}
+
+function formatDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('es-AR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
+function sanitizeFilename(title = 'modulo_nutricional') {
+  return String(title || 'modulo_nutricional')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80) || 'modulo_nutricional';
 }
 
 router.get('/nutrition-modules', authenticateToken, async (req, res) => {
@@ -337,6 +362,75 @@ router.delete('/nutrition-modules/:id', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/nutrition-modules/:id/export/excel', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+    }
+
+    const role = await resolveUserRole(req.user);
+    const { id } = req.params;
+
+    const { data, error } = await supabaseAdmin
+      .from('nutrition_modules')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Error exportando módulo a Excel' });
+    }
+    if (!data) {
+      return res.status(404).json({ error: 'Módulo no encontrado' });
+    }
+    if (!canManageByRole(role) && data.status !== 'publicado') {
+      return res.status(403).json({ error: 'No autorizado para exportar este módulo' });
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Modulo Nutricional');
+    sheet.columns = [
+      { header: 'Título', key: 'titulo', width: 36 },
+      { header: 'Descripción', key: 'descripcion', width: 44 },
+      { header: 'Contenido', key: 'contenido', width: 72 },
+      { header: 'Estado', key: 'estado', width: 14 },
+      { header: 'Fecha de creación', key: 'createdAt', width: 24 },
+      { header: 'Fecha de actualización', key: 'updatedAt', width: 24 },
+      { header: 'Fecha de publicación', key: 'publishedAt', width: 24 }
+    ];
+
+    sheet.addRow({
+      titulo: data.title || '',
+      descripcion: data.description || '',
+      contenido: data.content || '',
+      estado: data.status || '',
+      createdAt: formatDateTime(data.created_at),
+      updatedAt: formatDateTime(data.updated_at),
+      publishedAt: formatDateTime(data.published_at)
+    });
+
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    sheet.getRow(2).alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const safeTitle = sanitizeFilename(data.title);
+    const fileName = `${safeTitle}.xlsx`;
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    return res.send(Buffer.from(buffer));
+  } catch (error) {
+    return res.status(error.message === 'Usuario inactivo' ? 403 : 500).json({
+      error: error.message === 'Usuario inactivo'
+        ? 'Usuario inactivo'
+        : 'Error interno exportando módulo a Excel'
+    });
+  }
+});
+
 router.get('/nutrition-modules/:id/download', authenticateToken, async (req, res) => {
   try {
     if (!supabaseAdmin) {
@@ -362,12 +456,7 @@ router.get('/nutrition-modules/:id/download', authenticateToken, async (req, res
       return res.status(403).json({ error: 'No autorizado para descargar este módulo' });
     }
 
-    const safeTitle = String(data.title || 'modulo_nutricional')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9_-]+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 80) || 'modulo_nutricional';
+    const safeTitle = sanitizeFilename(data.title);
 
     const lines = [
       `Título: ${data.title || ''}`,

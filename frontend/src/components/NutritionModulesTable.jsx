@@ -15,7 +15,7 @@ function statusMeta(status) {
   return { label: 'Borrador', color: 'warning' };
 }
 
-export default function NutritionModulesTable({ rows, canManage, onEdit, onPublish, onArchive, onDelete, onDownload }) {
+export default function NutritionModulesTable({ rows, canManage, onEdit, onPublish, onArchive, onDelete, onDownload, onExportExcel }) {
   return (
     <TableContainer>
       <Table size="small">
@@ -41,6 +41,7 @@ export default function NutritionModulesTable({ rows, canManage, onEdit, onPubli
                 <TableCell>{formatDate(row.updatedAt || row.createdAt)}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                    <Button size="small" variant="outlined" onClick={() => onExportExcel(row)}>Excel</Button>
                     <Button size="small" variant="outlined" onClick={() => onDownload(row)}>Descargar</Button>
                     {canManage && (
                       <>
@@ -51,7 +52,7 @@ export default function NutritionModulesTable({ rows, canManage, onEdit, onPubli
                         {String(row.status) !== 'archivado' && (
                           <Button size="small" color="warning" variant="outlined" onClick={() => onArchive(row)}>Archivar</Button>
                         )}
-                        <Button size="small" color="error" variant="outlined" onClick={() => onDelete(row)}>Eliminar</Button>
+                        <Button size="small" color="error" variant="outlined" onClick={() => onDelete(row)}>Borrar</Button>
                       </>
                     )}
                   </Box>
