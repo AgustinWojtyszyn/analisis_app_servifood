@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import NutritionModuleForm from './NutritionModuleForm';
 import NutritionModulesTable from './NutritionModulesTable';
 import {
@@ -106,6 +106,7 @@ export default function NutritionModulesPage({ user }) {
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [selectedSection, setSelectedSection] = useState('todos');
 
   const canManage = useMemo(() => canManageRole(user?.role), [user?.role]);
   const filteredRows = useMemo(() => {
@@ -116,11 +117,13 @@ export default function NutritionModulesPage({ user }) {
       const content = normalizeSearchValue(row?.content || '');
       const status = String(row?.status || 'borrador').toLowerCase();
       const filesCount = Number(row?.filesCount || 0);
+      const moduleType = String(row?.moduleType || row?.module_type || '').toLowerCase();
       const updatedRaw = row?.updatedAt || row?.updated_at || row?.createdAt || row?.created_at || null;
       const moduleDate = updatedRaw ? new Date(updatedRaw) : null;
       const hasValidDate = moduleDate && !Number.isNaN(moduleDate.getTime());
 
       const matchesSearch = !search || title.includes(search) || description.includes(search) || content.includes(search);
+      const matchesSection = selectedSection === 'todos' || moduleType === selectedSection;
       const matchesStatus = statusFilter === 'todos' || status === statusFilter;
       const matchesAttachments = attachmentsFilter === 'todos'
         || (attachmentsFilter === 'con_adjuntos' && filesCount > 0)
@@ -152,9 +155,9 @@ export default function NutritionModulesPage({ user }) {
         if (moduleDate > to) return false;
       }
 
-      return matchesSearch && matchesStatus && matchesAttachments;
+      return matchesSearch && matchesSection && matchesStatus && matchesAttachments;
     });
-  }, [rows, searchTerm, statusFilter, attachmentsFilter, selectedDate, dateFrom, dateTo]);
+  }, [rows, searchTerm, selectedSection, statusFilter, attachmentsFilter, selectedDate, dateFrom, dateTo]);
 
   const totalItems = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -235,6 +238,12 @@ export default function NutritionModulesPage({ user }) {
 
   const handlePageSizeChange = (nextPageSize) => {
     setPageSize(nextPageSize);
+    setPage(1);
+  };
+
+  const handleSectionChange = (_event, nextSection) => {
+    if (!nextSection) return;
+    setSelectedSection(nextSection);
     setPage(1);
   };
 
@@ -440,6 +449,19 @@ export default function NutritionModulesPage({ user }) {
         ) : (
           <>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr repeat(5, minmax(130px, 1fr)) auto' }, gap: 1, mb: 1.2 }}>
+              <Box sx={{ gridColumn: '1 / -1' }}>
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  value={selectedSection}
+                  onChange={handleSectionChange}
+                  aria-label="Apartado de módulos"
+                >
+                  <ToggleButton value="todos">Todos</ToggleButton>
+                  <ToggleButton value="procedimiento">Procedimientos</ToggleButton>
+                  <ToggleButton value="registro">Registros</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
               <TextField
                 id="nutrition-modules-search"
                 size="small"

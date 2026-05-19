@@ -11,7 +11,8 @@ const EMPTY_FORM = {
   title: '',
   description: '',
   content: '',
-  status: 'borrador'
+  status: 'borrador',
+  moduleType: ''
 };
 
 function formatBytes(bytes) {
@@ -48,7 +49,8 @@ export default function NutritionModuleForm({
         title: initialData.title || '',
         description: initialData.description || '',
         content: initialData.content || '',
-        status: initialData.status || 'borrador'
+        status: initialData.status || 'borrador',
+        moduleType: initialData.moduleType || ''
       });
       return;
     }
@@ -69,12 +71,17 @@ export default function NutritionModuleForm({
       setError('El título es obligatorio');
       return;
     }
+    if (!form.moduleType) {
+      setError('El apartado es obligatorio');
+      return;
+    }
     setError('');
     await onSubmit({
       title: form.title.trim(),
       description: form.description.trim(),
       content: form.content,
       status: canEditStatus ? form.status : 'borrador',
+      moduleType: form.moduleType,
       files: selectedFiles
     });
   };
@@ -88,6 +95,17 @@ export default function NutritionModuleForm({
           <TextField label="Título" value={form.title} onChange={handleChange('title')} required fullWidth />
           <TextField label="Descripción" value={form.description} onChange={handleChange('description')} fullWidth multiline minRows={2} />
           <TextField label="Contenido" value={form.content} onChange={handleChange('content')} fullWidth multiline minRows={10} />
+          <TextField
+            select
+            label="Apartado"
+            value={form.moduleType}
+            onChange={handleChange('moduleType')}
+            fullWidth
+            required
+          >
+            <MenuItem value="procedimiento">Procedimiento</MenuItem>
+            <MenuItem value="registro">Registro</MenuItem>
+          </TextField>
           <Box>
             <Button component="label" variant="outlined">
               Adjuntar archivos

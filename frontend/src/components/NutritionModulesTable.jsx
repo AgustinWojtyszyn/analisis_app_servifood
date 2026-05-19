@@ -22,6 +22,13 @@ function filesLabel(value) {
   return `${count} archivos`;
 }
 
+function moduleTypeLabel(value) {
+  const normalized = String(value || '').toLowerCase();
+  if (normalized === 'procedimiento') return 'Procedimiento';
+  if (normalized === 'registro') return 'Registro';
+  return '-';
+}
+
 export default function NutritionModulesTable({
   rows,
   canManage,
@@ -41,6 +48,7 @@ export default function NutritionModulesTable({
           <TableRow>
             <TableCell sx={{ fontWeight: 700 }}>Título</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Descripción</TableCell>
+            <TableCell sx={{ fontWeight: 700 }}>Apartado</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Adjuntos</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Actualizado</TableCell>
@@ -54,6 +62,7 @@ export default function NutritionModulesTable({
               <TableRow key={row.id} hover>
                 <TableCell sx={{ fontWeight: 600 }}>{row.title}</TableCell>
                 <TableCell>{row.description || '-'}</TableCell>
+                <TableCell>{moduleTypeLabel(row.moduleType || row.module_type)}</TableCell>
                 <TableCell>
                   <Chip size="small" label={meta.label} color={meta.color} variant={meta.color === 'default' ? 'outlined' : 'filled'} />
                 </TableCell>
@@ -83,7 +92,7 @@ export default function NutritionModulesTable({
           })}
           {!rows.length && (
             <TableRow>
-              <TableCell colSpan={6}>{emptyMessage}</TableCell>
+              <TableCell colSpan={7}>{emptyMessage}</TableCell>
             </TableRow>
           )}
         </TableBody>

@@ -14,6 +14,7 @@ const supabaseAdmin = supabaseUrl && serviceRoleKey
   : null;
 
 const VALID_STATUSES = new Set(['borrador', 'publicado', 'archivado']);
+const VALID_MODULE_TYPES = new Set(['procedimiento', 'registro']);
 const STORAGE_BUCKET = 'nutrition-modules';
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(['.pdf', '.xls', '.xlsx', '.csv', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.webp', '.txt']);
@@ -38,6 +39,12 @@ const upload = multer({
 function normalizeStatus(value) {
   const v = String(value || '').trim().toLowerCase();
   if (!VALID_STATUSES.has(v)) return null;
+  return v;
+}
+
+function normalizeModuleType(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (!VALID_MODULE_TYPES.has(v)) return null;
   return v;
 }
 
@@ -79,6 +86,7 @@ function mapModuleRow(row) {
     description: row.description || '',
     content: row.content || '',
     status: row.status || 'borrador',
+    moduleType: row.module_type || null,
     createdBy: row.created_by || null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
@@ -287,9 +295,13 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
     const description = String(req.body?.description || '').trim();
     const content = String(req.body?.content || '').trim();
     const status = normalizeStatus(req.body?.status) || 'borrador';
+    const moduleType = normalizeModuleType(req.body?.moduleType || req.body?.module_type);
 
     if (!title) {
       return res.status(400).json({ error: 'El título es obligatorio' });
+    }
+    if (!moduleType) {
+      return res.status(400).json({ error: 'El apartado es obligatorio. Usar: procedimiento o registro' });
     }
 
     const nowIso = new Date().toISOString();
@@ -298,6 +310,7 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
       description,
       content,
       status,
+      module_type: moduleType,
       created_by: req.user.id,
       published_at: status === 'publicado' ? nowIso : null
     };
@@ -338,9 +351,13 @@ router.put('/nutrition-modules/:id', authenticateToken, async (req, res) => {
     const description = String(req.body?.description || '').trim();
     const content = String(req.body?.content || '').trim();
     const status = normalizeStatus(req.body?.status) || 'borrador';
+    const moduleType = normalizeModuleType(req.body?.moduleType || req.body?.module_type);
 
     if (!title) {
       return res.status(400).json({ error: 'El título es obligatorio' });
+    }
+    if (!moduleType) {
+      return res.status(400).json({ error: 'El apartado es obligatorio. Usar: procedimiento o registro' });
     }
 
     const nowIso = new Date().toISOString();
@@ -363,6 +380,7 @@ router.put('/nutrition-modules/:id', authenticateToken, async (req, res) => {
       description,
       content,
       status,
+      module_type: moduleType,
       published_at: status === 'publicado' ? (existing.published_at || nowIso) : null,
       updated_at: nowIso
     };
@@ -514,6 +532,7 @@ router.get('/nutrition-modules/:id/export/excel', authenticateToken, async (req,
     const sheet = workbook.addWorksheet('Modulo Nutricional');
     sheet.columns = [
       { header: 'Título', key: 'titulo', width: 36 },
+      { header: 'Apartado', key: 'apartado', width: 18 },
       { header: 'Descripción', key: 'descripcion', width: 44 },
       { header: 'Contenido', key: 'contenido', width: 72 },
       { header: 'Estado', key: 'estado', width: 14 },
@@ -524,6 +543,7 @@ router.get('/nutrition-modules/:id/export/excel', authenticateToken, async (req,
 
     sheet.addRow({
       titulo: data.title || '',
+      apartado: data.module_type || '',
       descripcion: data.description || '',
       contenido: data.content || '',
       estado: data.status || '',
@@ -818,6 +838,7 @@ router.get('/nutrition-modules/:id/download', authenticateToken, async (req, res
 
     const lines = [
       `Título: ${data.title || ''}`,
+      `Apartado: ${data.module_type || ''}`,
       `Descripción: ${data.description || ''}`,
       `Estado: ${data.status || ''}`,
       `Publicado: ${data.published_at || ''}`,
