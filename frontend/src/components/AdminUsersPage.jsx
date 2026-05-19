@@ -16,7 +16,7 @@ import {
   Typography,
   Switch
 } from '@mui/material';
-import { supabase } from '../lib/supabaseClient';
+import { deleteAdminUser, getAdminUsers, updateAdminUser } from '../services/adminUsersService';
 
 function formatDate(value) {
   if (!value) return 'N/D';
@@ -49,18 +49,13 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
     setLoading(true);
     setError('');
 
-    const { data, error: loadError } = await supabase
-      .from('profiles')
-      .select('id, email, full_name, role, is_active, created_at')
-      .order('created_at', { ascending: false });
-
-    if (loadError) {
-      setError(loadError.message || 'No se pudieron cargar los usuarios');
-      setUsers([]);
-    } else {
+    try {
+      const data = await getAdminUsers();
       setUsers(data || []);
+    } catch (err) {
+      setError(err.message || 'No se pudieron cargar los usuarios');
+      setUsers([]);
     }
-
     setLoading(false);
   };
 
@@ -80,20 +75,17 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
     setError('');
     setSuccess('');
 
-    const { data, error: updateError } = await supabase
-      .from('profiles')
-      .update({ role: target.role, is_active: target.is_active })
-      .eq('id', id)
-      .select('id, role, is_active')
-      .maybeSingle();
-
-    if (updateError || !data) {
-      setError(updateError?.message || 'No se pudo guardar el usuario');
-    } else {
+    try {
+      const data = await updateAdminUser(id, {
+        role: target.role,
+        is_active: Boolean(target.is_active)
+      });
       setSuccess('Usuario actualizado correctamente');
       if (id === currentUserId) {
         onCurrentUserUpdated?.({ role: data.role, is_active: data.is_active });
       }
+    } catch (err) {
+      setError(err.message || 'No se pudo guardar el usuario');
     }
 
     setSavingId(null);
@@ -119,16 +111,12 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
     setError('');
     setSuccess('');
 
-    const { error: deleteError } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', profile.id);
-
-    if (deleteError) {
-      setError(deleteError.message || 'No se pudo eliminar el usuario');
-    } else {
+    try {
+      await deleteAdminUser(profile.id);
       setUsers((prev) => prev.filter((user) => user.id !== profile.id));
       setSuccess('Usuario eliminado correctamente');
+    } catch (err) {
+      setError(err.message || 'No se pudo eliminar el usuario');
     }
 
     setDeletingId(null);

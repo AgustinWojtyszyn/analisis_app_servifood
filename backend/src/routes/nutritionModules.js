@@ -406,64 +406,6 @@ router.put('/nutrition-modules/:id', authenticateToken, async (req, res) => {
   }
 });
 
-router.patch('/nutrition-modules/:id/status', authenticateToken, async (req, res) => {
-  try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
-    }
-
-    const role = await resolveUserRole(req.user);
-    if (!canManageByRole(role)) {
-      return res.status(403).json({ error: 'No autorizado para cambiar estado de módulos' });
-    }
-
-    const { id } = req.params;
-    const status = normalizeStatus(req.body?.status);
-    if (!status) {
-      return res.status(400).json({ error: 'Estado inválido. Usar: aprobado' });
-    }
-
-    const nowIso = new Date().toISOString();
-    const { data: existing, error: existingError } = await supabaseAdmin
-      .from('nutrition_modules')
-      .select('id, published_at')
-      .eq('id', id)
-      .maybeSingle();
-
-    if (existingError) {
-      return res.status(500).json({ error: existingError.message || 'Error consultando módulo nutricional' });
-    }
-    if (!existing) {
-      return res.status(404).json({ error: 'Módulo no encontrado' });
-    }
-
-    const payload = {
-      status,
-      updated_at: nowIso,
-      published_at: status === 'aprobado' ? (existing.published_at || nowIso) : null
-    };
-
-    const { data, error } = await supabaseAdmin
-      .from('nutrition_modules')
-      .update(payload)
-      .eq('id', id)
-      .select('*')
-      .maybeSingle();
-
-    if (error || !data) {
-      return res.status(500).json({ error: error?.message || 'Error actualizando estado del módulo' });
-    }
-
-    return res.json(mapModuleRow(data));
-  } catch (error) {
-    return res.status(error.message === 'Usuario inactivo' ? 403 : 500).json({
-      error: error.message === 'Usuario inactivo'
-        ? 'Usuario inactivo'
-        : 'Error interno actualizando estado del módulo'
-    });
-  }
-});
-
 router.delete('/nutrition-modules/:id', authenticateToken, async (req, res) => {
   try {
     if (!supabaseAdmin) {

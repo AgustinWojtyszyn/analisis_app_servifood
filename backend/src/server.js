@@ -8,6 +8,7 @@ import analysisRoutes from './routes/analysis.js';
 import rulesRoutes from './routes/rules.js';
 import healthDeclarationsRoutes from './routes/healthDeclarations.js';
 import nutritionModulesRoutes from './routes/nutritionModules.js';
+import adminUsersRoutes from './routes/adminUsers.js';
 import { authenticateToken, requireAdmin } from './middlewares/auth.js';
 import { uploadAndAnalyze } from './controllers/analysisController.js';
 import { upload, MAX_EXCEL_FILE_SIZE_MB } from './middlewares/upload.js';
@@ -133,6 +134,7 @@ app.use('/api/analysis', analysisRoutes);
 app.use('/api/rules', rulesRoutes);
 app.use('/api', healthDeclarationsRoutes);
 app.use('/api', nutritionModulesRoutes);
+app.use('/api', adminUsersRoutes);
 
 // Servir frontend build (Vite)
 const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');

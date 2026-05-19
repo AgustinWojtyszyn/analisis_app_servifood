@@ -54,13 +54,6 @@ export async function updateNutritionModule(id, payload) {
   });
 }
 
-export async function updateNutritionModuleStatus(id, status) {
-  return await authorizedFetch(`/nutrition-modules/${id}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status })
-  });
-}
-
 export async function deleteNutritionModule(id) {
   return await authorizedFetch(`/nutrition-modules/${id}`, {
     method: 'DELETE'
