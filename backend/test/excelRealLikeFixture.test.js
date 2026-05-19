@@ -126,8 +126,10 @@ test('A1:I35 real-like fixture must produce 34 records and no discards for devia
   assert.equal(byFinding.get('se rompe el batidor')?.alcanceDesvio, 'Interno');
   assert.equal(byFinding.get('no se enviaron los almuerzos para celiacos para monteverde')?.categoriaDesvio, 'Desvío de Logística');
   assert.equal(byFinding.get('no se enviaron los almuerzos para celiacos para monteverde')?.alcanceDesvio, 'Externo');
-  assert.equal(byFinding.get('la laja sale tarde')?.areaClasificada, 'La Laja');
-  assert.equal(byFinding.get('no se envio junto con el recorrido la limonada y fruta a scop')?.areaClasificada, 'SCOP');
+  assert.equal(byFinding.get('la laja sale tarde')?.areaClasificada, 'Logística');
+  assert.equal(byFinding.get('la laja sale tarde')?.traceability?.areaSector?.fuente_del_valor, 'excel');
+  assert.equal(byFinding.get('no se envio junto con el recorrido la limonada y fruta a scop')?.areaClasificada, 'Logística');
+  assert.equal(byFinding.get('no se envio junto con el recorrido la limonada y fruta a scop')?.traceability?.areaSector?.fuente_del_valor, 'excel');
   assert.equal(byFinding.get('falto comida para celiaco en la laja (1)')?.areaClasificada, 'La Laja');
   assert.notEqual(byFinding.get('carne de mg no apta exceder el gramaje solicitado en los bifes')?.areaClasificada, 'Logística');
   const banana = byFinding.get('banana oxidada o pasada en bandejas de refrigerio fruta lista para despacho');
