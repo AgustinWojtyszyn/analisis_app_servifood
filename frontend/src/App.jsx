@@ -47,7 +47,7 @@ const publicPaths = new Set(['/', '/login', '/register']);
 const protectedPathAliases = {
   '/politicas': '/politicas-seguridad'
 };
-const USER_ALLOWED_SECTIONS = new Set(['declaration', 'policies']);
+const BASE_ALLOWED_SECTIONS = new Set(['declaration', 'policies']);
 
 function normalizeProtectedPath(pathname) {
   return protectedPathAliases[pathname] || pathname;
@@ -75,7 +75,10 @@ function MainApp({ user, onLogout }) {
   const [reloadHistoryKey, setReloadHistoryKey] = useState(0);
 
   const effectiveRole = currentUserProfile?.role || user?.role || 'user';
-  const isAdmin = effectiveRole === 'admin';
+  const normalizedRole = String(effectiveRole || 'user').toLowerCase();
+  const isAdmin = normalizedRole === 'admin';
+  const isNutritionist = normalizedRole === 'nutricionista';
+  const canViewNutritionModules = isAdmin || isNutritionist;
 
   const layoutUser = {
     ...user,
@@ -84,6 +87,14 @@ function MainApp({ user, onLogout }) {
   };
 
   const sidebarSections = useMemo(() => {
+    if (canViewNutritionModules && !isAdmin) {
+      return [
+        { id: 'declaration', label: 'Declaración de Salud' },
+        { id: 'policies', label: 'Políticas de Seguridad' },
+        { id: 'nutritionModules', label: 'Módulos Nutricionales' }
+      ];
+    }
+
     if (!isAdmin) {
       return [
         { id: 'declaration', label: 'Declaración de Salud' },
@@ -104,7 +115,27 @@ function MainApp({ user, onLogout }) {
       { id: 'policies', label: 'Políticas' },
       { id: 'nutritionModules', label: 'Módulos Nutricionales' }
     ];
-  }, [isAdmin]);
+  }, [canViewNutritionModules, isAdmin]);
+
+  const allowedSections = useMemo(() => {
+    const set = new Set(BASE_ALLOWED_SECTIONS);
+    if (canViewNutritionModules) {
+      set.add('nutritionModules');
+    }
+    if (isAdmin) {
+      set.add('panel');
+      set.add('upload');
+      set.add('charts');
+      set.add('profile');
+      set.add('tutorial');
+      set.add('rules');
+      set.add('adminUsers');
+      set.add('adminHealthDeclarations');
+      set.add('history');
+      set.add('declarationHistory');
+    }
+    return set;
+  }, [canViewNutritionModules, isAdmin]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -158,7 +189,7 @@ function MainApp({ user, onLogout }) {
       }
 
       const sectionFromPath = getSectionFromPath(normalizedPath);
-      if (!USER_ALLOWED_SECTIONS.has(sectionFromPath)) {
+      if (!allowedSections.has(sectionFromPath)) {
         navigateToSection('declaration');
         return;
       }
@@ -171,10 +202,10 @@ function MainApp({ user, onLogout }) {
       const id = window.location.pathname.replace('/analisis/', '');
       if (id) loadAnalysis(id);
     }
-  }, [isAdmin]);
+  }, [allowedSections, isAdmin]);
 
   const navigateToSection = (nextSection) => {
-    if (!isAdmin && !USER_ALLOWED_SECTIONS.has(nextSection)) {
+    if (!allowedSections.has(nextSection)) {
       nextSection = 'declaration';
     }
 
@@ -274,14 +305,14 @@ function MainApp({ user, onLogout }) {
   };
 
   const renderSection = () => {
-    if (!isAdmin && !USER_ALLOWED_SECTIONS.has(currentSection)) {
+    if (!allowedSections.has(currentSection)) {
       return (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
             No tenés permisos para acceder a esta sección
           </Typography>
           <Typography color="text.secondary">
-            Solo podés acceder a Declaración de Salud y Políticas de Seguridad.
+            No tenés permisos para acceder a esta sección.
           </Typography>
         </Paper>
       );
@@ -311,7 +342,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'nutritionModules') {
-      if (!isAdmin) return null;
+      if (!canViewNutritionModules) return null;
       return <NutritionModulesPage user={layoutUser} />;
     }
 

@@ -43,6 +43,11 @@ function normalizeStatus(value) {
 
 function canManageByRole(role) {
   const r = String(role || '').toLowerCase();
+  return r === 'admin';
+}
+
+function canViewByRole(role) {
+  const r = String(role || '').toLowerCase();
   return r === 'admin' || r === 'nutricionista';
 }
 
@@ -156,6 +161,9 @@ async function ensureStorageBucketExists() {
 }
 
 async function canAccessModule(role, moduleId) {
+  if (!canViewByRole(role)) {
+    return { allowed: false, row: null, reason: 'No autorizado para acceder a módulos nutricionales', status: 403 };
+  }
   const { data, error } = await supabaseAdmin
     .from('nutrition_modules')
     .select('*')
@@ -176,6 +184,9 @@ router.get('/nutrition-modules', authenticateToken, async (req, res) => {
     }
 
     const role = await resolveUserRole(req.user);
+    if (!canViewByRole(role)) {
+      return res.status(403).json({ error: 'No autorizado para acceder a módulos nutricionales' });
+    }
     let query = supabaseAdmin
       .from('nutrition_modules')
       .select('*')
@@ -228,6 +239,9 @@ router.get('/nutrition-modules/:id', authenticateToken, async (req, res) => {
     }
 
     const role = await resolveUserRole(req.user);
+    if (!canViewByRole(role)) {
+      return res.status(403).json({ error: 'No autorizado para acceder a módulos nutricionales' });
+    }
     const { id } = req.params;
 
     const { data, error } = await supabaseAdmin
@@ -475,6 +489,9 @@ router.get('/nutrition-modules/:id/export/excel', authenticateToken, async (req,
     }
 
     const role = await resolveUserRole(req.user);
+    if (!canViewByRole(role)) {
+      return res.status(403).json({ error: 'No autorizado para exportar módulos nutricionales' });
+    }
     const { id } = req.params;
 
     const { data, error } = await supabaseAdmin
@@ -724,6 +741,9 @@ router.get('/nutrition-modules/files/:fileId/download', authenticateToken, async
     }
 
     const role = await resolveUserRole(req.user);
+    if (!canViewByRole(role)) {
+      return res.status(403).json({ error: 'No autorizado para descargar archivos adjuntos' });
+    }
     const { data: fileRow, error: fileError } = await supabaseAdmin
       .from('nutrition_module_files')
       .select('*')
@@ -773,6 +793,9 @@ router.get('/nutrition-modules/:id/download', authenticateToken, async (req, res
     }
 
     const role = await resolveUserRole(req.user);
+    if (!canViewByRole(role)) {
+      return res.status(403).json({ error: 'No autorizado para descargar módulos nutricionales' });
+    }
     const { id } = req.params;
 
     const { data, error } = await supabaseAdmin

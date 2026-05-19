@@ -137,6 +137,7 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
                       fullWidth
                     >
                       <MenuItem value="user">user</MenuItem>
+                      <MenuItem value="nutricionista">nutricionista</MenuItem>
                       <MenuItem value="admin">admin</MenuItem>
                     </TextField>
                   </TableCell>

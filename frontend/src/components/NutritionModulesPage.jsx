@@ -18,7 +18,7 @@ import {
 
 function canManageRole(role) {
   const normalized = String(role || '').toLowerCase();
-  return normalized === 'admin' || normalized === 'nutricionista';
+  return normalized === 'admin';
 }
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -177,6 +177,7 @@ export default function NutritionModulesPage({ user }) {
   };
 
   const handleCreate = () => {
+    if (!canManage) return;
     setEditingRow(null);
     setFormOpen(true);
   };
@@ -236,6 +237,7 @@ export default function NutritionModulesPage({ user }) {
   };
 
   const handleEdit = (row) => {
+    if (!canManage) return;
     setEditingRow(row);
     void loadFilesForEditing(row.id);
     setFormOpen(true);
@@ -251,6 +253,7 @@ export default function NutritionModulesPage({ user }) {
   };
 
   const handleSubmit = async (payload) => {
+    if (!canManage) return;
     try {
       setSaving(true);
       setError('');
@@ -281,6 +284,7 @@ export default function NutritionModulesPage({ user }) {
   };
 
   const handleStatusChange = async (row, status) => {
+    if (!canManage) return;
     try {
       setError('');
       setSuccess('');
@@ -302,6 +306,7 @@ export default function NutritionModulesPage({ user }) {
   };
 
   const handleDelete = async (row) => {
+    if (!canManage) return;
     const confirmed = window.confirm('¿Seguro que querés borrar este módulo? Esta acción no se puede deshacer.');
     if (!confirmed) return;
 
@@ -329,6 +334,7 @@ export default function NutritionModulesPage({ user }) {
   };
 
   const handleDeleteFile = async (file) => {
+    if (!canManage) return;
     const confirmed = window.confirm('¿Seguro que querés borrar este archivo adjunto? Esta acción no se puede deshacer.');
     if (!confirmed) return;
     try {
@@ -352,6 +358,7 @@ export default function NutritionModulesPage({ user }) {
   };
 
   const handleUploadFilesFromDialog = async (event) => {
+    if (!canManage) return;
     const row = filesDialogRow;
     const files = Array.from(event.target.files || []);
     event.target.value = '';
