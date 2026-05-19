@@ -33,11 +33,20 @@ function normalizeSearchValue(value = '') {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
-function PaginationControls({ page, totalPages, pageSize, totalItems, startItem, endItem, onPageChange, onPageSizeChange }) {
+function parseLocalDateInput(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const [year, month, day] = raw.split('-').map((part) => Number(part));
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function PaginationControls({ idPrefix, page, totalPages, pageSize, totalItems, startItem, endItem, onPageChange, onPageSizeChange }) {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <TextField
+          id={`${idPrefix}-page-size`}
           size="small"
           select
           label="Por página"
@@ -118,23 +127,27 @@ export default function NutritionModulesPage({ user }) {
         || (attachmentsFilter === 'sin_adjuntos' && filesCount === 0);
       if (selectedDate) {
         if (!hasValidDate) return false;
-        const start = new Date(selectedDate);
+        const start = parseLocalDateInput(selectedDate);
+        if (!start) return false;
         start.setHours(0, 0, 0, 0);
-        const end = new Date(selectedDate);
+        const end = parseLocalDateInput(selectedDate);
+        if (!end) return false;
         end.setHours(23, 59, 59, 999);
         if (moduleDate < start || moduleDate > end) return false;
       }
 
       if (dateFrom) {
         if (!hasValidDate) return false;
-        const from = new Date(dateFrom);
+        const from = parseLocalDateInput(dateFrom);
+        if (!from) return false;
         from.setHours(0, 0, 0, 0);
         if (moduleDate < from) return false;
       }
 
       if (dateTo) {
         if (!hasValidDate) return false;
-        const to = new Date(dateTo);
+        const to = parseLocalDateInput(dateTo);
+        if (!to) return false;
         to.setHours(23, 59, 59, 999);
         if (moduleDate > to) return false;
       }
@@ -428,24 +441,26 @@ export default function NutritionModulesPage({ user }) {
           <>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr repeat(5, minmax(130px, 1fr)) auto' }, gap: 1, mb: 1.2 }}>
               <TextField
+                id="nutrition-modules-search"
                 size="small"
                 label="Buscar módulo..."
                 placeholder="Buscar módulo..."
                 value={searchTerm}
                 onChange={handleSearchChange}
               />
-              <TextField size="small" select label="Estado" value={statusFilter} onChange={handleStatusFilterChange}>
+              <TextField id="nutrition-modules-status" size="small" select label="Estado" value={statusFilter} onChange={handleStatusFilterChange}>
                 <MenuItem value="todos">Todos</MenuItem>
                 <MenuItem value="publicado">Publicado</MenuItem>
                 <MenuItem value="archivado">Archivado</MenuItem>
                 <MenuItem value="borrador">Borrador</MenuItem>
               </TextField>
-              <TextField size="small" select label="Adjuntos" value={attachmentsFilter} onChange={handleAttachmentsFilterChange}>
+              <TextField id="nutrition-modules-attachments" size="small" select label="Adjuntos" value={attachmentsFilter} onChange={handleAttachmentsFilterChange}>
                 <MenuItem value="todos">Todos</MenuItem>
                 <MenuItem value="con_adjuntos">Con adjuntos</MenuItem>
                 <MenuItem value="sin_adjuntos">Sin adjuntos</MenuItem>
               </TextField>
               <TextField
+                id="nutrition-modules-day"
                 size="small"
                 type="date"
                 label="Día"
@@ -454,6 +469,7 @@ export default function NutritionModulesPage({ user }) {
                 onChange={handleSelectedDateChange}
               />
               <TextField
+                id="nutrition-modules-from"
                 size="small"
                 type="date"
                 label="Desde"
@@ -462,6 +478,7 @@ export default function NutritionModulesPage({ user }) {
                 onChange={handleDateFromChange}
               />
               <TextField
+                id="nutrition-modules-to"
                 size="small"
                 type="date"
                 label="Hasta"
@@ -474,6 +491,7 @@ export default function NutritionModulesPage({ user }) {
 
             <Box sx={{ mb: 1.1 }}>
               <PaginationControls
+                idPrefix="nutrition-modules-top"
                 page={safePage}
                 totalPages={totalPages}
                 pageSize={pageSize}
@@ -500,6 +518,7 @@ export default function NutritionModulesPage({ user }) {
 
             <Box sx={{ mt: 1.1 }}>
               <PaginationControls
+                idPrefix="nutrition-modules-bottom"
                 page={safePage}
                 totalPages={totalPages}
                 pageSize={pageSize}
