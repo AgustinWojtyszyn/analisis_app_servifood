@@ -92,6 +92,9 @@ export default function NutritionModulesPage({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [attachmentsFilter, setAttachmentsFilter] = useState('todos');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -104,15 +107,41 @@ export default function NutritionModulesPage({ user }) {
       const content = normalizeSearchValue(row?.content || '');
       const status = String(row?.status || 'borrador').toLowerCase();
       const filesCount = Number(row?.filesCount || 0);
+      const updatedRaw = row?.updatedAt || row?.updated_at || row?.createdAt || row?.created_at || null;
+      const moduleDate = updatedRaw ? new Date(updatedRaw) : null;
+      const hasValidDate = moduleDate && !Number.isNaN(moduleDate.getTime());
 
       const matchesSearch = !search || title.includes(search) || description.includes(search) || content.includes(search);
       const matchesStatus = statusFilter === 'todos' || status === statusFilter;
       const matchesAttachments = attachmentsFilter === 'todos'
         || (attachmentsFilter === 'con_adjuntos' && filesCount > 0)
         || (attachmentsFilter === 'sin_adjuntos' && filesCount === 0);
+      if (selectedDate) {
+        if (!hasValidDate) return false;
+        const start = new Date(selectedDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(selectedDate);
+        end.setHours(23, 59, 59, 999);
+        if (moduleDate < start || moduleDate > end) return false;
+      }
+
+      if (dateFrom) {
+        if (!hasValidDate) return false;
+        const from = new Date(dateFrom);
+        from.setHours(0, 0, 0, 0);
+        if (moduleDate < from) return false;
+      }
+
+      if (dateTo) {
+        if (!hasValidDate) return false;
+        const to = new Date(dateTo);
+        to.setHours(23, 59, 59, 999);
+        if (moduleDate > to) return false;
+      }
+
       return matchesSearch && matchesStatus && matchesAttachments;
     });
-  }, [rows, searchTerm, statusFilter, attachmentsFilter]);
+  }, [rows, searchTerm, statusFilter, attachmentsFilter, selectedDate, dateFrom, dateTo]);
 
   const totalItems = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -167,6 +196,25 @@ export default function NutritionModulesPage({ user }) {
     setPage(1);
   };
 
+  const handleSelectedDateChange = (event) => {
+    setSelectedDate(event.target.value);
+    setDateFrom('');
+    setDateTo('');
+    setPage(1);
+  };
+
+  const handleDateFromChange = (event) => {
+    setDateFrom(event.target.value);
+    setSelectedDate('');
+    setPage(1);
+  };
+
+  const handleDateToChange = (event) => {
+    setDateTo(event.target.value);
+    setSelectedDate('');
+    setPage(1);
+  };
+
   const handlePageChange = (nextPage) => {
     setPage(nextPage);
   };
@@ -180,6 +228,9 @@ export default function NutritionModulesPage({ user }) {
     setSearchTerm('');
     setStatusFilter('todos');
     setAttachmentsFilter('todos');
+    setSelectedDate('');
+    setDateFrom('');
+    setDateTo('');
     setPage(1);
     setPageSize(10);
   };
@@ -368,7 +419,7 @@ export default function NutritionModulesPage({ user }) {
           <Box sx={{ py: 2 }}><CircularProgress size={22} /></Box>
         ) : (
           <>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr 1fr auto' }, gap: 1, mb: 1.2 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr repeat(5, minmax(130px, 1fr)) auto' }, gap: 1, mb: 1.2 }}>
               <TextField
                 size="small"
                 label="Buscar módulo..."
@@ -387,6 +438,30 @@ export default function NutritionModulesPage({ user }) {
                 <MenuItem value="con_adjuntos">Con adjuntos</MenuItem>
                 <MenuItem value="sin_adjuntos">Sin adjuntos</MenuItem>
               </TextField>
+              <TextField
+                size="small"
+                type="date"
+                label="Día"
+                InputLabelProps={{ shrink: true }}
+                value={selectedDate}
+                onChange={handleSelectedDateChange}
+              />
+              <TextField
+                size="small"
+                type="date"
+                label="Desde"
+                InputLabelProps={{ shrink: true }}
+                value={dateFrom}
+                onChange={handleDateFromChange}
+              />
+              <TextField
+                size="small"
+                type="date"
+                label="Hasta"
+                InputLabelProps={{ shrink: true }}
+                value={dateTo}
+                onChange={handleDateToChange}
+              />
               <Button variant="outlined" onClick={handleClearFilters}>Limpiar filtros</Button>
             </Box>
 
