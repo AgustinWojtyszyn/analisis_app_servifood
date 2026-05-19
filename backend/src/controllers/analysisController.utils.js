@@ -140,11 +140,12 @@ function isAdminUser(user = {}) {
 
 function parseHistoryRequestParams(query = {}) {
   const page = parsePositiveInt(query.page, 1);
-  const limit = Math.min(parsePositiveInt(query.limit, 10), 100);
+  const limit = Math.min(parsePositiveInt(query.limit || query.pageSize, 10), 100);
   const offset = (page - 1) * limit;
-  const search = escapeIlike(query.search);
+  const search = escapeIlike(query.search || query.searchTerm);
   const status = String(query.status || '').trim();
-  const userId = String(query.userId || '').trim();
+  const userId = String(query.userId || query.userFilter || '').trim();
+  const locationFilter = escapeIlike(query.locationFilter || query.location);
   const fromValue = query.dateFrom || query.from || '';
   const toValue = query.dateTo || query.to || '';
   const minRecords = parseNonNegativeInt(query.minRecords);
@@ -165,6 +166,7 @@ function parseHistoryRequestParams(query = {}) {
     search,
     status,
     userId,
+    locationFilter,
     minRecords,
     maxRecords,
     minNC,

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Accordion,
   AccordionDetails,
@@ -33,7 +33,22 @@ import {
   getAnalysisHistory
 } from '../services/analysis';
 
-const limitOptions = [10, 25, 50];
+const limitOptions = [10, 25, 50, 100];
+const initialFilters = {
+  searchTerm: '',
+  dateFrom: '',
+  dateTo: '',
+  status: '',
+  userFilter: '',
+  locationFilter: '',
+  minRecords: '',
+  minNC: '',
+  minOBS: '',
+  minConformes: '',
+  sort: 'date_desc',
+  page: 1,
+  pageSize: 10
+};
 
 export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
   const [items, setItems] = useState([]);
@@ -41,36 +56,40 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
-  const [filters, setFilters] = useState({
-    search: '',
-    from: '',
-    to: '',
-    status: '',
-    userId: '',
-    minRecords: '',
-    minNC: '',
-    minOBS: '',
-    minConformes: '',
-    sort: 'date_desc',
-    page: 1,
-    limit: 10
-  });
+  const [draftFilters, setDraftFilters] = useState(initialFilters);
+  const [filters, setFilters] = useState(initialFilters);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  useEffect(() => {
-    loadHistory();
-  }, [filters]);
-
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      const { data } = await getAnalysisHistory(filters);
+      const requestParams = {
+        search: filters.searchTerm,
+        searchTerm: filters.searchTerm,
+        from: filters.dateFrom,
+        to: filters.dateTo,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        status: filters.status,
+        userId: filters.userFilter,
+        userFilter: filters.userFilter,
+        locationFilter: filters.locationFilter,
+        minRecords: filters.minRecords,
+        minNC: filters.minNC,
+        minOBS: filters.minOBS,
+        minConformes: filters.minConformes,
+        sort: filters.sort,
+        page: filters.page,
+        limit: filters.pageSize,
+        pageSize: filters.pageSize
+      };
+      const { data } = await getAnalysisHistory(requestParams);
       setItems(data?.data || []);
       setMeta({
         page: data?.page || 1,
-        limit: data?.limit || 10,
+        limit: data?.limit || filters.pageSize,
         total: data?.total || 0,
         totalPages: data?.totalPages || 1
       });
@@ -80,7 +99,11 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
@@ -158,7 +181,30 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
   };
 
   const onFilterChange = (patch) => {
-    setFilters((prev) => ({ ...prev, ...patch, page: patch.page ?? 1 }));
+    setDraftFilters((prev) => ({ ...prev, ...patch, page: patch.page ?? 1 }));
+  };
+
+  const applyFilters = () => {
+    setFilters((prev) => ({
+      ...prev,
+      ...draftFilters,
+      page: 1
+    }));
+  };
+
+  const clearFilters = () => {
+    setDraftFilters(initialFilters);
+    setFilters(initialFilters);
+  };
+
+  const onPageChange = (page) => {
+    setFilters((prev) => ({ ...prev, page }));
+    setDraftFilters((prev) => ({ ...prev, page }));
+  };
+
+  const onPageSizeChange = (pageSize) => {
+    setDraftFilters((prev) => ({ ...prev, pageSize, page: 1 }));
+    setFilters((prev) => ({ ...prev, pageSize, page: 1 }));
   };
 
   return (
@@ -193,8 +239,8 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
           name="history_search"
           size="small"
           label="Buscar archivo"
-          value={filters.search}
-          onChange={(e) => onFilterChange({ search: e.target.value })}
+          value={draftFilters.searchTerm}
+          onChange={(e) => onFilterChange({ searchTerm: e.target.value })}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -204,17 +250,22 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
           }}
           sx={fieldSx}
         />
-        <TextField id="history-from" name="history_from" size="small" type="date" label="Desde" InputLabelProps={{ shrink: true }} value={filters.from} onChange={(e) => onFilterChange({ from: e.target.value })} sx={fieldSx} />
-        <TextField id="history-to" name="history_to" size="small" type="date" label="Hasta" InputLabelProps={{ shrink: true }} value={filters.to} onChange={(e) => onFilterChange({ to: e.target.value })} sx={fieldSx} />
-        <TextField id="history-status" name="history_status" size="small" select label="Estado" value={filters.status} onChange={(e) => onFilterChange({ status: e.target.value })} sx={fieldSx}>
+        <TextField id="history-from" name="history_from" size="small" type="date" label="Desde" InputLabelProps={{ shrink: true }} value={draftFilters.dateFrom} onChange={(e) => onFilterChange({ dateFrom: e.target.value })} sx={fieldSx} />
+        <TextField id="history-to" name="history_to" size="small" type="date" label="Hasta" InputLabelProps={{ shrink: true }} value={draftFilters.dateTo} onChange={(e) => onFilterChange({ dateTo: e.target.value })} sx={fieldSx} />
+        <TextField id="history-status" name="history_status" size="small" select label="Estado" value={draftFilters.status} onChange={(e) => onFilterChange({ status: e.target.value })} sx={fieldSx}>
           <MenuItem value="">Todos</MenuItem>
           <MenuItem value="active">active</MenuItem>
           <MenuItem value="exported">exported</MenuItem>
           <MenuItem value="archived">archived</MenuItem>
         </TextField>
-        <TextField id="history-limit" name="history_limit" size="small" select label="Por página" value={filters.limit} onChange={(e) => onFilterChange({ limit: Number(e.target.value), page: 1 })} sx={fieldSx}>
+        <TextField id="history-limit" name="history_limit" size="small" select label="Por página" value={draftFilters.pageSize} onChange={(e) => onPageSizeChange(Number(e.target.value))} sx={fieldSx}>
           {limitOptions.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
         </TextField>
+      </Box>
+
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
+        <Button variant="contained" onClick={applyFilters} sx={btnPrimarySx}>Buscar</Button>
+        <Button variant="outlined" onClick={clearFilters} sx={btnGhostSx}>Limpiar filtros</Button>
       </Box>
 
       <Accordion
@@ -237,14 +288,15 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
         </AccordionSummary>
         <AccordionDetails sx={{ pt: 0.5 }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(4, minmax(0,1fr))' }, gap: 1.25 }}>
-            <TextField id="history-min-records" name="history_min_records" size="small" type="number" label="Mín. registros" value={filters.minRecords} onChange={(e) => onFilterChange({ minRecords: e.target.value })} sx={fieldSx} />
-            <TextField id="history-min-nc" name="history_min_nc" size="small" type="number" label="Mín. NC" value={filters.minNC} onChange={(e) => onFilterChange({ minNC: e.target.value })} sx={fieldSx} />
-            <TextField id="history-min-obs" name="history_min_obs" size="small" type="number" label="Mín. OBS" value={filters.minOBS} onChange={(e) => onFilterChange({ minOBS: e.target.value })} sx={fieldSx} />
-            <TextField id="history-min-conformes" name="history_min_conformes" size="small" type="number" label="Mín. conformes" value={filters.minConformes} onChange={(e) => onFilterChange({ minConformes: e.target.value })} sx={fieldSx} />
+            <TextField id="history-min-records" name="history_min_records" size="small" type="number" label="Mín. registros" value={draftFilters.minRecords} onChange={(e) => onFilterChange({ minRecords: e.target.value })} sx={fieldSx} />
+            <TextField id="history-min-nc" name="history_min_nc" size="small" type="number" label="Mín. NC" value={draftFilters.minNC} onChange={(e) => onFilterChange({ minNC: e.target.value })} sx={fieldSx} />
+            <TextField id="history-min-obs" name="history_min_obs" size="small" type="number" label="Mín. OBS" value={draftFilters.minOBS} onChange={(e) => onFilterChange({ minOBS: e.target.value })} sx={fieldSx} />
+            <TextField id="history-min-conformes" name="history_min_conformes" size="small" type="number" label="Mín. conformes" value={draftFilters.minConformes} onChange={(e) => onFilterChange({ minConformes: e.target.value })} sx={fieldSx} />
             {isAdmin && (
-              <TextField id="history-user-id" name="history_user_id" size="small" label="Usuario (UUID)" value={filters.userId} onChange={(e) => onFilterChange({ userId: e.target.value })} sx={fieldSx} />
+              <TextField id="history-user-id" name="history_user_id" size="small" label="Usuario (UUID)" value={draftFilters.userFilter} onChange={(e) => onFilterChange({ userFilter: e.target.value })} sx={fieldSx} />
             )}
-            <TextField id="history-sort" name="history_sort" size="small" select label="Orden" value={filters.sort} onChange={(e) => onFilterChange({ sort: e.target.value })} sx={fieldSx}>
+            <TextField id="history-location" name="history_location" size="small" label="Ubicación/Sede" value={draftFilters.locationFilter} onChange={(e) => onFilterChange({ locationFilter: e.target.value })} sx={fieldSx} />
+            <TextField id="history-sort" name="history_sort" size="small" select label="Orden" value={draftFilters.sort} onChange={(e) => onFilterChange({ sort: e.target.value })} sx={fieldSx}>
               <MenuItem value="date_desc">Fecha desc</MenuItem>
               <MenuItem value="date_asc">Fecha asc</MenuItem>
               <MenuItem value="name_asc">Nombre asc</MenuItem>
@@ -374,11 +426,13 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
       <Divider sx={{ my: 1.5, borderColor: 'rgba(148,163,184,0.2)' }} />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5, alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-        <Typography variant="body2" sx={{ color: '#475569', fontWeight: 600 }}>Total: {meta.total}</Typography>
+        <Typography variant="body2" sx={{ color: '#475569', fontWeight: 600 }}>
+          Mostrando {meta.total === 0 ? 0 : ((meta.page - 1) * meta.limit) + 1}-{Math.min(meta.page * meta.limit, meta.total)} de {meta.total} registros
+        </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" size="small" sx={btnGhostSx} disabled={meta.page <= 1} onClick={() => onFilterChange({ page: meta.page - 1 })}>Anterior</Button>
+          <Button variant="outlined" size="small" sx={btnGhostSx} disabled={meta.page <= 1} onClick={() => onPageChange(meta.page - 1)}>Anterior</Button>
           <Typography variant="body2" sx={{ alignSelf: 'center', color: '#475569', fontWeight: 600 }}>Página {meta.page} / {meta.totalPages}</Typography>
-          <Button variant="outlined" size="small" sx={btnGhostSx} disabled={meta.page >= meta.totalPages} onClick={() => onFilterChange({ page: meta.page + 1 })}>Siguiente</Button>
+          <Button variant="outlined" size="small" sx={btnGhostSx} disabled={meta.page >= meta.totalPages} onClick={() => onPageChange(meta.page + 1)}>Siguiente</Button>
         </Box>
       </Box>
     </Paper>
@@ -415,6 +469,16 @@ const btnGhostSx = {
   '&:hover': {
     borderColor: '#2563eb',
     backgroundColor: 'rgba(37,99,235,0.06)'
+  }
+};
+
+const btnPrimarySx = {
+  borderRadius: 2,
+  textTransform: 'none',
+  fontWeight: 700,
+  backgroundColor: '#1d4ed8',
+  '&:hover': {
+    backgroundColor: '#1e40af'
   }
 };
 
