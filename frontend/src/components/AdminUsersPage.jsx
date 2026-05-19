@@ -35,6 +35,7 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -98,6 +99,41 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
     setSavingId(null);
   };
 
+  const handleDeleteUser = async (profile) => {
+    if (!profile?.id) return;
+    if (profile.id === currentUserId) {
+      setError('No podés eliminar tu propio usuario desde esta pantalla');
+      return;
+    }
+
+    const firstConfirm = window.confirm(`¿Seguro que querés eliminar al usuario ${profile.email}? Esta acción no se puede deshacer.`);
+    if (!firstConfirm) return;
+
+    const secondConfirm = window.prompt(`Escribí ELIMINAR para confirmar la baja de ${profile.email}:`);
+    if (secondConfirm !== 'ELIMINAR') {
+      setError('Confirmación inválida. No se eliminó el usuario.');
+      return;
+    }
+
+    setDeletingId(profile.id);
+    setError('');
+    setSuccess('');
+
+    const { error: deleteError } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', profile.id);
+
+    if (deleteError) {
+      setError(deleteError.message || 'No se pudo eliminar el usuario');
+    } else {
+      setUsers((prev) => prev.filter((user) => user.id !== profile.id));
+      setSuccess('Usuario eliminado correctamente');
+    }
+
+    setDeletingId(null);
+  };
+
   return (
     <Card>
       <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
@@ -150,14 +186,25 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
                   </TableCell>
                   <TableCell>{formatDate(profile.created_at)}</TableCell>
                   <TableCell>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleSave(profile.id)}
-                      disabled={savingId === profile.id}
-                    >
-                      {savingId === profile.id ? 'Guardando...' : 'Guardar'}
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleSave(profile.id)}
+                        disabled={savingId === profile.id || deletingId === profile.id}
+                      >
+                        {savingId === profile.id ? 'Guardando...' : 'Guardar'}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        size="small"
+                        onClick={() => handleDeleteUser(profile)}
+                        disabled={savingId === profile.id || deletingId === profile.id || profile.id === currentUserId}
+                      >
+                        {deletingId === profile.id ? 'Eliminando...' : 'Eliminar usuario'}
+                      </Button>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))}
