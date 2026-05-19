@@ -1,5 +1,4 @@
 import { normalizeCellValue } from '../../analyzeExcel/normalizers.js';
-
 const COMPANY_AREA_CANONICALS = [
   'Adium (Monteverde)',
   'Aes Sarmiento',
