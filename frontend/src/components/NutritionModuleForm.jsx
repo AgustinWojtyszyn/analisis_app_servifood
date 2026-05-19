@@ -1,10 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField, Typography } from '@mui/material';
 
-const STATUS_OPTIONS = [
-  { value: 'aprobado', label: 'Aprobado' }
-];
-
 const EMPTY_FORM = {
   title: '',
   description: '',
@@ -26,7 +22,6 @@ export default function NutritionModuleForm({
   onClose,
   onSubmit,
   initialData,
-  canEditStatus = true,
   saving = false,
   existingFiles = [],
   onDownloadFile,
@@ -47,7 +42,7 @@ export default function NutritionModuleForm({
         title: initialData.title || '',
         description: initialData.description || '',
         content: initialData.content || '',
-        status: initialData.status || 'aprobado',
+        status: 'aprobado',
         moduleType: initialData.moduleType || ''
       });
       return;
@@ -78,7 +73,7 @@ export default function NutritionModuleForm({
       title: form.title.trim(),
       description: form.description.trim(),
       content: form.content,
-      status: canEditStatus ? form.status : 'aprobado',
+      status: 'aprobado',
       moduleType: form.moduleType,
       files: selectedFiles
     });
@@ -132,25 +127,11 @@ export default function NutritionModuleForm({
                     {file.fileName} ({formatBytes(file.fileSize)})
                   </Typography>
                   <Button size="small" variant="outlined" onClick={() => onDownloadFile?.(file)}>Descargar archivo</Button>
-                  {canEditStatus && (
-                    <Button size="small" color="error" variant="outlined" onClick={() => onDeleteFile?.(file)}>Borrar archivo</Button>
-                  )}
+                  <Button size="small" color="error" variant="outlined" onClick={() => onDeleteFile?.(file)}>Borrar archivo</Button>
                 </Box>
               ))}
             </Box>
           )}
-          <TextField
-            select
-            label="Estado"
-            value={form.status}
-            onChange={handleChange('status')}
-            fullWidth
-            disabled={!canEditStatus}
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-            ))}
-          </TextField>
         </Box>
       </DialogContent>
       <DialogActions>
