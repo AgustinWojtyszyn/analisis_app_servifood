@@ -13,7 +13,6 @@ const supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey)
   : null;
 
-const VALID_STATUSES = new Set(['aprobado']);
 const VALID_MODULE_TYPES = new Set(['procedimiento', 'registro']);
 const STORAGE_BUCKET = 'nutrition-modules';
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -35,12 +34,6 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE_BYTES, files: 10 }
 });
-
-function normalizeStatus(value) {
-  const v = String(value || '').trim().toLowerCase();
-  if (!VALID_STATUSES.has(v)) return null;
-  return v;
-}
 
 function normalizeModuleType(value) {
   const v = String(value || '').trim().toLowerCase();
@@ -294,7 +287,7 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
     const title = String(req.body?.title || '').trim();
     const description = String(req.body?.description || '').trim();
     const content = String(req.body?.content || '').trim();
-    const status = normalizeStatus(req.body?.status) || 'aprobado';
+    const status = 'aprobado';
     const moduleType = normalizeModuleType(req.body?.moduleType || req.body?.module_type);
 
     if (!title) {
@@ -350,7 +343,7 @@ router.put('/nutrition-modules/:id', authenticateToken, async (req, res) => {
     const title = String(req.body?.title || '').trim();
     const description = String(req.body?.description || '').trim();
     const content = String(req.body?.content || '').trim();
-    const status = normalizeStatus(req.body?.status) || 'aprobado';
+    const status = 'aprobado';
     const moduleType = normalizeModuleType(req.body?.moduleType || req.body?.module_type);
 
     if (!title) {
