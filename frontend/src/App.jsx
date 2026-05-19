@@ -91,7 +91,7 @@ function MainApp({ user, onLogout }) {
       return [
         { id: 'declaration', label: 'Declaración de Salud' },
         { id: 'policies', label: 'Políticas de Seguridad' },
-        { id: 'nutritionModules', label: 'Módulos Nutricionales' }
+        { id: 'nutritionModules', label: 'Documentos SGC' }
       ];
     }
 
@@ -113,7 +113,7 @@ function MainApp({ user, onLogout }) {
       { id: 'declaration', label: 'Mi Declaración Salud' },
       { id: 'adminHealthDeclarations', label: 'Gestor Declaraciones' },
       { id: 'policies', label: 'Políticas' },
-      { id: 'nutritionModules', label: 'Módulos Nutricionales' }
+      { id: 'nutritionModules', label: 'Documentos SGC' }
     ];
   }, [canViewNutritionModules, isAdmin]);
 

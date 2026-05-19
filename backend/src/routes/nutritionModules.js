@@ -13,7 +13,7 @@ const supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey)
   : null;
 
-const VALID_MODULE_TYPES = new Set(['procedimiento', 'registro']);
+const VALID_MODULE_TYPES = new Set(['procedimiento', 'registro', 'estrategias']);
 const STORAGE_BUCKET = 'nutrition-modules';
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(['.pdf', '.xls', '.xlsx', '.csv', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.webp', '.txt']);
@@ -294,7 +294,7 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'El título es obligatorio' });
     }
     if (!moduleType) {
-      return res.status(400).json({ error: 'El apartado es obligatorio. Usar: procedimiento o registro' });
+      return res.status(400).json({ error: 'El apartado es obligatorio. Usar: procedimiento, registro o estrategias' });
     }
 
     const nowIso = new Date().toISOString();
@@ -350,7 +350,7 @@ router.put('/nutrition-modules/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'El título es obligatorio' });
     }
     if (!moduleType) {
-      return res.status(400).json({ error: 'El apartado es obligatorio. Usar: procedimiento o registro' });
+      return res.status(400).json({ error: 'El apartado es obligatorio. Usar: procedimiento, registro o estrategias' });
     }
 
     const nowIso = new Date().toISOString();
@@ -464,13 +464,11 @@ router.get('/nutrition-modules/:id/export/excel', authenticateToken, async (req,
     }
 
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Modulo Nutricional');
+    const sheet = workbook.addWorksheet('Documento SGC');
     sheet.columns = [
       { header: 'Título', key: 'titulo', width: 36 },
-      { header: 'Apartado', key: 'apartado', width: 18 },
       { header: 'Descripción', key: 'descripcion', width: 44 },
       { header: 'Contenido', key: 'contenido', width: 72 },
-      { header: 'Estado', key: 'estado', width: 14 },
       { header: 'Fecha de creación', key: 'createdAt', width: 24 },
       { header: 'Fecha de actualización', key: 'updatedAt', width: 24 },
       { header: 'Fecha de aprobación', key: 'publishedAt', width: 24 }
@@ -478,10 +476,8 @@ router.get('/nutrition-modules/:id/export/excel', authenticateToken, async (req,
 
     sheet.addRow({
       titulo: data.title || '',
-      apartado: data.module_type || '',
       descripcion: data.description || '',
       contenido: data.content || '',
-      estado: data.status || '',
       createdAt: formatDateTime(data.created_at),
       updatedAt: formatDateTime(data.updated_at),
       publishedAt: formatDateTime(data.published_at)
@@ -775,7 +771,6 @@ router.get('/nutrition-modules/:id/download', authenticateToken, async (req, res
       `Título: ${data.title || ''}`,
       `Apartado: ${data.module_type || ''}`,
       `Descripción: ${data.description || ''}`,
-      `Estado: ${data.status || ''}`,
       `Aprobado: ${data.published_at || ''}`,
       '',
       'Contenido:',

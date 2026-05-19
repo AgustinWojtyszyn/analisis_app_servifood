@@ -32,14 +32,6 @@ function normalizeSearchValue(value = '') {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
-function parseLocalDateInput(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return null;
-  const [year, month, day] = raw.split('-').map((part) => Number(part));
-  if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day);
-}
-
 function PaginationControls({ idPrefix, page, totalPages, pageSize, totalItems, startItem, endItem, onPageChange, onPageSizeChange }) {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
@@ -58,7 +50,7 @@ function PaginationControls({ idPrefix, page, totalPages, pageSize, totalItems, 
           ))}
         </TextField>
         <Typography variant="body2" color="text.secondary">
-          Mostrando {startItem}-{endItem} de {totalItems} módulos
+          Mostrando {startItem}-{endItem} de {totalItems} documentos
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -98,11 +90,6 @@ export default function NutritionModulesPage({ user }) {
   const [filesDialogFiles, setFilesDialogFiles] = useState([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('aprobado');
-  const [attachmentsFilter, setAttachmentsFilter] = useState('todos');
-  const [selectedDate, setSelectedDate] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [selectedSection, setSelectedSection] = useState('todos');
@@ -112,51 +99,13 @@ export default function NutritionModulesPage({ user }) {
     const search = normalizeSearchValue(searchTerm);
     return rows.filter((row) => {
       const title = normalizeSearchValue(row?.title || '');
-      const description = normalizeSearchValue(row?.description || '');
-      const content = normalizeSearchValue(row?.content || '');
-      const status = String(row?.status || 'aprobado').toLowerCase();
-      const filesCount = Number(row?.filesCount || 0);
       const moduleType = String(row?.moduleType || row?.module_type || '').toLowerCase();
-      const updatedRaw = row?.updatedAt || row?.updated_at || row?.createdAt || row?.created_at || null;
-      const moduleDate = updatedRaw ? new Date(updatedRaw) : null;
-      const hasValidDate = moduleDate && !Number.isNaN(moduleDate.getTime());
 
-      const matchesSearch = !search || title.includes(search) || description.includes(search) || content.includes(search);
+      const matchesSearch = !search || title.includes(search);
       const matchesSection = selectedSection === 'todos' || moduleType === selectedSection;
-      const matchesStatus = status === statusFilter;
-      const matchesAttachments = attachmentsFilter === 'todos'
-        || (attachmentsFilter === 'con_adjuntos' && filesCount > 0)
-        || (attachmentsFilter === 'sin_adjuntos' && filesCount === 0);
-      if (selectedDate) {
-        if (!hasValidDate) return false;
-        const start = parseLocalDateInput(selectedDate);
-        if (!start) return false;
-        start.setHours(0, 0, 0, 0);
-        const end = parseLocalDateInput(selectedDate);
-        if (!end) return false;
-        end.setHours(23, 59, 59, 999);
-        if (moduleDate < start || moduleDate > end) return false;
-      }
-
-      if (dateFrom) {
-        if (!hasValidDate) return false;
-        const from = parseLocalDateInput(dateFrom);
-        if (!from) return false;
-        from.setHours(0, 0, 0, 0);
-        if (moduleDate < from) return false;
-      }
-
-      if (dateTo) {
-        if (!hasValidDate) return false;
-        const to = parseLocalDateInput(dateTo);
-        if (!to) return false;
-        to.setHours(23, 59, 59, 999);
-        if (moduleDate > to) return false;
-      }
-
-      return matchesSearch && matchesSection && matchesStatus && matchesAttachments;
+      return matchesSearch && matchesSection;
     });
-  }, [rows, searchTerm, selectedSection, statusFilter, attachmentsFilter, selectedDate, dateFrom, dateTo]);
+  }, [rows, searchTerm, selectedSection]);
 
   const totalItems = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -184,7 +133,7 @@ export default function NutritionModulesPage({ user }) {
       const data = await getNutritionModules();
       setRows(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message || 'No se pudieron cargar módulos');
+      setError(err.message || 'No se pudieron cargar documentos');
       setRows([]);
     } finally {
       setLoading(false);
@@ -202,35 +151,6 @@ export default function NutritionModulesPage({ user }) {
     setPage(1);
   };
 
-  const handleStatusFilterChange = (event) => {
-    setStatusFilter(event.target.value);
-    setPage(1);
-  };
-
-  const handleAttachmentsFilterChange = (event) => {
-    setAttachmentsFilter(event.target.value);
-    setPage(1);
-  };
-
-  const handleSelectedDateChange = (event) => {
-    setSelectedDate(event.target.value);
-    setDateFrom('');
-    setDateTo('');
-    setPage(1);
-  };
-
-  const handleDateFromChange = (event) => {
-    setDateFrom(event.target.value);
-    setSelectedDate('');
-    setPage(1);
-  };
-
-  const handleDateToChange = (event) => {
-    setDateTo(event.target.value);
-    setSelectedDate('');
-    setPage(1);
-  };
-
   const handlePageChange = (nextPage) => {
     setPage(nextPage);
   };
@@ -244,17 +164,6 @@ export default function NutritionModulesPage({ user }) {
     if (!nextSection) return;
     setSelectedSection(nextSection);
     setPage(1);
-  };
-
-  const handleClearFilters = () => {
-    setSearchTerm('');
-    setStatusFilter('aprobado');
-    setAttachmentsFilter('todos');
-    setSelectedDate('');
-    setDateFrom('');
-    setDateTo('');
-    setPage(1);
-    setPageSize(10);
   };
 
   const handleEdit = (row) => {
@@ -285,20 +194,20 @@ export default function NutritionModulesPage({ user }) {
         if (files.length) {
           await uploadNutritionModuleFiles(editingRow.id, files);
         }
-        setSuccess('Módulo actualizado correctamente');
+        setSuccess('Documento actualizado correctamente');
       } else {
         const created = await createNutritionModule(payload);
         if (created?.id && files.length) {
           await uploadNutritionModuleFiles(created.id, files);
         }
-        setSuccess('Módulo creado correctamente');
+        setSuccess('Documento creado correctamente');
       }
       setFormOpen(false);
       setEditingRow(null);
       setEditingFiles([]);
       await loadRows();
     } catch (err) {
-      setError(err.message || 'No se pudo guardar módulo');
+      setError(err.message || 'No se pudo guardar documento');
     } finally {
       setSaving(false);
     }
@@ -309,23 +218,23 @@ export default function NutritionModulesPage({ user }) {
       setError('');
       await downloadNutritionModule(row.id);
     } catch (err) {
-      setError(err.message || 'No se pudo descargar módulo');
+      setError(err.message || 'No se pudo descargar documento');
     }
   };
 
   const handleDelete = async (row) => {
     if (!canManage) return;
-    const confirmed = window.confirm('¿Seguro que querés borrar este módulo? Esta acción no se puede deshacer.');
+    const confirmed = window.confirm('¿Seguro que querés borrar este documento? Esta acción no se puede deshacer.');
     if (!confirmed) return;
 
     try {
       setError('');
       setSuccess('');
       await deleteNutritionModule(row.id);
-      setSuccess('Módulo eliminado correctamente');
+      setSuccess('Documento eliminado correctamente');
       await loadRows();
     } catch (err) {
-      setError(err.message || 'No se pudo eliminar módulo');
+      setError(err.message || 'No se pudo eliminar documento');
     }
   };
 
@@ -406,7 +315,7 @@ export default function NutritionModulesPage({ user }) {
       setError('');
       await exportNutritionModuleExcel(row.id);
     } catch (err) {
-      setError(err.message || 'No se pudo exportar módulo a Excel');
+      setError(err.message || 'No se pudo exportar documento a Excel');
     }
   };
 
@@ -415,15 +324,15 @@ export default function NutritionModulesPage({ user }) {
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.25, gap: 1 }}>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>Módulos Nutricionales</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800 }}>Documentos SGC</Typography>
             <Typography sx={{ mt: 0.4, color: '#1f2f4a' }}>
               {canManage
-                ? 'Creá, editá y descargá módulos del área nutricional.'
-                : 'Consultá y descargá los módulos nutricionales aprobados.'}
+                ? 'Creá, editá y descargá documentos del Sistema de Gestión de Calidad.'
+                : 'Consultá y descargá documentos del Sistema de Gestión de Calidad.'}
             </Typography>
           </Box>
           {canManage && (
-            <Button variant="contained" onClick={handleCreate}>Crear módulo</Button>
+            <Button variant="contained" onClick={handleCreate}>Crear documento</Button>
           )}
         </Box>
 
@@ -434,64 +343,29 @@ export default function NutritionModulesPage({ user }) {
           <Box sx={{ py: 2 }}><CircularProgress size={22} /></Box>
         ) : (
           <>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr repeat(5, minmax(130px, 1fr)) auto' }, gap: 1, mb: 1.2 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(220px, 360px)' }, gap: 1, mb: 1.2 }}>
               <Box sx={{ gridColumn: '1 / -1' }}>
                 <ToggleButtonGroup
                   size="small"
                   exclusive
                   value={selectedSection}
                   onChange={handleSectionChange}
-                  aria-label="Apartado de módulos"
+                  aria-label="Apartado de documentos"
                 >
                   <ToggleButton value="todos">Todos</ToggleButton>
                   <ToggleButton value="procedimiento">Procedimientos</ToggleButton>
                   <ToggleButton value="registro">Registros</ToggleButton>
+                  <ToggleButton value="estrategias">Estrategias</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
               <TextField
                 id="nutrition-modules-search"
                 size="small"
-                label="Buscar módulo..."
-                placeholder="Buscar módulo..."
+                label="Buscar por nombre..."
+                placeholder="Buscar por nombre..."
                 value={searchTerm}
                 onChange={handleSearchChange}
               />
-              <TextField id="nutrition-modules-status" size="small" select label="Estado" value={statusFilter} onChange={handleStatusFilterChange}>
-                <MenuItem value="aprobado">Aprobado</MenuItem>
-              </TextField>
-              <TextField id="nutrition-modules-attachments" size="small" select label="Adjuntos" value={attachmentsFilter} onChange={handleAttachmentsFilterChange}>
-                <MenuItem value="todos">Todos</MenuItem>
-                <MenuItem value="con_adjuntos">Con adjuntos</MenuItem>
-                <MenuItem value="sin_adjuntos">Sin adjuntos</MenuItem>
-              </TextField>
-              <TextField
-                id="nutrition-modules-day"
-                size="small"
-                type="date"
-                label="Día"
-                InputLabelProps={{ shrink: true }}
-                value={selectedDate}
-                onChange={handleSelectedDateChange}
-              />
-              <TextField
-                id="nutrition-modules-from"
-                size="small"
-                type="date"
-                label="Desde"
-                InputLabelProps={{ shrink: true }}
-                value={dateFrom}
-                onChange={handleDateFromChange}
-              />
-              <TextField
-                id="nutrition-modules-to"
-                size="small"
-                type="date"
-                label="Hasta"
-                InputLabelProps={{ shrink: true }}
-                value={dateTo}
-                onChange={handleDateToChange}
-              />
-              <Button variant="outlined" onClick={handleClearFilters}>Limpiar filtros</Button>
             </Box>
 
             <Box sx={{ mb: 1.1 }}>
@@ -516,7 +390,7 @@ export default function NutritionModulesPage({ user }) {
               onDownload={handleDownload}
               onExportExcel={handleExportExcel}
               onViewFiles={handleViewFiles}
-              emptyMessage="No se encontraron módulos con los filtros aplicados."
+              emptyMessage="No se encontraron documentos para la búsqueda aplicada."
             />
 
             <Box sx={{ mt: 1.1 }}>
@@ -545,7 +419,6 @@ export default function NutritionModulesPage({ user }) {
         }}
         onSubmit={handleSubmit}
         initialData={editingRow}
-        canEditStatus={canManage}
         saving={saving}
         existingFiles={editingFiles}
         onDownloadFile={handleDownloadFile}
@@ -556,7 +429,7 @@ export default function NutritionModulesPage({ user }) {
         <DialogTitle>Archivos adjuntos: {filesDialogRow?.title || ''}</DialogTitle>
         <DialogContent>
           {!filesDialogFiles.length && (
-            <Typography color="text.secondary">Este módulo no tiene archivos adjuntos.</Typography>
+            <Typography color="text.secondary">Este documento no tiene archivos adjuntos.</Typography>
           )}
           {filesDialogFiles.map((file) => (
             <Box key={file.id} sx={{ display: 'flex', gap: 0.75, alignItems: 'center', justifyContent: 'space-between', py: 0.5 }}>

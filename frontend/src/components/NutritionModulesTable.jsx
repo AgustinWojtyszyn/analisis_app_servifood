@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Button, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Box, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 
 function formatDate(value) {
   if (!value) return '-';
@@ -8,24 +8,11 @@ function formatDate(value) {
   return date.toLocaleString('es-AR');
 }
 
-function statusMeta(status) {
-  const normalized = String(status || '').toLowerCase();
-  if (normalized === 'aprobado') return { label: 'Aprobado', color: 'success' };
-  return { label: 'Aprobado', color: 'success' };
-}
-
 function filesLabel(value) {
   const count = Number(value || 0);
   if (count <= 0) return 'Sin archivos';
   if (count === 1) return '1 archivo';
   return `${count} archivos`;
-}
-
-function moduleTypeLabel(value) {
-  const normalized = String(value || '').toLowerCase();
-  if (normalized === 'procedimiento') return 'Procedimiento';
-  if (normalized === 'registro') return 'Registro';
-  return '-';
 }
 
 export default function NutritionModulesTable({
@@ -36,7 +23,7 @@ export default function NutritionModulesTable({
   onDownload,
   onExportExcel,
   onViewFiles,
-  emptyMessage = 'No hay módulos disponibles.'
+  emptyMessage = 'No hay documentos disponibles.'
 }) {
   return (
     <TableContainer>
@@ -45,8 +32,6 @@ export default function NutritionModulesTable({
           <TableRow>
             <TableCell sx={{ fontWeight: 700 }}>Título</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Descripción</TableCell>
-            <TableCell sx={{ fontWeight: 700 }}>Apartado</TableCell>
-            <TableCell sx={{ fontWeight: 700 }}>Estado</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Adjuntos</TableCell>
             <TableCell sx={{ fontWeight: 700 }}>Actualizado</TableCell>
             <TableCell sx={{ fontWeight: 700, minWidth: 260 }}>Acciones</TableCell>
@@ -54,21 +39,16 @@ export default function NutritionModulesTable({
         </TableHead>
         <TableBody>
           {rows.map((row) => {
-            const meta = statusMeta(row.status);
             return (
               <TableRow key={row.id} hover>
                 <TableCell sx={{ fontWeight: 600 }}>{row.title}</TableCell>
                 <TableCell>{row.description || '-'}</TableCell>
-                <TableCell>{moduleTypeLabel(row.moduleType || row.module_type)}</TableCell>
-                <TableCell>
-                  <Chip size="small" label={meta.label} color={meta.color} variant={meta.color === 'default' ? 'outlined' : 'filled'} />
-                </TableCell>
                 <TableCell>{filesLabel(row.filesCount)}</TableCell>
                 <TableCell>{formatDate(row.updatedAt || row.createdAt)}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                     <Button size="small" variant="outlined" onClick={() => onExportExcel(row)}>Excel</Button>
-                    <Button size="small" variant="outlined" onClick={() => onDownload(row)}>Descargar módulo</Button>
+                    <Button size="small" variant="outlined" onClick={() => onDownload(row)}>Descargar documento</Button>
                     <Button size="small" variant="outlined" onClick={() => onViewFiles(row)}>Ver archivos</Button>
                     {canManage && (
                       <>
@@ -83,7 +63,7 @@ export default function NutritionModulesTable({
           })}
           {!rows.length && (
             <TableRow>
-              <TableCell colSpan={7}>{emptyMessage}</TableCell>
+              <TableCell colSpan={5}>{emptyMessage}</TableCell>
             </TableRow>
           )}
         </TableBody>

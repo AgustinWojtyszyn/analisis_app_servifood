@@ -81,7 +81,7 @@ export default function NutritionModuleForm({
 
   return (
     <Dialog open={open} onClose={saving ? undefined : onClose} fullWidth maxWidth="md">
-      <DialogTitle>{mode === 'edit' ? 'Editar módulo nutricional' : 'Crear módulo nutricional'}</DialogTitle>
+      <DialogTitle>{mode === 'edit' ? 'Editar documento SGC' : 'Crear documento SGC'}</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 1, display: 'grid', gap: 1.25 }}>
           {error && <Alert severity="error">{error}</Alert>}
@@ -98,6 +98,7 @@ export default function NutritionModuleForm({
           >
             <MenuItem value="procedimiento">Procedimiento</MenuItem>
             <MenuItem value="registro">Registro</MenuItem>
+            <MenuItem value="estrategias">Estrategias</MenuItem>
           </TextField>
           <Box>
             <Button component="label" variant="outlined">
@@ -137,7 +138,7 @@ export default function NutritionModuleForm({
       <DialogActions>
         <Button onClick={onClose} disabled={saving}>Cancelar</Button>
         <Button variant="contained" onClick={handleSubmit} disabled={saving}>
-          {saving ? 'Guardando...' : mode === 'edit' ? 'Guardar cambios' : 'Crear módulo'}
+          {saving ? 'Guardando...' : mode === 'edit' ? 'Guardar cambios' : 'Crear documento'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -106,8 +106,8 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
       subtitle: 'Administración de solicitudes de salud del personal'
     },
     nutritionModules: {
-      title: 'Módulos Nutricionales',
-      subtitle: 'Biblioteca y gestión de módulos para nutrición'
+      title: 'Documentos SGC',
+      subtitle: 'Biblioteca y gestión documental del SGC'
     }
   }), []);
 

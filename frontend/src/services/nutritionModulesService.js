@@ -73,7 +73,7 @@ export async function exportNutritionModuleExcel(id) {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || 'Error exportando módulo a Excel');
+    throw new Error(payload.error || 'Error exportando documento a Excel');
   }
 
   const blob = await response.blob();
@@ -81,7 +81,7 @@ export async function exportNutritionModuleExcel(id) {
   const link = document.createElement('a');
   link.href = url;
   const contentDisposition = response.headers.get('Content-Disposition');
-  link.download = readFilenameFromDisposition(contentDisposition) || `modulo_nutricional_${id}.xlsx`;
+  link.download = readFilenameFromDisposition(contentDisposition) || `documento_sgc_${id}.xlsx`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -165,7 +165,7 @@ export async function downloadNutritionModule(id) {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || 'Error descargando módulo');
+    throw new Error(payload.error || 'Error descargando documento');
   }
 
   const blob = await response.blob();
@@ -173,7 +173,7 @@ export async function downloadNutritionModule(id) {
   const link = document.createElement('a');
   link.href = url;
   const contentDisposition = response.headers.get('Content-Disposition');
-  link.download = readFilenameFromDisposition(contentDisposition) || `modulo_nutricional_${id}.txt`;
+  link.download = readFilenameFromDisposition(contentDisposition) || `documento_sgc_${id}.txt`;
   document.body.appendChild(link);
   link.click();
   link.remove();
