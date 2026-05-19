@@ -257,7 +257,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
                 <Typography sx={{ fontWeight: 900, fontSize: { xs: 23, sm: 28 }, color: '#0f2a66', lineHeight: 1.05 }}>
                   Análisis de Calidad
                 </Typography>
-                <Typography sx={{ mt: 0.35, color: '#516181', fontSize: { xs: 13.5, sm: 14.5 } }}>
+                <Typography sx={{ mt: 0.35, color: '#1f2f4a', fontSize: { xs: 13.5, sm: 14.5 } }}>
                   Control y clasificación de incidencias en archivos Excel
                 </Typography>
               </Box>
@@ -292,7 +292,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
               <Typography sx={{ fontWeight: 800, color: '#17346f', fontSize: { xs: 15.5, sm: 16.5 } }}>
                 {currentMeta.title}
               </Typography>
-              <Typography sx={{ color: '#637390', fontSize: 13.5, mt: 0.2 }}>
+              <Typography sx={{ color: '#21334f', fontSize: 13.5, mt: 0.2 }}>
                 {currentMeta.subtitle}
               </Typography>
             </Box>

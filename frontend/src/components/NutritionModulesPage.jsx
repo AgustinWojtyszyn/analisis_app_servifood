@@ -416,7 +416,7 @@ export default function NutritionModulesPage({ user }) {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.25, gap: 1 }}>
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 800 }}>Módulos Nutricionales</Typography>
-            <Typography color="text.secondary" sx={{ mt: 0.4 }}>
+            <Typography sx={{ mt: 0.4, color: '#1f2f4a' }}>
               {canManage
                 ? 'Creá, editá y descargá módulos del área nutricional.'
                 : 'Consultá y descargá los módulos nutricionales aprobados.'}
