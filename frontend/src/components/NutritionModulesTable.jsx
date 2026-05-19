@@ -22,7 +22,18 @@ function filesLabel(value) {
   return `${count} archivos`;
 }
 
-export default function NutritionModulesTable({ rows, canManage, onEdit, onPublish, onArchive, onDelete, onDownload, onExportExcel, onViewFiles }) {
+export default function NutritionModulesTable({
+  rows,
+  canManage,
+  onEdit,
+  onPublish,
+  onArchive,
+  onDelete,
+  onDownload,
+  onExportExcel,
+  onViewFiles,
+  emptyMessage = 'No hay módulos disponibles.'
+}) {
   return (
     <TableContainer>
       <Table size="small">
@@ -72,7 +83,7 @@ export default function NutritionModulesTable({ rows, canManage, onEdit, onPubli
           })}
           {!rows.length && (
             <TableRow>
-              <TableCell colSpan={6}>No hay módulos disponibles.</TableCell>
+              <TableCell colSpan={6}>{emptyMessage}</TableCell>
             </TableRow>
           )}
         </TableBody>

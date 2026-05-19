@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField, Typography } from '@mui/material';
 import NutritionModuleForm from './NutritionModuleForm';
 import NutritionModulesTable from './NutritionModulesTable';
 import {
@@ -23,6 +23,50 @@ function canManageRole(role) {
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(['pdf', 'xls', 'xlsx', 'csv', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp', 'txt']);
+const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
+
+function normalizeSearchValue(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function PaginationControls({ page, totalPages, pageSize, totalItems, startItem, endItem, onPageChange, onPageSizeChange }) {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <TextField
+          size="small"
+          select
+          label="Por página"
+          value={pageSize}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          sx={{ minWidth: 120 }}
+        >
+          {PAGE_SIZE_OPTIONS.map((option) => (
+            <MenuItem key={option} value={option}>{option}</MenuItem>
+          ))}
+        </TextField>
+        <Typography variant="body2" color="text.secondary">
+          Mostrando {startItem}-{endItem} de {totalItems} módulos
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Button variant="outlined" size="small" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+          Anterior
+        </Button>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          Página {page} de {totalPages}
+        </Typography>
+        <Button variant="outlined" size="small" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
+          Siguiente
+        </Button>
+      </Box>
+    </Box>
+  );
+}
 
 function formatBytes(bytes) {
   const value = Number(bytes || 0);
@@ -45,8 +89,45 @@ export default function NutritionModulesPage({ user }) {
   const [filesDialogRow, setFilesDialogRow] = useState(null);
   const [filesDialogFiles, setFilesDialogFiles] = useState([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('todos');
+  const [attachmentsFilter, setAttachmentsFilter] = useState('todos');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const canManage = useMemo(() => canManageRole(user?.role), [user?.role]);
+  const filteredRows = useMemo(() => {
+    const search = normalizeSearchValue(searchTerm);
+    return rows.filter((row) => {
+      const title = normalizeSearchValue(row?.title || '');
+      const description = normalizeSearchValue(row?.description || '');
+      const content = normalizeSearchValue(row?.content || '');
+      const status = String(row?.status || 'borrador').toLowerCase();
+      const filesCount = Number(row?.filesCount || 0);
+
+      const matchesSearch = !search || title.includes(search) || description.includes(search) || content.includes(search);
+      const matchesStatus = statusFilter === 'todos' || status === statusFilter;
+      const matchesAttachments = attachmentsFilter === 'todos'
+        || (attachmentsFilter === 'con_adjuntos' && filesCount > 0)
+        || (attachmentsFilter === 'sin_adjuntos' && filesCount === 0);
+      return matchesSearch && matchesStatus && matchesAttachments;
+    });
+  }, [rows, searchTerm, statusFilter, attachmentsFilter]);
+
+  const totalItems = filteredRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedRows = filteredRows.slice(startIndex, endIndex);
+  const startItem = totalItems === 0 ? 0 : startIndex + 1;
+  const endItem = totalItems === 0 ? 0 : Math.min(endIndex, totalItems);
+
+  useEffect(() => {
+    if (page !== safePage) {
+      setPage(safePage);
+    }
+  }, [page, safePage]);
 
   useEffect(() => {
     void loadRows();
@@ -69,6 +150,38 @@ export default function NutritionModulesPage({ user }) {
   const handleCreate = () => {
     setEditingRow(null);
     setFormOpen(true);
+  };
+
+  const handleSearchChange = (event) => {
+    setSearchTerm(event.target.value);
+    setPage(1);
+  };
+
+  const handleStatusFilterChange = (event) => {
+    setStatusFilter(event.target.value);
+    setPage(1);
+  };
+
+  const handleAttachmentsFilterChange = (event) => {
+    setAttachmentsFilter(event.target.value);
+    setPage(1);
+  };
+
+  const handlePageChange = (nextPage) => {
+    setPage(nextPage);
+  };
+
+  const handlePageSizeChange = (nextPageSize) => {
+    setPageSize(nextPageSize);
+    setPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('todos');
+    setAttachmentsFilter('todos');
+    setPage(1);
+    setPageSize(10);
   };
 
   const handleEdit = (row) => {
@@ -254,17 +367,68 @@ export default function NutritionModulesPage({ user }) {
         {loading ? (
           <Box sx={{ py: 2 }}><CircularProgress size={22} /></Box>
         ) : (
-          <NutritionModulesTable
-            rows={rows}
-            canManage={canManage}
-            onEdit={handleEdit}
-            onPublish={(row) => handleStatusChange(row, 'publicado')}
-            onArchive={(row) => handleStatusChange(row, 'archivado')}
-            onDelete={handleDelete}
-            onDownload={handleDownload}
-            onExportExcel={handleExportExcel}
-            onViewFiles={handleViewFiles}
-          />
+          <>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr 1fr auto' }, gap: 1, mb: 1.2 }}>
+              <TextField
+                size="small"
+                label="Buscar módulo..."
+                placeholder="Buscar módulo..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+              />
+              <TextField size="small" select label="Estado" value={statusFilter} onChange={handleStatusFilterChange}>
+                <MenuItem value="todos">Todos</MenuItem>
+                <MenuItem value="publicado">Publicado</MenuItem>
+                <MenuItem value="archivado">Archivado</MenuItem>
+                <MenuItem value="borrador">Borrador</MenuItem>
+              </TextField>
+              <TextField size="small" select label="Adjuntos" value={attachmentsFilter} onChange={handleAttachmentsFilterChange}>
+                <MenuItem value="todos">Todos</MenuItem>
+                <MenuItem value="con_adjuntos">Con adjuntos</MenuItem>
+                <MenuItem value="sin_adjuntos">Sin adjuntos</MenuItem>
+              </TextField>
+              <Button variant="outlined" onClick={handleClearFilters}>Limpiar filtros</Button>
+            </Box>
+
+            <Box sx={{ mb: 1.1 }}>
+              <PaginationControls
+                page={safePage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={totalItems}
+                startItem={startItem}
+                endItem={endItem}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            </Box>
+
+            <NutritionModulesTable
+              rows={paginatedRows}
+              canManage={canManage}
+              onEdit={handleEdit}
+              onPublish={(row) => handleStatusChange(row, 'publicado')}
+              onArchive={(row) => handleStatusChange(row, 'archivado')}
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+              onExportExcel={handleExportExcel}
+              onViewFiles={handleViewFiles}
+              emptyMessage="No se encontraron módulos con los filtros aplicados."
+            />
+
+            <Box sx={{ mt: 1.1 }}>
+              <PaginationControls
+                page={safePage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={totalItems}
+                startItem={startItem}
+                endItem={endItem}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            </Box>
+          </>
         )}
       </CardContent>
 
