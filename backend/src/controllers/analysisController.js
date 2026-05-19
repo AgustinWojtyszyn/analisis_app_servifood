@@ -237,7 +237,6 @@ export async function getHistory(req, res) {
       search,
       status,
       userId,
-      locationFilter,
       minRecords,
       maxRecords,
       minNC,
@@ -261,12 +260,8 @@ export async function getHistory(req, res) {
       query = query.eq('user_id', userId);
     }
 
-    const searchTerms = [search, locationFilter].filter(Boolean);
-    if (searchTerms.length > 0) {
-      const composed = searchTerms.join(' ');
-      query = query.or(
-        `filename.ilike.%${composed}%,status.ilike.%${composed}%,user_id.ilike.%${composed}%`
-      );
+    if (search) {
+      query = query.or(`filename.ilike.%${search}%,status.ilike.%${search}%`);
     }
 
     if (status) {
