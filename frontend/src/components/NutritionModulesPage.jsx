@@ -12,8 +12,7 @@ import {
   getNutritionModuleFiles,
   getNutritionModules,
   uploadNutritionModuleFiles,
-  updateNutritionModule,
-  updateNutritionModuleStatus
+  updateNutritionModule
 } from '../services/nutritionModulesService';
 
 function canManageRole(role) {
@@ -99,7 +98,7 @@ export default function NutritionModulesPage({ user }) {
   const [filesDialogFiles, setFilesDialogFiles] = useState([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('todos');
+  const [statusFilter, setStatusFilter] = useState('aprobado');
   const [attachmentsFilter, setAttachmentsFilter] = useState('todos');
   const [selectedDate, setSelectedDate] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -115,7 +114,7 @@ export default function NutritionModulesPage({ user }) {
       const title = normalizeSearchValue(row?.title || '');
       const description = normalizeSearchValue(row?.description || '');
       const content = normalizeSearchValue(row?.content || '');
-      const status = String(row?.status || 'borrador').toLowerCase();
+      const status = String(row?.status || 'aprobado').toLowerCase();
       const filesCount = Number(row?.filesCount || 0);
       const moduleType = String(row?.moduleType || row?.module_type || '').toLowerCase();
       const updatedRaw = row?.updatedAt || row?.updated_at || row?.createdAt || row?.created_at || null;
@@ -124,7 +123,7 @@ export default function NutritionModulesPage({ user }) {
 
       const matchesSearch = !search || title.includes(search) || description.includes(search) || content.includes(search);
       const matchesSection = selectedSection === 'todos' || moduleType === selectedSection;
-      const matchesStatus = statusFilter === 'todos' || status === statusFilter;
+      const matchesStatus = status === statusFilter;
       const matchesAttachments = attachmentsFilter === 'todos'
         || (attachmentsFilter === 'con_adjuntos' && filesCount > 0)
         || (attachmentsFilter === 'sin_adjuntos' && filesCount === 0);
@@ -249,7 +248,7 @@ export default function NutritionModulesPage({ user }) {
 
   const handleClearFilters = () => {
     setSearchTerm('');
-    setStatusFilter('todos');
+    setStatusFilter('aprobado');
     setAttachmentsFilter('todos');
     setSelectedDate('');
     setDateFrom('');
@@ -302,19 +301,6 @@ export default function NutritionModulesPage({ user }) {
       setError(err.message || 'No se pudo guardar módulo');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleStatusChange = async (row, status) => {
-    if (!canManage) return;
-    try {
-      setError('');
-      setSuccess('');
-      await updateNutritionModuleStatus(row.id, status);
-      setSuccess(status === 'publicado' ? 'Módulo publicado' : 'Módulo archivado');
-      await loadRows();
-    } catch (err) {
-      setError(err.message || 'No se pudo actualizar estado');
     }
   };
 
@@ -432,8 +418,8 @@ export default function NutritionModulesPage({ user }) {
             <Typography variant="h5" sx={{ fontWeight: 800 }}>Módulos Nutricionales</Typography>
             <Typography color="text.secondary" sx={{ mt: 0.4 }}>
               {canManage
-                ? 'Creá, editá, publicá, archivá y descargá módulos del área nutricional.'
-                : 'Consultá y descargá los módulos nutricionales publicados.'}
+                ? 'Creá, editá y descargá módulos del área nutricional.'
+                : 'Consultá y descargá los módulos nutricionales aprobados.'}
             </Typography>
           </Box>
           {canManage && (
@@ -471,10 +457,7 @@ export default function NutritionModulesPage({ user }) {
                 onChange={handleSearchChange}
               />
               <TextField id="nutrition-modules-status" size="small" select label="Estado" value={statusFilter} onChange={handleStatusFilterChange}>
-                <MenuItem value="todos">Todos</MenuItem>
-                <MenuItem value="publicado">Publicado</MenuItem>
-                <MenuItem value="archivado">Archivado</MenuItem>
-                <MenuItem value="borrador">Borrador</MenuItem>
+                <MenuItem value="aprobado">Aprobado</MenuItem>
               </TextField>
               <TextField id="nutrition-modules-attachments" size="small" select label="Adjuntos" value={attachmentsFilter} onChange={handleAttachmentsFilterChange}>
                 <MenuItem value="todos">Todos</MenuItem>
@@ -529,8 +512,6 @@ export default function NutritionModulesPage({ user }) {
               rows={paginatedRows}
               canManage={canManage}
               onEdit={handleEdit}
-              onPublish={(row) => handleStatusChange(row, 'publicado')}
-              onArchive={(row) => handleStatusChange(row, 'archivado')}
               onDelete={handleDelete}
               onDownload={handleDownload}
               onExportExcel={handleExportExcel}

@@ -13,7 +13,7 @@ const supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey)
   : null;
 
-const VALID_STATUSES = new Set(['borrador', 'publicado', 'archivado']);
+const VALID_STATUSES = new Set(['aprobado']);
 const VALID_MODULE_TYPES = new Set(['procedimiento', 'registro']);
 const STORAGE_BUCKET = 'nutrition-modules';
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -85,7 +85,7 @@ function mapModuleRow(row) {
     title: row.title || '',
     description: row.description || '',
     content: row.content || '',
-    status: row.status || 'borrador',
+    status: row.status || 'aprobado',
     moduleType: row.module_type || null,
     createdBy: row.created_by || null,
     createdAt: row.created_at || null,
@@ -179,7 +179,7 @@ async function canAccessModule(role, moduleId) {
     .maybeSingle();
   if (error) throw new Error(error.message || 'Error consultando módulo');
   if (!data) return { allowed: false, row: null, reason: 'Módulo no encontrado', status: 404 };
-  if (!canManageByRole(role) && data.status !== 'publicado') {
+  if (!canManageByRole(role) && data.status !== 'aprobado') {
     return { allowed: false, row: data, reason: 'No autorizado para acceder a este módulo', status: 403 };
   }
   return { allowed: true, row: data, reason: null, status: 200 };
@@ -201,7 +201,7 @@ router.get('/nutrition-modules', authenticateToken, async (req, res) => {
       .order('updated_at', { ascending: false });
 
     if (!canManageByRole(role)) {
-      query = query.eq('status', 'publicado');
+      query = query.eq('status', 'aprobado');
     }
 
     const { data, error } = await query;
@@ -266,7 +266,7 @@ router.get('/nutrition-modules/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Módulo no encontrado' });
     }
 
-    if (!canManageByRole(role) && data.status !== 'publicado') {
+    if (!canManageByRole(role) && data.status !== 'aprobado') {
       return res.status(403).json({ error: 'No autorizado para ver este módulo' });
     }
 
@@ -294,7 +294,7 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
     const title = String(req.body?.title || '').trim();
     const description = String(req.body?.description || '').trim();
     const content = String(req.body?.content || '').trim();
-    const status = normalizeStatus(req.body?.status) || 'borrador';
+    const status = normalizeStatus(req.body?.status) || 'aprobado';
     const moduleType = normalizeModuleType(req.body?.moduleType || req.body?.module_type);
 
     if (!title) {
@@ -312,7 +312,7 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
       status,
       module_type: moduleType,
       created_by: req.user.id,
-      published_at: status === 'publicado' ? nowIso : null
+      published_at: status === 'aprobado' ? nowIso : null
     };
 
     const { data, error } = await supabaseAdmin
@@ -350,7 +350,7 @@ router.put('/nutrition-modules/:id', authenticateToken, async (req, res) => {
     const title = String(req.body?.title || '').trim();
     const description = String(req.body?.description || '').trim();
     const content = String(req.body?.content || '').trim();
-    const status = normalizeStatus(req.body?.status) || 'borrador';
+    const status = normalizeStatus(req.body?.status) || 'aprobado';
     const moduleType = normalizeModuleType(req.body?.moduleType || req.body?.module_type);
 
     if (!title) {
@@ -381,7 +381,7 @@ router.put('/nutrition-modules/:id', authenticateToken, async (req, res) => {
       content,
       status,
       module_type: moduleType,
-      published_at: status === 'publicado' ? (existing.published_at || nowIso) : null,
+      published_at: status === 'aprobado' ? (existing.published_at || nowIso) : null,
       updated_at: nowIso
     };
 
@@ -420,7 +420,7 @@ router.patch('/nutrition-modules/:id/status', authenticateToken, async (req, res
     const { id } = req.params;
     const status = normalizeStatus(req.body?.status);
     if (!status) {
-      return res.status(400).json({ error: 'Estado inválido. Usar: borrador, publicado, archivado' });
+      return res.status(400).json({ error: 'Estado inválido. Usar: aprobado' });
     }
 
     const nowIso = new Date().toISOString();
@@ -440,7 +440,7 @@ router.patch('/nutrition-modules/:id/status', authenticateToken, async (req, res
     const payload = {
       status,
       updated_at: nowIso,
-      published_at: status === 'publicado' ? (existing.published_at || nowIso) : null
+      published_at: status === 'aprobado' ? (existing.published_at || nowIso) : null
     };
 
     const { data, error } = await supabaseAdmin
@@ -524,7 +524,7 @@ router.get('/nutrition-modules/:id/export/excel', authenticateToken, async (req,
     if (!data) {
       return res.status(404).json({ error: 'Módulo no encontrado' });
     }
-    if (!canManageByRole(role) && data.status !== 'publicado') {
+    if (!canManageByRole(role) && data.status !== 'aprobado') {
       return res.status(403).json({ error: 'No autorizado para exportar este módulo' });
     }
 
@@ -538,7 +538,7 @@ router.get('/nutrition-modules/:id/export/excel', authenticateToken, async (req,
       { header: 'Estado', key: 'estado', width: 14 },
       { header: 'Fecha de creación', key: 'createdAt', width: 24 },
       { header: 'Fecha de actualización', key: 'updatedAt', width: 24 },
-      { header: 'Fecha de publicación', key: 'publishedAt', width: 24 }
+      { header: 'Fecha de aprobación', key: 'publishedAt', width: 24 }
     ];
 
     sheet.addRow({
@@ -830,7 +830,7 @@ router.get('/nutrition-modules/:id/download', authenticateToken, async (req, res
     if (!data) {
       return res.status(404).json({ error: 'Módulo no encontrado' });
     }
-    if (!canManageByRole(role) && data.status !== 'publicado') {
+    if (!canManageByRole(role) && data.status !== 'aprobado') {
       return res.status(403).json({ error: 'No autorizado para descargar este módulo' });
     }
 
@@ -841,7 +841,7 @@ router.get('/nutrition-modules/:id/download', authenticateToken, async (req, res
       `Apartado: ${data.module_type || ''}`,
       `Descripción: ${data.description || ''}`,
       `Estado: ${data.status || ''}`,
-      `Publicado: ${data.published_at || ''}`,
+      `Aprobado: ${data.published_at || ''}`,
       '',
       'Contenido:',
       data.content || ''

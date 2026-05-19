@@ -10,9 +10,8 @@ function formatDate(value) {
 
 function statusMeta(status) {
   const normalized = String(status || '').toLowerCase();
-  if (normalized === 'publicado') return { label: 'Publicado', color: 'success' };
-  if (normalized === 'archivado') return { label: 'Archivado', color: 'default' };
-  return { label: 'Borrador', color: 'warning' };
+  if (normalized === 'aprobado') return { label: 'Aprobado', color: 'success' };
+  return { label: 'Aprobado', color: 'success' };
 }
 
 function filesLabel(value) {
@@ -33,8 +32,6 @@ export default function NutritionModulesTable({
   rows,
   canManage,
   onEdit,
-  onPublish,
-  onArchive,
   onDelete,
   onDownload,
   onExportExcel,
@@ -76,12 +73,6 @@ export default function NutritionModulesTable({
                     {canManage && (
                       <>
                         <Button size="small" variant="outlined" onClick={() => onEdit(row)}>Editar</Button>
-                        {String(row.status) !== 'publicado' && (
-                          <Button size="small" color="success" variant="outlined" onClick={() => onPublish(row)}>Publicar</Button>
-                        )}
-                        {String(row.status) !== 'archivado' && (
-                          <Button size="small" color="warning" variant="outlined" onClick={() => onArchive(row)}>Archivar</Button>
-                        )}
                         <Button size="small" color="error" variant="outlined" onClick={() => onDelete(row)}>Borrar</Button>
                       </>
                     )}

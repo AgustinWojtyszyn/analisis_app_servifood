@@ -3,7 +3,7 @@ create table if not exists public.nutrition_modules (
   title text not null,
   description text null,
   content text null,
-  status text not null default 'borrador' check (status in ('borrador', 'publicado', 'archivado')),
+  status text not null default 'aprobado' check (status in ('aprobado')),
   created_by uuid not null references public.profiles(id) on delete restrict,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

@@ -34,7 +34,7 @@ using (
     select 1
     from public.nutrition_modules m
     where m.id = nutrition_module_files.module_id
-      and m.status = 'publicado'
+      and m.status = 'aprobado'
   )
 );
 

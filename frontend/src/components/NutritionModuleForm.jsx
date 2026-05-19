@@ -2,16 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField, Typography } from '@mui/material';
 
 const STATUS_OPTIONS = [
-  { value: 'borrador', label: 'Borrador' },
-  { value: 'publicado', label: 'Publicado' },
-  { value: 'archivado', label: 'Archivado' }
+  { value: 'aprobado', label: 'Aprobado' }
 ];
 
 const EMPTY_FORM = {
   title: '',
   description: '',
   content: '',
-  status: 'borrador',
+  status: 'aprobado',
   moduleType: ''
 };
 
@@ -49,7 +47,7 @@ export default function NutritionModuleForm({
         title: initialData.title || '',
         description: initialData.description || '',
         content: initialData.content || '',
-        status: initialData.status || 'borrador',
+        status: initialData.status || 'aprobado',
         moduleType: initialData.moduleType || ''
       });
       return;
@@ -80,7 +78,7 @@ export default function NutritionModuleForm({
       title: form.title.trim(),
       description: form.description.trim(),
       content: form.content,
-      status: canEditStatus ? form.status : 'borrador',
+      status: canEditStatus ? form.status : 'aprobado',
       moduleType: form.moduleType,
       files: selectedFiles
     });
