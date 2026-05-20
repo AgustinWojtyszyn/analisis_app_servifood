@@ -68,6 +68,10 @@ function getSectionFromPath(pathname) {
   return match?.[0] || 'declaration';
 }
 
+function normalizeRole(role) {
+  return String(role || '').trim().toLowerCase();
+}
+
 function MainApp({ user, onLogout }) {
   const [currentSection, setCurrentSection] = useState(() => getSectionFromPath(window.location.pathname));
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
@@ -75,7 +79,7 @@ function MainApp({ user, onLogout }) {
   const [reloadHistoryKey, setReloadHistoryKey] = useState(0);
 
   const effectiveRole = currentUserProfile?.role || user?.role || 'user';
-  const normalizedRole = String(effectiveRole || 'user').toLowerCase();
+  const normalizedRole = normalizeRole(effectiveRole || 'user');
   const isAdmin = normalizedRole === 'admin';
   const isNutritionist = normalizedRole === 'nutricionista';
   const canViewNutritionModules = isAdmin || isNutritionist;

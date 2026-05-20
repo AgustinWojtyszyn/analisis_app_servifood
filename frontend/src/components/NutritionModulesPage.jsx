@@ -16,7 +16,7 @@ import {
 } from '../services/nutritionModulesService';
 
 function canManageRole(role) {
-  const normalized = String(role || '').toLowerCase();
+  const normalized = String(role || '').trim().toLowerCase();
   return normalized === 'admin';
 }
 

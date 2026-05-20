@@ -42,17 +42,21 @@ function normalizeModuleType(value) {
 }
 
 function canManageByRole(role) {
-  const r = String(role || '').toLowerCase();
+  const r = String(role || '').trim().toLowerCase();
   return r === 'admin';
 }
 
 function canViewByRole(role) {
-  const r = String(role || '').toLowerCase();
+  const r = String(role || '').trim().toLowerCase();
   return r === 'admin' || r === 'nutricionista';
 }
 
+function normalizeRole(role) {
+  return String(role || '').trim().toLowerCase();
+}
+
 async function resolveUserRole(user) {
-  if (!supabaseAdmin || !user?.id) return String(user?.role || 'user').toLowerCase();
+  if (!supabaseAdmin || !user?.id) return normalizeRole(user?.role || 'user');
 
   const { data: profile, error } = await supabaseAdmin
     .from('profiles')
@@ -68,7 +72,7 @@ async function resolveUserRole(user) {
     throw new Error('Usuario inactivo');
   }
 
-  return String(profile?.role || user?.role || 'user').toLowerCase();
+  return normalizeRole(profile?.role || user?.role || 'user');
 }
 
 function mapModuleRow(row) {
