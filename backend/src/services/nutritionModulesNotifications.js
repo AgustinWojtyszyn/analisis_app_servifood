@@ -131,8 +131,8 @@ function toRecipientArray(value) {
 }
 
 export async function sendDocumentCreatedEmailNotification(notification) {
-  const mailer = getTransporter();
-  if (!mailer) return { attempted: false, reason: 'smtp_not_configured' };
+  const transporter = getTransporter();
+  if (!transporter) return { attempted: false, reason: 'smtp_not_configured' };
 
   const recipients = toRecipientArray(notification?.recipients);
   assertFixedRecipientsOrThrow(recipients);
@@ -144,16 +144,14 @@ export async function sendDocumentCreatedEmailNotification(notification) {
 
   validateSmtpConfigurationOrThrow({ host, port, user, from });
 
-  console.info('[nutrition-modules-email] SMTP pre-send config', {
-    notificationId: notification?.id || null,
-    documentId: notification?.document_id || null,
-    SMTP_HOST: host,
-    SMTP_PORT: port,
-    SMTP_USER: user,
-    SMTP_FROM: from,
-    recipients,
-    provider
-  });
+  console.log('VERIFY SMTP...');
+  console.log('SMTP_HOST usado', host);
+  console.log('SMTP_PORT usado', port);
+  console.log('SMTP_USER usado', user);
+  console.log('SMTP_FROM usado', from);
+  console.log('Destinatarios finales', recipients);
+  console.log('Subject', 'Nuevo documento cargado en Documentos SGC');
+  console.log('Provider SMTP', provider);
 
   const subject = 'Nuevo documento cargado en Documentos SGC';
   const text = [
@@ -167,20 +165,13 @@ export async function sendDocumentCreatedEmailNotification(notification) {
     'https://analisis.servifoodapp.site/modulos-nutricionales'
   ].join('\n');
 
-  const verifyResult = await mailer.verify();
-  console.info('[nutrition-modules-email] SMTP transport.verify() OK', {
-    notificationId: notification?.id || null,
-    verifyResult
-  });
+  const verifyResult = await transporter.verify();
+  console.log('SMTP OK');
+  console.log('VERIFY RESULT', verifyResult);
 
-  console.info('[nutrition-modules-email] Ejecutando sendMail', {
-    notificationId: notification?.id || null,
-    subject,
-    from,
-    to: recipients
-  });
+  console.log('Ejecutando sendMail');
 
-  const info = await mailer.sendMail({
+  const info = await transporter.sendMail({
     from,
     to: recipients.join(','),
     subject,
@@ -192,21 +183,16 @@ export async function sendDocumentCreatedEmailNotification(notification) {
   const acceptedNormalized = accepted.map((value) => String(value).trim().toLowerCase()).filter(Boolean);
   const recipientsNormalized = recipients.map((value) => String(value).trim().toLowerCase()).filter(Boolean);
   const missingAccepted = recipientsNormalized.filter((email) => !acceptedNormalized.includes(email));
+  const unexpectedAccepted = acceptedNormalized.filter((email) => !recipientsNormalized.includes(email));
   const messageId = info?.messageId ? String(info.messageId) : '';
   const response = info?.response ? String(info.response) : '';
+  const envelope = info?.envelope || null;
 
-  console.info('[nutrition-modules-email] Respuesta proveedor SMTP (completa)', {
-    notificationId: notification?.id || null,
-    rawInfo: info
-  });
-
-  console.info('[nutrition-modules-email] Respuesta proveedor SMTP (normalizada)', {
-    notificationId: notification?.id || null,
-    accepted,
-    rejected,
-    response: response || null,
-    messageId: messageId || null
-  });
+  console.log('RAW INFO', info);
+  console.log('MESSAGE ID', messageId || null);
+  console.log('ACCEPTED', accepted);
+  console.log('REJECTED', rejected);
+  console.log('RESPONSE', response || null);
 
   if (!accepted.length) {
     throw new Error('SMTP sin destinatarios aceptados (accepted vacío)');
@@ -217,9 +203,20 @@ export async function sendDocumentCreatedEmailNotification(notification) {
   if (missingAccepted.length) {
     throw new Error(`SMTP no confirmó aceptación para todos los destinatarios: faltan ${missingAccepted.join(', ')}`);
   }
+  if (unexpectedAccepted.length) {
+    throw new Error(`SMTP devolvió destinatarios aceptados inesperados: ${unexpectedAccepted.join(', ')}`);
+  }
   if (!messageId) {
     throw new Error('SMTP no devolvió messageId');
   }
+
+  const providerResponse = {
+    accepted,
+    rejected,
+    response: response || null,
+    envelope,
+    messageId
+  };
 
   return {
     attempted: true,
@@ -228,6 +225,8 @@ export async function sendDocumentCreatedEmailNotification(notification) {
     accepted,
     rejected,
     response: response || null,
-    messageId
+    messageId,
+    providerMessageId: messageId,
+    providerResponse
   };
 }

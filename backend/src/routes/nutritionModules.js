@@ -85,18 +85,23 @@ async function processPendingDocumentNotifications({ batchSize = 20, source = 'u
   let sent = 0;
   let failed = 0;
 
-  for (const row of rows) {
-    try {
-      const sendResult = await sendDocumentCreatedEmailNotification(row);
-      const { error: updateError } = await supabaseAdmin
-        .from('document_email_notifications')
-        .update({
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-          last_error: null
-        })
-        .eq('id', row.id)
-        .eq('status', 'processing');
+    for (const row of rows) {
+      try {
+        const sendResult = await sendDocumentCreatedEmailNotification(row);
+        if (!sendResult?.providerMessageId || !sendResult?.providerResponse) {
+          throw new Error('Evidencia SMTP insuficiente: faltan providerMessageId/providerResponse');
+        }
+        const { error: updateError } = await supabaseAdmin
+          .from('document_email_notifications')
+          .update({
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+            last_error: null,
+            provider_message_id: sendResult.providerMessageId,
+            provider_response: sendResult.providerResponse
+          })
+          .eq('id', row.id)
+          .eq('status', 'processing');
 
       if (updateError) {
         failed += 1;
@@ -125,14 +130,16 @@ async function processPendingDocumentNotifications({ batchSize = 20, source = 'u
         error: message
       });
 
-      const { error: updateError } = await supabaseAdmin
-        .from('document_email_notifications')
-        .update({
-          status: 'failed',
-          last_error: message.slice(0, 2000)
-        })
-        .eq('id', row.id)
-        .eq('status', 'processing');
+        const { error: updateError } = await supabaseAdmin
+          .from('document_email_notifications')
+          .update({
+            status: 'failed',
+            last_error: message.slice(0, 2000),
+            provider_message_id: null,
+            provider_response: null
+          })
+          .eq('id', row.id)
+          .eq('status', 'processing');
 
       if (updateError) {
         console.error('[nutrition-modules-email] Error actualizando notificación fallida', {
