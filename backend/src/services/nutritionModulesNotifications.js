@@ -9,6 +9,10 @@ export const FIXED_RECIPIENTS = [
 
 let transporter = null;
 let warnedMissingConfig = false;
+const EXPECTED_SMTP_HOST = 'smtp.resend.com';
+const EXPECTED_SMTP_PORT = 587;
+const EXPECTED_SMTP_USER = 'resend';
+const EXPECTED_SMTP_FROM = 'soporte@servifoodapp.site';
 
 function normalizeEmailList(list) {
   return Array.from(new Set((list || []).map((item) => String(item).trim().toLowerCase()).filter(Boolean))).sort();
@@ -65,6 +69,31 @@ function getTransporter() {
   return transporter;
 }
 
+function validateSmtpConfigurationOrThrow({ host, port, user, from }) {
+  const issues = [];
+  if (!host || host === 'null' || host === 'undefined') issues.push('SMTP_HOST faltante');
+  if (!Number.isFinite(port)) issues.push('SMTP_PORT inválido');
+  if (!user || user === 'null' || user === 'undefined') issues.push('SMTP_USER faltante');
+  if (!from || from === 'null' || from === 'undefined') issues.push('SMTP_FROM faltante');
+
+  if (host !== EXPECTED_SMTP_HOST) {
+    issues.push(`SMTP_HOST inesperado: "${host}" (esperado "${EXPECTED_SMTP_HOST}")`);
+  }
+  if (port !== EXPECTED_SMTP_PORT) {
+    issues.push(`SMTP_PORT inesperado: "${port}" (esperado "${EXPECTED_SMTP_PORT}")`);
+  }
+  if (user !== EXPECTED_SMTP_USER) {
+    issues.push(`SMTP_USER inesperado: "${user}" (esperado "${EXPECTED_SMTP_USER}")`);
+  }
+  if (from !== EXPECTED_SMTP_FROM) {
+    issues.push(`SMTP_FROM inesperado: "${from}" (esperado "${EXPECTED_SMTP_FROM}")`);
+  }
+
+  if (issues.length) {
+    throw new Error(`[nutrition-modules-email] Configuración SMTP inválida: ${issues.join(' | ')}`);
+  }
+}
+
 function formatDate(value) {
   const date = new Date(value || Date.now());
   if (Number.isNaN(date.getTime())) return String(value || '');
@@ -107,13 +136,25 @@ export async function sendDocumentCreatedEmailNotification(notification) {
 
   const recipients = toRecipientArray(notification?.recipients);
   assertFixedRecipientsOrThrow(recipients);
-  console.info('[nutrition-modules-email] Inicio de envío', {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER;
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const provider = 'smtp-nodemailer';
+
+  validateSmtpConfigurationOrThrow({ host, port, user, from });
+
+  console.info('[nutrition-modules-email] SMTP pre-send config', {
     notificationId: notification?.id || null,
     documentId: notification?.document_id || null,
-    recipients
+    SMTP_HOST: host,
+    SMTP_PORT: port,
+    SMTP_USER: user,
+    SMTP_FROM: from,
+    recipients,
+    provider
   });
 
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
   const subject = 'Nuevo documento cargado en Documentos SGC';
   const text = [
     'Se cargó un nuevo documento en Documentos SGC.',
@@ -125,6 +166,12 @@ export async function sendDocumentCreatedEmailNotification(notification) {
     'Podés verlo ingresando a:',
     'https://analisis.servifoodapp.site/modulos-nutricionales'
   ].join('\n');
+
+  const verifyResult = await mailer.verify();
+  console.info('[nutrition-modules-email] SMTP transport.verify() OK', {
+    notificationId: notification?.id || null,
+    verifyResult
+  });
 
   const info = await mailer.sendMail({
     from,
@@ -144,7 +191,7 @@ export async function sendDocumentCreatedEmailNotification(notification) {
   return {
     attempted: true,
     recipientsCount: recipients.length,
-    provider: 'smtp-nodemailer',
+    provider,
     accepted: info?.accepted || [],
     rejected: info?.rejected || [],
     response: info?.response || null,
