@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 
-const DEFAULT_RECIPIENTS = [
+export const FIXED_RECIPIENTS = [
   'direcciontecnicaservifood@gmail.com',
   'nutrisionservifood@yahoo.com',
   'vanesalegonzalez@gmail.com',
@@ -10,16 +10,12 @@ const DEFAULT_RECIPIENTS = [
 let transporter = null;
 let warnedMissingConfig = false;
 
-function getRecipients() {
-  return [...DEFAULT_RECIPIENTS];
-}
-
 function normalizeEmailList(list) {
   return Array.from(new Set((list || []).map((item) => String(item).trim().toLowerCase()).filter(Boolean))).sort();
 }
 
-function assertFixedRecipientsOrThrow(recipients) {
-  const expected = normalizeEmailList(DEFAULT_RECIPIENTS);
+export function assertFixedRecipientsOrThrow(recipients) {
+  const expected = normalizeEmailList(FIXED_RECIPIENTS);
   const actual = normalizeEmailList(recipients);
 
   const isExactMatch = expected.length === actual.length && expected.every((email, index) => email === actual[index]);
@@ -86,11 +82,25 @@ function formatCategory(moduleType) {
   return moduleType || '';
 }
 
-export async function notifyNutritionModuleCreated({ title, moduleType, createdAt }) {
+function toRecipientArray(value) {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+export async function sendDocumentCreatedEmailNotification(notification) {
   const mailer = getTransporter();
   if (!mailer) return { attempted: false, reason: 'smtp_not_configured' };
 
-  const recipients = getRecipients();
+  const recipients = toRecipientArray(notification?.recipients);
   assertFixedRecipientsOrThrow(recipients);
 
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
@@ -98,11 +108,12 @@ export async function notifyNutritionModuleCreated({ title, moduleType, createdA
   const text = [
     'Se cargó un nuevo documento en Documentos SGC.',
     '',
-    `Nombre: ${title || '-'}`,
-    `Categoría: ${formatCategory(moduleType) || '-'}`,
-    `Fecha de carga: ${formatDate(createdAt) || '-'}`,
+    `Nombre: ${notification?.title || '-'}`,
+    `Categoría: ${formatCategory(notification?.module_type) || '-'}`,
+    `Fecha de carga: ${formatDate(notification?.document_created_at || notification?.created_at) || '-'}`,
     '',
-    'Ingresá a la plataforma para visualizarlo.'
+    'Podés verlo ingresando a:',
+    'https://analisis.servifoodapp.site/modulos-nutricionales'
   ].join('\n');
 
   await mailer.sendMail({

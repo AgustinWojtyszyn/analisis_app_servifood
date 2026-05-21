@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
 import multer from 'multer';
 import { authenticateToken } from '../middlewares/auth.js';
-import { notifyNutritionModuleCreated } from '../services/nutritionModulesNotifications.js';
+import { sendDocumentCreatedEmailNotification } from '../services/nutritionModulesNotifications.js';
 
 const router = express.Router();
 
@@ -54,6 +54,19 @@ function canViewByRole(role) {
 
 function normalizeRole(role) {
   return String(role || '').trim().toLowerCase();
+}
+
+function resolveWorkerToken() {
+  return String(process.env.DOCUMENTS_NOTIFICATIONS_WORKER_TOKEN || '').trim();
+}
+
+function isWorkerAuthorized(req) {
+  const configuredToken = resolveWorkerToken();
+  if (!configuredToken) return false;
+  const authHeader = String(req.headers.authorization || '');
+  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const headerToken = String(req.headers['x-worker-token'] || '').trim();
+  return bearer === configuredToken || headerToken === configuredToken;
 }
 
 async function resolveUserRole(user) {
@@ -323,16 +336,6 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
       return res.status(500).json({ error: error?.message || 'Error creando módulo nutricional' });
     }
 
-    try {
-      await notifyNutritionModuleCreated({
-        title: data.title,
-        moduleType: data.module_type,
-        createdAt: data.created_at
-      });
-    } catch (mailError) {
-      console.error('[nutrition-modules-email] Error enviando notificación de nuevo documento:', mailError);
-    }
-
     return res.status(201).json(mapModuleRow(data));
   } catch (error) {
     return res.status(error.message === 'Usuario inactivo' ? 403 : 500).json({
@@ -340,6 +343,77 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
         ? 'Usuario inactivo'
         : 'Error interno creando módulo nutricional'
     });
+  }
+});
+
+router.post('/internal/nutrition-modules/process-notifications', async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+    }
+    if (!isWorkerAuthorized(req)) {
+      return res.status(401).json({ error: 'No autorizado para procesar notificaciones' });
+    }
+
+    const batchSize = Math.max(1, Math.min(100, Number(req.body?.batchSize || 20)));
+    const { data: claimedRows, error: claimError } = await supabaseAdmin
+      .rpc('claim_document_email_notifications', { max_rows: batchSize });
+
+    if (claimError) {
+      return res.status(500).json({ error: claimError.message || 'Error reclamando notificaciones pendientes' });
+    }
+
+    const rows = Array.isArray(claimedRows) ? claimedRows : [];
+    let sent = 0;
+    let failed = 0;
+
+    for (const row of rows) {
+      try {
+        await sendDocumentCreatedEmailNotification(row);
+        const { error: updateError } = await supabaseAdmin
+          .from('document_email_notifications')
+          .update({
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+            last_error: null
+          })
+          .eq('id', row.id)
+          .eq('status', 'processing');
+
+        if (updateError) {
+          failed += 1;
+          console.error('[nutrition-modules-email] Error marcando notificación como sent:', updateError);
+          continue;
+        }
+        sent += 1;
+      } catch (mailError) {
+        failed += 1;
+        const message = mailError?.message ? String(mailError.message) : 'Error desconocido de envío';
+        console.error('[nutrition-modules-email] Error enviando notificación:', mailError);
+
+        const { error: updateError } = await supabaseAdmin
+          .from('document_email_notifications')
+          .update({
+            status: 'failed',
+            last_error: message.slice(0, 2000)
+          })
+          .eq('id', row.id)
+          .eq('status', 'processing');
+
+        if (updateError) {
+          console.error('[nutrition-modules-email] Error actualizando notificación fallida:', updateError);
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      claimed: rows.length,
+      sent,
+      failed
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Error interno procesando notificaciones' });
   }
 });
 
