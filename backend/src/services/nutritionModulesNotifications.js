@@ -45,7 +45,12 @@ function getTransporter() {
   if (!host || !Number.isFinite(port) || !user || !pass) {
     if (!warnedMissingConfig) {
       warnedMissingConfig = true;
-      console.warn('[nutrition-modules-email] SMTP no configurado. Se omiten notificaciones de Documentos SGC.');
+      console.warn('[nutrition-modules-email] SMTP no configurado. Se omiten notificaciones de Documentos SGC.', {
+        hasHost: !!host,
+        hasPort: Number.isFinite(port),
+        hasUser: !!user,
+        hasPass: !!pass
+      });
     }
     return null;
   }
@@ -102,6 +107,11 @@ export async function sendDocumentCreatedEmailNotification(notification) {
 
   const recipients = toRecipientArray(notification?.recipients);
   assertFixedRecipientsOrThrow(recipients);
+  console.info('[nutrition-modules-email] Inicio de envío', {
+    notificationId: notification?.id || null,
+    documentId: notification?.document_id || null,
+    recipients
+  });
 
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
   const subject = 'Nuevo documento cargado en Documentos SGC';
@@ -116,12 +126,28 @@ export async function sendDocumentCreatedEmailNotification(notification) {
     'https://analisis.servifoodapp.site/modulos-nutricionales'
   ].join('\n');
 
-  await mailer.sendMail({
+  const info = await mailer.sendMail({
     from,
     to: recipients.join(','),
     subject,
     text
   });
 
-  return { attempted: true, recipientsCount: recipients.length };
+  console.info('[nutrition-modules-email] Respuesta proveedor SMTP', {
+    notificationId: notification?.id || null,
+    accepted: info?.accepted || [],
+    rejected: info?.rejected || [],
+    response: info?.response || null,
+    messageId: info?.messageId || null
+  });
+
+  return {
+    attempted: true,
+    recipientsCount: recipients.length,
+    provider: 'smtp-nodemailer',
+    accepted: info?.accepted || [],
+    rejected: info?.rejected || [],
+    response: info?.response || null,
+    messageId: info?.messageId || null
+  };
 }

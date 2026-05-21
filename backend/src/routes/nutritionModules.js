@@ -69,6 +69,85 @@ function isWorkerAuthorized(req) {
   return bearer === configuredToken || headerToken === configuredToken;
 }
 
+async function processPendingDocumentNotifications({ batchSize = 20, source = 'unknown' } = {}) {
+  const limitedBatch = Math.max(1, Math.min(100, Number(batchSize || 20)));
+  console.info('[nutrition-modules-email] Worker start', { source, batchSize: limitedBatch, provider: 'smtp-nodemailer' });
+
+  const { data: claimedRows, error: claimError } = await supabaseAdmin
+    .rpc('claim_document_email_notifications', { max_rows: limitedBatch });
+
+  if (claimError) {
+    console.error('[nutrition-modules-email] Error reclamando notificaciones pendientes', { source, error: claimError.message || claimError });
+    throw new Error(claimError.message || 'Error reclamando notificaciones pendientes');
+  }
+
+  const rows = Array.isArray(claimedRows) ? claimedRows : [];
+  let sent = 0;
+  let failed = 0;
+
+  for (const row of rows) {
+    try {
+      const sendResult = await sendDocumentCreatedEmailNotification(row);
+      const { error: updateError } = await supabaseAdmin
+        .from('document_email_notifications')
+        .update({
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+          last_error: null
+        })
+        .eq('id', row.id)
+        .eq('status', 'processing');
+
+      if (updateError) {
+        failed += 1;
+        console.error('[nutrition-modules-email] Error marcando notificación como sent', {
+          source,
+          notificationId: row.id,
+          error: updateError.message || updateError
+        });
+        continue;
+      }
+
+      sent += 1;
+      console.info('[nutrition-modules-email] Notificación enviada', {
+        source,
+        notificationId: row.id,
+        documentId: row.document_id,
+        provider: sendResult?.provider || 'smtp-nodemailer'
+      });
+    } catch (mailError) {
+      failed += 1;
+      const message = mailError?.message ? String(mailError.message) : 'Error desconocido de envío';
+      console.error('[nutrition-modules-email] Error enviando notificación', {
+        source,
+        notificationId: row.id,
+        documentId: row.document_id,
+        error: message
+      });
+
+      const { error: updateError } = await supabaseAdmin
+        .from('document_email_notifications')
+        .update({
+          status: 'failed',
+          last_error: message.slice(0, 2000)
+        })
+        .eq('id', row.id)
+        .eq('status', 'processing');
+
+      if (updateError) {
+        console.error('[nutrition-modules-email] Error actualizando notificación fallida', {
+          source,
+          notificationId: row.id,
+          error: updateError.message || updateError
+        });
+      }
+    }
+  }
+
+  console.info('[nutrition-modules-email] Worker end', { source, claimed: rows.length, sent, failed });
+  return { claimed: rows.length, sent, failed };
+}
+
 async function resolveUserRole(user) {
   if (!supabaseAdmin || !user?.id) return normalizeRole(user?.role || 'user');
 
@@ -336,6 +415,47 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
       return res.status(500).json({ error: error?.message || 'Error creando módulo nutricional' });
     }
 
+    console.info('[nutrition-modules-email] Documento creado', {
+      documentId: data.id,
+      title: data.title,
+      moduleType: data.module_type,
+      createdAt: data.created_at
+    });
+
+    const { data: queuedNotification, error: queueError } = await supabaseAdmin
+      .from('document_email_notifications')
+      .select('id, status, recipients')
+      .eq('document_id', data.id)
+      .maybeSingle();
+
+    if (queueError) {
+      console.error('[nutrition-modules-email] Error validando cola post-create', {
+        documentId: data.id,
+        error: queueError.message || queueError
+      });
+    } else {
+      console.info('[nutrition-modules-email] Notificación encolada', {
+        documentId: data.id,
+        notificationId: queuedNotification?.id || null,
+        status: queuedNotification?.status || null,
+        recipients: queuedNotification?.recipients || []
+      });
+    }
+
+    processPendingDocumentNotifications({ batchSize: 10, source: 'post-create' })
+      .then((result) => {
+        console.info('[nutrition-modules-email] Worker post-create resultado', {
+          documentId: data.id,
+          ...result
+        });
+      })
+      .catch((workerError) => {
+        console.error('[nutrition-modules-email] Worker post-create falló', {
+          documentId: data.id,
+          error: workerError.message || workerError
+        });
+      });
+
     return res.status(201).json(mapModuleRow(data));
   } catch (error) {
     return res.status(error.message === 'Usuario inactivo' ? 403 : 500).json({
@@ -348,67 +468,25 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
 
 router.post('/internal/nutrition-modules/process-notifications', async (req, res) => {
   try {
+    console.info('[nutrition-modules-email] Internal worker endpoint hit');
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
     }
-    if (!isWorkerAuthorized(req)) {
+    const authorized = isWorkerAuthorized(req);
+    console.info('[nutrition-modules-email] Internal worker auth check', { authorized });
+    if (!authorized) {
       return res.status(401).json({ error: 'No autorizado para procesar notificaciones' });
     }
 
     const batchSize = Math.max(1, Math.min(100, Number(req.body?.batchSize || 20)));
-    const { data: claimedRows, error: claimError } = await supabaseAdmin
-      .rpc('claim_document_email_notifications', { max_rows: batchSize });
-
-    if (claimError) {
-      return res.status(500).json({ error: claimError.message || 'Error reclamando notificaciones pendientes' });
-    }
-
-    const rows = Array.isArray(claimedRows) ? claimedRows : [];
-    let sent = 0;
-    let failed = 0;
-
-    for (const row of rows) {
-      try {
-        await sendDocumentCreatedEmailNotification(row);
-        const { error: updateError } = await supabaseAdmin
-          .from('document_email_notifications')
-          .update({
-            status: 'sent',
-            sent_at: new Date().toISOString(),
-            last_error: null
-          })
-          .eq('id', row.id)
-          .eq('status', 'processing');
-
-        if (updateError) {
-          failed += 1;
-          console.error('[nutrition-modules-email] Error marcando notificación como sent:', updateError);
-          continue;
-        }
-        sent += 1;
-      } catch (mailError) {
-        failed += 1;
-        const message = mailError?.message ? String(mailError.message) : 'Error desconocido de envío';
-        console.error('[nutrition-modules-email] Error enviando notificación:', mailError);
-
-        const { error: updateError } = await supabaseAdmin
-          .from('document_email_notifications')
-          .update({
-            status: 'failed',
-            last_error: message.slice(0, 2000)
-          })
-          .eq('id', row.id)
-          .eq('status', 'processing');
-
-        if (updateError) {
-          console.error('[nutrition-modules-email] Error actualizando notificación fallida:', updateError);
-        }
-      }
-    }
+    const { claimed, sent, failed } = await processPendingDocumentNotifications({
+      batchSize,
+      source: 'internal-endpoint'
+    });
 
     return res.json({
       success: true,
-      claimed: rows.length,
+      claimed,
       sent,
       failed
     });
