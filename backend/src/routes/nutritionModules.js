@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
 import multer from 'multer';
 import { authenticateToken } from '../middlewares/auth.js';
+import { notifyNutritionModuleCreated } from '../services/nutritionModulesNotifications.js';
 
 const router = express.Router();
 
@@ -320,6 +321,16 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
 
     if (error || !data) {
       return res.status(500).json({ error: error?.message || 'Error creando módulo nutricional' });
+    }
+
+    try {
+      await notifyNutritionModuleCreated({
+        title: data.title,
+        moduleType: data.module_type,
+        createdAt: data.created_at
+      });
+    } catch (mailError) {
+      console.error('[nutrition-modules-email] Error enviando notificación de nuevo documento:', mailError);
     }
 
     return res.status(201).json(mapModuleRow(data));
