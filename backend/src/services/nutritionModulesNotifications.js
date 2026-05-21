@@ -132,7 +132,9 @@ function toRecipientArray(value) {
 
 export async function sendDocumentCreatedEmailNotification(notification) {
   const transporter = getTransporter();
-  if (!transporter) return { attempted: false, reason: 'smtp_not_configured' };
+  if (!transporter) {
+    throw new Error('SMTP no configurado: transporter no disponible');
+  }
 
   const recipients = toRecipientArray(notification?.recipients);
   assertFixedRecipientsOrThrow(recipients);
