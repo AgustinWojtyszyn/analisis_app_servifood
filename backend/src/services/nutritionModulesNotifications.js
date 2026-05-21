@@ -173,6 +173,13 @@ export async function sendDocumentCreatedEmailNotification(notification) {
     verifyResult
   });
 
+  console.info('[nutrition-modules-email] Ejecutando sendMail', {
+    notificationId: notification?.id || null,
+    subject,
+    from,
+    to: recipients
+  });
+
   const info = await mailer.sendMail({
     from,
     to: recipients.join(','),
@@ -180,21 +187,47 @@ export async function sendDocumentCreatedEmailNotification(notification) {
     text
   });
 
-  console.info('[nutrition-modules-email] Respuesta proveedor SMTP', {
+  const accepted = Array.isArray(info?.accepted) ? info.accepted : [];
+  const rejected = Array.isArray(info?.rejected) ? info.rejected : [];
+  const acceptedNormalized = accepted.map((value) => String(value).trim().toLowerCase()).filter(Boolean);
+  const recipientsNormalized = recipients.map((value) => String(value).trim().toLowerCase()).filter(Boolean);
+  const missingAccepted = recipientsNormalized.filter((email) => !acceptedNormalized.includes(email));
+  const messageId = info?.messageId ? String(info.messageId) : '';
+  const response = info?.response ? String(info.response) : '';
+
+  console.info('[nutrition-modules-email] Respuesta proveedor SMTP (completa)', {
     notificationId: notification?.id || null,
-    accepted: info?.accepted || [],
-    rejected: info?.rejected || [],
-    response: info?.response || null,
-    messageId: info?.messageId || null
+    rawInfo: info
   });
+
+  console.info('[nutrition-modules-email] Respuesta proveedor SMTP (normalizada)', {
+    notificationId: notification?.id || null,
+    accepted,
+    rejected,
+    response: response || null,
+    messageId: messageId || null
+  });
+
+  if (!accepted.length) {
+    throw new Error('SMTP sin destinatarios aceptados (accepted vacío)');
+  }
+  if (rejected.length) {
+    throw new Error(`SMTP rechazó destinatarios: ${rejected.join(', ')}`);
+  }
+  if (missingAccepted.length) {
+    throw new Error(`SMTP no confirmó aceptación para todos los destinatarios: faltan ${missingAccepted.join(', ')}`);
+  }
+  if (!messageId) {
+    throw new Error('SMTP no devolvió messageId');
+  }
 
   return {
     attempted: true,
     recipientsCount: recipients.length,
     provider,
-    accepted: info?.accepted || [],
-    rejected: info?.rejected || [],
-    response: info?.response || null,
-    messageId: info?.messageId || null
+    accepted,
+    rejected,
+    response: response || null,
+    messageId
   };
 }
