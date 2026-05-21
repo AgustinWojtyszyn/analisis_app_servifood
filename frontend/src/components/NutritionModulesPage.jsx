@@ -353,9 +353,9 @@ export default function NutritionModulesPage({ user }) {
                   aria-label="Apartado de documentos"
                 >
                   <ToggleButton value="todos">Todos</ToggleButton>
+                  <ToggleButton value="estrategias">Estrategias</ToggleButton>
                   <ToggleButton value="procedimiento">Procedimientos</ToggleButton>
                   <ToggleButton value="registro">Registros</ToggleButton>
-                  <ToggleButton value="estrategias">Estrategias</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
               <TextField
