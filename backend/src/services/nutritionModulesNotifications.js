@@ -116,6 +116,15 @@ function formatCategory(moduleType) {
   return moduleType || '';
 }
 
+function escapeHtml(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function toRecipientArray(value) {
   if (Array.isArray(value)) return value;
   if (!value) return [];
@@ -156,6 +165,11 @@ export async function sendDocumentCreatedEmailNotification(notification) {
   console.log('Provider SMTP', provider);
 
   const subject = 'Nuevo documento cargado en Documentos SGC';
+  const platformUrl = 'https://analisis.servifoodapp.site/modulos-nutricionales';
+  const logoUrl = String(process.env.LOGO_URL || 'https://analisis.servifoodapp.site/logo-servifood.png').trim();
+  const safeTitle = escapeHtml(notification?.title || '-');
+  const safeCategory = escapeHtml(formatCategory(notification?.module_type) || '-');
+  const safeDate = escapeHtml(formatDate(notification?.document_created_at || notification?.created_at) || '-');
   const text = [
     'Se cargó un nuevo documento en Documentos SGC.',
     '',
@@ -164,8 +178,48 @@ export async function sendDocumentCreatedEmailNotification(notification) {
     `Fecha de carga: ${formatDate(notification?.document_created_at || notification?.created_at) || '-'}`,
     '',
     'Podés verlo ingresando a:',
-    'https://analisis.servifoodapp.site/modulos-nutricionales'
+    platformUrl
   ].join('\n');
+  const html = `<!doctype html>
+<html lang="es">
+  <body style="margin:0;padding:0;background:#eef3f8;font-family:Arial,Helvetica,sans-serif;color:#1f2f4a;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eef3f8;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden;">
+            <tr>
+              <td style="background:#0b5ed7;padding:20px 24px;text-align:center;">
+                <img src="${escapeHtml(logoUrl)}" alt="Servifood" style="max-width:180px;height:auto;display:inline-block;border:0;outline:none;text-decoration:none;" />
+                <h1 style="margin:14px 0 6px 0;font-size:24px;line-height:1.2;color:#ffffff;">Nuevo documento cargado</h1>
+                <p style="margin:0;font-size:14px;color:#dce9ff;">App de análisis Servifood</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px;">
+                <p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;">Se cargó un nuevo documento en <strong>Documentos SGC</strong>.</p>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #dce6f5;border-radius:8px;background:#f8fbff;">
+                  <tr><td style="padding:14px 16px;font-size:14px;line-height:1.6;">
+                    <div><strong>Nombre:</strong> ${safeTitle}</div>
+                    <div><strong>Categoría:</strong> ${safeCategory}</div>
+                    <div><strong>Fecha de carga:</strong> ${safeDate}</div>
+                  </td></tr>
+                </table>
+                <div style="margin-top:22px;text-align:center;">
+                  <a href="${platformUrl}" style="display:inline-block;background:#0b5ed7;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 20px;border-radius:6px;">Ver documento en la plataforma</a>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 24px;background:#f4f7fc;border-top:1px solid #e2eaf7;">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:#5b6f8b;">Este aviso corresponde a la app de análisis de Servifood.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
 
   const verifyResult = await transporter.verify();
   console.log('SMTP OK');
@@ -177,7 +231,8 @@ export async function sendDocumentCreatedEmailNotification(notification) {
     from,
     to: recipients.join(','),
     subject,
-    text
+    text,
+    html
   });
 
   const accepted = Array.isArray(info?.accepted) ? info.accepted : [];
