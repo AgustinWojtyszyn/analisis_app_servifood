@@ -10,17 +10,25 @@ const DEFAULT_RECIPIENTS = [
 let transporter = null;
 let warnedMissingConfig = false;
 
-function parseRecipients(value) {
-  if (!value) return [...DEFAULT_RECIPIENTS];
-  return String(value)
-    .split(',')
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
+function getRecipients() {
+  return [...DEFAULT_RECIPIENTS];
 }
 
-function getRecipients() {
-  const parsed = parseRecipients(process.env.DOCUMENTS_NOTIFICATION_RECIPIENTS);
-  return Array.from(new Set(parsed));
+function normalizeEmailList(list) {
+  return Array.from(new Set((list || []).map((item) => String(item).trim().toLowerCase()).filter(Boolean))).sort();
+}
+
+function assertFixedRecipientsOrThrow(recipients) {
+  const expected = normalizeEmailList(DEFAULT_RECIPIENTS);
+  const actual = normalizeEmailList(recipients);
+
+  const isExactMatch = expected.length === actual.length && expected.every((email, index) => email === actual[index]);
+
+  if (!isExactMatch) {
+    throw new Error(`Lista de destinatarios inválida. Esperados: ${expected.join(', ')}. Recibidos: ${actual.join(', ')}`);
+  }
+
+  console.info('[nutrition-modules-email] Destinatarios validados (whitelist fija):', actual.join(', '));
 }
 
 function toBoolean(value, defaultValue = false) {
@@ -83,9 +91,7 @@ export async function notifyNutritionModuleCreated({ title, moduleType, createdA
   if (!mailer) return { attempted: false, reason: 'smtp_not_configured' };
 
   const recipients = getRecipients();
-  if (!recipients.length) {
-    return { attempted: false, reason: 'no_recipients' };
-  }
+  assertFixedRecipientsOrThrow(recipients);
 
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
   const subject = 'Nuevo documento cargado en Documentos SGC';
