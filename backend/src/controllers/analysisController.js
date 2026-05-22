@@ -208,13 +208,17 @@ export async function getAnalysis(req, res) {
     if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const { id } = req.params;
-
-    const { data, error } = await supabaseAdmin
+    const isAdmin = isAdminUser(req.user);
+    let query = supabaseAdmin
       .from('analysis_history')
       .select('*')
-      .eq('id', id)
-      .eq('user_id', req.user.id)
-      .single();
+      .eq('id', id);
+
+    if (!isAdmin) {
+      query = query.eq('user_id', req.user.id);
+    }
+
+    const { data, error } = await query.single();
 
     if (error || !data) {
       return res.status(404).json({ error: 'Análisis no encontrado' });
