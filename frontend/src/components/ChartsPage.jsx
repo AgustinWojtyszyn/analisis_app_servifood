@@ -4,6 +4,7 @@ import { ChartsSections } from './charts/ChartsSections.jsx';
 
 const palette = ['#1d4ed8', '#2563eb', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626', '#334155', '#16a34a'];
 const AREA_FALLBACK = 'Área no identificada';
+const AREA_OTHERS_LABEL = 'Otros';
 const PIE_COLORS = ['#1d4ed8', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626'];
 const TEXT_PRIMARY = '#0f172a';
 const TEXT_SECONDARY = '#334155';
@@ -30,10 +31,35 @@ function normalizeArea(value) {
   return raw;
 }
 
+function normalizeCompare(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+}
+
 function pickFirstValue(record = {}, keys = []) {
   for (const key of keys) {
     const value = record?.[key];
     if (value != null && String(value).trim() !== '') return value;
+  }
+  return '';
+}
+
+function getOriginalColumns(record = {}) {
+  const source = record?.columnasOriginales;
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return {};
+  return source;
+}
+
+function findOriginalValueByAliases(record = {}, aliases = []) {
+  const entries = Object.entries(getOriginalColumns(record));
+  for (const alias of aliases) {
+    const aliasNorm = normalizeCompare(alias);
+    const match = entries.find(([key]) => normalizeCompare(key) === aliasNorm);
+    if (match && String(match[1] || '').trim()) return match[1];
   }
   return '';
 }
@@ -139,6 +165,75 @@ function normalizeAreaDisplayName(value = '') {
     .replace(/^área de /i, '')
     .trim();
   return compact || AREA_FALLBACK;
+}
+
+function parseAreaToken(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return { isUnknown: true };
+
+  const noParens = raw.replace(/\s*\(.+?\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  const normalized = normalizeCompare(noParens);
+  if (!normalized || normalized === '-' || normalized === 'n/a' || normalized === 'na') {
+    return { isUnknown: true };
+  }
+  if (
+    normalized === normalizeCompare(AREA_FALLBACK)
+    || normalized.includes('no identificada')
+    || normalized.includes('sin area')
+    || normalized.includes('sin sector')
+    || normalized.includes('desconocida')
+  ) {
+    return { isUnknown: true };
+  }
+
+  const cameraMatch = normalized.match(/\bcamara\s*(\d+)\b/);
+  if (cameraMatch) {
+    const num = Number(cameraMatch[1]);
+    if (num >= 1 && num <= 99) {
+      const label = `Cámara ${num}`;
+      return { key: normalizeCompare(label), label, isUnknown: false };
+    }
+  }
+
+  if (normalized === 'af' || normalized.includes('area fria')) {
+    return { key: normalizeCompare('Área fría'), label: 'Área fría', isUnknown: false };
+  }
+  if (normalized === 'ac' || normalized.includes('area caliente') || normalized.includes('agua caliente')) {
+    return { key: normalizeCompare('Área caliente'), label: 'Área caliente', isUnknown: false };
+  }
+  if (normalized.includes('deposito')) {
+    return { key: normalizeCompare('Depósito'), label: 'Depósito', isUnknown: false };
+  }
+  if (normalized.includes('logistica')) {
+    return { key: normalizeCompare('Logística'), label: 'Logística', isUnknown: false };
+  }
+  if (normalized.includes('lavadero') || normalized.includes('linea de lavado') || normalized.includes('linea lavado') || normalized.includes('bacha')) {
+    return { key: normalizeCompare('Lavadero'), label: 'Lavadero', isUnknown: false };
+  }
+  if (normalized.includes('residuos') || normalized.includes('desechos') || normalized.includes('basura')) {
+    return { key: normalizeCompare('Área de residuos'), label: 'Área de residuos', isUnknown: false };
+  }
+  if (normalized.includes('pre elaborados') || normalized.includes('preelaborados') || normalized.includes('pre elaborado')) {
+    return { key: normalizeCompare('Área de pre elaborados'), label: 'Área de pre elaborados', isUnknown: false };
+  }
+  if (normalized.includes('areas comunes') || normalized.includes('area comun')) {
+    return { key: normalizeCompare('Áreas comunes'), label: 'Áreas comunes', isUnknown: false };
+  }
+
+  const compact = noParens
+    .replace(/^area de /i, '')
+    .replace(/^área de /i, '')
+    .trim();
+  const label = normalizeAreaDisplayName(compact || noParens);
+  return { key: normalizeCompare(label), label, isUnknown: false };
+}
+
+function normalizeScope(value = '') {
+  const normalized = normalizeCompare(value);
+  if (!normalized) return null;
+  if (normalized.includes('externo')) return 'Externo';
+  if (normalized.includes('interno')) return 'Interno';
+  return null;
 }
 
 function buildTopWithOthers(items = [], maxItems = 8) {
@@ -247,6 +342,8 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     const fallbackByCategoria = {};
     const fallbackByIso = {};
     const fallbackActions = { abierto: 0, cerrado: 0 };
+    const fallbackByScope = { Interno: 0, Externo: 0 };
+    let unknownAreas = 0;
     records.forEach((record) => {
       const categoria = String(
         pickFirstValue(record, ['clasificacionDesvio', 'classification_normalized', 'categoriaDesvio', 'classification_original'])
@@ -261,12 +358,28 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       }
 
       const areaRaw = pickFirstValue(record, ['areaSector', 'area_sector', 'area_normalized', 'areaClasificada', 'area', 'sector']);
-      const areaList = splitAreas(areaRaw);
+      const areaRawFromOriginal = findOriginalValueByAliases(record, [
+        'Área/Sector',
+        'Area/Sector',
+        'Área',
+        'Area',
+        'Sector',
+        'Area proceso',
+        'Área proceso'
+      ]);
+      const areaSource = areaRaw || areaRawFromOriginal;
+      const areaList = splitAreas(areaSource);
       if (areaList.length === 0) {
-        fallbackByArea[AREA_FALLBACK] = (fallbackByArea[AREA_FALLBACK] || 0) + 1;
+        unknownAreas += 1;
       } else {
         areaList.map(normalizeArea).forEach((areaItem) => {
-          fallbackByArea[areaItem] = (fallbackByArea[areaItem] || 0) + 1;
+          const parsed = parseAreaToken(areaItem);
+          if (parsed.isUnknown) {
+            unknownAreas += 1;
+            return;
+          }
+          fallbackByArea[parsed.key] = fallbackByArea[parsed.key] || { name: parsed.label, value: 0 };
+          fallbackByArea[parsed.key].value += 1;
         });
       }
 
@@ -276,6 +389,16 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
 
       if (estadoAccion === 'cerrado') fallbackActions.cerrado += 1;
       if (estadoAccion === 'abierto') fallbackActions.abierto += 1;
+
+      const scopeRaw = pickFirstValue(record, [
+        'scope_normalized',
+        'scope_original',
+        'alcanceDesvio',
+        'tipoDesvioOrigen',
+        'origen'
+      ]) || findOriginalValueByAliases(record, ['Desvío interno/externo', 'Desvio interno/externo', 'Origen', 'origen']);
+      const scope = normalizeScope(scopeRaw);
+      if (scope) fallbackByScope[scope] += 1;
     });
 
     const hasRecords = Array.isArray(records) && records.length > 0;
@@ -283,17 +406,23 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     const summaryByCategoria = safeSummary.byCategoria && Object.keys(safeSummary.byCategoria).length > 0 ? safeSummary.byCategoria : null;
     const summaryByIso = safeSummary.byIso22000 && Object.keys(safeSummary.byIso22000).length > 0 ? safeSummary.byIso22000 : null;
 
-    const desviosPorAreaRaw = objectToChartData(hasRecords ? fallbackByArea : (summaryByArea || fallbackByArea))
-      .map((item) => ({ ...item, name: normalizeAreaDisplayName(item.name) }));
-    const areaMerged = Object.values(
-      desviosPorAreaRaw.reduce((acc, item) => {
-        const key = item.name;
-        if (!acc[key]) acc[key] = { name: key, value: 0 };
-        acc[key].value += Number(item.value || 0);
+    const summaryAreaParsed = Object.entries(summaryByArea || {}).reduce((acc, [name, value]) => {
+      const parsed = parseAreaToken(name);
+      const qty = Number(value || 0);
+      if (!qty) return acc;
+      if (parsed.isUnknown) {
+        unknownAreas += qty;
         return acc;
-      }, {})
-    );
-    const desviosPorArea = buildTopWithOthers(areaMerged, 6);
+      }
+      acc[parsed.key] = acc[parsed.key] || { name: parsed.label, value: 0 };
+      acc[parsed.key].value += qty;
+      return acc;
+    }, {});
+    const areaMapSource = hasRecords ? fallbackByArea : (Object.keys(summaryAreaParsed).length ? summaryAreaParsed : fallbackByArea);
+    const areaMerged = Object.values(areaMapSource).sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
+    const desviosPorArea = unknownAreas > 0
+      ? [...areaMerged, { name: AREA_OTHERS_LABEL, value: unknownAreas }]
+      : areaMerged;
     const categoriaRaw = hasRecords ? fallbackByCategoria : (summaryByCategoria || fallbackByCategoria);
     const categoriasCompletas = {
       Legales: Number(categoriaRaw.Legales ?? categoriaRaw['Desvío Legal'] ?? safeSummary.totalLegal ?? 0),
@@ -332,10 +461,22 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     ];
     const estadoAccionesActivos = estadoAcciones.filter((item) => Number(item.value || 0) > 0);
     const estadoSingle = estadoAccionesActivos.length === 1 ? estadoAccionesActivos[0] : null;
+    const summaryScopeSource = safeSummary.byAlcance && Object.keys(safeSummary.byAlcance).length > 0
+      ? safeSummary.byAlcance
+      : {
+          Interno: Number(safeSummary.totalInternos || 0),
+          Externo: Number(safeSummary.totalExternos || 0)
+        };
+    const scopeMap = hasRecords ? fallbackByScope : {
+      Interno: Number(summaryScopeSource.Interno ?? summaryScopeSource.interno ?? 0),
+      Externo: Number(summaryScopeSource.Externo ?? summaryScopeSource.externo ?? 0)
+    };
+    const desviosInternoExterno = objectToChartData(scopeMap).filter((item) => Number(item.value || 0) > 0);
 
     return {
       resumenHallazgos,
       desviosPorArea,
+      desviosInternoExterno,
       desviosPorCategoria,
       desviosPorCategoriaCompleta,
       desviosPorIso,
