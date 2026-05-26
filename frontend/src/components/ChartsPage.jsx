@@ -314,6 +314,50 @@ function normalizeEstadoAccionFromRecord(record = {}) {
   return normalizeEstadoAccion(value);
 }
 
+function normalizeNormaIsoLabel(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return 'Sin norma';
+  const normalized = normalizeCompare(raw);
+  if (!normalized || normalized === '-' || normalized === 'n/a' || normalized === 'na' || normalized === 'sin norma') {
+    return 'Sin norma';
+  }
+  return raw;
+}
+
+export function buildISOChartData(records = []) {
+  const chartMap = {};
+  records.forEach((record) => {
+    const normaValue = pickFirstValue(record, [
+      'Norma',
+      'Norma ISO',
+      'ISO',
+      'Norma relacionada',
+      'Referencia normativa',
+      'norma',
+      'normaISO',
+      'iso',
+      'relacionIso22000',
+      'relacionISO',
+      'isoRelation',
+      'iso22000'
+    ]) || findOriginalValueByAliases(record, [
+      'Norma',
+      'Norma ISO',
+      'ISO',
+      'Norma relacionada',
+      'Referencia normativa',
+      'norma',
+      'normaISO',
+      'iso'
+    ]);
+
+    const norma = normalizeNormaIsoLabel(normaValue);
+    chartMap[norma] = (chartMap[norma] || 0) + 1;
+  });
+
+  return objectToChartData(chartMap);
+}
+
 export default function ChartsPage({ records = [], summary = null, analysisTotalRecords = 0 }) {
   const hasAnalysisData = useMemo(() => {
     const totalRegistros = Number(summary?.totalRegistros ?? summary?.totalRecords ?? 0);
@@ -442,6 +486,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       return acc;
     }, {});
     const desviosPorIso = buildTopWithOthers(objectToChartData(isoGrouped), 10);
+    const distribucionPorNormaIso = hasRecords ? buildISOChartData(records) : objectToChartData(isoGrouped);
 
     const resumenHallazgos = [
       { name: 'Desvíos reales', value: Number(safeSummary.totalDesvios || 0) },
@@ -480,6 +525,7 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       desviosPorCategoria,
       desviosPorCategoriaCompleta,
       desviosPorIso,
+      distribucionPorNormaIso,
       estadoAcciones,
       estadoSingle,
       totalRecords: Number(safeSummary.totalRecords || records.length || 0)

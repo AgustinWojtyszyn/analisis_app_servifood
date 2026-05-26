@@ -8,6 +8,7 @@ import {
   PieChart,
   ResponsiveContainer,
   Tooltip,
+  Legend,
   XAxis,
   YAxis
 } from 'recharts';
@@ -158,6 +159,53 @@ function ScopePieChart({ data, textPrimary, pieColors, tooltipStyle }) {
   );
 }
 
+function IsoNormaPieChart({ data, textPrimary, pieColors, tooltipStyle }) {
+  const total = data.reduce((acc, item) => acc + Number(item.value || 0), 0);
+  return (
+    <Grid item xs={12} md={6}>
+      <Card sx={{ height: '100%' }}>
+        <CardContent sx={{ p: 1.75 }}>
+          <Typography sx={{ fontWeight: 900, mb: 2, color: textPrimary, fontSize: 17 }}>Distribución por Norma ISO</Typography>
+          <Box sx={{ width: '100%', height: data.length === 0 ? 165 : 290 }}>
+            {data.length === 0 ? (
+              <EmptyState text="No hay datos de norma ISO" />
+            ) : (
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={data}
+                    dataKey="value"
+                    nameKey="name"
+                    outerRadius={92}
+                    label={({ percent = 0 }) => (percent ? `${Math.round(percent * 100)}%` : '')}
+                    labelLine={false}
+                  >
+                    {data.map((entry, idx) => (
+                      <Cell key={entry.name} fill={pieColors[idx % pieColors.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    {...tooltipStyle()}
+                    formatter={(value, _name, props) => [value, String(props?.payload?.name || 'Norma')]}
+                  />
+                  <Legend
+                    formatter={(value, _entry, index) => {
+                      const item = data[index] || null;
+                      const qty = Number(item?.value || 0);
+                      const pct = total > 0 ? Math.round((qty / total) * 100) : 0;
+                      return `${value} (${pct}%)`;
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </Box>
+        </CardContent>
+      </Card>
+    </Grid>
+  );
+}
+
 function CategoryBarChart({ data, textPrimary, textMuted, tooltipStyle }) {
   return (
     <Grid item xs={12} md={6}>
@@ -248,6 +296,12 @@ export function ChartsSections({
         />
         <ScopePieChart
           data={data.desviosInternoExterno || []}
+          textPrimary={textPrimary}
+          pieColors={pieColors}
+          tooltipStyle={tooltipStyle}
+        />
+        <IsoNormaPieChart
+          data={data.distribucionPorNormaIso || []}
           textPrimary={textPrimary}
           pieColors={pieColors}
           tooltipStyle={tooltipStyle}
