@@ -248,7 +248,7 @@ async function getRulesForAnalysis({ prisma, defaultRules }) {
 
 function isValidExcelFilename(filename = '') {
   const lower = String(filename).toLowerCase();
-  return lower.endsWith('.xlsx') || lower.endsWith('.xls');
+  return lower.endsWith('.xlsx');
 }
 
 async function insertAnalysisHistory({ supabaseAdmin, userId, filename, resultPayload, status = 'active' }) {
@@ -293,7 +293,7 @@ async function processExcelFile({
 
   const filename = file.originalname;
   if (!isValidExcelFilename(filename)) {
-    throw new Error('Solo se aceptan archivos .xlsx o .xls');
+    throw new Error('Solo se aceptan archivos .xlsx');
   }
 
   const activeRules = await getRulesForAnalysis({ prisma, defaultRules });
@@ -325,7 +325,7 @@ async function processExcelFile({
     userId,
     filename,
     resultPayload,
-    status: 'archived'
+    status: 'active'
   });
 
   if (insertResult.error) {

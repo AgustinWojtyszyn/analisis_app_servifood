@@ -132,7 +132,6 @@ function buildSummaryFromRecords(records = [], baseSummary = {}) {
   return {
     ...baseSummary,
     totalRecords: records.length,
-    totalDesvios: records.length,
     byCategoria,
     totalInocuidad: sumBy((name) => isExact(name, 'Inocuidad') || isExact(name, 'Desvío de Inocuidad')),
     totalLogistica: sumBy((name) => isExact(name, 'Logística') || isExact(name, 'Desvío de Logística')),

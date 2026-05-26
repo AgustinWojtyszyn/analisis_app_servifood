@@ -15,7 +15,7 @@ const MAX_FILES = 10;
 
 function isExcel(file) {
   const name = String(file?.name || '').toLowerCase();
-  return name.endsWith('.xlsx') || name.endsWith('.xls');
+  return name.endsWith('.xlsx');
 }
 
 function generateClientFileId() {
@@ -56,7 +56,7 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
 
     const invalid = list.find((file) => !isExcel(file));
     if (invalid) {
-      setError(`Archivo inválido: ${invalid.name}. Solo .xlsx/.xls`);
+      setError(`Archivo inválido: ${invalid.name}. Solo se aceptan archivos .xlsx`);
       return;
     }
 
@@ -204,7 +204,7 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
               Arrastra archivos aquí o haz clic para seleccionar
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Formatos soportados: .xlsx, .xls
+              Formato soportado: .xlsx
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, fontWeight: 700 }}>
               {counterLabel}
@@ -214,7 +214,7 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
               type="file"
               multiple
               name="excel_files"
-              accept=".xlsx,.xls"
+              accept=".xlsx"
               onChange={handleFileChange}
               style={{ display: 'none' }}
               id={inputId}
