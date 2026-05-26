@@ -165,19 +165,28 @@ function IsoNormaPieChart({ data, textPrimary, pieColors, tooltipStyle }) {
       <Card sx={{ height: '100%' }}>
         <CardContent sx={{ p: 1.75 }}>
           <Typography sx={{ fontWeight: 900, mb: 2, color: textPrimary, fontSize: 17 }}>Distribución de hallazgos por requisito ISO 22000</Typography>
-          <Box sx={{ width: '100%', height: data.length === 0 ? 165 : 305 }}>
+          <Box sx={{ width: '100%', height: data.length === 0 ? 165 : 330 }}>
             {data.length === 0 ? (
               <EmptyState text="No hay datos de norma ISO" />
             ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', gap: 1.5 }}>
-                <Box sx={{ flex: '0 0 48%', minWidth: 0, height: '100%' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: { xs: 'column', md: 'row' },
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  gap: 1.75
+                }}
+              >
+                <Box sx={{ width: { xs: '100%', md: '48%' }, maxWidth: { xs: 360, md: 'none' }, minWidth: 0, height: { xs: 200, md: '100%' } }}>
                   <ResponsiveContainer>
                     <PieChart>
                       <Pie
                         data={data}
                         dataKey="value"
                         nameKey="name"
-                        outerRadius={74}
+                        outerRadius={80}
                         label={({ percent = 0 }) => (percent ? `${Math.round(percent * 100)}%` : '')}
                         labelLine={false}
                       >
@@ -197,7 +206,7 @@ function IsoNormaPieChart({ data, textPrimary, pieColors, tooltipStyle }) {
                     </PieChart>
                   </ResponsiveContainer>
                 </Box>
-                <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, pr: 0.5 }}>
+                <Box sx={{ flex: 1, minWidth: 0, width: { xs: '100%', md: 'auto' }, maxWidth: { xs: 430, md: 'none' }, display: 'flex', flexDirection: 'column', gap: 0.75, pr: { xs: 0, md: 0.5 } }}>
                   {data.map((item, idx) => {
                     const qty = Number(item?.value || 0);
                     const pct = total > 0 ? Math.round((qty / total) * 100) : 0;
