@@ -8,7 +8,6 @@ import {
   PieChart,
   ResponsiveContainer,
   Tooltip,
-  Legend,
   XAxis,
   YAxis
 } from 'recharts';
@@ -165,39 +164,58 @@ function IsoNormaPieChart({ data, textPrimary, pieColors, tooltipStyle }) {
     <Grid item xs={12} md={6}>
       <Card sx={{ height: '100%' }}>
         <CardContent sx={{ p: 1.75 }}>
-          <Typography sx={{ fontWeight: 900, mb: 2, color: textPrimary, fontSize: 17 }}>Distribución por Norma ISO</Typography>
-          <Box sx={{ width: '100%', height: data.length === 0 ? 165 : 290 }}>
+          <Typography sx={{ fontWeight: 900, mb: 2, color: textPrimary, fontSize: 17 }}>Distribución de hallazgos por requisito ISO 22000</Typography>
+          <Box sx={{ width: '100%', height: data.length === 0 ? 165 : 305 }}>
             {data.length === 0 ? (
               <EmptyState text="No hay datos de norma ISO" />
             ) : (
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie
-                    data={data}
-                    dataKey="value"
-                    nameKey="name"
-                    outerRadius={92}
-                    label={({ percent = 0 }) => (percent ? `${Math.round(percent * 100)}%` : '')}
-                    labelLine={false}
-                  >
-                    {data.map((entry, idx) => (
-                      <Cell key={entry.name} fill={pieColors[idx % pieColors.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    {...tooltipStyle()}
-                    formatter={(value, _name, props) => [value, String(props?.payload?.name || 'Norma')]}
-                  />
-                  <Legend
-                    formatter={(value, _entry, index) => {
-                      const item = data[index] || null;
-                      const qty = Number(item?.value || 0);
-                      const pct = total > 0 ? Math.round((qty / total) * 100) : 0;
-                      return `${value} (${pct}%)`;
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', gap: 1.5 }}>
+                <Box sx={{ flex: '0 0 48%', minWidth: 0, height: '100%' }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={data}
+                        dataKey="value"
+                        nameKey="name"
+                        outerRadius={74}
+                        label={({ percent = 0 }) => (percent ? `${Math.round(percent * 100)}%` : '')}
+                        labelLine={false}
+                      >
+                        {data.map((entry, idx) => (
+                          <Cell key={entry.name} fill={pieColors[idx % pieColors.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        {...tooltipStyle()}
+                        formatter={(value, _name, props) => {
+                          const qty = Number(value || 0);
+                          const pct = total > 0 ? Math.round((qty / total) * 100) : 0;
+                          return [`${qty} (${pct}%)`, String(props?.payload?.name || 'Requisito ISO 22000')];
+                        }}
+                        labelFormatter={(label) => String(label || '')}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75, pr: 0.5 }}>
+                  {data.map((item, idx) => {
+                    const qty = Number(item?.value || 0);
+                    const pct = total > 0 ? Math.round((qty / total) * 100) : 0;
+                    return (
+                      <Box key={item.name} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.8 }}>
+                        <Box sx={{ width: 10, height: 10, borderRadius: '999px', backgroundColor: pieColors[idx % pieColors.length], flexShrink: 0, mt: '4px' }} />
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 800, color: textPrimary, minWidth: 0, fontSize: 13.2, lineHeight: 1.25, wordBreak: 'break-word' }}
+                          title={item.name}
+                        >
+                          {item.name}: {qty} ({pct}%)
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </Box>
             )}
           </Box>
         </CardContent>

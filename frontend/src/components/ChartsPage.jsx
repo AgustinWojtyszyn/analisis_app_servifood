@@ -9,6 +9,7 @@ const PIE_COLORS = ['#1d4ed8', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2
 const TEXT_PRIMARY = '#0f172a';
 const TEXT_SECONDARY = '#334155';
 const TEXT_MUTED = '#475569';
+const ISO_REQUIREMENT_FALLBACK_LABEL = 'Requisito no identificado';
 
 function normalizeCategoryKey(value) {
   const raw = String(value || '').trim().toLowerCase();
@@ -321,6 +322,9 @@ function normalizeNormaIsoLabel(value = '') {
   if (!normalized || normalized === '-' || normalized === 'n/a' || normalized === 'na' || normalized === 'sin norma') {
     return 'Sin norma';
   }
+  if (normalized.includes('revisar manualmente') || normalized.includes('revision manual')) {
+    return ISO_REQUIREMENT_FALLBACK_LABEL;
+  }
   return raw;
 }
 
@@ -355,7 +359,7 @@ export function buildISOChartData(records = []) {
     chartMap[norma] = (chartMap[norma] || 0) + 1;
   });
 
-  return objectToChartData(chartMap);
+  return objectToChartData(chartMap).sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
 }
 
 export default function ChartsPage({ records = [], summary = null, analysisTotalRecords = 0 }) {
@@ -486,7 +490,9 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       return acc;
     }, {});
     const desviosPorIso = buildTopWithOthers(objectToChartData(isoGrouped), 10);
-    const distribucionPorNormaIso = hasRecords ? buildISOChartData(records) : objectToChartData(isoGrouped);
+    const distribucionPorNormaIso = hasRecords
+      ? buildISOChartData(records)
+      : objectToChartData(isoGrouped).sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
 
     const resumenHallazgos = [
       { name: 'Desvíos reales', value: Number(safeSummary.totalDesvios || 0) },
