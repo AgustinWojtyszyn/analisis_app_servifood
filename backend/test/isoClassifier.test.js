@@ -92,3 +92,24 @@ test('Contaminación/higiene/temperatura insegura => Inocuidad', () => {
   });
   assert.equal(result.categoriaDesvio, 'Desvío de Inocuidad');
 });
+
+test('Carne rígida/dura en menú => 8.5.1 Control operacional', () => {
+  const result = classifyCategoryAndIso({
+    text: 'adium reclama que la carne del menu estaba rigida y dura'
+  });
+  assert.equal(result.iso22000, '8.5.1 Control operacional');
+});
+
+test('Postre repetido toda la semana => 8.1 Planificación y control operacional', () => {
+  const result = classifyCategoryAndIso({
+    text: 'Reclamo de adium porque se les envió queso y dulce y ensalada de frutas como postre toda la semana'
+  });
+  assert.equal(result.iso22000, '8.1 Planificación y control operacional');
+});
+
+test('Refrigerio salió tarde => 8.1 Planificación y control operacional', () => {
+  const result = classifyCategoryAndIso({
+    text: 'Refrigerio de Adium Salio tarde'
+  });
+  assert.equal(result.iso22000, '8.1 Planificación y control operacional');
+});

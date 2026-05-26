@@ -69,6 +69,23 @@ const OPERATIONAL_QUALITY_TERMS = [
   'gramaje', 'gramaje incorrecto', 'error de emplatado', 'incumplimiento de especificacion', 'incumplimiento de especificación'
 ];
 
+const OPERATIONAL_COOKING_TERMS = [
+  'coccion', 'cocción', 'proceso de coccion', 'proceso de cocción',
+  'carne dura', 'carne rigida', 'carne rígida', 'horno',
+  'temperatura de coccion', 'temperatura de cocción'
+];
+
+const OPERATIONAL_PLANNING_TERMS = [
+  'demora', 'demoras', 'tarde', 'entrega tarde', 'entregas tarde',
+  'faltante de personal', 'falta de personal', 'reubicacion de personal', 'reubicación de personal',
+  'prioridades operativas', 'prioridad operativa',
+  'planificacion de menu', 'planificación de menú', 'planificacion del menu', 'planificación del menú',
+  'falta de variedad de postres', 'variedad de postres',
+  'envio repetido de postres', 'envío repetido de postres', 'postre toda la semana',
+  'refrigerio salio tarde', 'refrigerio salio', 'refrigerio salió tarde',
+  'menu toda la semana', 'menú toda la semana'
+];
+
 function classifyIso22000FromDescription(
   { descripcionDetectada, actividadRealizada, areaClasificada, resultadoClasificado }
 ) {
@@ -83,6 +100,9 @@ function classifyIso22000FromDescription(
 
   const technicalControlRule = classifyTechnicalControlRule(text);
   if (technicalControlRule) return technicalControlRule.iso22000;
+
+  if (containsAny(text, OPERATIONAL_COOKING_TERMS)) return '8.5.1 Control operacional';
+  if (containsAny(text, OPERATIONAL_PLANNING_TERMS)) return '8.1 Planificación y control operacional';
 
   if (containsAny(text, HACCP_SAFETY_TERMS)) return '8.5 HACCP';
   if (containsAny(text, PRP_HYGIENE_TERMS)) return '8.2 PRP';
@@ -244,6 +264,8 @@ function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadR
   if (normalizeCellValue(iso22000).trim() === '-') return '-';
   if (normalizeIncidentText(iso22000) && normalizeIncidentText(iso22000) !== 'revisar manualmente') return iso22000;
   if (!text) return 'Revisar manualmente';
+  if (containsAny(text, OPERATIONAL_COOKING_TERMS)) return '8.5.1 Control operacional';
+  if (containsAny(text, OPERATIONAL_PLANNING_TERMS)) return '8.1 Planificación y control operacional';
   if (containsAny(text, PRP_HYGIENE_TERMS)) return '8.2 PRP';
   if (containsAny(text, OPERATIONAL_QUALITY_TERMS)) return '8.5.1 Control operacional';
   if (containsAny(text, ['capacitacion', 'curso', 'formacion'])) return '7.2 Competencia / capacitación';
