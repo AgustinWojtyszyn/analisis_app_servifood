@@ -98,6 +98,19 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   });
 }
 
+function normalizeIsoManualCounters(summary = {}, records = []) {
+  const safeSummary = summary && typeof summary === 'object' ? summary : {};
+  const recordList = Array.isArray(records) ? records : [];
+  const manualCount = recordList.reduce((acc, record) => {
+    const iso = normalizeCellValue(record?.relacionIso22000 || record?.iso22000).trim() || 'Revisar manualmente';
+    return acc + (isIsoManual(iso) ? 1 : 0);
+  }, 0);
+  return {
+    ...safeSummary,
+    totalRevisionManual: manualCount
+  };
+}
+
 function recalculateIsoForStoredResults(results = {}) {
   const originalRecords = Array.isArray(results?.records) ? results.records : [];
   if (originalRecords.length === 0) {
@@ -124,7 +137,8 @@ function recalculateIsoForStoredResults(results = {}) {
     const prevIso = normalizeCellValue(record?.relacionIso22000 || record?.iso22000).trim() || 'Revisar manualmente';
     if (isIsoManual(prevIso)) manualBefore += 1;
 
-    const nextIso = resolveRecordIsoWithCurrentRules(record) || 'Revisar manualmente';
+    const nextIsoComputed = resolveRecordIsoWithCurrentRules(record) || 'Revisar manualmente';
+    const nextIso = normalizeCellValue(nextIsoComputed).trim() || 'Revisar manualmente';
     if (isIsoManual(nextIso)) manualAfter += 1;
     byIso22000[nextIso] = (byIso22000[nextIso] || 0) + 1;
 
@@ -153,14 +167,15 @@ function recalculateIsoForStoredResults(results = {}) {
   const previousSummaryManual = Number(baseSummary.totalRevisionManual || 0);
   if (previousSummaryManual !== manualAfter) changed = true;
 
+  const nextSummary = normalizeIsoManualCounters({
+    ...baseSummary,
+    byIso22000
+  }, nextRecords);
+
   const nextResults = {
     ...results,
     records: nextRecords,
-    summary: {
-      ...baseSummary,
-      totalRevisionManual: manualAfter,
-      byIso22000
-    },
+    summary: nextSummary,
     reprocessedWithCurrentIsoRules: true,
     isoReprocessedAt: new Date().toISOString()
   };
@@ -169,7 +184,7 @@ function recalculateIsoForStoredResults(results = {}) {
     nextResults,
     recordsProcessed: nextRecords.length,
     manualBefore,
-    manualAfter,
+    manualAfter: Number(nextSummary.totalRevisionManual || 0),
     changed
   };
 }
