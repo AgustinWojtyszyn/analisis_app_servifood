@@ -133,6 +133,22 @@ function buildAnalysisRecord({ id, userId, text, iso = 'Revisar manualmente', ke
   };
 }
 
+function buildCustomAnalysisRecord({ id, userId, status = 'active', record }) {
+  return {
+    id,
+    user_id: userId,
+    status,
+    created_at: new Date().toISOString(),
+    results: {
+      summary: {
+        totalRevisionManual: 1,
+        processedAt: '2026-01-01T10:00:00.000Z'
+      },
+      records: [record]
+    }
+  };
+}
+
 test('reprocessIsoAll reprocesa múltiples análisis del usuario y devuelve resumen correcto', async () => {
   const mock = createSupabaseMock({
     records: [
@@ -270,4 +286,147 @@ test('reprocessIsoAll usa descripción/acciones aunque hallazgo esté vacío', a
   assert.equal(res.statusCode, 200);
   assert.equal(res.body?.success, true);
   assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.1 Planificación y control operacional');
+});
+
+test('reprocessIsoAll: luz y máquina en oficina no queda en manual', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'm1',
+        userId: 'u1',
+        record: {
+          fecha: '2026-05-20',
+          hallazgoDetectado: 'Se deja prendido luz y maquina en oficina',
+          areaSector: 'Mantenimiento',
+          clasificacionDesvio: 'Calidad',
+          tipoDesvio: 'NC',
+          estadoAcciones: 'abierto',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.notEqual(mock.state.records[0].results.records[0].relacionIso22000, 'Revisar manualmente');
+});
+
+test('reprocessIsoAll: área mantenimiento clasifica a control operacional', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'm2',
+        userId: 'u1',
+        record: {
+          fecha: '2026-05-21',
+          hallazgoDetectado: 'Falla en equipo de producción',
+          areaSector: 'Mantenimiento',
+          clasificacionDesvio: 'Calidad',
+          tipoDesvio: 'NC',
+          estadoAcciones: 'abierto',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.5.1 Control operacional');
+});
+
+test('reprocessIsoAll: sin texto útil queda en revisar manualmente', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'm3',
+        userId: 'u1',
+        record: {
+          fecha: '',
+          hallazgoDetectado: '',
+          descripcion: '',
+          observaciones: '',
+          accionInmediata: '',
+          accionCorrectiva: '',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, 'Revisar manualmente');
+});
+
+test('reprocessIsoAll reprocesa también análisis archived/históricos', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'h1',
+        userId: 'u1',
+        status: 'archived',
+        record: {
+          fecha: '2026-05-14',
+          descripcion: 'Refrigerio de Adium Salio tarde',
+          accionInmediata: 'Al faltar personal se tuvo que reubicar el personal',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].status, 'archived');
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.1 Planificación y control operacional');
+});
+
+test('reprocessIsoAll debug incluye sourceTextPreview y decisionReason', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'd1',
+        userId: 'u1',
+        record: {
+          fecha: '2026-05-20',
+          hallazgoDetectado: 'Se deja prendido luz y maquina en oficina',
+          areaSector: 'Mantenimiento',
+          clasificacionDesvio: 'Calidad',
+          tipoDesvio: 'NC',
+          estadoAcciones: 'abierto',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+
+  const req = { user: { id: 'u1' }, query: { debug: '1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(Array.isArray(res.body?.debug), true);
+  const row = res.body.debug?.[0]?.records?.[0];
+  assert.ok(row?.sourceTextPreview);
+  assert.ok(row?.decisionReason);
+  assert.equal(Array.isArray(row?.usedFields), true);
 });

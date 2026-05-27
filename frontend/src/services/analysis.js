@@ -89,6 +89,7 @@ async function authorizedFetch(path, options = {}) {
   const hasBody = options.body !== undefined;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
+    cache: 'no-store',
     headers: {
       Authorization: `Bearer ${token}`,
       ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
