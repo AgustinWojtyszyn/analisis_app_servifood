@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { analyzeExcel } from '../services/analyzeExcel.js';
-import { normalizeCellValue } from '../services/analyzeExcel/normalizers.js';
+import { normalizeCellValue, normalizeIncidentText } from '../services/analyzeExcel/normalizers.js';
 import {
   classifyIso22000FromDescription,
   resolveIsoWithContextFallback,
@@ -161,7 +161,32 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
     resultadoClasificado
   });
 
-  return normalizeCellValue(wideIso).trim() || mergedIso;
+  const normalizedWideIso = normalizeCellValue(wideIso).trim() || mergedIso;
+  if (!isIsoManual(normalizedWideIso)) {
+    return normalizedWideIso;
+  }
+
+  // Salvaguarda final: detecta patrones operativos en todo el registro serializado.
+  const serializedContext = normalizeIncidentText(JSON.stringify(record || {}));
+  const hasAny = (terms = []) => terms.some((term) => serializedContext.includes(normalizeIncidentText(term)));
+
+  if (hasAny([
+    'coccion', 'proceso de coccion', 'carne dura', 'carne rigida', 'horno', 'temperatura de coccion'
+  ])) {
+    return '8.5.1 Control operacional';
+  }
+
+  if (hasAny([
+    'demora', 'tarde', 'entrega tarde', 'faltante de personal', 'falta de personal',
+    'reubicacion de personal', 'reorganizar personal', 're organizar al personal',
+    'prioridades operativas', 'definir prioridades', 'planificacion de menu',
+    'falta de variedad de postres', 'envio repetido de postres', 'postre toda la semana',
+    'refrigerio salio tarde', 'menu toda la semana'
+  ])) {
+    return '8.1 Planificación y control operacional';
+  }
+
+  return normalizedWideIso;
 }
 
 function normalizeIsoManualCounters(summary = {}, records = []) {
