@@ -78,6 +78,11 @@ function toTitleCaseLabel(value = '') {
     .join('/');
 }
 
+function isManualIsoValue(value = '') {
+  const normalized = normalizeCompare(value);
+  return normalized.includes('revisar manualmente') || normalized.includes('revision manual');
+}
+
 function resolveCategoryFromRecord(record = {}) {
   const originalColumns = (record?.columnasOriginales && typeof record.columnasOriginales === 'object' && !Array.isArray(record.columnasOriginales))
     ? record.columnasOriginales
@@ -115,6 +120,7 @@ function buildSummaryFromRecords(records = [], baseSummary = {}) {
   const byCategoria = {};
   let totalInternos = 0;
   let totalExternos = 0;
+  let totalRevisionManual = 0;
 
   records.forEach((record) => {
     const cat = resolveCategoryFromRecord(record);
@@ -123,6 +129,11 @@ function buildSummaryFromRecords(records = [], baseSummary = {}) {
     const alcance = normalizeCompare(record?.scope_normalized || record?.alcanceDesvio || '');
     if (alcance === 'interno') totalInternos += 1;
     if (alcance === 'externo') totalExternos += 1;
+
+    const isoValue = String(record?.relacionIso22000 || record?.iso22000 || '').trim();
+    if (isManualIsoValue(isoValue || 'Revisar manualmente')) {
+      totalRevisionManual += 1;
+    }
   });
 
   const entries = Object.entries(byCategoria);
@@ -137,7 +148,7 @@ function buildSummaryFromRecords(records = [], baseSummary = {}) {
     totalLogistica: sumBy((name) => isExact(name, 'Logística') || isExact(name, 'Desvío de Logística')),
     totalCalidad: sumBy((name) => isExact(name, 'Calidad') || isExact(name, 'Desvío de Calidad')),
     totalLegal: sumBy((name) => isExact(name, 'Legales') || isExact(name, 'Legal') || isExact(name, 'Desvío Legal')),
-    totalRevisionManual: sumBy((name) => isExact(name, 'Revisar manualmente') || isExact(name, 'Revisión manual')),
+    totalRevisionManual,
     totalInternos,
     totalExternos
   };

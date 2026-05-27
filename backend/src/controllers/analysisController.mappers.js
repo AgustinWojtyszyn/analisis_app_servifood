@@ -21,6 +21,11 @@ function normalizeCompare(value = '') {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+function isManualIsoValue(value = '') {
+  const normalized = normalizeCompare(value);
+  return normalized.includes('revisar manualmente') || normalized.includes('revision manual');
+}
+
 function hasExcelClassificationSource(record = {}) {
   return Boolean(
     record?.preserveOriginalClassification
@@ -188,7 +193,10 @@ function normalizeStoredAnalysisResults(results = {}) {
   const totalLegal = sumBy((name) => isExact(name, CANONICAL.LEGALES) || isExact(name, 'Legal') || isExact(name, 'Desvío Legal'));
   const totalMantenimiento = sumBy((name) => isExact(name, CANONICAL.MANTENIMIENTO) || isExact(name, 'Desvío de Mantenimiento'));
   const totalRRHH = sumBy((name) => isExact(name, CANONICAL.RRHH) || isExact(name, 'Desvío de Recursos Humanos'));
-  const totalRevisionManual = sumBy((name) => isExact(name, CANONICAL.MANUAL));
+  const totalRevisionManual = normalizedRecords.reduce((acc, record) => {
+    const iso = normalizeCellValue(record.relacionIso22000 || record.iso22000).trim() || 'Revisar manualmente';
+    return acc + (isManualIsoValue(iso) ? 1 : 0);
+  }, 0);
 
   const baseSummary = results?.summary || {};
   const normalizedSummary = {

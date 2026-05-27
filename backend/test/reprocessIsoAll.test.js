@@ -429,7 +429,34 @@ test('reprocessIsoAll debug incluye sourceTextPreview y decisionReason', async (
   assert.ok(row?.sourceTextPreview);
   assert.ok(row?.decisionReason);
   assert.ok(row?.matchedRule);
+  assert.ok(row?.previousValueFromDisplayedField);
+  assert.equal(row?.fieldUpdated, 'relacionIso22000');
   assert.equal(Array.isArray(row?.usedFields), true);
+});
+
+test('reprocessIsoAll summary totalRevisionManual usa mismo campo ISO que tabla', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'sum-1',
+        userId: 'u1',
+        record: {
+          fecha: '2026-05-20',
+          hallazgoDetectado: 'Texto ambiguo sin reglas',
+          clasificacionDesvio: 'Calidad',
+          relacionIso22000: 'Revisar manualmente',
+          iso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  const summary = mock.state.records[0].results.summary;
+  assert.equal(Number(summary.totalRevisionManual || 0), 1);
 });
 
 test('reprocessIsoAll caso real: postres toda la semana => 8.1 planificación', async () => {

@@ -332,10 +332,13 @@ function recalculateIsoForStoredResults(results = {}, options = {}) {
       debugRecords.push({
         analysisId,
         recordIndex: index,
+        desvioDetectado: normalizeCellValue(record?.desvioDetectado || record?.hallazgoDetectado || '').trim() || null,
         recordDate: normalizeCellValue(record?.fecha).trim() || null,
         prevIso,
+        previousValueFromDisplayedField: prevIso,
         nextIso,
         changed: nextIso !== prevIso,
+        fieldUpdated: 'relacionIso22000',
         sourceTextPreview: normalizeCellValue(resolved?.sourceTextPreview).trim() || sourceText.slice(0, 240),
         usedFields: Array.isArray(resolved?.usedFields) ? resolved.usedFields : [],
         decisionReason: normalizeCellValue(resolved?.decisionReason).trim() || 'keyword_rule',
