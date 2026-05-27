@@ -157,18 +157,40 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   if (hasAbsenceSignal && hasTrainingSignal) {
     return { iso: '7.2 Competencia', matchedRule: 'staff_absence_training_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
-  const hasSupplierExternalSignal = hasAny([
+  const hasOperationalDelaySignal = hasAny([
+    'salio tarde', 'salió tarde', 'tarde', 'demora', 'demoraron', 'refrigerio', 'entrega', 'transporte', 'retiro', 'logistica', 'logística',
+    'camion', 'camión', 'despacho', 'segunda movilidad', 'movilidad'
+  ]);
+  const hasDispatchFailureSignal = hasAny([
+    'no se envio', 'no se envió', 'no se enviaron', 'faltante de menu', 'faltante de menú',
+    'faltaron postres', 'no se enviaron postres', 'error de envio', 'error de envío'
+  ]);
+  const hasSupplierActorSignal = hasAny([
     'proveedor', 'devuelve al proveedor', 'devolucion al proveedor', 'devolución al proveedor', 'se devuelve',
-    'mercaderia', 'mercadería', 'producto recibido', 'pedido recibido', 'masa de tartas', 'masa de panqueque',
-    'fecha de vencimiento', 'vencimiento no legible', 'vencimiento ilegible', 'rotulado', 'etiqueta ilegible',
-    'exceso de grasa', 'fruta pasada', 'manzanas chicas', 'manzanas verdes'
+    'reclamo al proveedor', 'reclamo proveedor', 'producto recibido', 'pedido recibido'
+  ]);
+  const hasSupplierProductSignal = hasAny([
+    'mercaderia', 'mercadería', 'masa de tartas', 'masa de panqueque', 'fecha de vencimiento',
+    'vencimiento no legible', 'vencimiento ilegible', 'rotulado', 'etiqueta ilegible', 'exceso de grasa',
+    'fruta pasada', 'manzanas chicas', 'manzanas verdes'
   ]);
   const hasStrongInternalHaccpSignal = hasAny([
     'fuera de refrigeracion', 'fuera de refrigeración', 'decomiso', 'temperatura critica', 'temperatura crítica',
     'contaminacion interna', 'contaminación interna', 'manipulado internamente'
   ]);
-  if (hasSupplierExternalSignal && !hasStrongInternalHaccpSignal) {
+  const hasPrpSignal = hasAny([
+    'higiene', 'limpieza', 'desinfeccion', 'desinfección', 'mesadas', 'mesones',
+    'cajas de carton', 'cajas de cartón', 'carton en mesadas', 'cartón en mesadas'
+  ]);
+
+  if (hasOperationalDelaySignal || hasDispatchFailureSignal) {
+    return { iso: '8.5.1 Control operacional', matchedRule: 'operational_delay_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+  }
+  if (hasSupplierActorSignal && hasSupplierProductSignal && !hasStrongInternalHaccpSignal) {
     return { iso: '8.4 Control de procesos, productos o servicios provistos externamente', matchedRule: 'supplier_external_priority_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+  }
+  if (hasPrpSignal) {
+    return { iso: '8.2 PRP', matchedRule: 'prp_hygiene_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
   if (hasInocuidadSignal) {
     return { iso: '8.5 HACCP', matchedRule: 'inocuidad_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
@@ -183,14 +205,14 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   if (hasAny(['planificacion', 'planificación', 'menu', 'menú', 'postre', 'postres', 'variedad', 'semana'])) {
     return { iso: '8.1 Planificación y control operacional', matchedRule: 'planning_menu_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
-  if (hasAny(['salio tarde', 'salió tarde', 'tarde', 'demora', 'demoraron', 'refrigerio', 'entrega', 'transporte', 'retiro', 'logistica', 'logística'])) {
+  if (hasOperationalDelaySignal || hasDispatchFailureSignal) {
     return { iso: '8.5.1 Control operacional', matchedRule: 'operational_delay_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
   if (hasAny(['falta personal', 'falta de personal', 'faltar personal', 'reubicar personal', 'reorganizar personal', 're organizar personal', 'prioridades'])) {
     return { iso: '8.5.1 Control operacional', matchedRule: 'staff_secondary_operational_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
   if (hasAny([
-    'proveedor', 'reclamo proveedor', 'mercaderia', 'mercadería', 'fruta', 'verdura',
+    'proveedor', 'reclamo proveedor', 'fruta', 'verdura',
     'manzana', 'manzanas', 'chicas', 'verdes', 'pasada', 'mal estado', 'producto recibido', 'insumo', 'materia prima'
   ])) {
     return { iso: '8.4 Control de procesos, productos o servicios provistos externamente', matchedRule: 'supplier_external_input_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };

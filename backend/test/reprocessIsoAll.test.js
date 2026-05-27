@@ -735,3 +735,104 @@ test('reprocessIsoAll HACCP interno: decomiso por fuera de refrigeración se man
   assert.equal(res.statusCode, 200);
   assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.5 HACCP');
 });
+
+test('reprocessIsoAll mayo: demora de camión en logística interna => 8.5.1 y no 8.4', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'mayo-1',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          hallazgoDetectado: 'Se retrasa la entrega de refrigerio de los berros y calidra por demora del camion',
+          areaSector: 'Logistica',
+          clasificacionDesvio: 'logistica',
+          tipoDesvioOrigen: 'Interno',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.5.1 Control operacional');
+});
+
+test('reprocessIsoAll mayo: no se enviaron postres (error de envío/despacho) => 8.5.1', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'mayo-2',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          hallazgoDetectado: 'No se enviaron postres del evento inventario easy',
+          areaSector: 'Deposito',
+          clasificacionDesvio: 'Logistica',
+          tipoDesvioOrigen: 'Interno',
+          accionInmediata: 'Se envía segunda movilidad para completar el despacho',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.5.1 Control operacional');
+});
+
+test('reprocessIsoAll mayo: faltante de menú con operación interna prioriza 8.5.1 por contexto de despacho/entrega', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'mayo-3',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          hallazgoDetectado: 'Personal de la laja entregó guarnición por almuerzo porque faltó comida del menú del dia',
+          areaSector: 'Logistica',
+          clasificacionDesvio: 'Logistica',
+          tipoDesvioOrigen: 'Interno',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.5.1 Control operacional');
+});
+
+test('reprocessIsoAll mayo: cajas de cartón en mesadas cerca de producto => 8.2 PRP', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'mayo-4',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          hallazgoDetectado: 'personal trabajando con Cajas de carton en mesadas de produccion y elaboración cerca de los productos',
+          areaSector: 'Area fria',
+          clasificacionDesvio: 'Calidad/Inocuidad',
+          tipoDesvioOrigen: 'Interno',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.2 PRP');
+});

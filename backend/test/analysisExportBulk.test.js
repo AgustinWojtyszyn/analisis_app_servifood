@@ -208,3 +208,26 @@ test('exportBulkAnalyses de usuario no admin no exporta análisis ajenos', async
   assert.equal(rows.length, 1);
   assert.equal(rows[0]['Desvío detectado'], 'propio');
 });
+
+test('exportBulkAnalyses normaliza código 8.7 a etiqueta completa', async () => {
+  __setSupabaseAdminForTests(createSupabaseMock({
+    analyses: [
+      {
+        id: 'a-87',
+        user_id: 'u1',
+        filename: 'Compras mayo.xlsx',
+        created_at: '2026-05-12T10:00:00.000Z',
+        results: { records: [buildRecord({ desvio: 'Faltan Platinas para trabajar', iso: '8.7', relacionIso: '8.7' })] }
+      }
+    ]
+  }));
+
+  const req = { user: { id: 'u1', role: 'admin', isAdmin: true }, body: { ids: ['a-87'] } };
+  const res = createMockRes();
+  await exportBulkAnalyses(req, res);
+
+  assert.equal(res.statusCode, 200);
+  const rows = await readRows(res.buffer);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]['Relación ISO 22000'], '8.7 Control de las salidas no conformes');
+});

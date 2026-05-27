@@ -106,6 +106,7 @@ function normalizeExportIso(record = {}) {
     '8.5': '8.5 HACCP',
     '8.5.1': '8.5.1 Control operacional',
     '8.5.2': '8.5.2 Trazabilidad',
+    '8.7': '8.7 Control de las salidas no conformes',
     '7.1': '7.1 Recursos',
     '7.2': '7.2 Competencia',
     '7.5': '7.5 Información documentada',
