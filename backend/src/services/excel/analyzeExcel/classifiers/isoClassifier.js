@@ -78,8 +78,11 @@ const OPERATIONAL_COOKING_TERMS = [
 const OPERATIONAL_PLANNING_TERMS = [
   'demora', 'demoras', 'tarde', 'entrega tarde', 'entregas tarde',
   'faltante de personal', 'falta de personal', 'reubicacion de personal', 'reubicación de personal',
+  're organizar al personal', 're organizar personal', 'reorganizar al personal', 'reorganizar personal',
   'prioridades operativas', 'prioridad operativa',
+  'definir prioridades', 'prioridades para evitar reclamos',
   'planificacion de menu', 'planificación de menú', 'planificacion del menu', 'planificación del menú',
+  'se planifica la semana', 'planifica la semana',
   'falta de variedad de postres', 'variedad de postres',
   'envio repetido de postres', 'envío repetido de postres', 'postre toda la semana',
   'refrigerio salio tarde', 'refrigerio salio', 'refrigerio salió tarde',

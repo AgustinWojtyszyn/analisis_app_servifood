@@ -50,21 +50,39 @@ function isIsoManual(value = '') {
 }
 
 function resolveRecordIsoWithCurrentRules(record = {}) {
-  const hallazgoDetectado = normalizeCellValue(
-    record?.hallazgoDetectado
-    || record?.desvioDetectado
-    || record?.rawDesvioDetectado
-    || ''
-  ).trim();
-  const actividadRealizada = normalizeCellValue(
-    record?.actividadRealizada
-    || record?.textoBase
-    || ''
-  ).trim();
-  const descripcion = normalizeCellValue(record?.descripcion || '').trim();
-  const observaciones = normalizeCellValue(record?.observaciones || '').trim();
-  const accionInmediata = normalizeCellValue(record?.accionInmediata || record?.immediate_action || '').trim();
-  const accionCorrectiva = normalizeCellValue(record?.accionCorrectiva || record?.corrective_action || '').trim();
+  const pickFirstText = (...candidates) => {
+    for (const value of candidates) {
+      const normalized = normalizeCellValue(value || '').trim();
+      if (normalized && normalized !== '-') return normalized;
+    }
+    return '';
+  };
+  const hallazgoDetectado = pickFirstText(
+    record?.hallazgoDetectado,
+    record?.desvioDetectado,
+    record?.rawDesvioDetectado,
+    record?.hallazgo,
+    record?.desvio,
+    record?.finding
+  );
+  const actividadRealizada = pickFirstText(
+    record?.actividadRealizada,
+    record?.textoBase,
+    record?.actividad,
+    record?.activity
+  );
+  const descripcion = pickFirstText(record?.descripcion, record?.description);
+  const observaciones = pickFirstText(record?.observaciones, record?.comments, record?.notas);
+  const accionInmediata = pickFirstText(
+    record?.accionInmediata,
+    record?.immediate_action,
+    record?.accion_inmediata
+  );
+  const accionCorrectiva = pickFirstText(
+    record?.accionCorrectiva,
+    record?.corrective_action,
+    record?.accion_correctiva
+  );
   const areaClasificada = normalizeCellValue(record?.areaSector || record?.areaClasificada || record?.areaProceso || '').trim();
   const resultadoClasificado = normalizeCellValue(record?.resultadoClasificado || '').trim();
 
@@ -90,12 +108,45 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
     resultadoClasificado
   });
 
-  return mergeCompositeIsoLabels({
+  const mergedIso = mergeCompositeIsoLabels({
     iso22000: isoResolved,
     hallazgoDetectado: descripcionDetectada,
     actividadRealizada: actividadConAcciones,
     areaClasificada
   });
+
+  if (!isIsoManual(mergedIso)) {
+    return mergedIso;
+  }
+
+  // Fallback para análisis históricos con claves no uniformes: usa todo el contexto textual del registro.
+  const wideContext = Object.entries(record || {})
+    .filter(([key, value]) => {
+      if (value == null) return false;
+      if (typeof value !== 'string' && typeof value !== 'number') return false;
+      const normalizedKey = normalizeCellValue(key).toLowerCase();
+      return /(hallazgo|desvio|desvío|descripcion|observ|accion|actividad|texto|detalle|coment|nota|finding|issue)/.test(normalizedKey);
+    })
+    .map(([, value]) => normalizeCellValue(value).trim())
+    .filter((value) => value && value !== '-')
+    .join(' | ');
+
+  if (!wideContext) return mergedIso;
+
+  const wideIso = resolveIsoWithContextFallback({
+    iso22000: classifyIso22000FromDescription({
+      descripcionDetectada: wideContext,
+      actividadRealizada: wideContext,
+      areaClasificada,
+      resultadoClasificado
+    }),
+    hallazgoDetectado: wideContext,
+    actividadRealizada: wideContext,
+    areaClasificada,
+    resultadoClasificado
+  });
+
+  return normalizeCellValue(wideIso).trim() || mergedIso;
 }
 
 function normalizeIsoManualCounters(summary = {}, records = []) {

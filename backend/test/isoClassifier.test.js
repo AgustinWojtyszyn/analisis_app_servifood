@@ -113,3 +113,10 @@ test('Refrigerio salió tarde => 8.1 Planificación y control operacional', () =
   });
   assert.equal(result.iso22000, '8.1 Planificación y control operacional');
 });
+
+test('Reorganizar personal y definir prioridades => 8.1 Planificación y control operacional', () => {
+  const result = classifyCategoryAndIso({
+    text: 'Al re organizar al personal, definir prioridades para evitar reclamos'
+  });
+  assert.equal(result.iso22000, '8.1 Planificación y control operacional');
+});
