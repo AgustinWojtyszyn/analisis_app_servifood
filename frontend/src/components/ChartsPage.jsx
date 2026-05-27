@@ -78,7 +78,9 @@ function normalizeIsoKey(value) {
   if (!code) return shortLabel(raw, 40);
 
   const canonicalByCode = {
+    '8.1': '8.1 Planificación y control operacional',
     '8.2': '8.2 PRP',
+    '8.4': '8.4 Control de procesos, productos o servicios provistos externamente',
     '8.5': '8.5 HACCP',
     '8.5.1': '8.5.1 Control operacional',
     '8.5.2': '8.5.2 Trazabilidad',
