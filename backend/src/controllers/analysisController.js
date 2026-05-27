@@ -813,12 +813,17 @@ export async function exportBulkAnalyses(req, res) {
       return res.status(400).json({ error: 'Debes enviar ids para exportar' });
     }
 
-    const { data, error } = await supabaseAdmin
+    const isAdmin = isAdminUser(req.user);
+    let query = supabaseAdmin
       .from('analysis_history')
       .select('*')
-      .eq('user_id', req.user.id)
       .in('id', ids)
       .order('created_at', { ascending: false });
+    if (!isAdmin) {
+      query = query.eq('user_id', req.user.id);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return returnSupabaseError(res, 'export_bulk_fetch', error);

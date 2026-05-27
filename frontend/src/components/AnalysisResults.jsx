@@ -275,7 +275,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
 
   const displayedRecords = filteredRecords.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  const recordsForExport = exportMode === 'filtered' ? filteredRecords : records;
+  const recordsForExport = exportMode === 'filtered' ? displayedRecords : records;
 
   const exportConfigByFilter = {
     todos: { label: 'Exportar todos', fileName: 'analisis_todos.xlsx' },
@@ -411,7 +411,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
         onExportModeChange={(e) => setExportMode(e.target.value)}
         handleExportExcel={handleExportExcel}
         recordsForExportLength={recordsForExport.length}
-        activeExportLabel={exportMode === 'filtered' ? `${activeExportConfig.label} (vista)` : `${activeExportConfig.label} (todos)`}
+        activeExportLabel={exportMode === 'filtered' ? `${activeExportConfig.label} (vista actual)` : `${activeExportConfig.label} (todos)`}
         handleShareWhatsApp={handleShareWhatsApp}
         excelIcon={excelIcon}
         whatsappIcon={whatsappIcon}
