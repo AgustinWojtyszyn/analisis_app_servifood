@@ -143,9 +143,6 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   }
 
   const explicitIso = pickFirstText(record?.relacionIso22000, record?.iso22000, record?.iso, record?.normaISO);
-  if (explicitIso && !isInvalidStoredIso(explicitIso)) {
-    return { iso: explicitIso, matchedRule: 'excel_iso_field', decisionReason: 'excel_field', usedFields, sourceTextPreview };
-  }
 
   const hasAny = (terms = []) => terms.some((term) => strongText.includes(normalizeIncidentText(term)));
   const clasificacionNorm = normalizeIncidentText(clasificacion);
@@ -296,6 +293,10 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
     'refrigerio salio tarde', 'menu toda la semana'
   ])) {
     return { iso: '8.5.1 Control operacional', matchedRule: 'serialized_operational_delay_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+  }
+
+  if (explicitIso && !isInvalidStoredIso(explicitIso)) {
+    return { iso: explicitIso, matchedRule: 'excel_iso_field', decisionReason: 'excel_field', usedFields, sourceTextPreview };
   }
 
   return { iso: normalizedWideIso, matchedRule: 'no_reliable_rule', decisionReason: 'manual_insufficient_data', usedFields, sourceTextPreview };

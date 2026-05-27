@@ -656,6 +656,38 @@ test('reprocessIsoAll proveedor externo: masa de tartas con vencimiento ilegible
   assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.4 Control de procesos, productos o servicios provistos externamente');
 });
 
+test('reprocessIsoAll pisa ISO previo 8.5 HACCP cuando aplica regla específica de proveedor externo', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'real-5b',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          hallazgoDetectado: 'Se devuelve al proveedor la porteña masa de tartas por no tener fecha de vencimiento legible',
+          clasificacionDesvio: 'Calidad',
+          tipoDesvioOrigen: 'Externo',
+          relacionIso22000: '8.5 HACCP',
+          iso22000: '8.5 HACCP'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' }, query: { debug: '1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.4 Control de procesos, productos o servicios provistos externamente');
+  const rowDebug = res.body?.debug?.[0]?.records?.[0];
+  assert.equal(rowDebug?.previousValueFromDisplayedField, '8.5 HACCP');
+  assert.equal(rowDebug?.nextIso, '8.4 Control de procesos, productos o servicios provistos externamente');
+  assert.equal(rowDebug?.changed, true);
+  assert.equal(rowDebug?.matchedRule, 'supplier_external_priority_signal');
+  assert.equal(rowDebug?.decisionReason, 'keyword_rule');
+  assert.ok(String(rowDebug?.sourceTextPreview || '').length > 0);
+});
+
 test('reprocessIsoAll proveedor externo: devolución por exceso de grasa => 8.4', async () => {
   const mock = createSupabaseMock({
     records: [
