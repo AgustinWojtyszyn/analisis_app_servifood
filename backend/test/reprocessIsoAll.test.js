@@ -631,3 +631,75 @@ test('reprocessIsoAll caso real: faltó personal + capacitación/reemplazo => 7.
   assert.equal(res.statusCode, 200);
   assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '7.2 Competencia');
 });
+
+test('reprocessIsoAll proveedor externo: masa de tartas con vencimiento ilegible => 8.4', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'real-5',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          hallazgoDetectado: 'Se devuelve al proveedor la porteña masa de tartas por no tener fecha de vencimiento legible',
+          clasificacionDesvio: 'Calidad',
+          tipoDesvioOrigen: 'Externo',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.4 Control de procesos, productos o servicios provistos externamente');
+});
+
+test('reprocessIsoAll proveedor externo: devolución por exceso de grasa => 8.4', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'real-6',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          hallazgoDetectado: 'Se devuelve al proveedor MG el pedido de matambres por exceso de grasa',
+          clasificacionDesvio: 'Calidad',
+          tipoDesvioOrigen: 'Externo',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.4 Control de procesos, productos o servicios provistos externamente');
+});
+
+test('reprocessIsoAll HACCP interno: decomiso por fuera de refrigeración se mantiene en 8.5', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'real-7',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          hallazgoDetectado: 'Se decomisa platina de papas fritas por encontrarse fuera de refrigeracion',
+          clasificacionDesvio: 'Inocuidad',
+          tipoDesvioOrigen: 'Interno',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.5 HACCP');
+});

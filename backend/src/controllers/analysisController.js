@@ -155,13 +155,26 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
     return { iso: 'Revisar manualmente', matchedRule: 'strong_contradiction', decisionReason: 'manual_contradiction', usedFields, sourceTextPreview };
   }
 
-  if (hasInocuidadSignal) {
-    return { iso: '8.5 HACCP', matchedRule: 'inocuidad_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
-  }
   const hasAbsenceSignal = hasAny(['falto', 'faltó', 'falta sin aviso', 'ausencia', 'no asistio', 'no asistió']);
   const hasTrainingSignal = hasAny(['capacitacion', 'capacitación', 'capacitar', 'reemplazo', 'puesto']);
   if (hasAbsenceSignal && hasTrainingSignal) {
     return { iso: '7.2 Competencia', matchedRule: 'staff_absence_training_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+  }
+  const hasSupplierExternalSignal = hasAny([
+    'proveedor', 'devuelve al proveedor', 'devolucion al proveedor', 'devolución al proveedor', 'se devuelve',
+    'mercaderia', 'mercadería', 'producto recibido', 'pedido recibido', 'masa de tartas', 'masa de panqueque',
+    'fecha de vencimiento', 'vencimiento no legible', 'vencimiento ilegible', 'rotulado', 'etiqueta ilegible',
+    'exceso de grasa', 'fruta pasada', 'manzanas chicas', 'manzanas verdes'
+  ]);
+  const hasStrongInternalHaccpSignal = hasAny([
+    'fuera de refrigeracion', 'fuera de refrigeración', 'decomiso', 'temperatura critica', 'temperatura crítica',
+    'contaminacion interna', 'contaminación interna', 'manipulado internamente'
+  ]);
+  if (hasSupplierExternalSignal && !hasStrongInternalHaccpSignal) {
+    return { iso: '8.4 Control de procesos, productos o servicios provistos externamente', matchedRule: 'supplier_external_priority_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+  }
+  if (hasInocuidadSignal) {
+    return { iso: '8.5 HACCP', matchedRule: 'inocuidad_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
   if (hasAny(['maquina', 'máquina', 'equipo', 'luz', 'oficina', 'mantenimiento', 'instalacion', 'instalación'])) {
     return { iso: '8.5.1 Control operacional', matchedRule: 'maintenance_operational_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
