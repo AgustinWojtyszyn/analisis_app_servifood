@@ -572,3 +572,62 @@ test('reprocessIsoAll caso real: refrigerio salió tarde => 8.5.1 operacional', 
   assert.equal(res.statusCode, 200);
   assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.5.1 Control operacional');
 });
+
+test('reprocessIsoAll caso real: manzanas chicas y verdes + reclamo proveedor => 8.4 o fallback 8.5.1, nunca manual', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'real-3',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          fecha: '2026-05-19',
+          hallazgoDetectado: 'Adium reclama que las manzanas estaban chicas y verdes',
+          areaSector: 'deposito',
+          clasificacionDesvio: 'calidad',
+          tipoDesvioOrigen: 'Externo',
+          accionCorrectiva: 'Se le hace reclamo al proveedor.',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  const iso = mock.state.records[0].results.records[0].relacionIso22000;
+  assert.notEqual(iso, 'Revisar manualmente');
+  assert.ok(
+    iso === '8.4 Control de procesos, productos o servicios provistos externamente'
+    || iso === '8.5.1 Control operacional'
+  );
+});
+
+test('reprocessIsoAll caso real: faltó personal + capacitación/reemplazo => 7.2 Competencia', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'real-4',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          fecha: '2026-05-20',
+          hallazgoDetectado: 'Faltó Mauricio Amarfil (encargado de ensaladas)',
+          areaSector: 'Area Fria',
+          clasificacionDesvio: 'Logistica',
+          tipoDesvioOrigen: 'Interno',
+          accionCorrectiva: 'Capacitar personas para poder reemplazar por puesto.',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '7.2 Competencia');
+});

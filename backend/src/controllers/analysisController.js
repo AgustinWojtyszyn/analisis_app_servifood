@@ -158,6 +158,11 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   if (hasInocuidadSignal) {
     return { iso: '8.5 HACCP', matchedRule: 'inocuidad_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
+  const hasAbsenceSignal = hasAny(['falto', 'faltó', 'falta sin aviso', 'ausencia', 'no asistio', 'no asistió']);
+  const hasTrainingSignal = hasAny(['capacitacion', 'capacitación', 'capacitar', 'reemplazo', 'puesto']);
+  if (hasAbsenceSignal && hasTrainingSignal) {
+    return { iso: '7.2 Competencia', matchedRule: 'staff_absence_training_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+  }
   if (hasAny(['maquina', 'máquina', 'equipo', 'luz', 'oficina', 'mantenimiento', 'instalacion', 'instalación'])) {
     return { iso: '8.5.1 Control operacional', matchedRule: 'maintenance_operational_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
@@ -173,6 +178,12 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   }
   if (hasAny(['falta personal', 'falta de personal', 'faltar personal', 'reubicar personal', 'reorganizar personal', 're organizar personal', 'prioridades'])) {
     return { iso: '8.5.1 Control operacional', matchedRule: 'staff_secondary_operational_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+  }
+  if (hasAny([
+    'proveedor', 'reclamo proveedor', 'mercaderia', 'mercadería', 'fruta', 'verdura',
+    'manzana', 'manzanas', 'chicas', 'verdes', 'pasada', 'mal estado', 'producto recibido', 'insumo', 'materia prima'
+  ])) {
+    return { iso: '8.4 Control de procesos, productos o servicios provistos externamente', matchedRule: 'supplier_external_input_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
   if (hasAny(['capacitacion', 'capacitación', 'conducta', 'empleado', 'rrhh'])) {
     return { iso: '7.2 Competencia / capacitación', matchedRule: 'hr_training_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
