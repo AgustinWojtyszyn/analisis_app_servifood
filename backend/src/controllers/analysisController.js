@@ -148,7 +148,11 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   if (hasAny(['maquina', 'máquina', 'equipo', 'luz', 'oficina', 'mantenimiento', 'instalacion', 'instalación'])) {
     return { iso: '8.5.1 Control operacional', matchedRule: 'maintenance_operational_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
-  if (hasAny(['planificacion', 'planificación', 'menu', 'menú', 'postre', 'postres', 'variedad', 'semana', 'cliente', 'reclamo externo'])) {
+  const hasCookingPattern = /(carne.*(rigida|rigida|dura))|((rigida|dura).*carne)/.test(strongText);
+  if (hasAny(['coccion', 'cocción', 'horno', 'temperatura de coccion', 'temperatura de cocción']) || hasCookingPattern) {
+    return { iso: '8.5.1 Control operacional', matchedRule: 'cooking_operational_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+  }
+  if (hasAny(['planificacion', 'planificación', 'menu', 'menú', 'postre', 'postres', 'variedad', 'semana'])) {
     return { iso: '8.1 Planificación y control operacional', matchedRule: 'planning_menu_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
   if (hasAny(['salio tarde', 'salió tarde', 'tarde', 'demora', 'demoraron', 'refrigerio', 'entrega', 'transporte', 'retiro', 'logistica', 'logística'])) {

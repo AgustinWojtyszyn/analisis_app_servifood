@@ -189,7 +189,7 @@ test('reprocessIsoAll reprocesa múltiples análisis del usuario y devuelve resu
   const b1 = mock.state.records.find((row) => row.id === 'b1');
 
   assert.equal(a1.results.records[0].relacionIso22000, '8.5.1 Control operacional');
-  assert.equal(a2.results.records[0].relacionIso22000, '8.1 Planificación y control operacional');
+  assert.equal(a2.results.records[0].relacionIso22000, '8.5.1 Control operacional');
 
   assert.equal(a1.results.summary.totalRevisionManual, 0);
   assert.equal(a2.results.summary.totalRevisionManual, 0);
@@ -285,7 +285,7 @@ test('reprocessIsoAll usa descripción/acciones aunque hallazgo esté vacío', a
 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body?.success, true);
-  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.1 Planificación y control operacional');
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.5.1 Control operacional');
 });
 
 test('reprocessIsoAll: luz y máquina en oficina no queda en manual', async () => {
@@ -396,7 +396,7 @@ test('reprocessIsoAll reprocesa también análisis archived/históricos', async 
 
   assert.equal(res.statusCode, 200);
   assert.equal(mock.state.records[0].status, 'archived');
-  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.1 Planificación y control operacional');
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.5.1 Control operacional');
 });
 
 test('reprocessIsoAll debug incluye sourceTextPreview y decisionReason', async () => {
