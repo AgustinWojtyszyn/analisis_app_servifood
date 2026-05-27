@@ -119,16 +119,31 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
     return mergedIso;
   }
 
-  // Fallback para análisis históricos con claves no uniformes: usa todo el contexto textual del registro.
-  const wideContext = Object.entries(record || {})
-    .filter(([key, value]) => {
-      if (value == null) return false;
-      if (typeof value !== 'string' && typeof value !== 'number') return false;
-      const normalizedKey = normalizeCellValue(key).toLowerCase();
-      return /(hallazgo|desvio|desvío|descripcion|observ|accion|actividad|texto|detalle|coment|nota|finding|issue)/.test(normalizedKey);
-    })
-    .map(([, value]) => normalizeCellValue(value).trim())
-    .filter((value) => value && value !== '-')
+  // Fallback para análisis históricos con claves no uniformes: usa contexto profundo (incluye estructuras anidadas).
+  const collectTextLeaves = (input, depth = 0, acc = []) => {
+    if (depth > 5 || input == null) return acc;
+    if (typeof input === 'string' || typeof input === 'number' || typeof input === 'boolean') {
+      const value = normalizeCellValue(input).trim();
+      if (value && value !== '-') acc.push(value);
+      return acc;
+    }
+    if (Array.isArray(input)) {
+      for (const item of input) collectTextLeaves(item, depth + 1, acc);
+      return acc;
+    }
+    if (typeof input === 'object') {
+      for (const [key, value] of Object.entries(input)) {
+        const keyNorm = normalizeCellValue(key).toLowerCase();
+        // Evita campos irrelevantes de metadata muy ruidosos.
+        if (/(traceability|fuente_del_valor|valor_original_excel|valor_final_usado)/.test(keyNorm)) continue;
+        collectTextLeaves(value, depth + 1, acc);
+      }
+      return acc;
+    }
+    return acc;
+  };
+
+  const wideContext = Array.from(new Set(collectTextLeaves(record)))
     .join(' | ');
 
   if (!wideContext) return mergedIso;
