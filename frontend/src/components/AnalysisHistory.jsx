@@ -30,7 +30,8 @@ import {
   deleteAnalysis,
   deleteAnalysesBulk,
   exportAnalysesBulk,
-  getAnalysisHistory
+  getAnalysisHistory,
+  reprocessIsoAllAnalyses
 } from '../services/analysis';
 
 const limitOptions = [10, 25, 50];
@@ -57,6 +58,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
   });
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [reprocessingIso, setReprocessingIso] = useState(false);
 
   useEffect(() => {
     loadHistory();
@@ -154,6 +156,25 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
       loadHistory();
     } catch (err) {
       setError(err.message || 'No se pudo archivar el análisis');
+    }
+  };
+
+  const handleReprocessIsoAll = async () => {
+    const confirmed = window.confirm('Esto recalculará la relación ISO 22000 de todos tus análisis guardados usando las reglas actuales. No modificará los datos originales del Excel. ¿Continuar?');
+    if (!confirmed) return;
+
+    try {
+      setReprocessingIso(true);
+      setError('');
+      const response = await reprocessIsoAllAnalyses();
+      setSuccess(
+        `ISO reprocesada correctamente. ${response?.updatedAnalyses || 0} análisis actualizados, ${response?.recordsProcessed || 0} registros procesados, revisión manual: antes ${response?.manualBefore || 0} / ahora ${response?.manualAfter || 0}.`
+      );
+      await loadHistory();
+    } catch (_err) {
+      setError('No se pudo reprocesar la ISO. Intentalo nuevamente.');
+    } finally {
+      setReprocessingIso(false);
     }
   };
 
@@ -259,6 +280,20 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
       </Accordion>
 
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
+        <Button
+          variant="contained"
+          onClick={handleReprocessIsoAll}
+          disabled={reprocessingIso || loading}
+          sx={{
+            borderRadius: 2,
+            textTransform: 'none',
+            fontWeight: 700,
+            backgroundColor: '#1d4ed8',
+            '&:hover': { backgroundColor: '#1e40af' }
+          }}
+        >
+          {reprocessingIso ? 'Reprocesando ISO...' : 'Reprocesar ISO de todos'}
+        </Button>
         <Button variant="outlined" onClick={() => handleExportBulk()} disabled={!selectedIds.length} sx={btnGhostSx}>Exportar seleccionados</Button>
         <Button variant="outlined" color="error" onClick={handleDeleteBulk} disabled={!selectedIds.length} sx={btnSoftDangerSx}>Eliminar seleccionados</Button>
         <Button variant="outlined" color="error" onClick={handleDeleteAll} sx={btnSoftDangerSx}>Eliminar todos los análisis</Button>

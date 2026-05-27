@@ -196,3 +196,9 @@ export async function archiveAnalysis(id) {
 export async function getAnalysisById(id) {
   return await authorizedFetch(`/analysis/${id}`);
 }
+
+export async function reprocessIsoAllAnalyses() {
+  return await authorizedFetch('/analysis/reprocess-iso-all', {
+    method: 'PATCH'
+  });
+}

@@ -4,6 +4,11 @@ import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { analyzeExcel } from '../services/analyzeExcel.js';
 import { normalizeCellValue } from '../services/analyzeExcel/normalizers.js';
+import {
+  classifyIso22000FromDescription,
+  resolveIsoWithContextFallback,
+  mergeCompositeIsoLabels
+} from '../services/excel/analyzeExcel/classifiers/isoClassifier.js';
 import defaultRules from '../../../shared/businessRules/defaultRules.json' with { type: 'json' };
 import {
   mapAnalysisRowToApi,
@@ -34,6 +39,120 @@ const prisma = new PrismaClient();
 const STATUS_VALUES = new Set(['active', 'exported', 'archived']);
 const ENABLE_DEBUG_EXCEL_ANALYSIS = process.env.DEBUG_EXCEL_ANALYSIS === 'true';
 const ENABLE_REPROCESS_CLASSIFICATION_TRACE = process.env.REPROCESS_CLASSIFICATION_TRACE === '1';
+
+function isIsoManual(value = '') {
+  const normalized = normalizeCellValue(value)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return normalized.includes('revisar manualmente') || normalized.includes('revision manual');
+}
+
+function resolveRecordIsoWithCurrentRules(record = {}) {
+  const hallazgoDetectado = normalizeCellValue(record?.hallazgoDetectado || record?.desvioDetectado || '').trim();
+  const actividadRealizada = normalizeCellValue(record?.actividadRealizada || '').trim();
+  const areaClasificada = normalizeCellValue(record?.areaSector || record?.areaClasificada || record?.areaProceso || '').trim();
+  const resultadoClasificado = normalizeCellValue(record?.resultadoClasificado || '').trim();
+
+  const isoBase = classifyIso22000FromDescription({
+    descripcionDetectada: hallazgoDetectado || normalizeCellValue(record?.descripcion || '').trim(),
+    actividadRealizada,
+    areaClasificada,
+    resultadoClasificado
+  });
+
+  const isoResolved = resolveIsoWithContextFallback({
+    iso22000: isoBase,
+    hallazgoDetectado,
+    actividadRealizada,
+    areaClasificada,
+    resultadoClasificado
+  });
+
+  return mergeCompositeIsoLabels({
+    iso22000: isoResolved,
+    hallazgoDetectado,
+    actividadRealizada,
+    areaClasificada
+  });
+}
+
+function recalculateIsoForStoredResults(results = {}) {
+  const originalRecords = Array.isArray(results?.records) ? results.records : [];
+  if (originalRecords.length === 0) {
+    return {
+      nextResults: {
+        ...results,
+        reprocessedWithCurrentIsoRules: true,
+        isoReprocessedAt: new Date().toISOString()
+      },
+      recordsProcessed: 0,
+      manualBefore: 0,
+      manualAfter: 0,
+      changed: false
+    };
+  }
+
+  let manualBefore = 0;
+  let manualAfter = 0;
+  let changed = false;
+
+  const byIso22000 = {};
+
+  const nextRecords = originalRecords.map((record) => {
+    const prevIso = normalizeCellValue(record?.relacionIso22000 || record?.iso22000).trim() || 'Revisar manualmente';
+    if (isIsoManual(prevIso)) manualBefore += 1;
+
+    const nextIso = resolveRecordIsoWithCurrentRules(record) || 'Revisar manualmente';
+    if (isIsoManual(nextIso)) manualAfter += 1;
+    byIso22000[nextIso] = (byIso22000[nextIso] || 0) + 1;
+
+    if (nextIso !== prevIso) changed = true;
+
+    const nextTraceability = record?.traceability && typeof record.traceability === 'object'
+      ? {
+          ...record.traceability,
+          relacionIso22000: {
+            ...(record.traceability.relacionIso22000 || {}),
+            valor_final_usado: nextIso,
+            fuente_del_valor: 'heuristica'
+          }
+        }
+      : record?.traceability;
+
+    return {
+      ...record,
+      iso22000: nextIso,
+      relacionIso22000: nextIso,
+      ...(nextTraceability ? { traceability: nextTraceability } : {})
+    };
+  });
+
+  const baseSummary = results?.summary && typeof results.summary === 'object' ? results.summary : {};
+  const previousSummaryManual = Number(baseSummary.totalRevisionManual || 0);
+  if (previousSummaryManual !== manualAfter) changed = true;
+
+  const nextResults = {
+    ...results,
+    records: nextRecords,
+    summary: {
+      ...baseSummary,
+      totalRevisionManual: manualAfter,
+      byIso22000
+    },
+    reprocessedWithCurrentIsoRules: true,
+    isoReprocessedAt: new Date().toISOString()
+  };
+
+  return {
+    nextResults,
+    recordsProcessed: nextRecords.length,
+    manualBefore,
+    manualAfter,
+    changed
+  };
+}
 
 export async function uploadAndAnalyze(req, res) {
   try {
@@ -713,5 +832,75 @@ export async function reprocessHistoryClassifications(req, res) {
   } catch (error) {
     console.error('Error reprocesando historial:', error);
     return res.status(500).json({ error: 'Error reprocesando historial' });
+  }
+}
+
+export async function reprocessIsoAll(req, res) {
+  try {
+    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
+
+    const { data, error } = await supabaseAdmin
+      .from('analysis_history')
+      .select('id, user_id, results')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return returnSupabaseError(res, 'reprocess_iso_all_select', error);
+    }
+
+    const rows = Array.isArray(data) ? data : [];
+    if (rows.length === 0) {
+      return res.json({
+        success: true,
+        analysesProcessed: 0,
+        recordsProcessed: 0,
+        manualBefore: 0,
+        manualAfter: 0,
+        updatedAnalyses: 0
+      });
+    }
+
+    let analysesProcessed = 0;
+    let recordsProcessed = 0;
+    let manualBefore = 0;
+    let manualAfter = 0;
+    let updatedAnalyses = 0;
+
+    for (const row of rows) {
+      analysesProcessed += 1;
+      const currentResults = row?.results && typeof row.results === 'object' ? row.results : {};
+      const recalculated = recalculateIsoForStoredResults(currentResults);
+
+      recordsProcessed += recalculated.recordsProcessed;
+      manualBefore += recalculated.manualBefore;
+      manualAfter += recalculated.manualAfter;
+
+      const updateRes = await supabaseAdmin
+        .from('analysis_history')
+        .update({ results: recalculated.nextResults })
+        .eq('id', row.id)
+        .eq('user_id', req.user.id);
+
+      if (updateRes.error) {
+        return returnSupabaseError(res, 'reprocess_iso_all_update', updateRes.error);
+      }
+
+      if (recalculated.changed) {
+        updatedAnalyses += 1;
+      }
+    }
+
+    return res.json({
+      success: true,
+      analysesProcessed,
+      recordsProcessed,
+      manualBefore,
+      manualAfter,
+      updatedAnalyses
+    });
+  } catch (error) {
+    console.error('Error reprocesando ISO global:', error);
+    return res.status(500).json({ error: 'Error reprocesando ISO de todos los análisis' });
   }
 }
