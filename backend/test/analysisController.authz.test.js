@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  getAnalysis,
   archiveAnalysis,
   deleteAnalysisBulk,
   __setSupabaseAdminForTests
@@ -121,6 +122,23 @@ test('archiveAnalysis no archiva análisis de otro usuario', async () => {
   const res = createMockRes();
 
   await archiveAnalysis(req, res);
+
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.body?.error, 'Análisis no encontrado');
+});
+
+test('getAnalysis no devuelve análisis de otro usuario cuando no es admin', async () => {
+  const supabase = createSupabaseMock({
+    records: [
+      { id: 'a1', user_id: 'owner-1', status: 'active', results: {} }
+    ]
+  });
+  __setSupabaseAdminForTests(supabase);
+
+  const req = { params: { id: 'a1' }, user: { id: 'owner-2', role: 'user', isAdmin: false } };
+  const res = createMockRes();
+
+  await getAnalysis(req, res);
 
   assert.equal(res.statusCode, 404);
   assert.equal(res.body?.error, 'Análisis no encontrado');
