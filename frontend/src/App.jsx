@@ -351,7 +351,19 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'panel' || currentSection === 'history') {
-      return <AnalysisHistory key={`history-${reloadHistoryKey}`} onSelectAnalysis={handleSelectAnalysis} isAdmin={isAdmin} />;
+      return (
+        <AnalysisHistory
+          key={`history-${reloadHistoryKey}`}
+          onSelectAnalysis={handleSelectAnalysis}
+          isAdmin={isAdmin}
+          onAfterReprocess={async () => {
+            setReloadHistoryKey((prev) => prev + 1);
+            if (selectedAnalysis?.id) {
+              await loadAnalysis(selectedAnalysis.id);
+            }
+          }}
+        />
+      );
     }
 
     if (currentSection === 'upload') {

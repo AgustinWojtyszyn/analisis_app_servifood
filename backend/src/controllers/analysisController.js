@@ -1080,7 +1080,7 @@ export async function reprocessIsoAll(req, res) {
     const debugMode = String(req.query?.debug || '').trim() === '1';
     const { data, error } = await supabaseAdmin
       .from('analysis_history')
-      .select('id, user_id, results')
+      .select('id, user_id, filename, status, results')
       .eq('user_id', req.user.id)
       .order('created_at', { ascending: false });
 
@@ -1110,6 +1110,7 @@ export async function reprocessIsoAll(req, res) {
     for (const row of rows) {
       analysesProcessed += 1;
       const currentResults = row?.results && typeof row.results === 'object' ? row.results : {};
+      const recordsPathRead = Array.isArray(currentResults?.records) ? 'results.records' : 'results.records (missing)';
       const recalculated = recalculateIsoForStoredResults(currentResults, {
         collectDebug: debugMode,
         analysisId: row.id
@@ -1129,6 +1130,36 @@ export async function reprocessIsoAll(req, res) {
         return returnSupabaseError(res, 'reprocess_iso_all_update', updateRes.error);
       }
 
+      let persisted = true;
+      let persistError = null;
+      let postSaveValue = null;
+      let postSaveMatchesExpected = null;
+      const changedRecords = recalculated.debugRecords.filter((r) => r.changed);
+
+      if (debugMode || ENABLE_REPROCESS_ISO_TRACE) {
+        const verifyRes = await supabaseAdmin
+          .from('analysis_history')
+          .select('results')
+          .eq('id', row.id)
+          .eq('user_id', req.user.id)
+          .single();
+        if (verifyRes.error) {
+          persisted = false;
+          persistError = verifyRes.error?.message || 'verify_failed';
+        } else {
+          const persistedRecords = Array.isArray(verifyRes?.data?.results?.records) ? verifyRes.data.results.records : [];
+          if (changedRecords.length > 0) {
+            const firstChanged = changedRecords[0];
+            const persistedRecord = persistedRecords[firstChanged.recordIndex] || {};
+            postSaveValue = normalizeCellValue(persistedRecord?.relacionIso22000 || persistedRecord?.iso22000).trim() || null;
+            postSaveMatchesExpected = postSaveValue === firstChanged.nextIso;
+          } else {
+            postSaveValue = null;
+            postSaveMatchesExpected = true;
+          }
+        }
+      }
+
       if (recalculated.changed) {
         updatedAnalyses += 1;
       }
@@ -1136,19 +1167,39 @@ export async function reprocessIsoAll(req, res) {
       if (debugMode) {
         debug.push({
           analysisId: row.id,
+          filename: row?.filename || null,
+          status: row?.status || null,
+          recordsPathRead,
+          recordsPathWritten: 'results.records',
+          recordsCount: recalculated.recordsProcessed,
+          updatedRecordsCount: recalculated.debugRecords.filter((r) => r.changed).length,
           recordsProcessed: recalculated.recordsProcessed,
           manualBefore: recalculated.manualBefore,
           manualAfter: recalculated.manualAfter,
           changed: recalculated.changed,
+          persisted,
+          persistError,
+          postSaveValue,
+          postSaveMatchesExpected,
           records: recalculated.debugRecords
         });
       } else if (ENABLE_REPROCESS_ISO_TRACE) {
         console.log('[REPROCESS_ISO_ALL]', {
           analysisId: row.id,
+          filename: row?.filename || null,
+          status: row?.status || null,
+          recordsPathRead,
+          recordsPathWritten: 'results.records',
+          recordsCount: recalculated.recordsProcessed,
+          updatedRecordsCount: recalculated.debugRecords.filter((r) => r.changed).length,
           recordsProcessed: recalculated.recordsProcessed,
           manualBefore: recalculated.manualBefore,
           manualAfter: recalculated.manualAfter,
           changed: recalculated.changed,
+          persisted,
+          persistError,
+          postSaveValue,
+          postSaveMatchesExpected,
           sample: recalculated.debugRecords.slice(0, 3)
         });
       }

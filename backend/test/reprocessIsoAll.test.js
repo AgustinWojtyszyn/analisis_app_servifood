@@ -57,6 +57,11 @@ function createSupabaseMock({ records = [] } = {}) {
       return this;
     }
 
+    single() {
+      this.expectSingle = true;
+      return this;
+    }
+
     then(resolve, reject) {
       try {
         if (this.table !== 'analysis_history') {
@@ -75,6 +80,10 @@ function createSupabaseMock({ records = [] } = {}) {
               if (ascending) return av > bv ? 1 : -1;
               return av < bv ? 1 : -1;
             });
+          }
+          if (this.expectSingle) {
+            resolve({ data: rows[0] || null, error: rows[0] ? null : { message: 'Not found' } });
+            return;
           }
           resolve({ data: rows, error: null });
           return;
@@ -425,7 +434,14 @@ test('reprocessIsoAll debug incluye sourceTextPreview y decisionReason', async (
 
   assert.equal(res.statusCode, 200);
   assert.equal(Array.isArray(res.body?.debug), true);
+  const analysisDebug = res.body.debug?.[0];
+  assert.ok(analysisDebug?.analysisId);
+  assert.ok(analysisDebug?.recordsPathRead);
+  assert.equal(analysisDebug?.recordsPathWritten, 'results.records');
+  assert.equal(typeof analysisDebug?.persisted, 'boolean');
   const row = res.body.debug?.[0]?.records?.[0];
+  assert.equal(typeof row?.recordIndex, 'number');
+  assert.equal(typeof row?.changed, 'boolean');
   assert.ok(row?.sourceTextPreview);
   assert.ok(row?.decisionReason);
   assert.ok(row?.matchedRule);

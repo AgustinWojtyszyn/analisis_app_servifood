@@ -36,7 +36,7 @@ import {
 
 const limitOptions = [10, 25, 50];
 
-export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
+export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onAfterReprocess = null }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -171,6 +171,9 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false }) {
         `ISO reprocesada correctamente. ${response?.updatedAnalyses || 0} análisis actualizados, ${response?.recordsProcessed || 0} registros procesados, revisión manual: antes ${response?.manualBefore || 0} / ahora ${response?.manualAfter || 0}.`
       );
       await loadHistory();
+      if (typeof onAfterReprocess === 'function') {
+        await onAfterReprocess(response);
+      }
     } catch (_err) {
       setError('No se pudo reprocesar la ISO. Intentalo nuevamente.');
     } finally {
