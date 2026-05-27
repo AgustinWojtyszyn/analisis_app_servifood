@@ -126,12 +126,12 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   const strongText = normalizeIncidentText(sourceText);
 
   if (!strongText || strongText.length < 8) {
-    return { iso: 'Revisar manualmente', decisionReason: 'manual_insufficient_data', usedFields, sourceTextPreview };
+    return { iso: 'Revisar manualmente', matchedRule: 'insufficient_text', decisionReason: 'manual_insufficient_data', usedFields, sourceTextPreview };
   }
 
   const explicitIso = pickFirstText(record?.relacionIso22000, record?.iso22000, record?.iso, record?.normaISO);
   if (explicitIso && !isIsoManual(explicitIso) && explicitIso !== '-') {
-    return { iso: explicitIso, decisionReason: 'excel_field', usedFields, sourceTextPreview };
+    return { iso: explicitIso, matchedRule: 'excel_iso_field', decisionReason: 'excel_field', usedFields, sourceTextPreview };
   }
 
   const hasAny = (terms = []) => terms.some((term) => strongText.includes(normalizeIncidentText(term)));
@@ -139,26 +139,29 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   const hasInocuidadSignal = hasAny(['contaminacion', 'contaminación', 'inocuidad', 'plaga', 'temperatura critica', 'temperatura crítica', 'alimento no apto']);
   const hasLegalSignal = hasAny(['habilitacion', 'habilitación', 'contrato', 'legal', 'normativa']);
   if ((clasificacionNorm.includes('legal') && hasInocuidadSignal) || (clasificacionNorm.includes('inocu') && hasLegalSignal)) {
-    return { iso: 'Revisar manualmente', decisionReason: 'manual_contradiction', usedFields, sourceTextPreview };
+    return { iso: 'Revisar manualmente', matchedRule: 'strong_contradiction', decisionReason: 'manual_contradiction', usedFields, sourceTextPreview };
   }
 
   if (hasInocuidadSignal) {
-    return { iso: '8.5 HACCP', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+    return { iso: '8.5 HACCP', matchedRule: 'inocuidad_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
   if (hasAny(['maquina', 'máquina', 'equipo', 'luz', 'oficina', 'mantenimiento', 'instalacion', 'instalación'])) {
-    return { iso: '8.5.1 Control operacional', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+    return { iso: '8.5.1 Control operacional', matchedRule: 'maintenance_operational_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
-  if (hasAny(['entrega', 'transporte', 'retiro', 'camara', 'cámara', 'frio', 'frío', 'proveedor externo'])) {
-    return { iso: '8.1 Planificación y control operacional', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+  if (hasAny(['planificacion', 'planificación', 'menu', 'menú', 'postre', 'postres', 'variedad', 'semana', 'cliente', 'reclamo externo'])) {
+    return { iso: '8.1 Planificación y control operacional', matchedRule: 'planning_menu_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
-  if (hasAny(['demora', 'tarde', 'reubicar', 'reubicar personal', 'prioridades', 'planificacion de menu', 'postre toda la semana'])) {
-    return { iso: '8.1 Planificación y control operacional', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+  if (hasAny(['salio tarde', 'salió tarde', 'tarde', 'demora', 'demoraron', 'refrigerio', 'entrega', 'transporte', 'retiro', 'logistica', 'logística'])) {
+    return { iso: '8.5.1 Control operacional', matchedRule: 'operational_delay_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+  }
+  if (hasAny(['falta personal', 'falta de personal', 'faltar personal', 'reubicar personal', 'reorganizar personal', 're organizar personal', 'prioridades'])) {
+    return { iso: '8.5.1 Control operacional', matchedRule: 'staff_secondary_operational_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
   if (hasAny(['capacitacion', 'capacitación', 'conducta', 'empleado', 'rrhh'])) {
-    return { iso: '7.2 Competencia / capacitación', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+    return { iso: '7.2 Competencia / capacitación', matchedRule: 'hr_training_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
   if (hasLegalSignal) {
-    return { iso: 'Requisito legal / Documentación legal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+    return { iso: 'Requisito legal / Documentación legal', matchedRule: 'legal_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
 
   const isoBase = classifyIso22000FromDescription({
@@ -184,7 +187,7 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   });
 
   if (!isIsoManual(mergedIso)) {
-    return { iso: mergedIso, decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+    return { iso: mergedIso, matchedRule: 'classifier_merge', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
 
   // Fallback para análisis históricos con claves no uniformes: usa contexto profundo (incluye estructuras anidadas).
@@ -214,7 +217,7 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   const wideContext = Array.from(new Set(collectTextLeaves(record)))
     .join(' | ');
 
-  if (!wideContext) return { iso: mergedIso, decisionReason: 'manual_insufficient_data', usedFields, sourceTextPreview };
+  if (!wideContext) return { iso: mergedIso, matchedRule: 'insufficient_wide_context', decisionReason: 'manual_insufficient_data', usedFields, sourceTextPreview };
 
   const wideIso = resolveIsoWithContextFallback({
     iso22000: classifyIso22000FromDescription({
@@ -231,7 +234,7 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
 
   const normalizedWideIso = normalizeCellValue(wideIso).trim() || mergedIso;
   if (!isIsoManual(normalizedWideIso)) {
-    return { iso: normalizedWideIso, decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+    return { iso: normalizedWideIso, matchedRule: 'wide_context_classifier', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
 
   // Salvaguarda final: detecta patrones operativos en todo el registro serializado.
@@ -241,7 +244,7 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   if (hasAnySerialized([
     'coccion', 'proceso de coccion', 'carne dura', 'carne rigida', 'horno', 'temperatura de coccion'
   ])) {
-    return { iso: '8.5.1 Control operacional', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+    return { iso: '8.5.1 Control operacional', matchedRule: 'serialized_cooking_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
 
   if (hasAnySerialized([
@@ -251,10 +254,10 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
     'falta de variedad de postres', 'envio repetido de postres', 'postre toda la semana',
     'refrigerio salio tarde', 'menu toda la semana'
   ])) {
-    return { iso: '8.1 Planificación y control operacional', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
+    return { iso: '8.5.1 Control operacional', matchedRule: 'serialized_operational_delay_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
 
-  return { iso: normalizedWideIso, decisionReason: 'manual_insufficient_data', usedFields, sourceTextPreview };
+  return { iso: normalizedWideIso, matchedRule: 'no_reliable_rule', decisionReason: 'manual_insufficient_data', usedFields, sourceTextPreview };
 }
 
 function normalizeIsoManualCounters(summary = {}, records = []) {
@@ -331,7 +334,8 @@ function recalculateIsoForStoredResults(results = {}, options = {}) {
         changed: nextIso !== prevIso,
         sourceTextPreview: normalizeCellValue(resolved?.sourceTextPreview).trim() || sourceText.slice(0, 240),
         usedFields: Array.isArray(resolved?.usedFields) ? resolved.usedFields : [],
-        decisionReason: normalizeCellValue(resolved?.decisionReason).trim() || 'keyword_rule'
+        decisionReason: normalizeCellValue(resolved?.decisionReason).trim() || 'keyword_rule',
+        matchedRule: normalizeCellValue(resolved?.matchedRule).trim() || 'unknown'
       });
     }
 

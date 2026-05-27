@@ -428,5 +428,60 @@ test('reprocessIsoAll debug incluye sourceTextPreview y decisionReason', async (
   const row = res.body.debug?.[0]?.records?.[0];
   assert.ok(row?.sourceTextPreview);
   assert.ok(row?.decisionReason);
+  assert.ok(row?.matchedRule);
   assert.equal(Array.isArray(row?.usedFields), true);
+});
+
+test('reprocessIsoAll caso real: postres toda la semana => 8.1 planificación', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'real-1',
+        userId: 'u1',
+        status: 'archived',
+        record: {
+          fecha: '2026-05-14',
+          hallazgoDetectado: 'Reclamo de adium porque se les envió queso y dulce y ensalada de frutas como postre toda la semana',
+          areaSector: 'Planificación',
+          clasificacionDesvio: 'Calidad',
+          tipoDesvioOrigen: 'Externo',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.1 Planificación y control operacional');
+});
+
+test('reprocessIsoAll caso real: refrigerio salió tarde => 8.5.1 operacional', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'real-2',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          fecha: '2026-05-26',
+          hallazgoDetectado: 'Refrigerio de Adium Salio tarde',
+          areaSector: 'Area Fria',
+          clasificacionDesvio: 'Logistica',
+          tipoDesvioOrigen: 'Interno',
+          accionInmediata: 'Al faltar personal se tuvo que elaborar sanguches para estación de servicio y se demoraron los sanguches para adium. Se tuvo que reubicar el personal',
+          accionCorrectiva: 'Al re organizar al personal, definir prioridades para evitar reclamos',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.5.1 Control operacional');
 });
