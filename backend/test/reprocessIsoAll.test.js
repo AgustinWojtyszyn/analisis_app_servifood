@@ -233,3 +233,41 @@ test('reprocessIsoAll responde éxito cuando no hay análisis', async () => {
   assert.equal(res.body?.manualAfter, 0);
   assert.equal(res.body?.updatedAnalyses, 0);
 });
+
+test('reprocessIsoAll usa descripción/acciones aunque hallazgo esté vacío', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      {
+        id: 'a1',
+        user_id: 'u1',
+        created_at: new Date().toISOString(),
+        results: {
+          summary: { totalRevisionManual: 1, processedAt: '2026-01-01T10:00:00.000Z' },
+          records: [
+            {
+              fecha: '2026-01-01',
+              hallazgoDetectado: '',
+              descripcion: 'Refrigerio de Adium Salio tarde',
+              accionInmediata: 'Al faltar personal se tuvo que reubicar personal y se demoró el envío',
+              areaSector: 'Area Fria',
+              clasificacionDesvio: 'Desvío de Logística',
+              tipoDesvio: 'NC',
+              estadoAcciones: 'cerrado',
+              iso22000: 'Revisar manualmente',
+              relacionIso22000: 'Revisar manualmente'
+            }
+          ]
+        }
+      }
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body?.success, true);
+  assert.equal(mock.state.records[0].results.records[0].relacionIso22000, '8.1 Planificación y control operacional');
+});

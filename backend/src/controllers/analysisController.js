@@ -50,30 +50,50 @@ function isIsoManual(value = '') {
 }
 
 function resolveRecordIsoWithCurrentRules(record = {}) {
-  const hallazgoDetectado = normalizeCellValue(record?.hallazgoDetectado || record?.desvioDetectado || '').trim();
-  const actividadRealizada = normalizeCellValue(record?.actividadRealizada || '').trim();
+  const hallazgoDetectado = normalizeCellValue(
+    record?.hallazgoDetectado
+    || record?.desvioDetectado
+    || record?.rawDesvioDetectado
+    || ''
+  ).trim();
+  const actividadRealizada = normalizeCellValue(
+    record?.actividadRealizada
+    || record?.textoBase
+    || ''
+  ).trim();
+  const descripcion = normalizeCellValue(record?.descripcion || '').trim();
+  const observaciones = normalizeCellValue(record?.observaciones || '').trim();
+  const accionInmediata = normalizeCellValue(record?.accionInmediata || record?.immediate_action || '').trim();
+  const accionCorrectiva = normalizeCellValue(record?.accionCorrectiva || record?.corrective_action || '').trim();
   const areaClasificada = normalizeCellValue(record?.areaSector || record?.areaClasificada || record?.areaProceso || '').trim();
   const resultadoClasificado = normalizeCellValue(record?.resultadoClasificado || '').trim();
 
+  const descripcionDetectada = [hallazgoDetectado, descripcion, observaciones]
+    .filter(Boolean)
+    .join(' | ');
+  const actividadConAcciones = [actividadRealizada, accionInmediata, accionCorrectiva]
+    .filter(Boolean)
+    .join(' | ');
+
   const isoBase = classifyIso22000FromDescription({
-    descripcionDetectada: hallazgoDetectado || normalizeCellValue(record?.descripcion || '').trim(),
-    actividadRealizada,
+    descripcionDetectada,
+    actividadRealizada: actividadConAcciones,
     areaClasificada,
     resultadoClasificado
   });
 
   const isoResolved = resolveIsoWithContextFallback({
     iso22000: isoBase,
-    hallazgoDetectado,
-    actividadRealizada,
+    hallazgoDetectado: descripcionDetectada,
+    actividadRealizada: actividadConAcciones,
     areaClasificada,
     resultadoClasificado
   });
 
   return mergeCompositeIsoLabels({
     iso22000: isoResolved,
-    hallazgoDetectado,
-    actividadRealizada,
+    hallazgoDetectado: descripcionDetectada,
+    actividadRealizada: actividadConAcciones,
     areaClasificada
   });
 }
