@@ -50,6 +50,19 @@ function isIsoManual(value = '') {
   return normalized.includes('revisar manualmente') || normalized.includes('revision manual');
 }
 
+function isInvalidStoredIso(value = '') {
+  const normalized = normalizeCellValue(value)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  if (!normalized || normalized === '-' || normalized === 'n/a' || normalized === 'na') return true;
+  if (normalized.includes('revisar manualmente') || normalized.includes('revision manual')) return true;
+  if (normalized.includes('requisito no identificado')) return true;
+  if (normalized.includes('sin norma')) return true;
+  return false;
+}
+
 function resolveRecordIsoWithCurrentRules(record = {}) {
   const pickFirstText = (...candidates) => {
     for (const value of candidates) {
@@ -130,7 +143,7 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   }
 
   const explicitIso = pickFirstText(record?.relacionIso22000, record?.iso22000, record?.iso, record?.normaISO);
-  if (explicitIso && !isIsoManual(explicitIso) && explicitIso !== '-') {
+  if (explicitIso && !isInvalidStoredIso(explicitIso)) {
     return { iso: explicitIso, matchedRule: 'excel_iso_field', decisionReason: 'excel_field', usedFields, sourceTextPreview };
   }
 
@@ -1078,25 +1091,39 @@ export async function reprocessIsoAll(req, res) {
     if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
     const debugMode = String(req.query?.debug || '').trim() === '1';
-    const { data, error } = await supabaseAdmin
+    const isAdmin = isAdminUser(req.user);
+    const requestedUserId = normalizeCellValue(req.query?.userId || '').trim();
+
+    let query = supabaseAdmin
       .from('analysis_history')
       .select('id, user_id, filename, status, results')
-      .eq('user_id', req.user.id)
       .order('created_at', { ascending: false });
+    const shouldConstrainToRequester = !isAdmin || Boolean(requestedUserId);
+    if (!isAdmin) {
+      query = query.eq('user_id', req.user.id);
+    } else if (requestedUserId) {
+      query = query.eq('user_id', requestedUserId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return returnSupabaseError(res, 'reprocess_iso_all_select', error);
     }
 
     const rows = Array.isArray(data) ? data : [];
+    const analysesFound = rows.length;
     if (rows.length === 0) {
       return res.json({
         success: true,
+        analysesFound: 0,
         analysesProcessed: 0,
         recordsProcessed: 0,
+        recordsProcessedTotal: 0,
         manualBefore: 0,
         manualAfter: 0,
-        updatedAnalyses: 0
+        updatedAnalyses: 0,
+        analysesDebug: []
       });
     }
 
@@ -1120,11 +1147,14 @@ export async function reprocessIsoAll(req, res) {
       manualBefore += recalculated.manualBefore;
       manualAfter += recalculated.manualAfter;
 
-      const updateRes = await supabaseAdmin
+      let updateQuery = supabaseAdmin
         .from('analysis_history')
         .update({ results: recalculated.nextResults })
-        .eq('id', row.id)
-        .eq('user_id', req.user.id);
+        .eq('id', row.id);
+      if (shouldConstrainToRequester) {
+        updateQuery = updateQuery.eq('user_id', requestedUserId || req.user.id);
+      }
+      const updateRes = await updateQuery;
 
       if (updateRes.error) {
         return returnSupabaseError(res, 'reprocess_iso_all_update', updateRes.error);
@@ -1137,17 +1167,19 @@ export async function reprocessIsoAll(req, res) {
       const changedRecords = recalculated.debugRecords.filter((r) => r.changed);
 
       if (debugMode || ENABLE_REPROCESS_ISO_TRACE) {
-        const verifyRes = await supabaseAdmin
+        let verifyQuery = supabaseAdmin
           .from('analysis_history')
           .select('results')
-          .eq('id', row.id)
-          .eq('user_id', req.user.id)
-          .single();
-        if (verifyRes.error) {
+          .eq('id', row.id);
+        if (shouldConstrainToRequester) {
+          verifyQuery = verifyQuery.eq('user_id', requestedUserId || req.user.id);
+        }
+        const verifySingle = await verifyQuery.single();
+        if (verifySingle.error) {
           persisted = false;
-          persistError = verifyRes.error?.message || 'verify_failed';
+          persistError = verifySingle.error?.message || 'verify_failed';
         } else {
-          const persistedRecords = Array.isArray(verifyRes?.data?.results?.records) ? verifyRes.data.results.records : [];
+          const persistedRecords = Array.isArray(verifySingle?.data?.results?.records) ? verifySingle.data.results.records : [];
           if (changedRecords.length > 0) {
             const firstChanged = changedRecords[0];
             const persistedRecord = persistedRecords[firstChanged.recordIndex] || {};
@@ -1207,13 +1239,18 @@ export async function reprocessIsoAll(req, res) {
 
     const response = {
       success: true,
+      analysesFound,
       analysesProcessed,
       recordsProcessed,
+      recordsProcessedTotal: recordsProcessed,
       manualBefore,
       manualAfter,
       updatedAnalyses
     };
-    if (debugMode) response.debug = debug;
+    if (debugMode) {
+      response.debug = debug;
+      response.analysesDebug = debug;
+    }
 
     return res.json(response);
   } catch (error) {

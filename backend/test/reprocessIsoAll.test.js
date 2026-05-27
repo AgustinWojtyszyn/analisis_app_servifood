@@ -187,8 +187,10 @@ test('reprocessIsoAll reprocesa múltiples análisis del usuario y devuelve resu
 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body?.success, true);
+  assert.equal(res.body?.analysesFound, 2);
   assert.equal(res.body?.analysesProcessed, 2);
   assert.equal(res.body?.recordsProcessed, 2);
+  assert.equal(res.body?.recordsProcessedTotal, 2);
   assert.equal(res.body?.manualBefore, 2);
   assert.equal(res.body?.manualAfter, 0);
   assert.equal(res.body?.updatedAnalyses, 2);
@@ -252,8 +254,10 @@ test('reprocessIsoAll responde éxito cuando no hay análisis', async () => {
 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body?.success, true);
+  assert.equal(res.body?.analysesFound, 0);
   assert.equal(res.body?.analysesProcessed, 0);
   assert.equal(res.body?.recordsProcessed, 0);
+  assert.equal(res.body?.recordsProcessedTotal, 0);
   assert.equal(res.body?.manualBefore, 0);
   assert.equal(res.body?.manualAfter, 0);
   assert.equal(res.body?.updatedAnalyses, 0);
@@ -434,6 +438,7 @@ test('reprocessIsoAll debug incluye sourceTextPreview y decisionReason', async (
 
   assert.equal(res.statusCode, 200);
   assert.equal(Array.isArray(res.body?.debug), true);
+  assert.equal(Array.isArray(res.body?.analysesDebug), true);
   const analysisDebug = res.body.debug?.[0];
   assert.ok(analysisDebug?.analysisId);
   assert.ok(analysisDebug?.recordsPathRead);
@@ -448,6 +453,45 @@ test('reprocessIsoAll debug incluye sourceTextPreview y decisionReason', async (
   assert.ok(row?.previousValueFromDisplayedField);
   assert.equal(row?.fieldUpdated, 'relacionIso22000');
   assert.equal(Array.isArray(row?.usedFields), true);
+});
+
+test('reprocessIsoAll admin procesa active y archived de múltiples usuarios cuando no filtra userId', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'adm-1',
+        userId: 'u1',
+        status: 'active',
+        record: {
+          hallazgoDetectado: 'Refrigerio de Adium Salio tarde',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      }),
+      buildCustomAnalysisRecord({
+        id: 'adm-2',
+        userId: 'u2',
+        status: 'archived',
+        record: {
+          hallazgoDetectado: 'Reclamo de adium porque se les envió queso y dulce y ensalada de frutas como postre toda la semana',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'admin-1', role: 'admin', isAdmin: true } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body?.analysesFound, 2);
+  assert.equal(res.body?.analysesProcessed, 2);
+  assert.equal(res.body?.recordsProcessedTotal, 2);
+  assert.equal(res.body?.updatedAnalyses, 2);
+  const a1 = mock.state.records.find((row) => row.id === 'adm-1');
+  const a2 = mock.state.records.find((row) => row.id === 'adm-2');
+  assert.equal(a1.results.records[0].relacionIso22000, '8.5.1 Control operacional');
+  assert.equal(a2.results.records[0].relacionIso22000, '8.1 Planificación y control operacional');
 });
 
 test('reprocessIsoAll summary totalRevisionManual usa mismo campo ISO que tabla', async () => {
