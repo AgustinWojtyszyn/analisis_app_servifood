@@ -94,16 +94,16 @@ function validateSmtpConfigurationOrThrow({ host, port, user, from }) {
   }
 }
 
-function formatDate(value) {
+export function formatArgentinaDateTime(value) {
   const date = new Date(value || Date.now());
   if (Number.isNaN(date.getTime())) return String(value || '');
   return new Intl.DateTimeFormat('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
     hour12: false
   }).format(date);
 }
@@ -169,13 +169,13 @@ export async function sendDocumentCreatedEmailNotification(notification) {
   const logoUrl = String(process.env.LOGO_URL || 'https://analisis.servifoodapp.site/servifood_logo_white_text_HQ.png').trim();
   const safeTitle = escapeHtml(notification?.title || '-');
   const safeCategory = escapeHtml(formatCategory(notification?.module_type) || '-');
-  const safeDate = escapeHtml(formatDate(notification?.document_created_at || notification?.created_at) || '-');
+  const safeDate = escapeHtml(formatArgentinaDateTime(notification?.document_created_at || notification?.created_at) || '-');
   const text = [
     'Se cargó un nuevo documento en Documentos SGC.',
     '',
     `Nombre: ${notification?.title || '-'}`,
     `Categoría: ${formatCategory(notification?.module_type) || '-'}`,
-    `Fecha de carga: ${formatDate(notification?.document_created_at || notification?.created_at) || '-'}`,
+    `Fecha de carga: ${formatArgentinaDateTime(notification?.document_created_at || notification?.created_at) || '-'}`,
     '',
     'Podés verlo ingresando a:',
     platformUrl
