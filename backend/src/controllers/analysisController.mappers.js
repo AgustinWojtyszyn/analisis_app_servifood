@@ -201,10 +201,14 @@ function normalizeStoredAnalysisResults(results = {}) {
   }, 0);
 
   const baseSummary = results?.summary || {};
+  const totalDesvios = Number.isFinite(Number(baseSummary.totalDesvios))
+    ? Number(baseSummary.totalDesvios)
+    : normalizedRecords.length;
+
   const normalizedSummary = {
     ...baseSummary,
     totalRecords: normalizedRecords.length,
-    totalDesvios: normalizedRecords.length,
+    totalDesvios,
     totalInocuidad,
     totalLogistica,
     totalCalidad,

@@ -126,7 +126,13 @@ function buildSummaryFromRecords(records = [], baseSummary = {}) {
     const cat = resolveCategoryFromRecord(record);
     if (cat) byCategoria[cat] = (byCategoria[cat] || 0) + 1;
 
-    const alcance = normalizeCompare(record?.scope_normalized || record?.alcanceDesvio || '');
+    const alcance = normalizeCompare(
+      record?.tipoDesvioOrigen
+      || record?.scope_normalized
+      || record?.scope_original
+      || record?.alcanceDesvio
+      || ''
+    );
     if (alcance === 'interno') totalInternos += 1;
     if (alcance === 'externo') totalExternos += 1;
 
