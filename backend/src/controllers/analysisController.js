@@ -39,6 +39,7 @@ const prisma = new PrismaClient();
 const STATUS_VALUES = new Set(['active', 'exported', 'archived']);
 const ENABLE_DEBUG_EXCEL_ANALYSIS = process.env.DEBUG_EXCEL_ANALYSIS === 'true';
 const ENABLE_REPROCESS_CLASSIFICATION_TRACE = process.env.REPROCESS_CLASSIFICATION_TRACE === '1';
+const ENABLE_REPROCESS_ISO_TRACE = process.env.REPROCESS_ISO_TRACE === '1';
 
 function isIsoManual(value = '') {
   const normalized = normalizeCellValue(value)
@@ -202,8 +203,10 @@ function normalizeIsoManualCounters(summary = {}, records = []) {
   };
 }
 
-function recalculateIsoForStoredResults(results = {}) {
+function recalculateIsoForStoredResults(results = {}, options = {}) {
+  const { collectDebug = false, analysisId = null } = options;
   const originalRecords = Array.isArray(results?.records) ? results.records : [];
+  const debugRecords = [];
   if (originalRecords.length === 0) {
     return {
       nextResults: {
@@ -214,7 +217,8 @@ function recalculateIsoForStoredResults(results = {}) {
       recordsProcessed: 0,
       manualBefore: 0,
       manualAfter: 0,
-      changed: false
+      changed: false,
+      debugRecords
     };
   }
 
@@ -224,7 +228,7 @@ function recalculateIsoForStoredResults(results = {}) {
 
   const byIso22000 = {};
 
-  const nextRecords = originalRecords.map((record) => {
+  const nextRecords = originalRecords.map((record, index) => {
     const prevIso = normalizeCellValue(record?.relacionIso22000 || record?.iso22000).trim() || 'Revisar manualmente';
     if (isIsoManual(prevIso)) manualBefore += 1;
 
@@ -234,6 +238,32 @@ function recalculateIsoForStoredResults(results = {}) {
     byIso22000[nextIso] = (byIso22000[nextIso] || 0) + 1;
 
     if (nextIso !== prevIso) changed = true;
+
+    if (collectDebug || ENABLE_REPROCESS_ISO_TRACE) {
+      const sourceText = [
+        record?.hallazgoDetectado,
+        record?.desvioDetectado,
+        record?.rawDesvioDetectado,
+        record?.descripcion,
+        record?.observaciones,
+        record?.accionInmediata,
+        record?.immediate_action,
+        record?.accionCorrectiva,
+        record?.corrective_action,
+        record?.actividadRealizada,
+        record?.textoBase
+      ].map((v) => normalizeCellValue(v).trim()).filter(Boolean).join(' | ');
+
+      debugRecords.push({
+        analysisId,
+        recordIndex: index,
+        recordDate: normalizeCellValue(record?.fecha).trim() || null,
+        prevIso,
+        nextIso,
+        changed: nextIso !== prevIso,
+        sourceTextPreview: sourceText.slice(0, 240)
+      });
+    }
 
     const nextTraceability = record?.traceability && typeof record.traceability === 'object'
       ? {
@@ -276,7 +306,8 @@ function recalculateIsoForStoredResults(results = {}) {
     recordsProcessed: nextRecords.length,
     manualBefore,
     manualAfter: Number(nextSummary.totalRevisionManual || 0),
-    changed
+    changed,
+    debugRecords
   };
 }
 
@@ -965,6 +996,7 @@ export async function reprocessIsoAll(req, res) {
   try {
     if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
+    const debugMode = String(req.query?.debug || '').trim() === '1';
     const { data, error } = await supabaseAdmin
       .from('analysis_history')
       .select('id, user_id, results')
@@ -992,11 +1024,15 @@ export async function reprocessIsoAll(req, res) {
     let manualBefore = 0;
     let manualAfter = 0;
     let updatedAnalyses = 0;
+    const debug = [];
 
     for (const row of rows) {
       analysesProcessed += 1;
       const currentResults = row?.results && typeof row.results === 'object' ? row.results : {};
-      const recalculated = recalculateIsoForStoredResults(currentResults);
+      const recalculated = recalculateIsoForStoredResults(currentResults, {
+        collectDebug: debugMode,
+        analysisId: row.id
+      });
 
       recordsProcessed += recalculated.recordsProcessed;
       manualBefore += recalculated.manualBefore;
@@ -1015,16 +1051,39 @@ export async function reprocessIsoAll(req, res) {
       if (recalculated.changed) {
         updatedAnalyses += 1;
       }
+
+      if (debugMode) {
+        debug.push({
+          analysisId: row.id,
+          recordsProcessed: recalculated.recordsProcessed,
+          manualBefore: recalculated.manualBefore,
+          manualAfter: recalculated.manualAfter,
+          changed: recalculated.changed,
+          records: recalculated.debugRecords
+        });
+      } else if (ENABLE_REPROCESS_ISO_TRACE) {
+        console.log('[REPROCESS_ISO_ALL]', {
+          analysisId: row.id,
+          recordsProcessed: recalculated.recordsProcessed,
+          manualBefore: recalculated.manualBefore,
+          manualAfter: recalculated.manualAfter,
+          changed: recalculated.changed,
+          sample: recalculated.debugRecords.slice(0, 3)
+        });
+      }
     }
 
-    return res.json({
+    const response = {
       success: true,
       analysesProcessed,
       recordsProcessed,
       manualBefore,
       manualAfter,
       updatedAnalyses
-    });
+    };
+    if (debugMode) response.debug = debug;
+
+    return res.json(response);
   } catch (error) {
     console.error('Error reprocesando ISO global:', error);
     return res.status(500).json({ error: 'Error reprocesando ISO de todos los análisis' });
