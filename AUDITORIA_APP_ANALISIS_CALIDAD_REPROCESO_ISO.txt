@@ -1,0 +1,228 @@
+AUDITORIA COMPLETA - APP ANALISIS DE CALIDAD (REPROCESO ISO)
+Fecha: 2026-05-27
+Repositorio: /home/aggustin/.vscode/analisis_app_servifood
+
+A) FLUJO REAL ACTUAL DE LA APP
+
+1) Carga de Excel (frontend)
+- Componente principal de carga: frontend/src/components/FileUpload.jsx
+- Servicio API usado: frontend/src/services/analysis.js
+- Endpoints de upload utilizados:
+  - POST /upload-excel (XHR desde uploadExcel)
+  - POST /analysis/upload-multiple (fetch desde uploadMultipleAnalysis)
+- El token se obtiene desde Supabase auth session y se envía en Authorization Bearer.
+
+2) Recepción y procesamiento en backend
+- Rutas: backend/src/routes/analysis.js
+  - POST /upload-excel -> uploadAndAnalyze
+  - POST /analysis/upload-multiple -> uploadAndAnalyzeMultiple
+- Controlador: backend/src/controllers/analysisController.js
+- El procesamiento de Excel usa analyzeExcel (backend/src/services/analyzeExcel.js) y pipeline de:
+  - detección de headers
+  - parsing filas
+  - normalización
+  - clasificación (categoría/tipo/ISO)
+  - construcción de summary
+
+3) Estructura final guardada
+- Tabla Supabase usada: analysis_history
+- Inserción principal: backend/src/controllers/analysisController.utils.js (insertAnalysisHistory)
+- Columnas relevantes identificadas:
+  - id
+  - user_id
+  - filename
+  - status (active/exported/archived)
+  - results (JSON)
+  - created_at
+  - updated_at (puede no existir según entorno, hay manejo de ausencia)
+
+4) Lectura historial/detalle
+- Historial frontend:
+  - Servicio: getAnalysisHistory -> GET /analysis/history
+  - Componente: frontend/src/components/AnalysisHistory.jsx
+- Detalle de análisis:
+  - Servicio: getAnalysisById -> GET /analysis/:id
+  - Carga en App: frontend/src/App.jsx (loadAnalysis)
+  - Tabla de detalle: frontend/src/components/analysisResults/AnalysisResultsSections.jsx
+
+5) Reproceso ISO global
+- Frontend botón: AnalysisHistory.jsx -> handleReprocessIsoAll
+- Endpoint llamado: PATCH /analysis/reprocess-iso-all (sin debug por defecto)
+- Backend: analysisController.js -> reprocessIsoAll
+
+6) Exportación
+- Frontend export de detalle: frontend/src/components/AnalysisResults.jsx
+- Backend export bulk historial: POST /analysis/export/bulk
+- Campo ISO exportado en frontend detalle: record.relacionIso22000 || record.iso22000
+
+
+B) DIAGRAMA TEXTUAL DE DATOS (PATHS REALES)
+
+Frontend tabla detalle lee:
+- records[*].relacionIso22000 || records[*].iso22000
+  Referencia: frontend/src/components/analysisResults/AnalysisResultsSections.jsx
+
+Backend reproceso ISO lee:
+- analysis_history.results.records
+  Referencia: backend/src/controllers/analysisController.js (recalculateIsoForStoredResults)
+
+Backend reproceso ISO escribe:
+- analysis_history.results.records[*].relacionIso22000
+- analysis_history.results.records[*].iso22000
+- analysis_history.results.summary.byIso22000
+- analysis_history.results.summary.totalRevisionManual
+- analysis_history.results.isoReprocessedAt
+- analysis_history.results.reprocessedWithCurrentIsoRules
+
+Summary backend (normalización de resultados) cuenta manual desde:
+- record.relacionIso22000 || record.iso22000
+  Referencia: backend/src/controllers/analysisController.mappers.js
+
+Summary frontend (dashboard) cuenta manual desde:
+- record.relacionIso22000 || record.iso22000
+  Referencia: frontend/src/components/Dashboard.jsx
+
+Exportación (detalle frontend) usa:
+- record.relacionIso22000 || record.iso22000
+
+Charts ISO usa:
+- fallback a ['relacionIso22000','iso22000',...]
+  Referencia: frontend/src/components/ChartsPage.jsx
+
+
+C) LISTA DE INCONSISTENCIAS ENCONTRADAS
+
+1) Inconsistencia corregida (confirmada)
+- Antes: dashboard Rev. manual se derivaba por categoría (byCategoria), no por ISO mostrado en tabla.
+- Efecto: tabla con "Revisar manualmente" y dashboard en 0.
+- Estado: corregido.
+
+2) Inconsistencia de refresco de detalle (confirmada)
+- Antes: al reprocesar, se refrescaba historial pero no necesariamente el detalle abierto.
+- Efecto: usuario veía datos viejos en detalle pese a PATCH exitoso.
+- Estado: corregido (refetch de análisis seleccionado tras reproceso).
+
+3) Ambigüedad de campo ISO (compatibilidad histórica)
+- Existen ambos campos: relacionIso22000 e iso22000.
+- Estado actual: canónico recomendado y usado para escritura es relacionIso22000, manteniendo iso22000 como fallback/compatibilidad.
+
+4) Percepción de "0 análisis actualizados"
+- Si el cálculo produce el mismo valor ISO que ya estaba persistido, changed=false aunque se recorra el registro.
+- En esos casos recordsProcessed > 0 y updatedAnalyses puede quedar 0 legítimamente.
+
+
+D) BUGS CONFIRMADOS (Y ESTADO)
+
+1) Rev. manual no alineado con tabla
+- Severidad: ALTA
+- Estado: CORREGIDO
+- Fix: conteo manual por ISO mostrado (relacionIso22000||iso22000) en backend mappers y frontend dashboard.
+
+2) Detalle abierto no refrescado tras reproceso
+- Severidad: ALTA
+- Estado: CORREGIDO
+- Fix: callback onAfterReprocess para refetch del análisis seleccionado.
+
+3) Falta de trazabilidad suficiente en debug de reproceso
+- Severidad: MEDIA
+- Estado: CORREGIDO
+- Fix: debug por análisis y por registro ampliado con paths, persistencia y post-save check.
+
+
+E) RIESGOS ACTUALES
+
+1) Duplicados por filename
+- Riesgo de abrir/reprocesar un análisis distinto al esperado por el usuario.
+- Mitigación parcial: historial ya muestra fecha/status; recomendado exponer analysisId corto en UI admin/debug.
+
+2) Catálogo ISO mixto (8.1/8.5.1/8.4 según reglas)
+- Si reglas no están priorizadas consistentemente por caso de negocio, puede variar salida esperada.
+- Mitigación: reglas determinísticas explícitas + matchedRule en debug.
+
+3) Compatibilidad dual relacionIso22000 + iso22000
+- Mientras exista fallback, hay riesgo de divergencia si un flujo escribe solo uno.
+- Mitigación actual: reproceso escribe ambos; tabla/export leen con fallback.
+
+
+F) MEJORAS PRIORITARIAS (SIN REFACTOR GRANDE)
+
+1) Mostrar en historial (modo admin/debug):
+- analysisId corto
+- status
+- createdAt
+- recordsCount
+- manualCount
+
+2) Exponer botón/acción de debug reproceso:
+- PATCH /analysis/reprocess-iso-all?debug=1
+- Mostrar resumen por análisis en UI debug.
+
+3) Reglas ISO adicionales de negocio:
+- Caso proveedor/fruta/manzanas/verdes/chicas -> preferir 8.4 (si catálogo activo lo admite) con fallback 8.5.1.
+
+
+G) FIXES MINIMOS RECOMENDADOS (APLICADOS)
+
+1) Unificación de conteo manual con el campo que ve el usuario.
+2) Refetch de detalle abierto después del reproceso.
+3) Debug extendido:
+- Por análisis:
+  - analysisId, filename, status, recordsPathRead, recordsPathWritten, recordsCount,
+    updatedRecordsCount, manualBefore, manualAfter, persisted, persistError,
+    postSaveValue, postSaveMatchesExpected.
+- Por registro:
+  - recordIndex, desvioDetectado, previousValueFromDisplayedField, nextIso, changed,
+    fieldUpdated, sourceTextPreview, matchedRule, decisionReason, usedFields.
+4) Verificación post-save contra Supabase para confirmar persistencia real.
+
+
+H) TESTS AGREGADOS/RELEVANTES
+
+Backend (confirmado):
+- Reproceso procesa active y archived.
+- Reproceso procesa múltiples análisis del usuario.
+- recordsProcessed y updatedAnalyses consistentes con cambios.
+- Summary manual contado por el mismo campo ISO que tabla.
+- Debug incluye sourceTextPreview, matchedRule, decisionReason y campos extendidos.
+- Casos reales cubiertos:
+  - postres toda la semana -> 8.1
+  - refrigerio salió tarde -> 8.5.1
+  - mantenimiento/equipos no queda manual
+  - sin texto útil queda manual
+
+Frontend tests automáticos específicos solicitados:
+- No se detectaron suites frontend dedicadas a estos casos en este repositorio.
+- Se validó build exitoso.
+
+
+I) RESULTADO DE COMANDOS
+
+1) npm --prefix backend test
+- Resultado: PASS
+- Resumen: 115 tests, 115 pass, 0 fail.
+
+2) npm --prefix frontend run build
+- Resultado: PASS
+- Build Vite exitoso.
+- Warning no bloqueante de chunks grandes (>500kB).
+
+
+ANEXO: RESPUESTAS DIRECTAS A PUNTOS CRITICOS DEL PEDIDO
+
+- Botón frontend llama a /analysis/reprocess-iso-all (no agrega debug=1 por defecto).
+- Historial se refresca tras PATCH, y ahora también se refresca el detalle abierto.
+- Reproceso backend filtra por user_id y no filtra por status (incluye active y archived).
+- Path de lectura/escritura de registros en reproceso: results.records.
+- Persistencia: update sobre analysis_history.results + verificación post-save (en debug/trace).
+- Detalle usa relacionIso22000 con fallback iso22000.
+- Rev. manual quedó alineado al mismo campo ISO mostrado en tabla.
+
+
+CONCLUSION
+
+La causa principal de la percepción de éxito sin cambios visibles combinaba:
+1) conteo de Rev. manual no alineado al campo mostrado;
+2) detalle abierto sin refetch inmediato;
+3) falta de trazabilidad granular para confirmar persistencia por análisis/registro.
+
+Con la auditoría y ajustes mínimos aplicados, el flujo quedó trazable de extremo a extremo y verificable por debug post-save.
