@@ -158,81 +158,6 @@ function ScopePieChart({ data, textPrimary, pieColors, tooltipStyle }) {
   );
 }
 
-function IsoNormaPieChart({ data, textPrimary, pieColors, tooltipStyle }) {
-  const total = data.reduce((acc, item) => acc + Number(item.value || 0), 0);
-  return (
-    <Grid item xs={12} md={6}>
-      <Card sx={{ height: '100%' }}>
-        <CardContent sx={{ p: 1.75 }}>
-          <Typography sx={{ fontWeight: 900, mb: 2, color: textPrimary, fontSize: 17 }}>Distribución de hallazgos por requisito ISO 22000</Typography>
-          <Box sx={{ width: '100%', height: data.length === 0 ? 165 : 330 }}>
-            {data.length === 0 ? (
-              <EmptyState text="No hay datos de norma ISO" />
-            ) : (
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: { xs: 'column', md: 'row' },
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  gap: 1.75
-                }}
-              >
-                <Box sx={{ width: { xs: '100%', md: '48%' }, maxWidth: { xs: 360, md: 'none' }, minWidth: 0, height: { xs: 200, md: '100%' } }}>
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie
-                        data={data}
-                        dataKey="value"
-                        nameKey="name"
-                        outerRadius={80}
-                        label={({ percent = 0 }) => (percent ? `${Math.round(percent * 100)}%` : '')}
-                        labelLine={false}
-                      >
-                        {data.map((entry, idx) => (
-                          <Cell key={entry.name} fill={pieColors[idx % pieColors.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        {...tooltipStyle()}
-                        formatter={(value, _name, props) => {
-                          const qty = Number(value || 0);
-                          const pct = total > 0 ? Math.round((qty / total) * 100) : 0;
-                          return [`${qty} (${pct}%)`, String(props?.payload?.name || 'Requisito ISO 22000')];
-                        }}
-                        labelFormatter={(label) => String(label || '')}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </Box>
-                <Box sx={{ flex: 1, minWidth: 0, width: { xs: '100%', md: 'auto' }, maxWidth: { xs: 430, md: 'none' }, display: 'flex', flexDirection: 'column', gap: 0.75, pr: { xs: 0, md: 0.5 } }}>
-                  {data.map((item, idx) => {
-                    const qty = Number(item?.value || 0);
-                    const pct = total > 0 ? Math.round((qty / total) * 100) : 0;
-                    return (
-                      <Box key={item.name} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.8 }}>
-                        <Box sx={{ width: 10, height: 10, borderRadius: '999px', backgroundColor: pieColors[idx % pieColors.length], flexShrink: 0, mt: '4px' }} />
-                        <Typography
-                          variant="body2"
-                          sx={{ fontWeight: 800, color: textPrimary, minWidth: 0, fontSize: 13.2, lineHeight: 1.25, wordBreak: 'break-word' }}
-                          title={item.name}
-                        >
-                          {item.name}: {qty} ({pct}%)
-                        </Typography>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              </Box>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
-    </Grid>
-  );
-}
-
 function CategoryBarChart({ data, textPrimary, textMuted, tooltipStyle }) {
   return (
     <Grid item xs={12} md={6}>
@@ -265,6 +190,9 @@ function IsoChart({ data, textPrimary, textMuted, palette, tooltipStyle, IsoYAxi
       <Card>
         <CardContent sx={{ p: 1.75 }}>
           <Typography sx={{ fontWeight: 900, mb: 2, color: textPrimary, fontSize: 17 }}>Vinculación con requisitos ISO 22000</Typography>
+          <Typography sx={{ color: textMuted, fontWeight: 600, fontSize: 13.5, mb: 1.25 }}>
+            Ranking de requisitos asociados a los desvíos detectados
+          </Typography>
           <Box sx={{ width: '100%', height: data.length === 0 ? 170 : 640 }}>
             {data.length === 0 ? (
               <EmptyState text="No hay datos ISO" />
@@ -272,7 +200,7 @@ function IsoChart({ data, textPrimary, textMuted, palette, tooltipStyle, IsoYAxi
               <ResponsiveContainer>
                 <BarChart data={data} layout="vertical" margin={{ top: 8, right: 16, left: 18, bottom: 8 }} barCategoryGap={24}>
                   <XAxis type="number" allowDecimals={false} tick={{ fontSize: 13, fontWeight: 700, fill: textMuted }} />
-                  <YAxis type="category" dataKey="name" width={280} tick={<IsoYAxisTick />} />
+                  <YAxis type="category" dataKey="name" width={330} tick={<IsoYAxisTick />} />
                   <Tooltip {...tooltipStyle()} formatter={(value) => [value, 'Cantidad']} labelFormatter={(label) => String(label || '')} />
                   <Bar dataKey="value" radius={[0, 6, 6, 0]}>
                     {data.map((entry, idx) => (
@@ -323,12 +251,6 @@ export function ChartsSections({
         />
         <ScopePieChart
           data={data.desviosInternoExterno || []}
-          textPrimary={textPrimary}
-          pieColors={pieColors}
-          tooltipStyle={tooltipStyle}
-        />
-        <IsoNormaPieChart
-          data={data.distribucionPorNormaIso || []}
           textPrimary={textPrimary}
           pieColors={pieColors}
           tooltipStyle={tooltipStyle}
