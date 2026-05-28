@@ -110,7 +110,7 @@ export default function HealthPoliciesPage() {
             <Box
               sx={{
                 px: { xs: 1.5, md: 2.3 },
-                py: { xs: 1.35, md: 1.55 },
+                py: { xs: 1.45, md: 1.7 },
                 background: 'linear-gradient(120deg, #14316f 0%, #1d4ed8 100%)',
                 color: '#fff'
               }}
@@ -122,8 +122,8 @@ export default function HealthPoliciesPage() {
                     src={servifoodLogo}
                     alt="ServiFood"
                     sx={{
-                      width: { xs: 132, md: 172 },
-                      maxHeight: { xs: 50, md: 64 },
+                      width: { xs: 132, sm: 170, md: 205 },
+                      maxHeight: { xs: 56, sm: 72, md: 82 },
                       height: 'auto',
                       objectFit: 'contain',
                       display: 'block',
