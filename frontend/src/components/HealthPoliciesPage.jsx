@@ -122,7 +122,7 @@ export default function HealthPoliciesPage() {
                     src={servifoodLogo}
                     alt="ServiFood"
                     sx={{
-                      width: { xs: 132, sm: 170, md: 205 },
+                      width: { xs: 136, sm: 176, md: 214 },
                       maxHeight: { xs: 56, sm: 72, md: 82 },
                       height: 'auto',
                       objectFit: 'contain',
