@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Checkbox,
-  Chip,
   Divider,
   InputAdornment,
   Paper,
@@ -35,6 +34,7 @@ import {
 } from '../services/analysis';
 
 const limitOptions = [10, 25, 50];
+const toNumber = (value) => Number(value || 0);
 
 export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onAfterReprocess = null }) {
   const [items, setItems] = useState([]);
@@ -323,17 +323,22 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
                 />
               </TableCell>
               <TableCell sx={headCellSx}>Archivo</TableCell>
-              <TableCell sx={headCellSx}>Fecha</TableCell>
-              <TableCell sx={headCellSx}>Registros</TableCell>
-              <TableCell sx={headCellSx}>NC</TableCell>
-              <TableCell sx={headCellSx}>OBS</TableCell>
-              <TableCell sx={headCellSx}>Conformes</TableCell>
-              <TableCell sx={headCellSx}>Estado</TableCell>
+              <TableCell sx={headCellSx}>Fecha de procesamiento</TableCell>
+              <TableCell sx={headCellSx}>Total registros</TableCell>
+              <TableCell sx={headCellSx}>Total desvíos</TableCell>
+              <TableCell sx={headCellSx}>Internos</TableCell>
+              <TableCell sx={headCellSx}>Externos</TableCell>
               <TableCell sx={headCellSx}>Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {!loading && items.map((analysis) => (
+              (() => {
+                const summary = analysis.summary || {};
+                const totalDesvios = toNumber(summary.totalDesvios);
+                const totalInternos = toNumber(summary.totalInternos ?? summary.byAlcance?.Interno ?? summary.byAlcance?.interno);
+                const totalExternos = toNumber(summary.totalExternos ?? summary.byAlcance?.Externo ?? summary.byAlcance?.externo);
+                return (
               <TableRow
                 key={analysis.id}
                 hover
@@ -354,29 +359,9 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
                 </TableCell>
                 <TableCell>{new Date(analysis.uploadDate).toLocaleString('es-AR')}</TableCell>
                 <TableCell>{analysis.totalRecords || 0}</TableCell>
-                <TableCell>{analysis.summary?.totalNC || 0}</TableCell>
-                <TableCell>{analysis.summary?.totalOBS || 0}</TableCell>
-                <TableCell>{analysis.summary?.totalConformes || 0}</TableCell>
-                <TableCell>
-                  <Chip
-                    size="small"
-                    label={analysis.status || 'n/a'}
-                    sx={{
-                      fontWeight: 700,
-                      textTransform: 'lowercase',
-                      backgroundColor: analysis.status === 'active'
-                        ? 'rgba(37,99,235,0.12)'
-                        : analysis.status === 'archived'
-                          ? 'rgba(100,116,139,0.15)'
-                          : 'rgba(14,165,233,0.14)',
-                      color: analysis.status === 'active'
-                        ? '#1e40af'
-                        : analysis.status === 'archived'
-                          ? '#334155'
-                          : '#0c4a6e'
-                    }}
-                  />
-                </TableCell>
+                <TableCell>{totalDesvios}</TableCell>
+                <TableCell>{totalInternos}</TableCell>
+                <TableCell>{totalExternos}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Button variant="outlined" size="small" onClick={() => onSelectAnalysis(analysis.id)} sx={btnGhostSx}>Ver detalle</Button>
@@ -390,17 +375,19 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
                   </Box>
                 </TableCell>
               </TableRow>
+                );
+              })()
             ))}
             {loading && (
               <TableRow>
-                <TableCell colSpan={9} sx={{ py: 3 }}>
+                <TableCell colSpan={8} sx={{ py: 3 }}>
                   <Typography color="text.secondary">Cargando...</Typography>
                 </TableCell>
               </TableRow>
             )}
             {!loading && items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} sx={{ py: 3 }}>
+                <TableCell colSpan={8} sx={{ py: 3 }}>
                   <Typography color="text.secondary">Sin resultados para los filtros actuales.</Typography>
                 </TableCell>
               </TableRow>
