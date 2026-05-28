@@ -106,27 +106,44 @@ export default function HealthPoliciesPage() {
           >
             <Box
               sx={{
-                px: { xs: 1.4, md: 2 },
-                py: { xs: 1.3, md: 1.6 },
+                px: { xs: 1.5, md: 2.2 },
+                py: { xs: 1.6, md: 2.1 },
                 background: 'linear-gradient(120deg, #14316f 0%, #1d4ed8 100%)',
                 color: '#fff'
               }}
             >
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.2} alignItems={{ xs: 'flex-start', md: 'center' }} justifyContent="space-between">
-                <Stack direction="row" spacing={1.2} alignItems="center">
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.4} alignItems={{ xs: 'flex-start', md: 'center' }} justifyContent="space-between">
+                <Stack direction="row" spacing={{ xs: 1.4, md: 1.8 }} alignItems="center">
                   <Box
                     component="img"
                     src={servifoodLogo}
                     alt="ServiFood"
-                    sx={{ width: 122, height: 36, objectFit: 'contain' }}
+                    sx={{
+                      width: { xs: 150, md: 210 },
+                      height: { xs: 48, md: 68 },
+                      objectFit: 'contain',
+                      display: 'block',
+                      flexShrink: 0
+                    }}
                   />
-                  <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.3)', display: { xs: 'none', md: 'block' } }} />
+                  <Divider
+                    orientation="vertical"
+                    flexItem
+                    sx={{
+                      borderColor: 'rgba(255,255,255,0.32)',
+                      mx: { xs: 0.2, md: 0.4 },
+                      display: { xs: 'none', md: 'block' }
+                    }}
+                  />
                   <Box>
-                    <Typography sx={{ fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+                    <Typography sx={{ fontWeight: 900, letterSpacing: '-0.01em', lineHeight: 1.2, fontSize: { xs: 20, md: 24 } }}>
                       Políticas Internas
                     </Typography>
-                    <Typography sx={{ fontSize: 13, color: 'rgba(239,246,255,0.95)', mt: 0.2 }}>
+                    <Typography sx={{ fontSize: { xs: 13, md: 14 }, color: 'rgba(239,246,255,0.95)', mt: 0.25 }}>
                       Lineamientos de salud, higiene y cumplimiento interno
+                    </Typography>
+                    <Typography sx={{ mt: 0.55, fontSize: 12.8, color: 'rgba(219,234,254,0.95)', fontWeight: 600 }}>
+                      ServiFood Catering · Plataforma de análisis de desvíos
                     </Typography>
                   </Box>
                 </Stack>
@@ -142,16 +159,25 @@ export default function HealthPoliciesPage() {
                   }}
                 />
               </Stack>
-              <Typography sx={{ mt: 1, fontSize: 12.5, color: 'rgba(219,234,254,0.95)', fontWeight: 600 }}>
-                ServiFood Catering · Plataforma de análisis de desvíos
-              </Typography>
             </Box>
 
             <Box sx={{ p: { xs: 1.4, md: 2 } }}>
               {policy && (
-                <Typography sx={{ mb: 1.2, fontSize: 13, color: '#475569', fontWeight: 700 }}>
-                  Política activa: {policy.title || policy.name || 'Política vigente'}
-                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.1 }}>
+                  <Chip
+                    size="small"
+                    label="Política vigente"
+                    sx={{
+                      fontWeight: 800,
+                      color: '#1e3a8a',
+                      backgroundColor: 'rgba(29,78,216,0.12)',
+                      border: '1px solid rgba(29,78,216,0.2)'
+                    }}
+                  />
+                  <Typography sx={{ color: '#334155', fontWeight: 700, fontSize: 14 }}>
+                    {policy.title || policy.name || 'Declaración jurada de salud'}
+                  </Typography>
+                </Stack>
               )}
 
               <Typography sx={{ mb: 1.4, color: '#1f2937', lineHeight: 1.6, fontSize: 14 }}>
