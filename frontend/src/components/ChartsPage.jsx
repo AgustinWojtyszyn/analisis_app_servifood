@@ -4,7 +4,6 @@ import { ChartsSections } from './charts/ChartsSections.jsx';
 
 const palette = ['#1d4ed8', '#2563eb', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626', '#334155', '#16a34a'];
 const AREA_FALLBACK = 'Área no identificada';
-const AREA_OTHERS_LABEL = 'Otros';
 const PIE_COLORS = ['#1d4ed8', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626'];
 const TEXT_PRIMARY = '#0f172a';
 const TEXT_SECONDARY = '#334155';
@@ -172,22 +171,23 @@ function normalizeAreaDisplayName(value = '') {
 
 function parseAreaToken(value = '') {
   const raw = String(value || '').trim();
-  if (!raw) return { isUnknown: true };
+  if (!raw) return { isUnknown: false, key: normalizeCompare(AREA_FALLBACK), label: AREA_FALLBACK };
 
   const noParens = raw.replace(/\s*\(.+?\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
   const normalized = normalizeCompare(noParens);
   if (!normalized || normalized === '-' || normalized === 'n/a' || normalized === 'na') {
-    return { isUnknown: true };
+    return { isUnknown: false, key: normalizeCompare(AREA_FALLBACK), label: AREA_FALLBACK };
   }
-  if (
-    normalized === normalizeCompare(AREA_FALLBACK)
-    || normalized.includes('no identificada')
-    || normalized.includes('sin area')
-    || normalized.includes('sin sector')
-    || normalized.includes('desconocida')
-  ) {
-    return { isUnknown: true };
-  }
+
+  if (normalized === 'area fria') return { key: normalizeCompare('Área fría'), label: 'Área fría', isUnknown: false };
+  if (normalized === 'area caliente' || normalized === 'ac' || normalized === 'agua caliente') return { key: normalizeCompare('Área caliente'), label: 'Área caliente', isUnknown: false };
+  if (normalized === 'deposito') return { key: normalizeCompare('Depósito'), label: 'Depósito', isUnknown: false };
+  if (normalized === 'recursos humanos') return { key: normalizeCompare('Recursos humanos'), label: 'Recursos humanos', isUnknown: false };
+  if (normalized === 'scop') return { key: normalizeCompare('SCOP'), label: 'SCOP', isUnknown: false };
+  if (normalized === 'la portena') return { key: normalizeCompare('La porteña'), label: 'La porteña', isUnknown: false };
+  if (normalized === 'area lavadero' || normalized === 'lavadero') return { key: normalizeCompare('Lavadero'), label: 'Lavadero', isUnknown: false };
+  if (normalized === 'pre elaborado') return { key: normalizeCompare('Pre elaborados'), label: 'Pre elaborados', isUnknown: false };
+  if (normalized === 'logistica') return { key: normalizeCompare('Logística'), label: 'Logística', isUnknown: false };
 
   const cameraMatch = normalized.match(/\bcamara\s*(\d+)\b/);
   if (cameraMatch) {
@@ -393,7 +393,6 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
     const fallbackByIso = {};
     const fallbackActions = { abierto: 0, cerrado: 0 };
     const fallbackByScope = { Interno: 0, Externo: 0 };
-    let unknownAreas = 0;
     records.forEach((record) => {
       const categoria = String(
         pickFirstValue(record, ['clasificacionDesvio', 'classification_normalized', 'categoriaDesvio', 'classification_original'])
@@ -420,14 +419,12 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       const areaSource = areaRaw || areaRawFromOriginal;
       const areaList = splitAreas(areaSource);
       if (areaList.length === 0) {
-        unknownAreas += 1;
+        const parsed = parseAreaToken('');
+        fallbackByArea[parsed.key] = fallbackByArea[parsed.key] || { name: parsed.label, value: 0 };
+        fallbackByArea[parsed.key].value += 1;
       } else {
         areaList.map(normalizeArea).forEach((areaItem) => {
           const parsed = parseAreaToken(areaItem);
-          if (parsed.isUnknown) {
-            unknownAreas += 1;
-            return;
-          }
           fallbackByArea[parsed.key] = fallbackByArea[parsed.key] || { name: parsed.label, value: 0 };
           fallbackByArea[parsed.key].value += 1;
         });
@@ -460,19 +457,13 @@ export default function ChartsPage({ records = [], summary = null, analysisTotal
       const parsed = parseAreaToken(name);
       const qty = Number(value || 0);
       if (!qty) return acc;
-      if (parsed.isUnknown) {
-        unknownAreas += qty;
-        return acc;
-      }
       acc[parsed.key] = acc[parsed.key] || { name: parsed.label, value: 0 };
       acc[parsed.key].value += qty;
       return acc;
     }, {});
     const areaMapSource = hasRecords ? fallbackByArea : (Object.keys(summaryAreaParsed).length ? summaryAreaParsed : fallbackByArea);
     const areaMerged = Object.values(areaMapSource).sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
-    const desviosPorArea = unknownAreas > 0
-      ? [...areaMerged, { name: AREA_OTHERS_LABEL, value: unknownAreas }]
-      : areaMerged;
+    const desviosPorArea = areaMerged;
     const categoriaRaw = hasRecords ? fallbackByCategoria : (summaryByCategoria || fallbackByCategoria);
     const categoriasCompletas = {
       Legales: Number(categoriaRaw.Legales ?? categoriaRaw['Desvío Legal'] ?? safeSummary.totalLegal ?? 0),

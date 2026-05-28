@@ -1,0 +1,42 @@
+CAMBIOS REALIZADOS - GRAFICO "DESVIOS POR AREA"
+Fecha: 2026-05-28
+Archivo modificado: frontend/src/components/ChartsPage.jsx
+
+1) Eliminacion de la categoria "Otros"
+- Se removio la constante:
+  - AREA_OTHERS_LABEL = 'Otros'
+- Se elimino la logica que acumulaba areas en "Otros".
+- Se elimino el agregado condicional de "Otros" en el array final del grafico.
+
+2) Normalizacion de nombres equivalentes antes de contar
+Se agregaron/ajustaron reglas en parseAreaToken(...) para mapear exactamente:
+- "area fria" => "Área fría"
+- "area caliente" / "Area caliente" => "Área caliente"
+- "deposito" => "Depósito"
+- "recursos humanos" => "Recursos humanos"
+- "scop" => "SCOP"
+- "la porteña" / "La porteña" => "La porteña"
+- "area lavadero" / "lavadero" => "Lavadero"
+- "pre elaborado" => "Pre elaborados"
+- "logistica" => "Logística"
+
+3) Conteo completo de areas reales (sin agrupar en "Otros")
+- Ya no existe el contador unknownAreas para mover casos a "Otros".
+- Si un registro no trae area valida, se contabiliza como "Área no identificada".
+- Si trae area, siempre se suma a su etiqueta normalizada.
+
+4) Orden del grafico
+- Se mantiene el orden descendente por cantidad:
+  - sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
+
+5) Consistencia del total
+- Al eliminar "Otros" y contar cada registro directamente en un area final,
+  el total del grafico de areas coincide con el total de desvios procesados.
+
+6) Build de verificacion
+- Comando ejecutado: npm --prefix frontend run build
+- Resultado: OK (sin errores de compilacion)
+
+Notas tecnicas
+- No se modificaron componentes de visualizacion externos al armado de datos.
+- El cambio se concentro en la logica de parseo/agrupacion de areas en ChartsPage.jsx.
