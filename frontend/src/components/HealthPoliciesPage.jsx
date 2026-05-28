@@ -34,23 +34,23 @@ function PolicySection({ icon, title, text }) {
   return (
     <Box
       sx={{
-        border: '1px solid rgba(37,99,235,0.13)',
+        border: '1px solid rgba(148,163,184,0.28)',
         borderRadius: 2.2,
-        p: { xs: 1.35, md: 1.55 },
-        backgroundColor: '#f8fbff',
-        minHeight: { md: 178 },
+        p: { xs: 1.25, md: 1.45 },
+        backgroundColor: '#fcfdff',
+        minHeight: { md: 170 },
         height: '100%'
       }}
     >
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75 }}>
+      <Stack direction="row" spacing={0.95} alignItems="center" sx={{ mb: 0.7 }}>
         <Box
           sx={{
-            width: 35,
-            height: 35,
+            width: 34,
+            height: 34,
             borderRadius: '50%',
             display: 'grid',
             placeItems: 'center',
-            backgroundColor: 'rgba(37,99,235,0.12)',
+            backgroundColor: 'rgba(37,99,235,0.09)',
             color: '#1e3a8a'
           }}
         >
@@ -60,7 +60,7 @@ function PolicySection({ icon, title, text }) {
           {title}
         </Typography>
       </Stack>
-      <Typography sx={{ color: '#334155', lineHeight: 1.62, fontSize: 14 }}>
+      <Typography sx={{ color: '#334155', lineHeight: 1.64, fontSize: 13.9 }}>
         {text}
       </Typography>
     </Box>
@@ -91,8 +91,8 @@ export default function HealthPoliciesPage() {
   };
 
   return (
-    <Card sx={{ borderRadius: 3.2, border: '1px solid rgba(37,99,235,0.16)', boxShadow: '0 14px 34px rgba(15, 23, 42, 0.08)' }}>
-      <CardContent sx={{ p: { xs: 1.8, md: 2.8 } }}>
+    <Card sx={{ borderRadius: 3.2, border: '1px solid rgba(148,163,184,0.28)', boxShadow: '0 10px 28px rgba(15, 23, 42, 0.06)' }}>
+      <CardContent sx={{ p: { xs: 1.7, md: 2.5 } }}>
         {loading && <CircularProgress size={22} />}
         {!loading && error && <Alert severity="error">{error}</Alert>}
         {!loading && !error && !policy && <Alert severity="info">No hay política activa configurada.</Alert>}
@@ -100,29 +100,30 @@ export default function HealthPoliciesPage() {
         {!loading && (
           <Box
             sx={{
-              border: '1px solid rgba(148,163,184,0.28)',
+              border: '1px solid rgba(148,163,184,0.24)',
               borderRadius: 2.8,
               overflow: 'hidden',
               backgroundColor: '#fff',
-              boxShadow: '0 8px 22px rgba(15,23,42,0.06)'
+              boxShadow: '0 6px 18px rgba(15,23,42,0.05)'
             }}
           >
             <Box
               sx={{
                 px: { xs: 1.5, md: 2.3 },
-                py: { xs: 1.75, md: 2.15 },
+                py: { xs: 1.35, md: 1.55 },
                 background: 'linear-gradient(120deg, #14316f 0%, #1d4ed8 100%)',
                 color: '#fff'
               }}
             >
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 1.35, md: 1.8 }} alignItems={{ xs: 'flex-start', md: 'center' }} justifyContent="space-between">
-                <Stack direction="row" spacing={{ xs: 1.3, md: 1.65 }} alignItems="center">
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 1.15, md: 1.4 }} alignItems={{ xs: 'flex-start', md: 'center' }} justifyContent="space-between">
+                <Stack direction="row" spacing={{ xs: 1.15, md: 1.45 }} alignItems="center">
                   <Box
                     component="img"
                     src={servifoodLogo}
                     alt="ServiFood"
                     sx={{
                       width: { xs: 132, md: 172 },
+                      maxHeight: { xs: 50, md: 64 },
                       height: 'auto',
                       objectFit: 'contain',
                       display: 'block',
@@ -133,19 +134,19 @@ export default function HealthPoliciesPage() {
                     orientation="vertical"
                     flexItem
                     sx={{
-                      borderColor: 'rgba(255,255,255,0.24)',
+                      borderColor: 'rgba(255,255,255,0.2)',
                       mx: { xs: 0.1, md: 0.3 },
                       display: { xs: 'none', md: 'block' }
                     }}
                   />
                   <Box>
-                    <Typography sx={{ fontWeight: 900, letterSpacing: '-0.012em', lineHeight: 1.15, fontSize: { xs: 21, md: 27 } }}>
+                    <Typography sx={{ fontWeight: 900, letterSpacing: '-0.012em', lineHeight: 1.15, fontSize: { xs: 20, md: 25.5 } }}>
                       Políticas Internas
                     </Typography>
-                    <Typography sx={{ fontSize: { xs: 13.1, md: 14.2 }, color: 'rgba(239,246,255,0.95)', mt: 0.32, lineHeight: 1.35 }}>
+                    <Typography sx={{ fontSize: { xs: 12.9, md: 14 }, color: 'rgba(239,246,255,0.95)', mt: 0.25, lineHeight: 1.32 }}>
                       Lineamientos de salud, higiene y cumplimiento interno
                     </Typography>
-                    <Typography sx={{ mt: 0.65, fontSize: 12.75, color: 'rgba(219,234,254,0.95)', fontWeight: 600 }}>
+                    <Typography sx={{ mt: 0.45, fontSize: 12.6, color: 'rgba(219,234,254,0.95)', fontWeight: 600 }}>
                       ServiFood Catering · Plataforma de análisis de desvíos
                     </Typography>
                   </Box>
@@ -157,23 +158,23 @@ export default function HealthPoliciesPage() {
                   sx={{
                     fontWeight: 700,
                     color: '#eff6ff',
-                    border: '1px solid rgba(219,234,254,0.34)',
-                    backgroundColor: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(219,234,254,0.3)',
+                    backgroundColor: 'rgba(255,255,255,0.07)',
                     '& .MuiChip-icon': { color: 'rgba(239,246,255,0.95)' }
                   }}
                 />
               </Stack>
             </Box>
 
-            <Box sx={{ p: { xs: 1.5, md: 2.15 } }}>
+            <Box sx={{ p: { xs: 1.45, md: 2 } }}>
               {policy && (
                 <Box
                   sx={{
-                    mb: 1.35,
-                    p: { xs: 1.1, md: 1.25 },
+                    mb: 1.3,
+                    p: { xs: 1, md: 1.2 },
                     borderRadius: 1.9,
-                    border: '1px solid rgba(37,99,235,0.16)',
-                    backgroundColor: 'rgba(248,251,255,0.9)'
+                    border: '1px solid rgba(148,163,184,0.26)',
+                    backgroundColor: 'rgba(248,251,255,0.82)'
                   }}
                 >
                   <Chip
@@ -183,15 +184,15 @@ export default function HealthPoliciesPage() {
                       mb: 0.8,
                       fontWeight: 800,
                       color: '#1e3a8a',
-                      backgroundColor: 'rgba(37,99,235,0.11)',
-                      border: '1px solid rgba(37,99,235,0.22)'
+                      backgroundColor: 'rgba(37,99,235,0.1)',
+                      border: '1px solid rgba(37,99,235,0.18)'
                     }}
                   />
                   <Typography sx={{ color: '#0f172a', fontWeight: 800, fontSize: 16, letterSpacing: '-0.01em', mb: 0.35 }}>
                     {policy.title || policy.name || 'Declaración jurada de salud'}
                   </Typography>
                   <Typography sx={{ color: '#475569', fontSize: 13.5, lineHeight: 1.5 }}>
-                    Documento vigente de cumplimiento interno para salud ocupacional, higiene y prevención de riesgos en inocuidad alimentaria.
+                    Documento aplicable a ingresos y tareas en planta.
                   </Typography>
                 </Box>
               )}
@@ -200,7 +201,7 @@ export default function HealthPoliciesPage() {
                 Declaro encontrarme en condiciones de salud adecuadas al momento de ingresar a la planta y manifiesto haber leído y comprendido la política interna vigente de la empresa.
               </Typography>
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.3 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.15 }}>
                 <PolicySection
                   icon={<HealthAndSafetyRoundedIcon sx={{ fontSize: 19 }} />}
                   title="Declaración jurada de salud"
@@ -223,12 +224,12 @@ export default function HealthPoliciesPage() {
                 />
               </Box>
 
-              <Divider sx={{ mt: 1.55, mb: 1.1, borderColor: 'rgba(148,163,184,0.3)' }} />
+              <Divider sx={{ mt: 1.45, mb: 1, borderColor: 'rgba(148,163,184,0.26)' }} />
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.6} justifyContent="space-between">
-                <Typography sx={{ color: '#334155', fontSize: 12.7, fontWeight: 700 }}>
+                <Typography sx={{ color: '#475569', fontSize: 12.5, fontWeight: 600 }}>
                   ServiFood Catering · Plataforma de análisis de desvíos
                 </Typography>
-                <Typography sx={{ color: '#475569', fontSize: 12.7, fontWeight: 600 }}>
+                <Typography sx={{ color: '#475569', fontSize: 12.5, fontWeight: 600 }}>
                   Última actualización: {currentMonthYear}
                 </Typography>
               </Stack>
