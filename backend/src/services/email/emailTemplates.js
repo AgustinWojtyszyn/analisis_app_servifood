@@ -22,6 +22,7 @@ export function renderBaseEmailTemplate({
   ctaText = '',
   ctaUrl = '',
   logoUrl = '',
+  logoOnBlueHeader = false,
   footerTitle = 'ServiFood Catering',
   footerSubtitle = 'Sistema de Gestión de Calidad',
   footer = 'Este aviso corresponde a la app de análisis de Servifood.'
@@ -39,6 +40,7 @@ export function renderBaseEmailTemplate({
   const hasCta = Boolean(safeCtaText && safeCtaUrl);
   const hasLogo = Boolean(safeLogoUrl);
   const hasHighlight = Boolean(safeHighlightText);
+  const useBlueHeaderForLogo = Boolean(logoOnBlueHeader && hasLogo);
 
   return `<!doctype html>
 <html lang="es">
@@ -47,9 +49,10 @@ export function renderBaseEmailTemplate({
       <tr>
         <td align="center">
           <table role="presentation" width="620" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:18px;overflow:hidden;">
+            ${useBlueHeaderForLogo ? `<tr><td style="background:#123B7A;padding:18px 24px;text-align:center;"><img src="${escapeHtml(safeLogoUrl)}" alt="ServiFood" style="max-width:140px;height:auto;display:block;margin:0 auto;border:0;outline:none;text-decoration:none;" /></td></tr>` : ''}
             <tr>
-              <td style="padding:28px 30px 8px 30px;text-align:center;">
-                ${hasLogo ? `<img src="${escapeHtml(safeLogoUrl)}" alt="ServiFood" style="max-width:140px;height:auto;display:block;margin:0 auto 16px auto;border:0;outline:none;text-decoration:none;" />` : ''}
+              <td style="padding:${useBlueHeaderForLogo ? '24px 30px 8px 30px' : '28px 30px 8px 30px'};text-align:center;">
+                ${hasLogo && !useBlueHeaderForLogo ? `<img src="${escapeHtml(safeLogoUrl)}" alt="ServiFood" style="max-width:140px;height:auto;display:block;margin:0 auto 16px auto;border:0;outline:none;text-decoration:none;" />` : ''}
                 <h1 style="margin:0 0 6px 0;font-size:28px;line-height:1.2;color:#082B63;">${safeHeadline}</h1>
                 <p style="margin:0;font-size:14px;color:#4f6382;">${safeSubtitle}</p>
               </td>
@@ -116,6 +119,7 @@ export function renderCertificationExpirationEmail({ certification, triggerInfo,
     ctaText: certificationsUrl ? 'Ver certificaciones' : '',
     ctaUrl: certificationsUrl || '',
     logoUrl: logoUrl || '',
+    logoOnBlueHeader: true,
     footer: 'Este envío corresponde a una prueba controlada. Por ahora las notificaciones reales a usuarios no están activadas.'
   });
 }
