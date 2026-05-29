@@ -145,9 +145,9 @@ export async function sendCertificationExpirationPilotEmail({ certification, tri
     certificationsUrl,
     logoUrl: resolveEmailLogoUrl()
   });
-  const humanTrigger = triggerInfo?.triggerType === 'one_day_before'
-    ? 'Vence mañana'
-    : (triggerInfo?.triggerType === 'seven_days_before' ? 'Vence en 7 días' : 'Próximo vencimiento');
+  const days = Number(triggerInfo?.daysUntilExpiration);
+  const humanTrigger = triggerInfo?.humanTriggerLabel
+    || (days === 0 ? 'Vence hoy' : (days === 1 ? 'Vence mañana' : (days >= 2 && days <= 7 ? `Vence en ${days} días` : 'Próximo vencimiento')));
   const text = [
     'Hola,',
     '',

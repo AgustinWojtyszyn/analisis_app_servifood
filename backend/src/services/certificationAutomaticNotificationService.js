@@ -20,6 +20,12 @@ function ensureConfigured() {
   }
 }
 
+function getEquivalentTriggerTypes(triggerType = '') {
+  if (triggerType === 'early_warning') return ['early_warning', 'seven_days_before'];
+  if (triggerType === 'urgent_warning') return ['urgent_warning', 'one_day_before'];
+  return [triggerType].filter(Boolean);
+}
+
 export async function processCertificationAutomaticNotification(certification) {
   ensureConfigured();
   const triggerInfo = getCertificationNotificationTrigger(certification?.expiration_date);
@@ -40,6 +46,34 @@ export async function processCertificationAutomaticNotification(certification) {
     status: 'processing',
     error_message: null
   };
+
+  const equivalentTypes = getEquivalentTriggerTypes(triggerInfo.triggerType);
+  const { data: existingLogs, error: existingLogsError } = await supabaseAdmin
+    .from('certification_notification_logs')
+    .select('id')
+    .eq('certification_id', certification.id)
+    .eq('recipient', CERTIFICATION_TEST_EMAIL_RECIPIENT)
+    .in('trigger_type', equivalentTypes)
+    .limit(1);
+
+  if (existingLogsError) {
+    return {
+      certificationId: certification?.id || null,
+      status: 'failed',
+      triggerType: triggerInfo.triggerType,
+      daysUntilExpiration: triggerInfo.daysUntilExpiration,
+      error: existingLogsError.message || 'Error consultando logs de notificación'
+    };
+  }
+
+  if (Array.isArray(existingLogs) && existingLogs.length > 0) {
+    return {
+      certificationId: certification?.id || null,
+      status: 'skipped_already_sent',
+      triggerType: triggerInfo.triggerType,
+      daysUntilExpiration: triggerInfo.daysUntilExpiration
+    };
+  }
 
   const reserveRes = await supabaseAdmin
     .from('certification_notification_logs')

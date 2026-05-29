@@ -117,12 +117,10 @@ export function renderNewSgcModuleEmail({ title, category, uploadedAt, platformU
 
 export function renderCertificationExpirationEmail({ certification, triggerInfo, certificationsUrl, logoUrl }) {
   const days = Number(triggerInfo?.daysUntilExpiration);
-  const humanTrigger = days === 1 ? 'Vence mañana' : (days === 7 ? 'Vence en 7 días' : 'Próximo vencimiento');
-  const preheaderExpirationLabel = days === 1 ? 'mañana' : (days === 7 ? 'en 7 días' : 'próximamente');
+  const humanTrigger = days === 0 ? 'Vence hoy' : (days === 1 ? 'Vence mañana' : (days >= 2 && days <= 7 ? `Vence en ${days} días` : 'Próximo vencimiento'));
+  const preheaderExpirationLabel = days === 0 ? 'hoy' : (days === 1 ? 'mañana' : (days >= 2 && days <= 7 ? `en ${days} días` : 'próximamente'));
   const certificationName = certification?.name || '-';
-  const highlightText = triggerInfo?.daysUntilExpiration === 1
-    ? 'Vence mañana'
-    : (triggerInfo?.daysUntilExpiration === 7 ? 'Vence en 7 días' : '');
+  const highlightText = days === 0 ? 'Vence hoy' : (days === 1 ? 'Vence mañana' : (days >= 2 && days <= 7 ? `Vence en ${days} días` : ''));
   return renderBaseEmailTemplate({
     headline: 'Certificación próxima a vencer',
     intro: 'Hola,\n\nEsta es una notificación de prueba del módulo de Certificaciones de ServiFood.\n\nDetectamos una certificación próxima a vencer y se generó este aviso interno para validar el funcionamiento del sistema de notificaciones.',
@@ -146,10 +144,10 @@ export function renderCertificationExpirationEmail({ certification, triggerInfo,
 
 export function renderCertificationAutomaticPilotEmail({ certification, triggerInfo, certificationsUrl, logoUrl }) {
   const days = Number(triggerInfo?.daysUntilExpiration);
-  const humanTrigger = days === 1 ? 'Vence mañana' : (days === 7 ? 'Vence en 7 días' : 'Próximo vencimiento');
-  const preheaderExpirationLabel = days === 1 ? 'mañana' : (days === 7 ? 'en 7 días' : 'próximamente');
+  const humanTrigger = days === 0 ? 'Vence hoy' : (days === 1 ? 'Vence mañana' : (days >= 2 && days <= 7 ? `Vence en ${days} días` : 'Próximo vencimiento'));
+  const preheaderExpirationLabel = days === 0 ? 'hoy' : (days === 1 ? 'mañana' : (days >= 2 && days <= 7 ? `en ${days} días` : 'próximamente'));
   const certificationName = certification?.name || '-';
-  const highlightText = days === 1 ? 'Vence mañana' : (days === 7 ? 'Vence en 7 días' : '');
+  const highlightText = days === 0 ? 'Vence hoy' : (days === 1 ? 'Vence mañana' : (days >= 2 && days <= 7 ? `Vence en ${days} días` : ''));
 
   return renderBaseEmailTemplate({
     headline: 'Certificación próxima a vencer',

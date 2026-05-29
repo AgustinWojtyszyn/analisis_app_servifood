@@ -4,8 +4,8 @@ import { Chip } from '@mui/material';
 const map = {
   active: { label: 'Vigente', color: 'success' },
   near_expiration: { label: 'Próxima a vencer', color: 'warning' },
-  expires_in_7_days: { label: 'Vence en 7 días', color: 'warning' },
   expires_tomorrow: { label: 'Vence mañana', color: 'error' },
+  expires_today: { label: 'Vence hoy', color: 'error' },
   expired: { label: 'Vencida', color: 'error' }
 };
 

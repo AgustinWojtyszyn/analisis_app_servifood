@@ -58,7 +58,7 @@ export default function CertificationsPage() {
 
   const triggerBanner = useMemo(() => {
     if (!preview.triggerCount) return null;
-    return `${preview.triggerCount} trigger(s) detectado(s). ${preview.message || 'Envío desactivado en período de prueba.'}`;
+    return `${preview.triggerCount} trigger(s) detectado(s). ${preview.message || 'Monitoreo automático piloto activo.'}`;
   }, [preview]);
 
   const moduleOptions = useMemo(() => {
@@ -128,7 +128,7 @@ export default function CertificationsPage() {
       if (response?.success) {
         setSuccessMessage(`Email de prueba enviado a ${response.recipient}`);
       } else {
-        setError(response?.message || 'La certificación no dispara notificación hoy. Ajustá la fecha de vencimiento para probar un trigger de 7 días o 1 día.');
+        setError(response?.message || 'La certificación no dispara notificación hoy. Ajustá la fecha para que venza entre 2 y 7 días, mañana o hoy.');
       }
       await loadData();
     } catch (e) {
@@ -215,8 +215,8 @@ export default function CertificationsPage() {
                 <MenuItem value="all">Todos</MenuItem>
                 <MenuItem value="active">Vigente</MenuItem>
                 <MenuItem value="near_expiration">Próxima a vencer</MenuItem>
-                <MenuItem value="expires_in_7_days">Vence en 7 días</MenuItem>
                 <MenuItem value="expires_tomorrow">Vence mañana</MenuItem>
+                <MenuItem value="expires_today">Vence hoy</MenuItem>
                 <MenuItem value="expired">Vencida</MenuItem>
               </TextField>
               <TextField size="small" select label="Módulo/Categoría" value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>

@@ -7,7 +7,8 @@ export function getCertificationNotificationTrigger(expirationDate, now = new Da
       status: 'active',
       shouldNotify: false,
       triggerType: null,
-      daysUntilExpiration: Number.NaN
+      daysUntilExpiration: Number.NaN,
+      humanTriggerLabel: 'Sin aviso para hoy'
     };
   }
 
@@ -21,7 +22,18 @@ export function getCertificationNotificationTrigger(expirationDate, now = new Da
       status: 'expired',
       shouldNotify: false,
       triggerType: null,
-      daysUntilExpiration
+      daysUntilExpiration,
+      humanTriggerLabel: 'Vencida'
+    };
+  }
+
+  if (daysUntilExpiration === 0) {
+    return {
+      status: 'expires_today',
+      shouldNotify: true,
+      triggerType: 'urgent_warning',
+      daysUntilExpiration,
+      humanTriggerLabel: 'Vence hoy'
     };
   }
 
@@ -29,26 +41,19 @@ export function getCertificationNotificationTrigger(expirationDate, now = new Da
     return {
       status: 'expires_tomorrow',
       shouldNotify: true,
-      triggerType: 'one_day_before',
-      daysUntilExpiration
-    };
-  }
-
-  if (daysUntilExpiration === 7) {
-    return {
-      status: 'expires_in_7_days',
-      shouldNotify: true,
-      triggerType: 'seven_days_before',
-      daysUntilExpiration
+      triggerType: 'urgent_warning',
+      daysUntilExpiration,
+      humanTriggerLabel: 'Vence mañana'
     };
   }
 
   if (daysUntilExpiration >= 2 && daysUntilExpiration <= 7) {
     return {
       status: 'near_expiration',
-      shouldNotify: false,
-      triggerType: null,
-      daysUntilExpiration
+      shouldNotify: true,
+      triggerType: 'early_warning',
+      daysUntilExpiration,
+      humanTriggerLabel: `Vence en ${daysUntilExpiration} días`
     };
   }
 
@@ -56,7 +61,8 @@ export function getCertificationNotificationTrigger(expirationDate, now = new Da
     status: 'active',
     shouldNotify: false,
     triggerType: null,
-    daysUntilExpiration
+    daysUntilExpiration,
+    humanTriggerLabel: 'Sin aviso para hoy'
   };
 }
 
@@ -78,8 +84,7 @@ export function enrichCertificationWithNotification(certification = {}, now = ne
     shouldNotify: notification.shouldNotify,
     triggerType: notification.triggerType,
     daysUntilExpiration: notification.daysUntilExpiration,
-    notificationMessage: notification.shouldNotify
-      ? 'Trigger detectado, envío desactivado en período de prueba'
-      : null
+    humanTriggerLabel: notification.humanTriggerLabel || 'Sin aviso para hoy',
+    notificationMessage: notification.humanTriggerLabel || 'Sin aviso para hoy'
   };
 }

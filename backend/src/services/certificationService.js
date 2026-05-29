@@ -14,6 +14,12 @@ const supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey)
   : null;
 
+function getEquivalentTriggerTypes(triggerType = '') {
+  if (triggerType === 'early_warning') return ['early_warning', 'seven_days_before'];
+  if (triggerType === 'urgent_warning') return ['urgent_warning', 'one_day_before'];
+  return [triggerType].filter(Boolean);
+}
+
 function ensureConfigured() {
   if (!supabaseAdmin) {
     const error = new Error('Supabase no está configurado en el backend');
@@ -84,17 +90,24 @@ export async function listCertifications() {
     if (!item?.shouldNotify || !item?.triggerType) {
       return {
         ...item,
-        notificationMessage: 'Sin aviso para hoy',
+        notificationMessage: item?.status === 'expired' ? 'Vencida' : 'Sin aviso para hoy',
         notificationStatus: 'none'
       };
     }
-
-    const key = `${item.id}::${item.triggerType}`;
-    const currentStatus = byCertificationTrigger.get(key) || '';
+    const equivalentTypes = getEquivalentTriggerTypes(item.triggerType);
+    let currentStatus = '';
+    for (const type of equivalentTypes) {
+      const key = `${item.id}::${type}`;
+      const status = byCertificationTrigger.get(key) || '';
+      if (status) {
+        currentStatus = status;
+        break;
+      }
+    }
     if (currentStatus === 'sent') {
       return {
         ...item,
-        notificationMessage: 'Notificación enviada',
+        notificationMessage: item.triggerType === 'urgent_warning' ? 'Aviso urgente enviado' : 'Aviso temprano enviado',
         notificationStatus: 'sent'
       };
     }
@@ -109,14 +122,14 @@ export async function listCertifications() {
 
     return {
       ...item,
-      notificationMessage: 'Trigger detectado, listo para notificación automática piloto',
+      notificationMessage: 'Trigger detectado, pendiente de envío automático',
       notificationStatus: currentStatus === 'failed' ? 'failed' : 'pending'
     };
   });
   const summary = {
     total: decoratedItems.length,
     active: decoratedItems.filter((i) => i.status === 'active').length,
-    nearExpiration: decoratedItems.filter((i) => i.status === 'near_expiration' || i.status === 'expires_in_7_days' || i.status === 'expires_tomorrow').length,
+    nearExpiration: decoratedItems.filter((i) => i.status === 'near_expiration' || i.status === 'expires_tomorrow' || i.status === 'expires_today').length,
     expired: decoratedItems.filter((i) => i.status === 'expired').length,
     triggersDetected: decoratedItems.filter((i) => i.shouldNotify).length
   };
@@ -198,7 +211,7 @@ export async function getNotificationPreview() {
     date: getArgentinaDateISO(),
     sendEnabled: true,
     triggerCount: triggered.length,
-    message: 'Trigger detectado, listo para notificación automática piloto',
+    message: 'Monitoreo automático piloto activo',
     items: triggered
   };
 }
@@ -223,7 +236,7 @@ export async function sendCertificationExpirationTestNotification(certificationI
   if (!triggerInfo.shouldNotify) {
     return {
       success: false,
-      message: 'La certificación no dispara notificación hoy. Ajustá la fecha de vencimiento para probar un trigger de 7 días o 1 día.',
+      message: 'La certificación no dispara notificación hoy. Ajustá la fecha para que venza entre 2 y 7 días, mañana o hoy.',
       recipient: CERTIFICATION_TEST_EMAIL_RECIPIENT,
       certificationId: id,
       triggerType: triggerInfo.triggerType,
