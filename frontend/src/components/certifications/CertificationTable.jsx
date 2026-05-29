@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Button, Chip, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
 import CertificationStatusBadge from './CertificationStatusBadge';
 
-export default function CertificationTable({ items = [], onEdit, onDelete }) {
+export default function CertificationTable({ items = [], onEdit, onDelete, onCreate }) {
   if (!items.length) {
     return (
       <Box
@@ -21,6 +21,9 @@ export default function CertificationTable({ items = [], onEdit, onDelete }) {
         <Typography sx={{ color: '#5f6f88' }}>
           Creá una certificación para comenzar a controlar sus vencimientos.
         </Typography>
+        <Button sx={{ mt: 1.4 }} variant="outlined" onClick={() => onCreate?.()}>
+          Nueva certificación
+        </Button>
       </Box>
     );
   }

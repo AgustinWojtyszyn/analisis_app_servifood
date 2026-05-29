@@ -12,10 +12,10 @@ import {
 
 function MetricCard({ label, value }) {
   return (
-    <Card variant="outlined" sx={{ borderRadius: 2 }}>
-      <CardContent sx={{ p: 1.4, '&:last-child': { pb: 1.4 } }}>
+    <Card variant="outlined" sx={{ borderRadius: 1.75 }}>
+      <CardContent sx={{ p: 1.1, '&:last-child': { pb: 1.1 } }}>
         <Typography variant="caption" sx={{ color: '#51617a', fontWeight: 700 }}>{label}</Typography>
-        <Typography sx={{ fontWeight: 900, fontSize: 26, lineHeight: 1.1, color: '#0f2a66' }}>{value}</Typography>
+        <Typography sx={{ fontWeight: 900, fontSize: 22, lineHeight: 1.05, color: '#0f2a66' }}>{value}</Typography>
       </CardContent>
     </Card>
   );
@@ -117,20 +117,20 @@ export default function CertificationsPage() {
 
   return (
     <>
-      <Card>
-        <CardContent>
-          <Stack spacing={1.2}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} gap={1}>
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 900, color: '#0f2a66' }}>Certificaciones</Typography>
-              <Typography sx={{ mt: 0.35, color: '#42546f', fontSize: 14 }}>
-                Gestión de vencimientos y alertas internas de certificaciones (sin envío real).
-              </Typography>
-            </Box>
-            <Button variant="contained" onClick={onCreate} disabled={loading} sx={{ boxShadow: '0 6px 16px rgba(37,99,235,0.25)' }}>
-              Nueva certificación
-            </Button>
-          </Stack>
+      <Card sx={{ borderRadius: 2 }}>
+        <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+          <Stack spacing={1.1}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} gap={1}>
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f2a66' }}>Certificaciones</Typography>
+                <Typography sx={{ mt: 0.3, color: '#42546f', fontSize: 14 }}>
+                  Gestión de vencimientos y alertas internas de certificaciones.
+                </Typography>
+              </Box>
+              <Button variant="contained" onClick={onCreate} disabled={loading} sx={{ boxShadow: '0 6px 16px rgba(37,99,235,0.25)' }}>
+                Nueva certificación
+              </Button>
+            </Stack>
 
             <Box
               sx={{
@@ -140,7 +140,7 @@ export default function CertificationsPage() {
                   sm: 'repeat(3, minmax(0, 1fr))',
                   lg: 'repeat(5, minmax(0, 1fr))'
                 },
-                gap: 1.2
+                gap: 1
               }}
             >
               <MetricCard label="Total" value={summary.total} />
@@ -150,45 +150,46 @@ export default function CertificationsPage() {
               <MetricCard label="Triggers" value={summary.triggersDetected} />
             </Box>
 
-          {triggerBanner && <Alert severity="warning" sx={{ py: 0.5 }}>{triggerBanner}</Alert>}
+            {triggerBanner && <Alert severity="warning" sx={{ py: 0.4 }}>{triggerBanner}</Alert>}
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(220px, 1fr) 220px 240px' }, gap: 1 }}>
-            <TextField
-              size="small"
-              label="Buscar por nombre..."
-              placeholder="Buscar por nombre..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <TextField size="small" select label="Estado" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <MenuItem value="all">Todos</MenuItem>
-              <MenuItem value="active">Vigente</MenuItem>
-              <MenuItem value="near_expiration">Próxima a vencer</MenuItem>
-              <MenuItem value="expires_in_7_days">Vence en 7 días</MenuItem>
-              <MenuItem value="expires_tomorrow">Vence mañana</MenuItem>
-              <MenuItem value="expired">Vencida</MenuItem>
-            </TextField>
-            <TextField size="small" select label="Módulo/Categoría" value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
-              <MenuItem value="all">Todos</MenuItem>
-              {moduleOptions.map((moduleName) => (
-                <MenuItem key={moduleName} value={moduleName}>{moduleName}</MenuItem>
-              ))}
-            </TextField>
-          </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(220px, 1fr) 210px 230px' }, gap: 1 }}>
+              <TextField
+                size="small"
+                label="Buscar por nombre..."
+                placeholder="Buscar por nombre..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <TextField size="small" select label="Estado" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <MenuItem value="all">Todos</MenuItem>
+                <MenuItem value="active">Vigente</MenuItem>
+                <MenuItem value="near_expiration">Próxima a vencer</MenuItem>
+                <MenuItem value="expires_in_7_days">Vence en 7 días</MenuItem>
+                <MenuItem value="expires_tomorrow">Vence mañana</MenuItem>
+                <MenuItem value="expired">Vencida</MenuItem>
+              </TextField>
+              <TextField size="small" select label="Módulo/Categoría" value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)}>
+                <MenuItem value="all">Todos</MenuItem>
+                {moduleOptions.map((moduleName) => (
+                  <MenuItem key={moduleName} value={moduleName}>{moduleName}</MenuItem>
+                ))}
+              </TextField>
+            </Box>
 
           {loading ? (
             <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
               <CircularProgress size={22} />
             </Box>
           ) : (
-            <CertificationTable
-              items={filteredItems}
-              onEdit={(item) => {
-                setEditing(item);
-                setOpenForm(true);
-              }}
-              onDelete={onDelete}
-            />
+              <CertificationTable
+                items={filteredItems}
+                onEdit={(item) => {
+                  setEditing(item);
+                  setOpenForm(true);
+                }}
+                onDelete={onDelete}
+                onCreate={onCreate}
+              />
           )}
           </Stack>
         </CardContent>
