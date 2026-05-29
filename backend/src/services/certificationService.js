@@ -208,6 +208,7 @@ export async function deleteCertification(id) {
 }
 
 export async function getNotificationPreview() {
+  const recipients = getCertificationNotificationRecipients();
   const { items } = await listCertifications();
   const triggered = items.filter((item) => item.shouldNotify);
   return {
