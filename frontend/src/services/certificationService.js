@@ -53,3 +53,9 @@ export function sendCertificationTestNotification(id) {
     method: 'POST'
   });
 }
+
+export function runCertificationNotificationJob() {
+  return authorizedFetch('/certifications/run-notification-job', {
+    method: 'POST'
+  });
+}

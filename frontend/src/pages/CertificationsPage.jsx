@@ -8,7 +8,8 @@ import {
   updateCertification,
   deleteCertification,
   getCertificationNotificationPreview,
-  sendCertificationTestNotification
+  sendCertificationTestNotification,
+  runCertificationNotificationJob
 } from '../services/certificationService';
 
 function MetricCard({ label, value }) {
@@ -32,6 +33,7 @@ export default function CertificationsPage() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [sendingTestId, setSendingTestId] = useState('');
+  const [runningJob, setRunningJob] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [moduleFilter, setModuleFilter] = useState('all');
@@ -136,6 +138,21 @@ export default function CertificationsPage() {
     }
   };
 
+  const onRunNotificationJob = async () => {
+    try {
+      setRunningJob(true);
+      const response = await runCertificationNotificationJob();
+      setSuccessMessage(
+        `Revisión ejecutada. Revisadas: ${response?.checked || 0} · Enviadas: ${response?.sent || 0} · Ya enviadas: ${response?.skippedAlreadySent || 0} · Sin trigger: ${response?.skippedWithoutTrigger || 0} · Errores: ${response?.failed || 0}. Destinatario piloto: ${response?.recipient || 'agustinwojtyszyn99@gmail.com'}`
+      );
+      await loadData();
+    } catch (e) {
+      setError(e.message || 'No se pudo ejecutar la revisión automática');
+    } finally {
+      setRunningJob(false);
+    }
+  };
+
   return (
     <>
       <Card sx={{ borderRadius: 2 }}>
@@ -152,6 +169,19 @@ export default function CertificationsPage() {
                 Nueva certificación
               </Button>
             </Stack>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={runningJob}
+                onClick={onRunNotificationJob}
+              >
+                {runningJob ? 'Ejecutando revisión...' : 'Ejecutar revisión'}
+              </Button>
+            </Box>
+            <Typography sx={{ fontSize: 12, color: '#5f6f88' }}>
+              Automatización piloto: por ahora los avisos automáticos se envían solo a agustinwojtyszyn99@gmail.com.
+            </Typography>
 
             <Box
               sx={{

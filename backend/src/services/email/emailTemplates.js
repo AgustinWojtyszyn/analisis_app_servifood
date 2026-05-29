@@ -144,3 +144,32 @@ export function renderCertificationExpirationEmail({ certification, triggerInfo,
     footer: 'Este envío corresponde a una prueba controlada. Por ahora las notificaciones reales a usuarios no están activadas.'
   });
 }
+
+export function renderCertificationAutomaticPilotEmail({ certification, triggerInfo, certificationsUrl, logoUrl }) {
+  const days = Number(triggerInfo?.daysUntilExpiration);
+  const humanTrigger = days === 1 ? 'Vence mañana' : (days === 7 ? 'Vence en 7 días' : 'Próximo vencimiento');
+  const technicalTrigger = triggerInfo?.triggerType || '-';
+  const preheaderExpirationLabel = days === 1 ? 'mañana' : (days === 7 ? 'en 7 días' : 'próximamente');
+  const certificationName = certification?.name || '-';
+  const highlightText = days === 1 ? 'Vence mañana' : (days === 7 ? 'Vence en 7 días' : '');
+
+  return renderBaseEmailTemplate({
+    headline: 'Certificación próxima a vencer',
+    intro: 'Hola,\n\nEl sistema detectó automáticamente una certificación próxima a vencer.\n\nEste aviso corresponde al monitoreo automático de vencimientos del módulo de Certificaciones.',
+    preheader: `Certificación ${certificationName} vence ${preheaderExpirationLabel}. Aviso automático piloto ServiFood.`,
+    details: [
+      { label: 'Certificación', value: certification?.name || '-' },
+      { label: 'Módulo/Categoría', value: certification?.module || '-' },
+      { label: 'Tipo', value: certification?.type || '-' },
+      { label: 'Fecha de vencimiento', value: formatDateEsAR(certification?.expiration_date || '-') },
+      { label: 'Días restantes', value: triggerInfo?.daysUntilExpiration ?? '-' },
+      { label: 'Aviso', value: `${humanTrigger} (${technicalTrigger})` }
+    ],
+    highlightText,
+    ctaText: certificationsUrl ? 'Ver certificaciones' : '',
+    ctaUrl: certificationsUrl || '',
+    logoUrl: logoUrl || '',
+    logoOnBlueHeader: true,
+    footer: 'Este envío corresponde a una automatización piloto. Por ahora las notificaciones automáticas solo se envían al correo configurado de prueba.'
+  });
+}

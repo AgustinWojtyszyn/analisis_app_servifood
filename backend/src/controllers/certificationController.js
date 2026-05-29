@@ -6,6 +6,7 @@ import {
   getNotificationPreview,
   sendCertificationExpirationTestNotification
 } from '../services/certificationService.js';
+import { runCertificationExpirationNotificationJob } from '../services/certificationAutomaticNotificationService.js';
 
 function handleError(res, error, fallbackMessage) {
   const status = Number(error?.status || 500);
@@ -64,5 +65,14 @@ export async function postCertificationTestNotification(req, res) {
     return res.status(200).json(payload);
   } catch (error) {
     return handleError(res, error, 'Error enviando notificación de prueba');
+  }
+}
+
+export async function postRunCertificationNotificationJob(req, res) {
+  try {
+    const payload = await runCertificationExpirationNotificationJob();
+    return res.status(200).json(payload);
+  } catch (error) {
+    return handleError(res, error, 'Error ejecutando job de notificaciones');
   }
 }
