@@ -50,6 +50,14 @@ function resolveFrontendCertificationsUrl() {
   return `${frontendBase}/certificaciones`;
 }
 
+function resolveEmailLogoUrl() {
+  return String(
+    process.env.EMAIL_LOGO_URL
+    || process.env.LOGO_URL
+    || 'https://analisis.servifoodapp.site/servifood_logo_white_text_HQ.png'
+  ).trim();
+}
+
 export async function sendCertificationExpirationTestEmail({ certification, triggerInfo, to }) {
   const recipient = String(to || '').trim().toLowerCase();
   if (recipient !== CERTIFICATION_TEST_EMAIL_RECIPIENT) {
@@ -68,7 +76,12 @@ export async function sendCertificationExpirationTestEmail({ certification, trig
 
   const subject = '[Prueba ServiFood] Certificación próxima a vencer';
   const certificationsUrl = resolveFrontendCertificationsUrl();
-  const html = renderCertificationExpirationEmail({ certification, triggerInfo, certificationsUrl });
+  const html = renderCertificationExpirationEmail({
+    certification,
+    triggerInfo,
+    certificationsUrl,
+    logoUrl: resolveEmailLogoUrl()
+  });
   const text = [
     'Hola,',
     '',

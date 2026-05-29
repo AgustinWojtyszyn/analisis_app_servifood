@@ -131,6 +131,14 @@ function toRecipientArray(value) {
   return [];
 }
 
+function resolveEmailLogoUrl() {
+  return String(
+    process.env.EMAIL_LOGO_URL
+    || process.env.LOGO_URL
+    || 'https://analisis.servifoodapp.site/servifood_logo_white_text_HQ.png'
+  ).trim();
+}
+
 export async function sendDocumentCreatedEmailNotification(notification) {
   const transporter = getTransporter();
   if (!transporter) {
@@ -175,7 +183,8 @@ export async function sendDocumentCreatedEmailNotification(notification) {
     title: safeTitle,
     category: safeCategory,
     uploadedAt: safeDate,
-    platformUrl
+    platformUrl,
+    logoUrl: resolveEmailLogoUrl()
   });
 
   const verifyResult = await transporter.verify();
