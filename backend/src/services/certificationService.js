@@ -5,6 +5,7 @@ import {
   sendCertificationExpirationTestEmail,
   CERTIFICATION_TEST_EMAIL_RECIPIENT
 } from './email/emailService.js';
+import { processCertificationAutomaticNotification } from './certificationAutomaticNotificationService.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -63,15 +64,64 @@ export async function listCertifications() {
   if (error) throw new Error(error.message || 'Error obteniendo certificaciones');
 
   const items = (data || []).map((row) => enrichCertificationWithNotification(row));
+  const ids = items.map((item) => item.id).filter(Boolean);
+
+  const byCertificationTrigger = new Map();
+  if (ids.length) {
+    const { data: logRows } = await supabaseAdmin
+      .from('certification_notification_logs')
+      .select('certification_id, trigger_type, status')
+      .eq('recipient', CERTIFICATION_TEST_EMAIL_RECIPIENT)
+      .in('certification_id', ids);
+
+    for (const log of (logRows || [])) {
+      const key = `${log?.certification_id || ''}::${log?.trigger_type || ''}`;
+      if (key !== '::') byCertificationTrigger.set(key, String(log?.status || '').toLowerCase());
+    }
+  }
+
+  const decoratedItems = items.map((item) => {
+    if (!item?.shouldNotify || !item?.triggerType) {
+      return {
+        ...item,
+        notificationMessage: 'Sin aviso para hoy',
+        notificationStatus: 'none'
+      };
+    }
+
+    const key = `${item.id}::${item.triggerType}`;
+    const currentStatus = byCertificationTrigger.get(key) || '';
+    if (currentStatus === 'sent') {
+      return {
+        ...item,
+        notificationMessage: 'Notificación enviada',
+        notificationStatus: 'sent'
+      };
+    }
+
+    if (currentStatus === 'processing') {
+      return {
+        ...item,
+        notificationMessage: 'Trigger detectado, pendiente de envío automático',
+        notificationStatus: 'processing'
+      };
+    }
+
+    return {
+      ...item,
+      notificationMessage: 'Trigger detectado, listo para notificación automática piloto',
+      notificationStatus: currentStatus === 'failed' ? 'failed' : 'pending'
+    };
+  });
   const summary = {
-    total: items.length,
-    active: items.filter((i) => i.status === 'active').length,
-    nearExpiration: items.filter((i) => i.status === 'near_expiration' || i.status === 'expires_in_7_days' || i.status === 'expires_tomorrow').length,
-    expired: items.filter((i) => i.status === 'expired').length,
-    triggersDetected: items.filter((i) => i.shouldNotify).length
+    total: decoratedItems.length,
+    active: decoratedItems.filter((i) => i.status === 'active').length,
+    nearExpiration: decoratedItems.filter((i) => i.status === 'near_expiration' || i.status === 'expires_in_7_days' || i.status === 'expires_tomorrow').length,
+    expired: decoratedItems.filter((i) => i.status === 'expired').length,
+    triggersDetected: decoratedItems.filter((i) => i.shouldNotify).length
   };
 
-  return { items, summary };
+  return { items: decoratedItems, summary };
 }
 
 export async function createCertification(payload, userId) {
@@ -87,6 +137,14 @@ export async function createCertification(payload, userId) {
     .single();
 
   if (error) throw new Error(error.message || 'Error creando certificación');
+  try {
+    await processCertificationAutomaticNotification(data);
+  } catch (notificationError) {
+    console.error('[certifications-auto] create notification error', {
+      certificationId: data?.id || null,
+      message: notificationError?.message || 'unknown_error'
+    });
+  }
   return enrichCertificationWithNotification(data);
 }
 
@@ -106,6 +164,15 @@ export async function updateCertification(id, payload) {
   if (error) {
     if (String(error.code || '') === 'PGRST116') throwNotFound('Certificación no encontrada');
     throw new Error(error.message || 'Error actualizando certificación');
+  }
+
+  try {
+    await processCertificationAutomaticNotification(data);
+  } catch (notificationError) {
+    console.error('[certifications-auto] update notification error', {
+      certificationId: data?.id || null,
+      message: notificationError?.message || 'unknown_error'
+    });
   }
 
   return enrichCertificationWithNotification(data);
@@ -129,9 +196,9 @@ export async function getNotificationPreview() {
   const triggered = items.filter((item) => item.shouldNotify);
   return {
     date: getArgentinaDateISO(),
-    sendEnabled: false,
+    sendEnabled: true,
     triggerCount: triggered.length,
-    message: 'Trigger detectado, envío desactivado en período de prueba',
+    message: 'Trigger detectado, listo para notificación automática piloto',
     items: triggered
   };
 }

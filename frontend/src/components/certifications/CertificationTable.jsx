@@ -55,9 +55,21 @@ export default function CertificationTable({ items = [], onEdit, onDelete, onCre
               <TableCell>{Number.isFinite(item.daysUntilExpiration) ? item.daysUntilExpiration : '-'}</TableCell>
               <TableCell><CertificationStatusBadge status={item.status} /></TableCell>
               <TableCell>
-                {item.shouldNotify
-                  ? <Chip size="small" color="warning" label="Trigger detectado" />
-                  : <Typography variant="caption" color="text.secondary">Sin trigger</Typography>}
+                {item.notificationStatus === 'sent' && (
+                  <Chip size="small" color="success" label="Notificación enviada" />
+                )}
+                {item.notificationStatus === 'processing' && (
+                  <Chip size="small" color="warning" label="Pendiente de envío automático" />
+                )}
+                {item.notificationStatus === 'pending' && (
+                  <Chip size="small" color="warning" label="Listo para notificación automática piloto" />
+                )}
+                {item.notificationStatus === 'failed' && (
+                  <Chip size="small" color="error" label="Error de envío automático" />
+                )}
+                {(item.notificationStatus === 'none' || !item.notificationStatus) && (
+                  <Typography variant="caption" color="text.secondary">Sin aviso para hoy</Typography>
+                )}
               </TableCell>
               <TableCell align="right">
                 <Stack direction="row" spacing={1} justifyContent="flex-end">
