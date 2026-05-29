@@ -26,6 +26,7 @@ import HealthAndSafetyRoundedIcon from '@mui/icons-material/HealthAndSafetyRound
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import RestaurantMenuRoundedIcon from '@mui/icons-material/RestaurantMenuRounded';
+import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
@@ -46,7 +47,8 @@ const sectionIcons = {
   policies: <DescriptionRoundedIcon />,
   declarationHistory: <HistoryRoundedIcon />,
   adminHealthDeclarations: <AssignmentRoundedIcon />,
-  nutritionModules: <RestaurantMenuRoundedIcon />
+  nutritionModules: <RestaurantMenuRoundedIcon />,
+  certifications: <WorkspacePremiumRoundedIcon />
 };
 
 export default function AppLayout({ user, onLogout, sections, currentSection, onSelectSection, children }) {
@@ -108,6 +110,10 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     nutritionModules: {
       title: 'Documentos SGC',
       subtitle: 'Biblioteca y gestión documental del SGC'
+    },
+    certifications: {
+      title: 'Certificaciones',
+      subtitle: 'Control de vencimientos y triggers de aviso'
     }
   }), []);
 

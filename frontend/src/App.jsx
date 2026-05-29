@@ -18,6 +18,7 @@ import HealthPoliciesPage from './components/HealthPoliciesPage';
 import HealthDeclarationHistoryPage from './components/HealthDeclarationHistoryPage';
 import HealthDeclarationsAdminPage from './components/HealthDeclarationsAdminPage';
 import NutritionModulesPage from './components/NutritionModulesPage';
+import CertificationsPage from './pages/CertificationsPage';
 import { supabase } from './lib/supabaseClient';
 import { useAuth } from './hooks/useAuth';
 import { deleteAnalysis, getAnalysisById, updateAnalysisStatus } from './services/analysis';
@@ -35,7 +36,8 @@ const sectionPathMap = {
   policies: '/politicas-seguridad',
   declarationHistory: '/mi-declaraciones',
   adminHealthDeclarations: '/admin-declaraciones-salud',
-  nutritionModules: '/modulos-nutricionales'
+  nutritionModules: '/modulos-nutricionales',
+  certifications: '/certificaciones'
 };
 
 const publicAuthPathMap = {
@@ -83,6 +85,7 @@ function MainApp({ user, onLogout }) {
   const isAdmin = normalizedRole === 'admin';
   const isNutritionist = normalizedRole === 'nutricionista';
   const canViewNutritionModules = isAdmin || isNutritionist;
+  const canViewCertifications = isAdmin || isNutritionist;
 
   const layoutUser = {
     ...user,
@@ -95,14 +98,16 @@ function MainApp({ user, onLogout }) {
       return [
         { id: 'declaration', label: 'Declaración de Salud' },
         { id: 'policies', label: 'Políticas de Seguridad' },
-        { id: 'nutritionModules', label: 'Documentos SGC' }
+        { id: 'nutritionModules', label: 'Documentos SGC' },
+        { id: 'certifications', label: 'Certificaciones' }
       ];
     }
 
     if (!isAdmin) {
       return [
         { id: 'declaration', label: 'Declaración de Salud' },
-        { id: 'policies', label: 'Políticas de Seguridad' }
+        { id: 'policies', label: 'Políticas de Seguridad' },
+        ...(canViewCertifications ? [{ id: 'certifications', label: 'Certificaciones' }] : [])
       ];
     }
 
@@ -117,14 +122,18 @@ function MainApp({ user, onLogout }) {
       { id: 'declaration', label: 'Mi Declaración Salud' },
       { id: 'adminHealthDeclarations', label: 'Gestor Declaraciones' },
       { id: 'policies', label: 'Políticas' },
-      { id: 'nutritionModules', label: 'Documentos SGC' }
+      { id: 'nutritionModules', label: 'Documentos SGC' },
+      { id: 'certifications', label: 'Certificaciones' }
     ];
-  }, [canViewNutritionModules, isAdmin]);
+  }, [canViewNutritionModules, canViewCertifications, isAdmin]);
 
   const allowedSections = useMemo(() => {
     const set = new Set(BASE_ALLOWED_SECTIONS);
     if (canViewNutritionModules) {
       set.add('nutritionModules');
+    }
+    if (canViewCertifications) {
+      set.add('certifications');
     }
     if (isAdmin) {
       set.add('panel');
@@ -139,7 +148,7 @@ function MainApp({ user, onLogout }) {
       set.add('declarationHistory');
     }
     return set;
-  }, [canViewNutritionModules, isAdmin]);
+  }, [canViewNutritionModules, canViewCertifications, isAdmin]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -348,6 +357,11 @@ function MainApp({ user, onLogout }) {
     if (currentSection === 'nutritionModules') {
       if (!canViewNutritionModules) return null;
       return <NutritionModulesPage user={layoutUser} />;
+    }
+
+    if (currentSection === 'certifications') {
+      if (!canViewCertifications) return null;
+      return <CertificationsPage />;
     }
 
     if (currentSection === 'panel' || currentSection === 'history') {
