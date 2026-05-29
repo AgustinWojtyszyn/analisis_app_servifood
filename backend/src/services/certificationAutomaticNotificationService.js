@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getCertificationNotificationTrigger } from './certificationNotificationService.js';
 import {
   sendCertificationExpirationPilotEmail,
-  CERTIFICATION_TEST_EMAIL_RECIPIENT
+  getCertificationNotificationRecipients
 } from './email/emailService.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -26,23 +26,17 @@ function getEquivalentTriggerTypes(triggerType = '') {
   return [triggerType].filter(Boolean);
 }
 
-export async function processCertificationAutomaticNotification(certification) {
-  ensureConfigured();
-  const triggerInfo = getCertificationNotificationTrigger(certification?.expiration_date);
-
-  if (!triggerInfo?.shouldNotify) {
-    return {
-      certificationId: certification?.id || null,
-      status: 'skipped_without_trigger',
-      triggerType: null,
-      daysUntilExpiration: triggerInfo?.daysUntilExpiration ?? null
-    };
-  }
+async function processCertificationAutomaticNotificationForRecipient({
+  certification,
+  triggerInfo,
+  recipient
+}) {
+  const normalizedRecipient = String(recipient || '').trim().toLowerCase();
 
   const reservePayload = {
     certification_id: certification.id,
     trigger_type: triggerInfo.triggerType,
-    recipient: CERTIFICATION_TEST_EMAIL_RECIPIENT,
+    recipient: normalizedRecipient,
     status: 'processing',
     error_message: null
   };
@@ -52,13 +46,14 @@ export async function processCertificationAutomaticNotification(certification) {
     .from('certification_notification_logs')
     .select('id')
     .eq('certification_id', certification.id)
-    .eq('recipient', CERTIFICATION_TEST_EMAIL_RECIPIENT)
+    .eq('recipient', normalizedRecipient)
     .in('trigger_type', equivalentTypes)
     .limit(1);
 
   if (existingLogsError) {
     return {
       certificationId: certification?.id || null,
+      recipient: normalizedRecipient,
       status: 'failed',
       triggerType: triggerInfo.triggerType,
       daysUntilExpiration: triggerInfo.daysUntilExpiration,
@@ -69,6 +64,7 @@ export async function processCertificationAutomaticNotification(certification) {
   if (Array.isArray(existingLogs) && existingLogs.length > 0) {
     return {
       certificationId: certification?.id || null,
+      recipient: normalizedRecipient,
       status: 'skipped_already_sent',
       triggerType: triggerInfo.triggerType,
       daysUntilExpiration: triggerInfo.daysUntilExpiration
@@ -86,6 +82,7 @@ export async function processCertificationAutomaticNotification(certification) {
     if (code === '23505') {
       return {
         certificationId: certification?.id || null,
+        recipient: normalizedRecipient,
         status: 'skipped_already_sent',
         triggerType: triggerInfo.triggerType,
         daysUntilExpiration: triggerInfo.daysUntilExpiration
@@ -94,6 +91,7 @@ export async function processCertificationAutomaticNotification(certification) {
 
     return {
       certificationId: certification?.id || null,
+      recipient: normalizedRecipient,
       status: 'failed',
       triggerType: triggerInfo.triggerType,
       daysUntilExpiration: triggerInfo.daysUntilExpiration,
@@ -106,7 +104,7 @@ export async function processCertificationAutomaticNotification(certification) {
     await sendCertificationExpirationPilotEmail({
       certification,
       triggerInfo,
-      to: CERTIFICATION_TEST_EMAIL_RECIPIENT
+      to: normalizedRecipient
     });
 
     await supabaseAdmin
@@ -120,6 +118,7 @@ export async function processCertificationAutomaticNotification(certification) {
 
     return {
       certificationId: certification?.id || null,
+      recipient: normalizedRecipient,
       status: 'sent',
       triggerType: triggerInfo.triggerType,
       daysUntilExpiration: triggerInfo.daysUntilExpiration
@@ -135,6 +134,7 @@ export async function processCertificationAutomaticNotification(certification) {
 
     return {
       certificationId: certification?.id || null,
+      recipient: normalizedRecipient,
       status: 'failed',
       triggerType: triggerInfo.triggerType,
       daysUntilExpiration: triggerInfo.daysUntilExpiration,
@@ -143,8 +143,56 @@ export async function processCertificationAutomaticNotification(certification) {
   }
 }
 
+export async function processCertificationAutomaticNotification(certification) {
+  ensureConfigured();
+  const triggerInfo = getCertificationNotificationTrigger(certification?.expiration_date);
+  const recipients = getCertificationNotificationRecipients();
+
+  if (!triggerInfo?.shouldNotify) {
+    return {
+      certificationId: certification?.id || null,
+      status: 'skipped_without_trigger',
+      triggerType: null,
+      daysUntilExpiration: triggerInfo?.daysUntilExpiration ?? null,
+      recipients,
+      results: []
+    };
+  }
+
+  const results = [];
+  let sent = 0;
+  let skippedAlreadySent = 0;
+  let failed = 0;
+
+  for (const recipient of recipients) {
+    const row = await processCertificationAutomaticNotificationForRecipient({
+      certification,
+      triggerInfo,
+      recipient
+    });
+    results.push(row);
+    const status = String(row?.status || '');
+    if (status === 'sent') sent += 1;
+    else if (status === 'skipped_already_sent') skippedAlreadySent += 1;
+    else if (status !== 'skipped_without_trigger') failed += 1;
+  }
+
+  return {
+    certificationId: certification?.id || null,
+    triggerType: triggerInfo.triggerType,
+    daysUntilExpiration: triggerInfo.daysUntilExpiration,
+    recipients,
+    sent,
+    skippedAlreadySent,
+    failed,
+    status: failed > 0 ? 'partial_or_failed' : 'processed',
+    results
+  };
+}
+
 export async function runCertificationExpirationNotificationJob() {
   ensureConfigured();
+  const recipients = getCertificationNotificationRecipients();
 
   const { data, error } = await supabaseAdmin
     .from('certifications')
@@ -165,21 +213,16 @@ export async function runCertificationExpirationNotificationJob() {
 
   for (const certification of rows) {
     const rowResult = await processCertificationAutomaticNotification(certification);
-    const status = String(rowResult?.status || '');
     results.push(rowResult);
 
-    if (status === 'skipped_without_trigger') {
+    if (String(rowResult?.status || '') === 'skipped_without_trigger') {
       skippedWithoutTrigger += 1;
       continue;
     }
     eligible += 1;
-    if (status === 'sent') {
-      sent += 1;
-    } else if (status === 'skipped_already_sent') {
-      skippedAlreadySent += 1;
-    } else {
-      failed += 1;
-    }
+    sent += Number(rowResult?.sent || 0);
+    skippedAlreadySent += Number(rowResult?.skippedAlreadySent || 0);
+    failed += Number(rowResult?.failed || 0);
   }
 
   return {
@@ -190,7 +233,7 @@ export async function runCertificationExpirationNotificationJob() {
     skippedAlreadySent,
     skippedWithoutTrigger,
     failed,
-    recipient: CERTIFICATION_TEST_EMAIL_RECIPIENT,
+    recipients,
     results
   };
 }

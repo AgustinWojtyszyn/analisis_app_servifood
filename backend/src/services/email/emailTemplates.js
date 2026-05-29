@@ -166,6 +166,6 @@ export function renderCertificationAutomaticPilotEmail({ certification, triggerI
     ctaUrl: certificationsUrl || '',
     logoUrl: logoUrl || '',
     logoOnBlueHeader: true,
-    footer: 'Este envío corresponde a una automatización piloto. Por ahora las notificaciones automáticas solo se envían al correo configurado de prueba.'
+    footer: 'Automatización piloto: este aviso fue enviado únicamente a los correos autorizados de ServiFood definidos para esta etapa.'
   });
 }

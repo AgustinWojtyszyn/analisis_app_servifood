@@ -1,10 +1,54 @@
 import nodemailer from 'nodemailer';
 import { renderCertificationExpirationEmail, renderCertificationAutomaticPilotEmail } from './emailTemplates.js';
 
+const CERTIFICATION_NOTIFICATION_ALLOWED_RECIPIENTS = [
+  'agustinwojtyszyn99@gmail.com',
+  'direcciontecnicaservifood@gmail.com',
+  'adm.servifood@gmail.com'
+];
+
 export const CERTIFICATION_TEST_EMAIL_RECIPIENT = 'agustinwojtyszyn99@gmail.com';
 
 let transporter = null;
 let warnedMissingConfig = false;
+
+function normalizeEmail(value = '') {
+  return String(value || '').trim().toLowerCase();
+}
+
+export function getCertificationNotificationRecipients() {
+  const envRaw = String(process.env.CERTIFICATION_NOTIFICATION_RECIPIENTS || '').trim();
+  const fallback = [...CERTIFICATION_NOTIFICATION_ALLOWED_RECIPIENTS];
+  if (!envRaw) return fallback;
+
+  const fromEnv = Array.from(
+    new Set(
+      envRaw
+        .split(',')
+        .map((item) => normalizeEmail(item))
+        .filter(Boolean)
+    )
+  );
+
+  const allowedSet = new Set(CERTIFICATION_NOTIFICATION_ALLOWED_RECIPIENTS);
+  const invalid = fromEnv.filter((mail) => !allowedSet.has(mail));
+  const valid = fromEnv.filter((mail) => allowedSet.has(mail));
+
+  if (invalid.length) {
+    console.warn('[certifications-email] Se ignoraron destinatarios inválidos en CERTIFICATION_NOTIFICATION_RECIPIENTS', {
+      invalid
+    });
+  }
+
+  return valid.length ? valid : fallback;
+}
+
+function assertAuthorizedRecipient(recipient, contextLabel) {
+  const allowed = getCertificationNotificationRecipients();
+  if (!allowed.includes(recipient)) {
+    throw new Error(`Destinatario no permitido para ${contextLabel}`);
+  }
+}
 
 function toBoolean(value, defaultValue = false) {
   if (value === undefined || value === null || value === '') return defaultValue;
@@ -59,10 +103,8 @@ function resolveEmailLogoUrl() {
 }
 
 export async function sendCertificationExpirationTestEmail({ certification, triggerInfo, to }) {
-  const recipient = String(to || '').trim().toLowerCase();
-  if (recipient !== CERTIFICATION_TEST_EMAIL_RECIPIENT) {
-    throw new Error('Destinatario no permitido para prueba controlada');
-  }
+  const recipient = normalizeEmail(to);
+  assertAuthorizedRecipient(recipient, 'prueba controlada');
 
   const transport = getTransporter();
   if (!transport) {
@@ -122,10 +164,8 @@ export async function sendCertificationExpirationTestEmail({ certification, trig
 }
 
 export async function sendCertificationExpirationPilotEmail({ certification, triggerInfo, to }) {
-  const recipient = String(to || '').trim().toLowerCase();
-  if (recipient !== CERTIFICATION_TEST_EMAIL_RECIPIENT) {
-    throw new Error('Destinatario no permitido para automatización piloto');
-  }
+  const recipient = normalizeEmail(to);
+  assertAuthorizedRecipient(recipient, 'automatización piloto');
 
   const transport = getTransporter();
   if (!transport) {
@@ -163,7 +203,7 @@ export async function sendCertificationExpirationPilotEmail({ certification, tri
     `Aviso: ${humanTrigger}`,
     '',
     'Este envío corresponde a una automatización piloto.',
-    'Por ahora las notificaciones automáticas solo se envían al correo configurado de prueba.',
+    'Por ahora las notificaciones automáticas se envían únicamente a los correos autorizados configurados para la prueba.',
     certificationsUrl ? `\nVer certificaciones: ${certificationsUrl}` : ''
   ].join('\n');
 

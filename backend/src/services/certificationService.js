@@ -2,8 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { enrichCertificationWithNotification, getCertificationNotificationTrigger } from './certificationNotificationService.js';
 import { parseDateInputToParts, getArgentinaDateISO } from '../utils/argentinaDateUtils.js';
 import {
-  sendCertificationExpirationTestEmail,
-  CERTIFICATION_TEST_EMAIL_RECIPIENT
+  getCertificationNotificationRecipients
 } from './email/emailService.js';
 import { processCertificationAutomaticNotification } from './certificationAutomaticNotificationService.js';
 
@@ -71,17 +70,18 @@ export async function listCertifications() {
 
   const items = (data || []).map((row) => enrichCertificationWithNotification(row));
   const ids = items.map((item) => item.id).filter(Boolean);
+  const recipients = getCertificationNotificationRecipients();
 
   const byCertificationTrigger = new Map();
   if (ids.length) {
     const { data: logRows } = await supabaseAdmin
       .from('certification_notification_logs')
       .select('certification_id, trigger_type, status')
-      .eq('recipient', CERTIFICATION_TEST_EMAIL_RECIPIENT)
+      .in('recipient', recipients)
       .in('certification_id', ids);
 
     for (const log of (logRows || [])) {
-      const key = `${log?.certification_id || ''}::${log?.trigger_type || ''}`;
+      const key = `${log?.certification_id || ''}::${log?.trigger_type || ''}::${log?.recipient || ''}`;
       if (key !== '::') byCertificationTrigger.set(key, String(log?.status || '').toLowerCase());
     }
   }
@@ -95,16 +95,19 @@ export async function listCertifications() {
       };
     }
     const equivalentTypes = getEquivalentTriggerTypes(item.triggerType);
-    let currentStatus = '';
+    let sentCount = 0;
+    let hasProcessing = false;
+    let hasFailed = false;
     for (const type of equivalentTypes) {
-      const key = `${item.id}::${type}`;
-      const status = byCertificationTrigger.get(key) || '';
-      if (status) {
-        currentStatus = status;
-        break;
+      for (const recipient of recipients) {
+        const key = `${item.id}::${type}::${recipient}`;
+        const status = byCertificationTrigger.get(`${key}`) || '';
+        if (status === 'sent') sentCount += 1;
+        if (status === 'processing') hasProcessing = true;
+        if (status === 'failed') hasFailed = true;
       }
     }
-    if (currentStatus === 'sent') {
+    if (sentCount >= recipients.length && recipients.length > 0) {
       return {
         ...item,
         notificationMessage: item.triggerType === 'urgent_warning' ? 'Aviso urgente enviado' : 'Aviso temprano enviado',
@@ -112,7 +115,7 @@ export async function listCertifications() {
       };
     }
 
-    if (currentStatus === 'processing') {
+    if (hasProcessing) {
       return {
         ...item,
         notificationMessage: 'Trigger detectado, pendiente de envío automático',
@@ -123,7 +126,7 @@ export async function listCertifications() {
     return {
       ...item,
       notificationMessage: 'Trigger detectado, pendiente de envío automático',
-      notificationStatus: currentStatus === 'failed' ? 'failed' : 'pending'
+      notificationStatus: hasFailed ? 'failed' : 'pending'
     };
   });
   const summary = {
@@ -210,6 +213,7 @@ export async function getNotificationPreview() {
   return {
     date: getArgentinaDateISO(),
     sendEnabled: true,
+    recipients,
     triggerCount: triggered.length,
     message: 'Monitoreo automático piloto activo',
     items: triggered
@@ -237,25 +241,25 @@ export async function sendCertificationExpirationTestNotification(certificationI
     return {
       success: false,
       message: 'La certificación no dispara notificación hoy. Ajustá la fecha para que venza entre 2 y 7 días, mañana o hoy.',
-      recipient: CERTIFICATION_TEST_EMAIL_RECIPIENT,
+      recipients: getCertificationNotificationRecipients(),
       certificationId: id,
       triggerType: triggerInfo.triggerType,
       daysUntilExpiration: triggerInfo.daysUntilExpiration
     };
   }
 
-  await sendCertificationExpirationTestEmail({
-    certification: data,
-    triggerInfo,
-    to: CERTIFICATION_TEST_EMAIL_RECIPIENT
-  });
+  const runResult = await processCertificationAutomaticNotification(data);
 
   return {
     success: true,
-    message: 'Email de prueba enviado correctamente',
-    recipient: CERTIFICATION_TEST_EMAIL_RECIPIENT,
+    message: 'Notificación manual ejecutada usando la lista fija de destinatarios autorizados',
+    recipients: runResult?.recipients || getCertificationNotificationRecipients(),
     certificationId: id,
     triggerType: triggerInfo.triggerType,
-    daysUntilExpiration: triggerInfo.daysUntilExpiration
+    daysUntilExpiration: triggerInfo.daysUntilExpiration,
+    sent: runResult?.sent || 0,
+    skippedAlreadySent: runResult?.skippedAlreadySent || 0,
+    failed: runResult?.failed || 0,
+    results: runResult?.results || []
   };
 }

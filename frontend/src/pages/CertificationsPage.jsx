@@ -27,6 +27,11 @@ export default function CertificationsPage() {
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState({ total: 0, active: 0, nearExpiration: 0, expired: 0, triggersDetected: 0 });
   const [preview, setPreview] = useState({ triggerCount: 0, message: '' });
+  const [authorizedRecipients, setAuthorizedRecipients] = useState([
+    'agustinwojtyszyn99@gmail.com',
+    'direcciontecnicaservifood@gmail.com',
+    'adm.servifood@gmail.com'
+  ]);
   const [loading, setLoading] = useState(false);
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -45,6 +50,9 @@ export default function CertificationsPage() {
       setItems(Array.isArray(list?.items) ? list.items : []);
       setSummary(list?.summary || { total: 0, active: 0, nearExpiration: 0, expired: 0, triggersDetected: 0 });
       setPreview({ triggerCount: previewData?.triggerCount || 0, message: previewData?.message || '' });
+      if (Array.isArray(previewData?.recipients) && previewData.recipients.length) {
+        setAuthorizedRecipients(previewData.recipients);
+      }
     } catch (e) {
       setError(e.message || 'Error cargando certificaciones');
     } finally {
@@ -126,7 +134,8 @@ export default function CertificationsPage() {
       setSendingTestId(item.id);
       const response = await sendCertificationTestNotification(item.id);
       if (response?.success) {
-        setSuccessMessage(`Email de prueba enviado a ${response.recipient}`);
+        const recipients = Array.isArray(response?.recipients) ? response.recipients : authorizedRecipients;
+        setSuccessMessage(`Aviso manual ejecutado. Enviados: ${response?.sent || 0}. Destinatarios: ${recipients.join(', ')}`);
       } else {
         setError(response?.message || 'La certificación no dispara notificación hoy. Ajustá la fecha para que venza entre 2 y 7 días, mañana o hoy.');
       }
@@ -142,8 +151,9 @@ export default function CertificationsPage() {
     try {
       setRunningJob(true);
       const response = await runCertificationNotificationJob();
+      const recipients = Array.isArray(response?.recipients) && response.recipients.length ? response.recipients : authorizedRecipients;
       setSuccessMessage(
-        `Revisión ejecutada. Revisadas: ${response?.checked || 0} · Enviadas: ${response?.sent || 0} · Ya enviadas: ${response?.skippedAlreadySent || 0} · Sin trigger: ${response?.skippedWithoutTrigger || 0} · Errores: ${response?.failed || 0}. Destinatario piloto: ${response?.recipient || 'agustinwojtyszyn99@gmail.com'}`
+        `Revisión ejecutada. Revisadas: ${response?.checked || 0} · Enviadas: ${response?.sent || 0} · Ya enviadas: ${response?.skippedAlreadySent || 0} · Sin trigger: ${response?.skippedWithoutTrigger || 0} · Errores: ${response?.failed || 0}. Destinatarios: ${recipients.join(', ')}`
       );
       await loadData();
     } catch (e) {
@@ -180,7 +190,10 @@ export default function CertificationsPage() {
               </Button>
             </Box>
             <Typography sx={{ fontSize: 12, color: '#5f6f88' }}>
-              Automatización piloto: por ahora los avisos automáticos se envían solo a agustinwojtyszyn99@gmail.com.
+              Modo piloto: los avisos se envían únicamente a los correos autorizados de ServiFood.
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: '#5f6f88' }}>
+              Destinatarios actuales: {authorizedRecipients.join(', ')}
             </Typography>
 
             <Box
