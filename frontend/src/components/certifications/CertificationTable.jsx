@@ -1,13 +1,35 @@
 import React from 'react';
-import { Button, Chip, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
+import { Box, Button, Chip, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
 import CertificationStatusBadge from './CertificationStatusBadge';
 
 export default function CertificationTable({ items = [], onEdit, onDelete }) {
+  if (!items.length) {
+    return (
+      <Box
+        sx={{
+          py: 6,
+          px: 2,
+          textAlign: 'center',
+          border: '1px dashed #cfd8e6',
+          borderRadius: 2,
+          backgroundColor: '#f9fbff'
+        }}
+      >
+        <Typography sx={{ fontWeight: 800, color: '#0f2a66', mb: 0.5 }}>
+          No hay certificaciones cargadas todavía.
+        </Typography>
+        <Typography sx={{ color: '#5f6f88' }}>
+          Creá una certificación para comenzar a controlar sus vencimientos.
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
-    <TableContainer>
+    <TableContainer sx={{ border: '1px solid #d7e1f0', borderRadius: 2, overflow: 'hidden' }}>
       <Table size="small">
         <TableHead>
-          <TableRow>
+          <TableRow sx={{ backgroundColor: '#f3f6fb' }}>
             <TableCell>Nombre</TableCell>
             <TableCell>Módulo/Categoría</TableCell>
             <TableCell>Tipo</TableCell>
@@ -42,13 +64,6 @@ export default function CertificationTable({ items = [], onEdit, onDelete }) {
               </TableCell>
             </TableRow>
           ))}
-          {items.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={8}>
-                <Typography color="text.secondary">Sin certificaciones cargadas.</Typography>
-              </TableCell>
-            </TableRow>
-          )}
         </TableBody>
       </Table>
     </TableContainer>
