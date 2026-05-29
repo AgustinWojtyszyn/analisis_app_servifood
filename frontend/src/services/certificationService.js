@@ -47,3 +47,9 @@ export function deleteCertification(id) {
 export function getCertificationNotificationPreview() {
   return authorizedFetch('/certifications/notification-preview');
 }
+
+export function sendCertificationTestNotification(id) {
+  return authorizedFetch(`/certifications/${id}/send-test-notification`, {
+    method: 'POST'
+  });
+}

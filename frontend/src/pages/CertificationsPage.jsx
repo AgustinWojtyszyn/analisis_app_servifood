@@ -7,7 +7,8 @@ import {
   createCertification,
   updateCertification,
   deleteCertification,
-  getCertificationNotificationPreview
+  getCertificationNotificationPreview,
+  sendCertificationTestNotification
 } from '../services/certificationService';
 
 function MetricCard({ label, value }) {
@@ -29,6 +30,8 @@ export default function CertificationsPage() {
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [sendingTestId, setSendingTestId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [moduleFilter, setModuleFilter] = useState('all');
@@ -115,6 +118,24 @@ export default function CertificationsPage() {
     }
   };
 
+  const onSendTest = async (item) => {
+    if (!item?.id) return;
+    try {
+      setSendingTestId(item.id);
+      const response = await sendCertificationTestNotification(item.id);
+      if (response?.success) {
+        setSuccessMessage(`Email de prueba enviado a ${response.recipient}`);
+      } else {
+        setError(response?.message || 'La certificación no dispara notificación hoy. Ajustá la fecha de vencimiento para probar un trigger de 7 días o 1 día.');
+      }
+      await loadData();
+    } catch (e) {
+      setError(e.message || 'No se pudo enviar la notificación de prueba');
+    } finally {
+      setSendingTestId('');
+    }
+  };
+
   return (
     <>
       <Card sx={{ borderRadius: 2 }}>
@@ -189,6 +210,8 @@ export default function CertificationsPage() {
                 }}
                 onDelete={onDelete}
                 onCreate={onCreate}
+                onSendTest={onSendTest}
+                sendingTestId={sendingTestId}
               />
           )}
           </Stack>
@@ -208,6 +231,9 @@ export default function CertificationsPage() {
 
       <Snackbar open={Boolean(error)} autoHideDuration={4000} onClose={() => setError('')}>
         <Alert severity="error" onClose={() => setError('')}>{error}</Alert>
+      </Snackbar>
+      <Snackbar open={Boolean(successMessage)} autoHideDuration={4000} onClose={() => setSuccessMessage('')}>
+        <Alert severity="success" onClose={() => setSuccessMessage('')}>{successMessage}</Alert>
       </Snackbar>
     </>
   );

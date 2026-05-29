@@ -3,7 +3,8 @@ import {
   createCertification,
   updateCertification,
   deleteCertification,
-  getNotificationPreview
+  getNotificationPreview,
+  sendCertificationExpirationTestNotification
 } from '../services/certificationService.js';
 
 function handleError(res, error, fallbackMessage) {
@@ -54,5 +55,14 @@ export async function getCertificationNotificationPreview(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleError(res, error, 'Error obteniendo preview de notificaciones');
+  }
+}
+
+export async function postCertificationTestNotification(req, res) {
+  try {
+    const payload = await sendCertificationExpirationTestNotification(req.params.id);
+    return res.status(200).json(payload);
+  } catch (error) {
+    return handleError(res, error, 'Error enviando notificación de prueba');
   }
 }

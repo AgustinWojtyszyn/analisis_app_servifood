@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Button, Chip, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
 import CertificationStatusBadge from './CertificationStatusBadge';
 
-export default function CertificationTable({ items = [], onEdit, onDelete, onCreate }) {
+export default function CertificationTable({ items = [], onEdit, onDelete, onCreate, onSendTest, sendingTestId = '' }) {
   if (!items.length) {
     return (
       <Box
@@ -61,6 +61,14 @@ export default function CertificationTable({ items = [], onEdit, onDelete, onCre
               </TableCell>
               <TableCell align="right">
                 <Stack direction="row" spacing={1} justifyContent="flex-end">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => onSendTest?.(item)}
+                    disabled={sendingTestId === item.id}
+                  >
+                    {sendingTestId === item.id ? 'Enviando...' : 'Enviar prueba'}
+                  </Button>
                   <Button size="small" onClick={() => onEdit?.(item)}>Editar</Button>
                   <Button size="small" color="error" onClick={() => onDelete?.(item)}>Eliminar</Button>
                 </Stack>

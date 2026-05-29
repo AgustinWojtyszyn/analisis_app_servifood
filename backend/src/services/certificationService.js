@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
-import { enrichCertificationWithNotification } from './certificationNotificationService.js';
+import { enrichCertificationWithNotification, getCertificationNotificationTrigger } from './certificationNotificationService.js';
 import { parseDateInputToParts, getArgentinaDateISO } from '../utils/argentinaDateUtils.js';
+import {
+  sendCertificationExpirationTestEmail,
+  CERTIFICATION_TEST_EMAIL_RECIPIENT
+} from './email/emailService.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -129,5 +133,49 @@ export async function getNotificationPreview() {
     triggerCount: triggered.length,
     message: 'Trigger detectado, envío desactivado en período de prueba',
     items: triggered
+  };
+}
+
+export async function sendCertificationExpirationTestNotification(certificationId) {
+  ensureConfigured();
+  const id = String(certificationId || '').trim();
+  if (!id) throwBadRequest('Certification id es requerido');
+
+  const { data, error } = await supabaseAdmin
+    .from('certifications')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (String(error.code || '') === 'PGRST116') throwNotFound('Certificación no encontrada');
+    throw new Error(error.message || 'Error obteniendo certificación');
+  }
+
+  const triggerInfo = getCertificationNotificationTrigger(data?.expiration_date);
+  if (!triggerInfo.shouldNotify) {
+    return {
+      success: false,
+      message: 'La certificación no dispara notificación hoy. Ajustá la fecha de vencimiento para probar un trigger de 7 días o 1 día.',
+      recipient: CERTIFICATION_TEST_EMAIL_RECIPIENT,
+      certificationId: id,
+      triggerType: triggerInfo.triggerType,
+      daysUntilExpiration: triggerInfo.daysUntilExpiration
+    };
+  }
+
+  await sendCertificationExpirationTestEmail({
+    certification: data,
+    triggerInfo,
+    to: CERTIFICATION_TEST_EMAIL_RECIPIENT
+  });
+
+  return {
+    success: true,
+    message: 'Email de prueba enviado correctamente',
+    recipient: CERTIFICATION_TEST_EMAIL_RECIPIENT,
+    certificationId: id,
+    triggerType: triggerInfo.triggerType,
+    daysUntilExpiration: triggerInfo.daysUntilExpiration
   };
 }

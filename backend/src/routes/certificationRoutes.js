@@ -4,7 +4,8 @@ import {
   postCertification,
   putCertification,
   removeCertification,
-  getCertificationNotificationPreview
+  getCertificationNotificationPreview,
+  postCertificationTestNotification
 } from '../controllers/certificationController.js';
 import { authenticateToken, requireAdminOrNutritionist } from '../middlewares/auth.js';
 
@@ -15,5 +16,6 @@ router.post('/certifications', authenticateToken, requireAdminOrNutritionist, po
 router.put('/certifications/:id', authenticateToken, requireAdminOrNutritionist, putCertification);
 router.delete('/certifications/:id', authenticateToken, requireAdminOrNutritionist, removeCertification);
 router.get('/certifications/notification-preview', authenticateToken, requireAdminOrNutritionist, getCertificationNotificationPreview);
+router.post('/certifications/:id/send-test-notification', authenticateToken, requireAdminOrNutritionist, postCertificationTestNotification);
 
 export default router;
