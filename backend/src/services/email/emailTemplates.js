@@ -7,16 +7,28 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;');
 }
 
+function formatDateEsAR(value = '') {
+  const raw = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw || '-';
+  const [y, m, d] = raw.split('-').map((x) => Number(x));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return raw;
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+}
+
 function renderRows(rows = []) {
-  return rows
-    .map((row) => `<div><strong>${escapeHtml(row.label)}:</strong> ${escapeHtml(row.value)}</div>`)
-    .join('');
+  return rows.map((row) => `
+    <tr>
+      <td style="padding:7px 0;vertical-align:top;width:42%;font-size:14px;line-height:1.5;color:#102E63;font-weight:700;">${escapeHtml(row.label)}</td>
+      <td style="padding:7px 0;vertical-align:top;font-size:14px;line-height:1.5;color:#243653;">${escapeHtml(row.value)}</td>
+    </tr>
+  `).join('');
 }
 
 export function renderBaseEmailTemplate({
   headline = '',
   subtitle = 'App de análisis Servifood',
   intro = '',
+  preheader = '',
   details = [],
   highlightText = '',
   ctaText = '',
@@ -30,6 +42,7 @@ export function renderBaseEmailTemplate({
   const safeHeadline = escapeHtml(headline);
   const safeSubtitle = escapeHtml(subtitle);
   const safeIntro = escapeHtml(intro).replace(/\n/g, '<br/>');
+  const safePreheader = escapeHtml(preheader);
   const safeFooter = escapeHtml(footer);
   const safeFooterTitle = escapeHtml(footerTitle);
   const safeFooterSubtitle = escapeHtml(footerSubtitle);
@@ -45,35 +58,37 @@ export function renderBaseEmailTemplate({
   return `<!doctype html>
 <html lang="es">
   <body style="margin:0;padding:0;background:#143B82;font-family:Arial,Helvetica,sans-serif;color:#1f2f4a;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;font-size:1px;line-height:1px;">${safePreheader}</div>
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#143B82;background-image:linear-gradient(135deg,#0F3474 0%,#1F5DB8 100%);padding:28px 12px;">
       <tr>
         <td align="center">
           <table role="presentation" width="620" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:18px;overflow:hidden;">
-            ${useBlueHeaderForLogo ? `<tr><td style="background:#123B7A;padding:18px 24px;text-align:center;"><img src="${escapeHtml(safeLogoUrl)}" alt="ServiFood" style="max-width:140px;height:auto;display:block;margin:0 auto;border:0;outline:none;text-decoration:none;" /></td></tr>` : ''}
+            ${useBlueHeaderForLogo ? `<tr><td style="background:#123B7A;padding:22px 24px;text-align:center;"><img src="${escapeHtml(safeLogoUrl)}" alt="ServiFood" style="max-width:138px;height:auto;display:block;margin:0 auto;border:0;outline:none;text-decoration:none;" /></td></tr>` : ''}
             <tr>
-              <td style="padding:${useBlueHeaderForLogo ? '24px 30px 8px 30px' : '28px 30px 8px 30px'};text-align:center;">
+              <td style="padding:${useBlueHeaderForLogo ? '28px 34px 10px 34px' : '30px 34px 10px 34px'};text-align:center;">
                 ${hasLogo && !useBlueHeaderForLogo ? `<img src="${escapeHtml(safeLogoUrl)}" alt="ServiFood" style="max-width:140px;height:auto;display:block;margin:0 auto 16px auto;border:0;outline:none;text-decoration:none;" />` : ''}
-                <h1 style="margin:0 0 6px 0;font-size:28px;line-height:1.2;color:#082B63;">${safeHeadline}</h1>
-                <p style="margin:0;font-size:14px;color:#4f6382;">${safeSubtitle}</p>
+                <h1 style="margin:0 0 8px 0;font-size:29px;line-height:1.2;color:#082B63;font-weight:800;">${safeHeadline}</h1>
+                <p style="margin:0 0 4px 0;font-size:15px;color:#3f567a;font-weight:600;">${safeSubtitle}</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:10px 30px 28px 30px;">
-                <p style="margin:0 0 16px 0;font-size:15px;line-height:1.5;">${safeIntro}</p>
-                ${hasHighlight ? `<div style="margin:0 0 14px 0;"><span style="display:inline-block;background:#FFE8A3;color:#7A4B00;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;">${safeHighlightText}</span></div>` : ''}
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #d9e2f2;border-radius:12px;background:#F4F7FB;">
-                  <tr><td style="padding:14px 16px;font-size:14px;line-height:1.6;">${renderRows(details)}</td></tr>
+              <td style="padding:12px 34px 30px 34px;">
+                <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#243653;">${safeIntro}</p>
+                ${hasHighlight ? `<div style="margin:0 0 14px 0;"><span style="display:inline-block;background:#FFF1C2;color:#6B4300;border:1px solid #FFD56A;border-radius:999px;padding:7px 13px;font-size:13px;font-weight:700;">${safeHighlightText}</span></div>` : ''}
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #DDE6F3;border-radius:14px;background:#F6F8FC;">
+                  <tr><td style="padding:18px 18px;font-size:14px;line-height:1.6;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0">${renderRows(details)}</table></td></tr>
                 </table>
                 ${hasCta ? `<div style="margin-top:22px;text-align:center;"><a href="${escapeHtml(safeCtaUrl)}" style="display:inline-block;background:#082a4d;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 20px;border-radius:6px;">${safeCtaText}</a></div>` : ''}
-                <div style="margin-top:18px;background:#EAF1FF;color:#123B7A;border-left:4px solid #1F5DB8;padding:12px 14px;border-radius:10px;">
-                  <p style="margin:0;font-size:13px;line-height:1.5;">${safeFooter}</p>
+                <div style="margin-top:18px;background:#EAF1FF;color:#123B7A;border-left:4px solid #1F5DB8;padding:13px 15px;border-radius:10px;">
+                  <p style="margin:0;font-size:13px;line-height:1.45;">${safeFooter}</p>
                 </div>
               </td>
             </tr>
             <tr>
-              <td style="padding:12px 24px 20px 24px;background:#ffffff;text-align:center;">
-                <p style="margin:0;font-size:12px;line-height:1.4;color:#6a7f9f;font-weight:700;">${safeFooterTitle}</p>
-                <p style="margin:2px 0 0 0;font-size:12px;line-height:1.4;color:#6a7f9f;">${safeFooterSubtitle}</p>
+              <td style="padding:14px 24px 22px 24px;background:#ffffff;text-align:center;">
+                <p style="margin:0;font-size:12px;line-height:1.45;color:#6B7A90;font-weight:700;">${safeFooterTitle}</p>
+                <p style="margin:2px 0 0 0;font-size:12px;line-height:1.45;color:#6B7A90;">${safeFooterSubtitle}</p>
+                <p style="margin:6px 0 0 0;font-size:12px;line-height:1.45;color:#6B7A90;">Este correo fue generado automáticamente por la App de análisis ServiFood.</p>
               </td>
             </tr>
           </table>
@@ -101,19 +116,25 @@ export function renderNewSgcModuleEmail({ title, category, uploadedAt, platformU
 }
 
 export function renderCertificationExpirationEmail({ certification, triggerInfo, certificationsUrl, logoUrl }) {
+  const days = Number(triggerInfo?.daysUntilExpiration);
+  const humanTrigger = days === 1 ? 'Vence mañana' : (days === 7 ? 'Vence en 7 días' : 'Próximo vencimiento');
+  const technicalTrigger = triggerInfo?.triggerType || '-';
+  const preheaderExpirationLabel = days === 1 ? 'mañana' : (days === 7 ? 'en 7 días' : 'próximamente');
+  const certificationName = certification?.name || '-';
   const highlightText = triggerInfo?.daysUntilExpiration === 1
     ? 'Vence mañana'
     : (triggerInfo?.daysUntilExpiration === 7 ? 'Vence en 7 días' : '');
   return renderBaseEmailTemplate({
     headline: 'Certificación próxima a vencer',
     intro: 'Hola,\n\nEsta es una notificación de prueba del módulo de Certificaciones de ServiFood.\n\nDetectamos una certificación próxima a vencer y se generó este aviso interno para validar el funcionamiento del sistema de notificaciones.',
+    preheader: `Certificación ${certificationName} vence ${preheaderExpirationLabel}. Aviso de prueba ServiFood.`,
     details: [
       { label: 'Certificación', value: certification?.name || '-' },
       { label: 'Módulo/Categoría', value: certification?.module || '-' },
       { label: 'Tipo', value: certification?.type || '-' },
-      { label: 'Fecha de vencimiento', value: certification?.expiration_date || '-' },
+      { label: 'Fecha de vencimiento', value: formatDateEsAR(certification?.expiration_date || '-') },
       { label: 'Días restantes', value: triggerInfo?.daysUntilExpiration ?? '-' },
-      { label: 'Trigger detectado', value: triggerInfo?.triggerType || '-' }
+      { label: 'Trigger detectado', value: `${humanTrigger} (${technicalTrigger})` }
     ],
     highlightText,
     ctaText: certificationsUrl ? 'Ver certificaciones' : '',
