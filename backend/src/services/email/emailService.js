@@ -160,7 +160,7 @@ export async function sendCertificationExpirationPilotEmail({ certification, tri
     `Tipo: ${certification?.type || '-'}`,
     `Fecha de vencimiento: ${certification?.expiration_date || '-'}`,
     `Días restantes: ${triggerInfo?.daysUntilExpiration ?? '-'}`,
-    `Aviso: ${humanTrigger} (${triggerInfo?.triggerType || '-'})`,
+    `Aviso: ${humanTrigger}`,
     '',
     'Este envío corresponde a una automatización piloto.',
     'Por ahora las notificaciones automáticas solo se envían al correo configurado de prueba.',

@@ -118,7 +118,6 @@ export function renderNewSgcModuleEmail({ title, category, uploadedAt, platformU
 export function renderCertificationExpirationEmail({ certification, triggerInfo, certificationsUrl, logoUrl }) {
   const days = Number(triggerInfo?.daysUntilExpiration);
   const humanTrigger = days === 1 ? 'Vence mañana' : (days === 7 ? 'Vence en 7 días' : 'Próximo vencimiento');
-  const technicalTrigger = triggerInfo?.triggerType || '-';
   const preheaderExpirationLabel = days === 1 ? 'mañana' : (days === 7 ? 'en 7 días' : 'próximamente');
   const certificationName = certification?.name || '-';
   const highlightText = triggerInfo?.daysUntilExpiration === 1
@@ -134,7 +133,7 @@ export function renderCertificationExpirationEmail({ certification, triggerInfo,
       { label: 'Tipo', value: certification?.type || '-' },
       { label: 'Fecha de vencimiento', value: formatDateEsAR(certification?.expiration_date || '-') },
       { label: 'Días restantes', value: triggerInfo?.daysUntilExpiration ?? '-' },
-      { label: 'Trigger detectado', value: `${humanTrigger} (${technicalTrigger})` }
+      { label: 'Trigger detectado', value: humanTrigger }
     ],
     highlightText,
     ctaText: certificationsUrl ? 'Ver certificaciones' : '',
@@ -148,7 +147,6 @@ export function renderCertificationExpirationEmail({ certification, triggerInfo,
 export function renderCertificationAutomaticPilotEmail({ certification, triggerInfo, certificationsUrl, logoUrl }) {
   const days = Number(triggerInfo?.daysUntilExpiration);
   const humanTrigger = days === 1 ? 'Vence mañana' : (days === 7 ? 'Vence en 7 días' : 'Próximo vencimiento');
-  const technicalTrigger = triggerInfo?.triggerType || '-';
   const preheaderExpirationLabel = days === 1 ? 'mañana' : (days === 7 ? 'en 7 días' : 'próximamente');
   const certificationName = certification?.name || '-';
   const highlightText = days === 1 ? 'Vence mañana' : (days === 7 ? 'Vence en 7 días' : '');
@@ -163,7 +161,7 @@ export function renderCertificationAutomaticPilotEmail({ certification, triggerI
       { label: 'Tipo', value: certification?.type || '-' },
       { label: 'Fecha de vencimiento', value: formatDateEsAR(certification?.expiration_date || '-') },
       { label: 'Días restantes', value: triggerInfo?.daysUntilExpiration ?? '-' },
-      { label: 'Aviso', value: `${humanTrigger} (${technicalTrigger})` }
+      { label: 'Aviso', value: humanTrigger }
     ],
     highlightText,
     ctaText: certificationsUrl ? 'Ver certificaciones' : '',
