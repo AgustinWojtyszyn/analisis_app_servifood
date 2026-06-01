@@ -430,6 +430,11 @@ function MainApp({ user, onLogout }) {
 
 function PublicApp({ onLoginSuccess }) {
   const [currentPath, setCurrentPath] = useState(() => normalizePublicPath(window.location.pathname));
+  const resolveAuthModePath = (mode) => {
+    if (mode === 'register') return '/register';
+    if (mode === 'forgotPassword') return '/forgot-password';
+    return '/login';
+  };
 
   useEffect(() => {
     const normalizedPath = normalizePublicPath(window.location.pathname);
@@ -460,7 +465,7 @@ function PublicApp({ onLoginSuccess }) {
         onLoginSuccess={onLoginSuccess}
         initialMode="login"
         onBackToLanding={() => navigatePublic('/')}
-        onSwitchMode={(mode) => navigatePublic(mode === 'register' ? '/register' : '/login')}
+        onSwitchMode={(mode) => navigatePublic(resolveAuthModePath(mode))}
       />
     );
   }
@@ -471,7 +476,7 @@ function PublicApp({ onLoginSuccess }) {
         onLoginSuccess={onLoginSuccess}
         initialMode="register"
         onBackToLanding={() => navigatePublic('/')}
-        onSwitchMode={(mode) => navigatePublic(mode === 'register' ? '/register' : '/login')}
+        onSwitchMode={(mode) => navigatePublic(resolveAuthModePath(mode))}
       />
     );
   }
