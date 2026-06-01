@@ -488,8 +488,14 @@ export async function uploadAndAnalyze(req, res) {
       analysis
     });
   } catch (error) {
-    console.error('Error en análisis:', error);
-    return res.status(500).json({ error: 'Error procesando archivo: ' + error.message });
+    if (Number(error?.status) === 413) {
+      return res.status(413).json({ error: error.message || 'El archivo supera el tamaño máximo permitido.' });
+    }
+    if (Number(error?.status) === 400) {
+      return res.status(400).json({ error: error.message || 'El archivo Excel está dañado o no puede procesarse.' });
+    }
+    console.error('Error en análisis:', error?.message || error);
+    return res.status(500).json({ error: 'Error procesando archivo' });
   }
 }
 

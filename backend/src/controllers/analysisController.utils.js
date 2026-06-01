@@ -251,6 +251,93 @@ function isValidExcelFilename(filename = '') {
   return lower.endsWith('.xlsx');
 }
 
+const ALLOWED_EXCEL_MIME_TYPES = new Set([
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/octet-stream'
+]);
+
+function createUploadValidationError(message, status = 400) {
+  const error = new Error(message);
+  error.status = status;
+  error.code = 'UPLOAD_VALIDATION_ERROR';
+  return error;
+}
+
+function isAllowedExcelMimeType(mimetype = '') {
+  const value = String(mimetype || '').trim().toLowerCase();
+  return ALLOWED_EXCEL_MIME_TYPES.has(value);
+}
+
+function hasZipSignature(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 4) return false;
+  const b0 = buffer[0];
+  const b1 = buffer[1];
+  const b2 = buffer[2];
+  const b3 = buffer[3];
+  const isPk = b0 === 0x50 && b1 === 0x4b;
+  if (!isPk) return false;
+  const zipHeaders = (
+    (b2 === 0x03 && b3 === 0x04) ||
+    (b2 === 0x05 && b3 === 0x06) ||
+    (b2 === 0x07 && b3 === 0x08)
+  );
+  return zipHeaders;
+}
+
+function hasRequiredXlsxEntries(buffer) {
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) return false;
+  const requiredEntries = [
+    '[Content_Types].xml',
+    'xl/workbook.xml',
+    '_rels/.rels'
+  ];
+  return requiredEntries.every((entry) => buffer.includes(Buffer.from(entry, 'utf8')));
+}
+
+function validateUploadedExcelIdentity({ originalname, mimetype }) {
+  if (!isValidExcelFilename(originalname)) {
+    throw createUploadValidationError('Solo se aceptan archivos .xlsx.', 400);
+  }
+  if (!isAllowedExcelMimeType(mimetype)) {
+    throw createUploadValidationError('El tipo de archivo no es válido.', 400);
+  }
+}
+
+function validateUploadedExcelFile(file, { maxFileSizeBytes = null } = {}) {
+  if (!file) {
+    throw createUploadValidationError('Excel file is required', 400);
+  }
+
+  validateUploadedExcelIdentity({
+    originalname: file.originalname,
+    mimetype: file.mimetype
+  });
+
+  const size = Number(file.size || 0);
+  if (size <= 0 || !Buffer.isBuffer(file.buffer) || file.buffer.length === 0) {
+    throw createUploadValidationError('El archivo Excel está vacío.', 400);
+  }
+  if (Number.isFinite(maxFileSizeBytes) && maxFileSizeBytes > 0 && size > maxFileSizeBytes) {
+    throw createUploadValidationError('El archivo supera el tamaño máximo permitido.', 413);
+  }
+  if (!hasZipSignature(file.buffer)) {
+    throw createUploadValidationError('El archivo no es un Excel .xlsx válido.', 400);
+  }
+  if (!hasRequiredXlsxEntries(file.buffer)) {
+    throw createUploadValidationError('El archivo no contiene una estructura Excel válida.', 400);
+  }
+}
+
+function mapAnalysisFailureToSafeMessage(rawMessage = '') {
+  const text = String(rawMessage || '').toLowerCase();
+  if (
+    /zip|central directory|corrupt|dañad|damaged|invalid|parse|workbook|xml|crc|unexpected end|end of data/.test(text)
+  ) {
+    return 'El archivo Excel está dañado o no puede procesarse.';
+  }
+  return String(rawMessage || 'El archivo Excel está dañado o no puede procesarse.');
+}
+
 async function insertAnalysisHistory({ supabaseAdmin, userId, filename, resultPayload, status = 'active' }) {
   let insertResult = await supabaseAdmin
     .from('analysis_history')
@@ -291,10 +378,8 @@ async function processExcelFile({
     throw new Error('Excel file is required');
   }
 
+  validateUploadedExcelFile(file);
   const filename = file.originalname;
-  if (!isValidExcelFilename(filename)) {
-    throw new Error('Solo se aceptan archivos .xlsx');
-  }
 
   const activeRules = await getRulesForAnalysis({ prisma, defaultRules });
   const analysisResult = await analyzeExcel(file.buffer, activeRules, null, {
@@ -302,7 +387,10 @@ async function processExcelFile({
     uploadedAt: new Date().toISOString()
   });
   if (!analysisResult.success) {
-    throw new Error(analysisResult.error || 'Error procesando archivo');
+    throw createUploadValidationError(
+      mapAnalysisFailureToSafeMessage(analysisResult.error),
+      400
+    );
   }
 
   const processingTimestamp = new Date().toISOString();
@@ -350,6 +438,11 @@ export {
   parseRuleMetadata,
   getRulesForAnalysis,
   isValidExcelFilename,
+  isAllowedExcelMimeType,
+  validateUploadedExcelIdentity,
+  validateUploadedExcelFile,
+  createUploadValidationError,
+  mapAnalysisFailureToSafeMessage,
   insertAnalysisHistory,
   processExcelFile,
   ensureSupabaseConfigured,

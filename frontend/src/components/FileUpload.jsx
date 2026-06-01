@@ -12,10 +12,19 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { uploadMultipleAnalysis } from '../services/analysis';
 
 const MAX_FILES = 10;
+const MAX_EXCEL_FILE_SIZE_MB = 10;
+const MAX_EXCEL_FILE_SIZE_BYTES = MAX_EXCEL_FILE_SIZE_MB * 1024 * 1024;
 
 function isExcel(file) {
   const name = String(file?.name || '').toLowerCase();
   return name.endsWith('.xlsx');
+}
+
+function isValidExcelMime(file) {
+  const mime = String(file?.type || '').toLowerCase().trim();
+  if (!mime) return true;
+  return mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    || mime === 'application/octet-stream';
 }
 
 function generateClientFileId() {
@@ -57,6 +66,21 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
     const invalid = list.find((file) => !isExcel(file));
     if (invalid) {
       setError(`Archivo inválido: ${invalid.name}. Solo se aceptan archivos .xlsx`);
+      return;
+    }
+    const invalidMime = list.find((file) => !isValidExcelMime(file));
+    if (invalidMime) {
+      setError(`Archivo inválido: ${invalidMime.name}. El tipo de archivo no es válido.`);
+      return;
+    }
+    const emptyFile = list.find((file) => Number(file?.size || 0) <= 0);
+    if (emptyFile) {
+      setError(`Archivo inválido: ${emptyFile.name}. El archivo Excel está vacío.`);
+      return;
+    }
+    const oversizedFile = list.find((file) => Number(file?.size || 0) > MAX_EXCEL_FILE_SIZE_BYTES);
+    if (oversizedFile) {
+      setError(`Archivo inválido: ${oversizedFile.name}. El archivo supera ${MAX_EXCEL_FILE_SIZE_MB} MB.`);
       return;
     }
 
@@ -204,7 +228,7 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
               Arrastra archivos aquí o haz clic para seleccionar
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Formato soportado: .xlsx
+              Formato soportado: .xlsx (máximo {MAX_EXCEL_FILE_SIZE_MB} MB por archivo)
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, fontWeight: 700 }}>
               {counterLabel}
@@ -214,7 +238,7 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
               type="file"
               multiple
               name="excel_files"
-              accept=".xlsx"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={handleFileChange}
               style={{ display: 'none' }}
               id={inputId}
