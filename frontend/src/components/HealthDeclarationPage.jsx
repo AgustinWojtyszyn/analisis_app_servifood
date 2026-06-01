@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -129,6 +129,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
   const [completedToday, setCompletedToday] = useState(false);
   const [todayDeclaration, setTodayDeclaration] = useState(null);
   const [history, setHistory] = useState([]);
+  const submitInFlightRef = useRef(false);
 
   const [form, setForm] = useState({
     hasSymptoms: '',
@@ -213,12 +214,16 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
   };
 
   const submit = async () => {
+    if (submitInFlightRef.current) {
+      return;
+    }
     const check = validate();
     if (!check.valid) {
       setError(check.error);
       return;
     }
     try {
+      submitInFlightRef.current = true;
       setSaving(true);
       setError('');
       setSuccess('');
@@ -237,6 +242,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
     } catch (err) {
       setError(err.message || 'No se pudo guardar la declaración');
     } finally {
+      submitInFlightRef.current = false;
       setSaving(false);
     }
   };
@@ -392,7 +398,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
                 <Button variant="outlined" onClick={onOpenPolicies} sx={{ minHeight: 46, width: { xs: '100%', sm: 'auto' }, color: formLabelColor, borderColor: formBorder, '&:hover': { borderColor: '#5f7fa8', bgcolor: 'rgba(47,107,255,0.08)' } }}>
                   Ver política
                 </Button>
-                <Button variant="contained" onClick={submit} disabled={saving} sx={{ minHeight: 46, width: { xs: '100%', sm: 'auto' } }}>{saving ? 'Guardando...' : (editingId ? 'Guardar cambios' : 'Enviar declaración')}</Button>
+                <Button variant="contained" onClick={submit} disabled={saving} sx={{ minHeight: 46, width: { xs: '100%', sm: 'auto' } }}>{saving ? 'Enviando...' : (editingId ? 'Guardar cambios' : 'Enviar declaración')}</Button>
                 {editingId && <Button variant="text" onClick={() => setEditingId(null)} sx={{ minHeight: 46, width: { xs: '100%', sm: 'auto' }, color: formHelperColor }}>Cancelar edición</Button>}
                 {!editingId && !completedToday && <Button variant="text" onClick={() => setShowForm(false)} sx={{ minHeight: 46, width: { xs: '100%', sm: 'auto' }, color: formHelperColor }}>Volver</Button>}
               </Box>

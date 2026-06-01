@@ -174,6 +174,21 @@ function toIsoDate(value) {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+function isUniqueViolation(error) {
+  const code = String(error?.code || '').trim();
+  if (code === '23505') return true;
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('duplicate') || message.includes('unique');
+}
+
+function declarationAlreadyExistsResponse(res) {
+  return res.status(409).json({
+    success: false,
+    code: 'DECLARATION_ALREADY_EXISTS',
+    message: 'Ya registraste tu declaración de salud de hoy.'
+  });
+}
+
 function mapDeclaration(row, profileByUserId = new Map()) {
   if (!row) return null;
   const profile = profileByUserId.get(row.user_id) || null;
@@ -321,7 +336,7 @@ router.get('/health-declarations/today', authenticateToken, async (req, res) => 
   }
 });
 
-router.post('/health-declarations', authenticateToken, async (req, res) => {
+export async function createHealthDeclarationHandler(req, res) {
   try {
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
@@ -356,7 +371,7 @@ router.post('/health-declarations', authenticateToken, async (req, res) => {
 
     const todayResult = await getTodayDeclaration(req.user.id);
     if (!todayResult.error && todayResult.data?.length) {
-      return res.status(409).json({ error: 'Ya completaste la declaración de hoy' });
+      return declarationAlreadyExistsResponse(res);
     }
 
     const date = localDateString(new Date(), HEALTH_DECLARATION_TIMEZONE);
@@ -397,8 +412,8 @@ router.post('/health-declarations', authenticateToken, async (req, res) => {
     const { data, error } = insertResponse;
 
     if (error) {
-      if (String(error.message || '').toLowerCase().includes('duplicate') || String(error.code || '') === '23505') {
-        return res.status(409).json({ error: 'Ya completaste la declaración de hoy' });
+      if (isUniqueViolation(error)) {
+        return declarationAlreadyExistsResponse(res);
       }
       return res.status(500).json({ error: error.message || 'Error guardando declaración' });
     }
@@ -409,7 +424,9 @@ router.post('/health-declarations', authenticateToken, async (req, res) => {
   } catch {
     return res.status(500).json({ error: 'Error interno guardando declaración' });
   }
-});
+}
+
+router.post('/health-declarations', authenticateToken, createHealthDeclarationHandler);
 
 router.put('/health-declarations/:id/me', authenticateToken, async (req, res) => {
   try {
