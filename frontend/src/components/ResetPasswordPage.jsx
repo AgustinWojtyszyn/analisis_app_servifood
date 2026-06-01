@@ -26,7 +26,7 @@ function getAuthErrorMessage(err) {
   return 'No se pudo actualizar la contraseña. Intentá nuevamente.';
 }
 
-export default function ResetPasswordPage({ onBackToLogin }) {
+export default function ResetPasswordPage({ onBackToLogin, onRequestNewLink }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -56,6 +56,11 @@ export default function ResetPasswordPage({ onBackToLogin }) {
         } else if (code) {
           await supabase.auth.exchangeCodeForSession(code);
           window.history.replaceState({}, '', '/reset-password');
+        } else {
+          const { data } = await supabase.auth.getSession();
+          if (!data?.session) {
+            throw new Error('invalid_recovery_session');
+          }
         }
 
         if (mounted) setSessionReady(true);
@@ -210,6 +215,16 @@ export default function ResetPasswordPage({ onBackToLogin }) {
               </Button>
 
               <Box sx={{ textAlign: 'center' }}>
+                {error && (
+                  <Button
+                    type="button"
+                    onClick={onRequestNewLink}
+                    sx={{ textTransform: 'none', fontWeight: 600, mr: 1 }}
+                    disabled={isSubmitting}
+                  >
+                    Solicitar nuevo enlace
+                  </Button>
+                )}
                 <Button type="button" onClick={onBackToLogin} sx={{ textTransform: 'none', fontWeight: 600 }}>
                   Volver a iniciar sesión
                 </Button>

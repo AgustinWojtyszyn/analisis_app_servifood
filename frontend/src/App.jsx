@@ -486,7 +486,12 @@ function PublicApp({ onLoginSuccess }) {
   }
 
   if (currentPath === '/reset-password') {
-    return <ResetPasswordPage onBackToLogin={() => navigatePublic('/login')} />;
+    return (
+      <ResetPasswordPage
+        onBackToLogin={() => navigatePublic('/login')}
+        onRequestNewLink={() => navigatePublic('/forgot-password')}
+      />
+    );
   }
 
   return <PublicLanding onLogin={() => navigatePublic('/login')} onRegister={() => navigatePublic('/register')} />;
