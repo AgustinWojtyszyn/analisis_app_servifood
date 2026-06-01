@@ -1,6 +1,8 @@
 import { getArgentinaTodayDateParts, parseDateInputToParts, toUtcDayNumber } from '../utils/argentinaDateUtils.js';
 
-const FORTNIGHT_WARNING_DAYS = new Set([45, 30, 15]);
+const WEEKLY_WINDOW_START_DAYS = 30;
+const WEEKLY_WINDOW_MIN_DAYS = 2;
+const WEEKLY_INTERVAL_DAYS = 7;
 
 export function getCertificationNotificationTrigger(expirationDate, now = new Date()) {
   const expirationParts = parseDateInputToParts(expirationDate);
@@ -49,21 +51,17 @@ export function getCertificationNotificationTrigger(expirationDate, now = new Da
     };
   }
 
-  if (FORTNIGHT_WARNING_DAYS.has(daysUntilExpiration)) {
+  const isWeeklyWindowTrigger = (
+    daysUntilExpiration >= WEEKLY_WINDOW_MIN_DAYS
+    && daysUntilExpiration <= WEEKLY_WINDOW_START_DAYS
+    && ((WEEKLY_WINDOW_START_DAYS - daysUntilExpiration) % WEEKLY_INTERVAL_DAYS === 0)
+  );
+
+  if (isWeeklyWindowTrigger) {
     return {
       status: 'upcoming_expiration',
       shouldNotify: true,
-      triggerType: `fifteen_day_window_${daysUntilExpiration}`,
-      daysUntilExpiration,
-      humanTriggerLabel: `Vence en ${daysUntilExpiration} días`
-    };
-  }
-
-  if (daysUntilExpiration >= 2 && daysUntilExpiration <= 7) {
-    return {
-      status: 'near_expiration',
-      shouldNotify: true,
-      triggerType: 'early_warning',
+      triggerType: `weekly_window_${daysUntilExpiration}`,
       daysUntilExpiration,
       humanTriggerLabel: `Vence en ${daysUntilExpiration} días`
     };
