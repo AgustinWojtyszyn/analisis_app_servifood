@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ThemeProvider, CssBaseline, Box, Typography, Paper } from '@mui/material';
 import { appTheme } from './styles/theme';
 import LoginForm from './components/LoginForm';
+import ForgotPasswordPage from './components/ForgotPasswordPage';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import FileUpload from './components/FileUpload';
 import { SummaryGrid } from './components/Dashboard';
 import AnalysisResults from './components/AnalysisResults';
@@ -45,7 +47,7 @@ const publicAuthPathMap = {
   '/signup': '/register'
 };
 
-const publicPaths = new Set(['/', '/login', '/register']);
+const publicPaths = new Set(['/', '/login', '/register', '/forgot-password', '/reset-password']);
 const protectedPathAliases = {
   '/politicas': '/politicas-seguridad'
 };
@@ -472,6 +474,14 @@ function PublicApp({ onLoginSuccess }) {
         onSwitchMode={(mode) => navigatePublic(mode === 'register' ? '/register' : '/login')}
       />
     );
+  }
+
+  if (currentPath === '/forgot-password') {
+    return <ForgotPasswordPage onBackToLogin={() => navigatePublic('/login')} />;
+  }
+
+  if (currentPath === '/reset-password') {
+    return <ResetPasswordPage onBackToLogin={() => navigatePublic('/login')} />;
   }
 
   return <PublicLanding onLogin={() => navigatePublic('/login')} onRegister={() => navigatePublic('/register')} />;

@@ -9,9 +9,13 @@ import {
   CardContent,
   Alert,
   CircularProgress,
-  Link as MuiLink
+  Link as MuiLink,
+  InputAdornment,
+  IconButton
 } from '@mui/material';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { supabase } from '../lib/supabaseClient';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
@@ -65,6 +69,8 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
   const [loading, setLoading] = useState(false);
   const [isRegister, setIsRegister] = useState(initialMode === 'register');
   const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showResendConfirmation, setShowResendConfirmation] = useState(false);
 
   React.useEffect(() => {
     setIsRegister(initialMode === 'register');
@@ -194,6 +200,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
     if (loading) return;
     setError('');
     setInfoMessage('');
+    setShowResendConfirmation(false);
     const submitMode = isRegister ? 'register' : 'login';
 
     if (!validateInputs()) {
@@ -213,6 +220,10 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
         return;
       }
     } catch (err) {
+      const message = String(err?.message || '').toLowerCase();
+      if (!isRegister && message.includes('email not confirmed')) {
+        setShowResendConfirmation(true);
+      }
       setError(sanitizeAuthErrorMessage(err));
     } finally {
       setLoading(false);
@@ -297,13 +308,44 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
               <TextField
                 fullWidth
                 label="Contrasena"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 margin="normal"
                 disabled={loading}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        edge="end"
+                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        disabled={loading}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
                 required
               />
+
+              {!isRegister && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.5 }}>
+                  <MuiLink
+                    component="button"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (loading) return;
+                      onSwitchMode?.('forgotPassword');
+                    }}
+                    sx={{ cursor: loading ? 'default' : 'pointer', fontSize: 14, opacity: loading ? 0.6 : 1 }}
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </MuiLink>
+                </Box>
+              )}
 
               <Button
                 type="submit"
@@ -315,7 +357,11 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
                 {loading ? <CircularProgress size={24} /> : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesion')}
               </Button>
 
-              {!isRegister && (
+              {!isRegister && showResendConfirmation && (
+                <>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: -0.5, mb: 1, textAlign: 'center' }}>
+                    Tu correo todavía no fue confirmado.
+                  </Typography>
                 <Button
                   type="button"
                   fullWidth
@@ -326,6 +372,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
                 >
                   Reenviar correo de confirmación
                 </Button>
+                </>
               )}
 
               <Box sx={{ textAlign: 'center' }}>
@@ -354,6 +401,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
                       }
                       setError('');
                       setInfoMessage('');
+                      setShowResendConfirmation(false);
                     }}
                     sx={{ cursor: 'pointer' }}
                   >
