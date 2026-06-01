@@ -152,7 +152,7 @@ export function renderCertificationAutomaticPilotEmail({ certification, triggerI
   return renderBaseEmailTemplate({
     headline: 'Certificación próxima a vencer',
     intro: 'Hola,\n\nEl sistema detectó automáticamente una certificación próxima a vencer.\n\nEste aviso corresponde al monitoreo automático de vencimientos del módulo de Certificaciones.',
-    preheader: `Certificación ${certificationName} vence ${preheaderExpirationLabel}. Aviso automático piloto ServiFood.`,
+    preheader: `Certificación ${certificationName} vence ${preheaderExpirationLabel}. Aviso automático ServiFood.`,
     details: [
       { label: 'Certificación', value: certification?.name || '-' },
       { label: 'Módulo/Categoría', value: certification?.module || '-' },
@@ -162,10 +162,10 @@ export function renderCertificationAutomaticPilotEmail({ certification, triggerI
       { label: 'Aviso', value: humanTrigger }
     ],
     highlightText,
-    ctaText: certificationsUrl ? 'Ver certificaciones' : '',
+    ctaText: certificationsUrl ? 'Ver esta certificación' : '',
     ctaUrl: certificationsUrl || '',
     logoUrl: logoUrl || '',
     logoOnBlueHeader: true,
-    footer: 'Automatización piloto: este aviso fue enviado únicamente a los correos autorizados de ServiFood definidos para esta etapa.'
+    footer: 'Este aviso automático fue enviado a los correos autorizados de ServiFood.'
   });
 }

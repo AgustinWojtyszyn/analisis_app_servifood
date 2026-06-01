@@ -24,6 +24,10 @@ function MetricCard({ label, value }) {
 }
 
 export default function CertificationsPage() {
+  const initialCertificationSearch = (() => {
+    const raw = new URLSearchParams(window.location.search).get('certificationId');
+    return String(raw || '').trim();
+  })();
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState({ total: 0, active: 0, nearExpiration: 0, expired: 0, triggersDetected: 0 });
   const [preview, setPreview] = useState({ triggerCount: 0, message: '' });
@@ -39,7 +43,7 @@ export default function CertificationsPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [sendingTestId, setSendingTestId] = useState('');
   const [runningJob, setRunningJob] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialCertificationSearch);
   const [statusFilter, setStatusFilter] = useState('all');
   const [moduleFilter, setModuleFilter] = useState('all');
 
@@ -82,9 +86,10 @@ export default function CertificationsPage() {
     const search = String(searchTerm || '').trim().toLowerCase();
     return items.filter((item) => {
       const name = String(item?.name || '').toLowerCase();
+      const id = String(item?.id || '').toLowerCase();
       const moduleName = String(item?.module || '');
       const status = String(item?.status || '');
-      const matchesSearch = !search || name.includes(search);
+      const matchesSearch = !search || name.includes(search) || id.includes(search);
       const matchesStatus = statusFilter === 'all' || status === statusFilter;
       const matchesModule = moduleFilter === 'all' || moduleName === moduleFilter;
       return matchesSearch && matchesStatus && matchesModule;

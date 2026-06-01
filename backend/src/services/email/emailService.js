@@ -94,6 +94,13 @@ function resolveFrontendCertificationsUrl() {
   return `${frontendBase}/certificaciones`;
 }
 
+function resolveFrontendCertificationDetailUrl(certificationId) {
+  const baseUrl = resolveFrontendCertificationsUrl();
+  const id = String(certificationId || '').trim();
+  if (!baseUrl || !id) return baseUrl;
+  return `${baseUrl}?certificationId=${encodeURIComponent(id)}`;
+}
+
 function resolveEmailLogoUrl() {
   return String(
     process.env.EMAIL_LOGO_URL
@@ -177,8 +184,8 @@ export async function sendCertificationExpirationPilotEmail({ certification, tri
     throw new Error('Email sender no configurado. Faltan variables SMTP.');
   }
 
-  const subject = '[Piloto ServiFood] Certificación próxima a vencer';
-  const certificationsUrl = resolveFrontendCertificationsUrl();
+  const subject = 'Certificación próxima a vencer | ServiFood';
+  const certificationsUrl = resolveFrontendCertificationDetailUrl(certification?.id);
   const html = renderCertificationAutomaticPilotEmail({
     certification,
     triggerInfo,
@@ -202,12 +209,12 @@ export async function sendCertificationExpirationPilotEmail({ certification, tri
     `Días restantes: ${triggerInfo?.daysUntilExpiration ?? '-'}`,
     `Aviso: ${humanTrigger}`,
     '',
-    'Este envío corresponde a una automatización piloto.',
-    'Por ahora las notificaciones automáticas se envían únicamente a los correos autorizados configurados para la prueba.',
+    'Este envío corresponde a una notificación automática de vencimientos.',
+    'Por seguridad, se envía únicamente a los correos autorizados de ServiFood.',
     certificationsUrl ? `\nVer certificaciones: ${certificationsUrl}` : ''
   ].join('\n');
 
-  console.info('[certifications-email] Intento envío automático piloto', {
+  console.info('[certifications-email] Intento envío automático', {
     certificationId: certification?.id || null,
     triggerType: triggerInfo?.triggerType || null,
     recipient
