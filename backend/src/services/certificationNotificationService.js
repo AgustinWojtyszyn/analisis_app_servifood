@@ -1,6 +1,6 @@
 import { getArgentinaTodayDateParts, parseDateInputToParts, toUtcDayNumber } from '../utils/argentinaDateUtils.js';
 
-const WEEKLY_WINDOW_START_DAYS = 30;
+const WEEKLY_WINDOW_START_DAYS = 45;
 const WEEKLY_WINDOW_MIN_DAYS = 2;
 const WEEKLY_INTERVAL_DAYS = 7;
 
@@ -51,17 +51,17 @@ export function getCertificationNotificationTrigger(expirationDate, now = new Da
     };
   }
 
-  const isWeeklyWindowTrigger = (
+  const isInsideWeeklyWindow = (
     daysUntilExpiration >= WEEKLY_WINDOW_MIN_DAYS
     && daysUntilExpiration <= WEEKLY_WINDOW_START_DAYS
-    && ((WEEKLY_WINDOW_START_DAYS - daysUntilExpiration) % WEEKLY_INTERVAL_DAYS === 0)
   );
 
-  if (isWeeklyWindowTrigger) {
+  if (isInsideWeeklyWindow) {
+    const weeklySlot = Math.floor((WEEKLY_WINDOW_START_DAYS - daysUntilExpiration) / WEEKLY_INTERVAL_DAYS);
     return {
       status: 'upcoming_expiration',
       shouldNotify: true,
-      triggerType: `weekly_window_${daysUntilExpiration}`,
+      triggerType: `weekly_window_slot_${weeklySlot}`,
       daysUntilExpiration,
       humanTriggerLabel: `Vence en ${daysUntilExpiration} días`
     };
