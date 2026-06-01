@@ -1,5 +1,7 @@
 import { getArgentinaTodayDateParts, parseDateInputToParts, toUtcDayNumber } from '../utils/argentinaDateUtils.js';
 
+const FORTNIGHT_WARNING_DAYS = new Set([45, 30, 15]);
+
 export function getCertificationNotificationTrigger(expirationDate, now = new Date()) {
   const expirationParts = parseDateInputToParts(expirationDate);
   if (!expirationParts) {
@@ -44,6 +46,16 @@ export function getCertificationNotificationTrigger(expirationDate, now = new Da
       triggerType: 'urgent_warning',
       daysUntilExpiration,
       humanTriggerLabel: 'Vence mañana'
+    };
+  }
+
+  if (FORTNIGHT_WARNING_DAYS.has(daysUntilExpiration)) {
+    return {
+      status: 'upcoming_expiration',
+      shouldNotify: true,
+      triggerType: `fifteen_day_window_${daysUntilExpiration}`,
+      daysUntilExpiration,
+      humanTriggerLabel: `Vence en ${daysUntilExpiration} días`
     };
   }
 
