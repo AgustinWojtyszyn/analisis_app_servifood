@@ -22,7 +22,7 @@ const MIN_PASSWORD_LENGTH = 12;
 function getAuthErrorMessage(err) {
   const msg = String(err?.message || '').toLowerCase();
   if (msg.includes('session')) return 'El enlace no es válido o expiró. Solicitá uno nuevo.';
-  if (msg.includes('password')) return `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`;
+  if (msg.includes('password')) return `La contraseña no cumple la política de seguridad. Debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres y cumplir los requisitos de autenticación configurados.`;
   return 'No se pudo actualizar la contraseña. Intentá nuevamente.';
 }
 
@@ -170,9 +170,13 @@ export default function ResetPasswordPage({ onBackToLogin, onRequestNewLink }) {
                 label="Nueva contraseña"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError('');
+                }}
                 margin="normal"
                 disabled={isSubmitting}
+                minLength={MIN_PASSWORD_LENGTH}
                 required
                 helperText={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres`}
                 InputProps={{
@@ -196,9 +200,13 @@ export default function ResetPasswordPage({ onBackToLogin, onRequestNewLink }) {
                 label="Confirmar nueva contraseña"
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setError('');
+                }}
                 margin="normal"
                 disabled={isSubmitting}
+                minLength={MIN_PASSWORD_LENGTH}
                 required
                 InputProps={{
                   endAdornment: (
