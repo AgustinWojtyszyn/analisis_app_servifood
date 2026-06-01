@@ -1,4 +1,4 @@
--- 1) Diagnóstico previo (ejecutar primero)
+-- 1) Diagnóstico previo (ejecutar primero) y probar despues los cambios
 select
   user_id,
   declaration_date,
