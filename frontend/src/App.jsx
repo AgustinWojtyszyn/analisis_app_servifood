@@ -498,7 +498,8 @@ function PublicApp({ onLoginSuccess }) {
 }
 
 export default function App() {
-  const { user, login, logout, loading } = useAuth();
+  const { user, login, logout, loading, isPasswordRecovery } = useAuth();
+  const isResetPasswordRoute = window.location.pathname === '/reset-password';
 
   if (loading) {
     return (
@@ -514,7 +515,9 @@ export default function App() {
   return (
     <ThemeProvider theme={appTheme}>
       <CssBaseline />
-      {user ? <MainApp user={user} onLogout={logout} /> : <PublicApp onLoginSuccess={login} />}
+      {(isResetPasswordRoute || isPasswordRecovery || !user)
+        ? <PublicApp onLoginSuccess={login} />
+        : <MainApp user={user} onLogout={logout} />}
     </ThemeProvider>
   );
 }

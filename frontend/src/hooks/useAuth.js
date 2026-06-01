@@ -20,6 +20,7 @@ function mapSupabaseUser(user, profile = null) {
 export function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -89,7 +90,8 @@ export function useAuth() {
 
     bootstrap();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsPasswordRecovery(event === 'PASSWORD_RECOVERY');
       const authUser = session?.user || null;
 
       void (async () => {
@@ -118,10 +120,11 @@ export function useAuth() {
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setIsPasswordRecovery(false);
     localStorage.removeItem('supabase_access_token');
   };
 
-  return { user, login, logout, loading };
+  return { user, login, logout, loading, isPasswordRecovery };
 }
 
 export function useLocalStorage(key, initialValue) {

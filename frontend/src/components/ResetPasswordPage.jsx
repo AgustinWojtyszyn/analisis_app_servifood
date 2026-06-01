@@ -35,12 +35,14 @@ export default function ResetPasswordPage({ onBackToLogin, onRequestNewLink }) {
   const [infoMessage, setInfoMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [isPreparingSession, setIsPreparingSession] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
     async function prepareRecoverySession() {
       try {
+        setIsPreparingSession(true);
         const hash = window.location.hash?.startsWith('#') ? window.location.hash.slice(1) : '';
         const hashParams = new URLSearchParams(hash);
         const accessToken = hashParams.get('access_token');
@@ -69,6 +71,10 @@ export default function ResetPasswordPage({ onBackToLogin, onRequestNewLink }) {
           setError('El enlace no es válido o expiró. Solicitá uno nuevo.');
           setSessionReady(false);
         }
+      } finally {
+        if (mounted) {
+          setIsPreparingSession(false);
+        }
       }
     }
 
@@ -84,6 +90,8 @@ export default function ResetPasswordPage({ onBackToLogin, onRequestNewLink }) {
 
     setError('');
     setInfoMessage('');
+
+    if (isPreparingSession) return;
 
     if (!sessionReady) {
       setError('El enlace no es válido o expiró. Solicitá uno nuevo.');
@@ -112,6 +120,8 @@ export default function ResetPasswordPage({ onBackToLogin, onRequestNewLink }) {
       setInfoMessage('Contraseña actualizada correctamente.');
       setPassword('');
       setConfirmPassword('');
+      await supabase.auth.signOut();
+      onBackToLogin?.();
     } catch (err) {
       setError(getAuthErrorMessage(err));
     } finally {
@@ -152,6 +162,7 @@ export default function ResetPasswordPage({ onBackToLogin, onRequestNewLink }) {
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             {infoMessage && <Alert severity="success" sx={{ mb: 2 }}>{infoMessage}</Alert>}
+            {isPreparingSession && <Alert severity="info" sx={{ mb: 2 }}>Validando enlace de recuperación...</Alert>}
 
             <Box component="form" onSubmit={handleSubmit}>
               <TextField
@@ -163,6 +174,7 @@ export default function ResetPasswordPage({ onBackToLogin, onRequestNewLink }) {
                 margin="normal"
                 disabled={isSubmitting}
                 required
+                helperText={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres`}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -209,9 +221,9 @@ export default function ResetPasswordPage({ onBackToLogin, onRequestNewLink }) {
                 fullWidth
                 variant="contained"
                 sx={{ mt: 2, mb: 1.5, py: 1.5, backgroundColor: '#1d4ed8', '&:hover': { backgroundColor: '#1e3a8a' } }}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isPreparingSession}
               >
-                {isSubmitting ? <CircularProgress size={24} /> : 'Actualizar contraseña'}
+                {(isSubmitting || isPreparingSession) ? <CircularProgress size={24} /> : 'Actualizar contraseña'}
               </Button>
 
               <Box sx={{ textAlign: 'center' }}>
