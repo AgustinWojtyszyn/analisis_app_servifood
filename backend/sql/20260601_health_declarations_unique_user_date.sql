@@ -1,5 +1,5 @@
 -- Garantía de integridad para declaraciones de salud:
--- un usuario solo puede tener una declaración por día.
+-- un usuario solo puede tener una declaración por día
 --
 -- Diagnóstico previo (ejecutar antes de aplicar esta migración):
 -- select
