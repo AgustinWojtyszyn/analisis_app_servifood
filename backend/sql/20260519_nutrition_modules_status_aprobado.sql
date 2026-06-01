@@ -1,4 +1,4 @@
--- Unifica estados de módulos nutricionales a un único valor: aprobado.
+-- Unifica estados de módulos nutricionales a un único valor: aprobado
 
 -- 1) Remueve constraints de estado previos para permitir la migración de datos.
 DO $$
