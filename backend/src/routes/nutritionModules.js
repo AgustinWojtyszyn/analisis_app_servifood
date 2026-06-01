@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
 import multer from 'multer';
 import { authenticateToken } from '../middlewares/auth.js';
-import { sendDocumentCreatedEmailNotification } from '../services/nutritionModulesNotifications.js';
+import { sendDocumentCreatedEmailNotification, sanitizeErrorMessage } from '../services/nutritionModulesNotifications.js';
 
 const router = express.Router();
 
@@ -127,7 +127,7 @@ async function processPendingDocumentNotifications({ batchSize = 20, source = 'u
         source,
         notificationId: row.id,
         documentId: row.document_id,
-        error: message
+        error: sanitizeErrorMessage(message)
       });
 
         const { error: updateError } = await supabaseAdmin
@@ -445,7 +445,7 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
         documentId: data.id,
         notificationId: queuedNotification?.id || null,
         status: queuedNotification?.status || null,
-        recipients: queuedNotification?.recipients || []
+        recipientsCount: Array.isArray(queuedNotification?.recipients) ? queuedNotification.recipients.length : 0
       });
     }
 

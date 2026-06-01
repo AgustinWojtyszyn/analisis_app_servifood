@@ -15,6 +15,15 @@ const EXPECTED_SMTP_PORT = 587;
 const EXPECTED_SMTP_USER = 'resend';
 const EXPECTED_SMTP_FROM = 'soporte@servifoodapp.site';
 
+function sanitizeErrorMessage(error) {
+  const raw = String(error?.message || error || 'unknown_error');
+  return raw
+    .replace(/smtp_(host|port|user|pass|from)\s*[:=]\s*[^|,\n]+/gi, 'smtp_$1=[redacted]')
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[redacted-email]')
+    .replace(/\b(bearer|token|authorization)\b[^\s]*/gi, '[redacted-token]')
+    .slice(0, 300);
+}
+
 function normalizeEmailList(list) {
   return Array.from(new Set((list || []).map((item) => String(item).trim().toLowerCase()).filter(Boolean))).sort();
 }
@@ -29,7 +38,9 @@ export function assertFixedRecipientsOrThrow(recipients) {
     throw new Error(`Lista de destinatarios inválida. Esperados: ${expected.join(', ')}. Recibidos: ${actual.join(', ')}`);
   }
 
-  console.info('[nutrition-modules-email] Destinatarios validados (whitelist fija):', actual.join(', '));
+  console.info('[nutrition-modules-email] Destinatarios validados (whitelist fija)', {
+    recipientsCount: actual.length
+  });
 }
 
 function toBoolean(value, defaultValue = false) {
@@ -155,14 +166,11 @@ export async function sendDocumentCreatedEmailNotification(notification) {
 
   validateSmtpConfigurationOrThrow({ host, port, user, from });
 
-  console.log('VERIFY SMTP...');
-  console.log('SMTP_HOST usado', host);
-  console.log('SMTP_PORT usado', port);
-  console.log('SMTP_USER usado', user);
-  console.log('SMTP_FROM usado', from);
-  console.log('Destinatarios finales', recipients);
-  console.log('Subject', 'Nuevo documento cargado en Documentos SGC');
-  console.log('Provider SMTP', provider);
+  console.info('[nutrition-modules-email] SMTP send start', {
+    type: 'document_created',
+    provider,
+    recipientsCount: recipients.length
+  });
 
   const subject = 'Nuevo documento cargado en Documentos SGC';
   const platformUrl = 'https://analisis.servifoodapp.site/modulos-nutricionales';
@@ -187,11 +195,11 @@ export async function sendDocumentCreatedEmailNotification(notification) {
     logoUrl: resolveEmailLogoUrl()
   });
 
-  const verifyResult = await transporter.verify();
-  console.log('SMTP OK');
-  console.log('VERIFY RESULT', verifyResult);
-
-  console.log('Ejecutando sendMail');
+  await transporter.verify();
+  console.info('[nutrition-modules-email] SMTP verify ok', {
+    type: 'document_created',
+    provider
+  });
 
   const info = await transporter.sendMail({
     from,
@@ -211,23 +219,26 @@ export async function sendDocumentCreatedEmailNotification(notification) {
   const response = info?.response ? String(info.response) : '';
   const envelope = info?.envelope || null;
 
-  console.log('RAW INFO', info);
-  console.log('MESSAGE ID', messageId || null);
-  console.log('ACCEPTED', accepted);
-  console.log('REJECTED', rejected);
-  console.log('RESPONSE', response || null);
+  console.info('[nutrition-modules-email] SMTP send result', {
+    type: 'document_created',
+    provider,
+    recipientsCount: recipients.length,
+    acceptedCount: accepted.length,
+    rejectedCount: rejected.length,
+    messageId: messageId || null
+  });
 
   if (!accepted.length) {
     throw new Error('SMTP sin destinatarios aceptados (accepted vacío)');
   }
   if (rejected.length) {
-    throw new Error(`SMTP rechazó destinatarios: ${rejected.join(', ')}`);
+    throw new Error('SMTP rechazó destinatarios');
   }
   if (missingAccepted.length) {
-    throw new Error(`SMTP no confirmó aceptación para todos los destinatarios: faltan ${missingAccepted.join(', ')}`);
+    throw new Error('SMTP no confirmó aceptación para todos los destinatarios');
   }
   if (unexpectedAccepted.length) {
-    throw new Error(`SMTP devolvió destinatarios aceptados inesperados: ${unexpectedAccepted.join(', ')}`);
+    throw new Error('SMTP devolvió destinatarios aceptados inesperados');
   }
   if (!messageId) {
     throw new Error('SMTP no devolvió messageId');
@@ -245,11 +256,13 @@ export async function sendDocumentCreatedEmailNotification(notification) {
     attempted: true,
     recipientsCount: recipients.length,
     provider,
-    accepted,
-    rejected,
+    acceptedCount: accepted.length,
+    rejectedCount: rejected.length,
     response: response || null,
     messageId,
     providerMessageId: messageId,
     providerResponse
   };
 }
+
+export { sanitizeErrorMessage };
