@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Box, Button, Card, CardContent, CircularProgress, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, CircularProgress, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination, TableRow, TextField, Typography } from '@mui/material';
 import { deleteHealthDeclarationById, exportHealthDeclarations, getAdminHealthDeclarations } from '../services/healthDeclarations';
 
 function yesNo(value) {
@@ -43,6 +43,8 @@ export default function HealthDeclarationsAdminPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const visibleRows = rows.filter((row) => {
     const statusOk = statusFilter === 'all' || String(row.healthStatus || '').toLowerCase() === statusFilter;
@@ -51,11 +53,21 @@ export default function HealthDeclarationsAdminPage() {
     const toOk = !toDate || declared <= new Date(`${toDate}T23:59:59`);
     return statusOk && fromOk && toOk;
   });
+  const paginatedRows = visibleRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
   const yellowOrRed = rows.filter((row) => ['Rojo', 'Amarillo'].includes(String(row.trafficLight || ''))).length;
 
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    setPage(0);
+  }, [statusFilter, fromDate, toDate, rowsPerPage]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(visibleRows.length / rowsPerPage) - 1);
+    if (page > maxPage) setPage(maxPage);
+  }, [page, rowsPerPage, visibleRows.length]);
 
   const load = async () => {
     try {
@@ -90,6 +102,14 @@ export default function HealthDeclarationsAdminPage() {
     } catch (err) {
       setError(err.message || 'No se pudo exportar declaraciones');
     }
+  };
+
+  const handleChangePage = (_event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(Number(event.target.value));
   };
 
   return (
@@ -153,7 +173,7 @@ export default function HealthDeclarationsAdminPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {visibleRows.map((item) => (
+                {paginatedRows.map((item) => (
                   <TableRow
                     key={item.id}
                     sx={() => {
@@ -199,6 +219,19 @@ export default function HealthDeclarationsAdminPage() {
               </TableBody>
             </Table>
           </TableContainer>
+        )}
+        {!loading && visibleRows.length > 0 && (
+          <TablePagination
+            component="div"
+            count={visibleRows.length}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            rowsPerPageOptions={[10, 50, 100]}
+            labelRowsPerPage="Filas por página"
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
         )}
       </CardContent>
     </Card>
