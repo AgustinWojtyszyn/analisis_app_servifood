@@ -70,7 +70,11 @@ export default function CertificationsPage() {
 
   const triggerBanner = useMemo(() => {
     if (!preview.triggerCount) return null;
-    return `${preview.triggerCount} trigger(s) detectado(s). ${preview.message || 'Monitoreo automático piloto activo.'}`;
+    const count = Number(preview.triggerCount || 0);
+    const label = count === 1
+      ? '1 recordatorio pendiente detectado'
+      : `${count} recordatorios pendientes detectados`;
+    return `${label}. Monitoreo automático activo`;
   }, [preview]);
 
   const moduleOptions = useMemo(() => {
@@ -158,7 +162,7 @@ export default function CertificationsPage() {
       const response = await runCertificationNotificationJob();
       const recipients = Array.isArray(response?.recipients) && response.recipients.length ? response.recipients : authorizedRecipients;
       setSuccessMessage(
-        `Revisión ejecutada. Revisadas: ${response?.checked || 0} · Enviadas: ${response?.sent || 0} · Ya enviadas: ${response?.skippedAlreadySent || 0} · Sin trigger: ${response?.skippedWithoutTrigger || 0} · Errores: ${response?.failed || 0}. Destinatarios: ${recipients.join(', ')}`
+        `Revisión ejecutada. Revisadas: ${response?.checked || 0} · Enviadas: ${response?.sent || 0} · Ya enviadas: ${response?.skippedAlreadySent || 0} · Sin recordatorio: ${response?.skippedWithoutTrigger || 0} · Errores: ${response?.failed || 0}. Destinatarios: ${recipients.join(', ')}`
       );
       await loadData();
     } catch (e) {
@@ -216,7 +220,7 @@ export default function CertificationsPage() {
               <MetricCard label="Vigentes" value={summary.active} />
               <MetricCard label="Próximas" value={summary.nearExpiration} />
               <MetricCard label="Vencidas" value={summary.expired} />
-              <MetricCard label="Triggers" value={summary.triggersDetected} />
+              <MetricCard label="Recordatorios" value={summary.triggersDetected} />
             </Box>
 
             {triggerBanner && <Alert severity="warning" sx={{ py: 0.4 }}>{triggerBanner}</Alert>}

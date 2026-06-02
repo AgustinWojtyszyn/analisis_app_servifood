@@ -22,9 +22,9 @@ import CertificationStatusBadge from './CertificationStatusBadge';
 function TriggerCell({ item }) {
   if (item.notificationStatus === 'sent') return <Chip size="small" color="success" label="Notificación enviada" />;
   if (item.notificationStatus === 'processing') return <Chip size="small" color="warning" label="Pendiente de envío" />;
-  if (item.notificationStatus === 'pending') return <Chip size="small" color="warning" label="Listo para notificar" title="Listo para notificación automática piloto" />;
+  if (item.notificationStatus === 'pending') return <Chip size="small" color="warning" label="Pendiente de envío" title="Pendiente de envío automático piloto" />;
   if (item.notificationStatus === 'failed') return <Chip size="small" color="error" label="Error de envío" />;
-  return <Typography variant="caption" color="text.secondary">Sin aviso para hoy</Typography>;
+  return <Typography variant="caption" color="text.secondary">Sin recordatorios pendientes</Typography>;
 }
 
 function DetailField({ label, children }) {
@@ -37,6 +37,13 @@ function DetailField({ label, children }) {
       <Box sx={{ color: '#1f2d42', fontSize: 14, overflowWrap: 'anywhere' }}>{hasValue ? children : '-'}</Box>
     </Box>
   );
+}
+
+function formatReminderLabel(value) {
+  const label = String(value || '').trim();
+  if (!label || label === 'Sin aviso para hoy') return 'Sin recordatorios pendientes';
+  if (label === 'Trigger detectado, pendiente de envío automático') return 'Recordatorio pendiente de envío automático';
+  return label;
 }
 
 export default function CertificationTable({
@@ -126,7 +133,7 @@ export default function CertificationTable({
               <TableCell sx={{ ...headCellSx, minWidth: 140, width: 150 }}>Vencimiento</TableCell>
               <TableCell sx={{ ...headCellSx, minWidth: 140, width: 150 }}>Días restantes</TableCell>
               <TableCell sx={{ ...headCellSx, minWidth: 170, width: 180 }}>Estado</TableCell>
-              <TableCell sx={{ ...headCellSx, minWidth: 210, width: 230 }}>Trigger</TableCell>
+              <TableCell sx={{ ...headCellSx, minWidth: 210, width: 230 }}>Recordatorio</TableCell>
               <TableCell align="right" sx={{ ...headCellSx, ...stickyActionsSx, zIndex: 4 }}>Acciones</TableCell>
             </TableRow>
           </TableHead>
@@ -185,7 +192,7 @@ export default function CertificationTable({
             <Divider />
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
-              <DetailField label="Trigger">{detailItem?.humanTriggerLabel || detailItem?.notificationMessage || 'Sin aviso para hoy'}</DetailField>
+              <DetailField label="Recordatorio">{formatReminderLabel(detailItem?.humanTriggerLabel || detailItem?.notificationMessage)}</DetailField>
               <DetailField label="Estado del aviso">{detailItem ? <TriggerCell item={detailItem} /> : '-'}</DetailField>
               <DetailField label="Destinatarios del aviso">{authorizedRecipients.length ? authorizedRecipients.join(', ') : '-'}</DetailField>
               <DetailField label="Acciones disponibles">Abrir certificación, probar envío, editar o eliminar</DetailField>
