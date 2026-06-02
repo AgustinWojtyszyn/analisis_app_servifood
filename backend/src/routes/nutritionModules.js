@@ -3,7 +3,24 @@ import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
 import multer from 'multer';
 import { authenticateToken } from '../middlewares/auth.js';
-import { sendDocumentCreatedEmailNotification, sanitizeErrorMessage } from '../services/nutritionModulesNotifications.js';
+import {
+  STORAGE_BUCKET,
+  upload,
+  normalizeModuleType,
+  canManageByRole,
+  canViewByRole,
+  normalizeRole,
+  mapModuleRow,
+  formatDateTime,
+  sanitizeFilename,
+  sanitizeStorageFileName,
+  ensureAllowedFile,
+  ensureStorageBucketExists
+} from './nutritionModules/helpers.js';
+import {
+  isWorkerAuthorized,
+  processPendingDocumentNotifications
+} from './nutritionModules/notificationWorker.js';
 
 const router = express.Router();
 
@@ -13,147 +30,6 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAdmin = supabaseUrl && serviceRoleKey
   ? createClient(supabaseUrl, serviceRoleKey)
   : null;
-
-const VALID_MODULE_TYPES = new Set(['procedimiento', 'registro', 'estrategias']);
-const STORAGE_BUCKET = 'nutrition-modules';
-const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
-const ALLOWED_EXTENSIONS = new Set(['.pdf', '.xls', '.xlsx', '.csv', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.webp', '.txt']);
-const ALLOWED_MIME_TYPES = new Set([
-  'application/pdf',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/csv',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'text/plain'
-]);
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_FILE_SIZE_BYTES, files: 10 }
-});
-
-function normalizeModuleType(value) {
-  const v = String(value || '').trim().toLowerCase();
-  if (!VALID_MODULE_TYPES.has(v)) return null;
-  return v;
-}
-
-function canManageByRole(role) {
-  const r = String(role || '').trim().toLowerCase();
-  return r === 'admin';
-}
-
-function canViewByRole(role) {
-  const r = String(role || '').trim().toLowerCase();
-  return r === 'admin' || r === 'nutricionista';
-}
-
-function normalizeRole(role) {
-  return String(role || '').trim().toLowerCase();
-}
-
-function resolveWorkerToken() {
-  return String(process.env.DOCUMENTS_NOTIFICATIONS_WORKER_TOKEN || '').trim();
-}
-
-function isWorkerAuthorized(req) {
-  const configuredToken = resolveWorkerToken();
-  if (!configuredToken) return false;
-  const authHeader = String(req.headers.authorization || '');
-  const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-  const headerToken = String(req.headers['x-worker-token'] || '').trim();
-  return bearer === configuredToken || headerToken === configuredToken;
-}
-
-async function processPendingDocumentNotifications({ batchSize = 20, source = 'unknown' } = {}) {
-  const limitedBatch = Math.max(1, Math.min(100, Number(batchSize || 20)));
-  console.info('[nutrition-modules-email] Worker start', { source, batchSize: limitedBatch, provider: 'smtp-nodemailer' });
-
-  const { data: claimedRows, error: claimError } = await supabaseAdmin
-    .rpc('claim_document_email_notifications', { max_rows: limitedBatch });
-
-  if (claimError) {
-    console.error('[nutrition-modules-email] Error reclamando notificaciones pendientes', { source, error: claimError.message || claimError });
-    throw new Error(claimError.message || 'Error reclamando notificaciones pendientes');
-  }
-
-  const rows = Array.isArray(claimedRows) ? claimedRows : [];
-  let sent = 0;
-  let failed = 0;
-
-    for (const row of rows) {
-      try {
-        const sendResult = await sendDocumentCreatedEmailNotification(row);
-        if (!sendResult?.providerMessageId || !sendResult?.providerResponse) {
-          throw new Error('Evidencia SMTP insuficiente: faltan providerMessageId/providerResponse');
-        }
-        const { error: updateError } = await supabaseAdmin
-          .from('document_email_notifications')
-          .update({
-            status: 'sent',
-            sent_at: new Date().toISOString(),
-            last_error: null,
-            provider_message_id: sendResult.providerMessageId,
-            provider_response: sendResult.providerResponse
-          })
-          .eq('id', row.id)
-          .eq('status', 'processing');
-
-      if (updateError) {
-        failed += 1;
-        console.error('[nutrition-modules-email] Error marcando notificación como sent', {
-          source,
-          notificationId: row.id,
-          error: updateError.message || updateError
-        });
-        continue;
-      }
-
-      sent += 1;
-      console.info('[nutrition-modules-email] Notificación enviada', {
-        source,
-        notificationId: row.id,
-        documentId: row.document_id,
-        provider: sendResult?.provider || 'smtp-nodemailer'
-      });
-    } catch (mailError) {
-      failed += 1;
-      const message = mailError?.message ? String(mailError.message) : 'Error desconocido de envío';
-      console.error('[nutrition-modules-email] Error enviando notificación', {
-        source,
-        notificationId: row.id,
-        documentId: row.document_id,
-        error: sanitizeErrorMessage(message)
-      });
-
-        const { error: updateError } = await supabaseAdmin
-          .from('document_email_notifications')
-          .update({
-            status: 'failed',
-            last_error: message.slice(0, 2000),
-            provider_message_id: null,
-            provider_response: null
-          })
-          .eq('id', row.id)
-          .eq('status', 'processing');
-
-      if (updateError) {
-        console.error('[nutrition-modules-email] Error actualizando notificación fallida', {
-          source,
-          notificationId: row.id,
-          error: updateError.message || updateError
-        });
-      }
-    }
-  }
-
-  console.info('[nutrition-modules-email] Worker end', { source, claimed: rows.length, sent, failed });
-  return { claimed: rows.length, sent, failed };
-}
 
 async function resolveUserRole(user) {
   if (!supabaseAdmin || !user?.id) return normalizeRole(user?.role || 'user');
@@ -173,96 +49,6 @@ async function resolveUserRole(user) {
   }
 
   return normalizeRole(profile?.role || user?.role || 'user');
-}
-
-function mapModuleRow(row) {
-  if (!row) return null;
-  return {
-    id: row.id,
-    title: row.title || '',
-    description: row.description || '',
-    content: row.content || '',
-    status: row.status || 'aprobado',
-    moduleType: row.module_type || null,
-    createdBy: row.created_by || null,
-    createdAt: row.created_at || null,
-    updatedAt: row.updated_at || null,
-    publishedAt: row.published_at || null
-  };
-}
-
-function formatDateTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('es-AR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  }).format(date);
-}
-
-function sanitizeFilename(title = 'modulo_nutricional') {
-  return String(title || 'modulo_nutricional')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9_-]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 80) || 'modulo_nutricional';
-}
-
-function getExtension(fileName = '') {
-  const base = String(fileName).trim().toLowerCase();
-  const dot = base.lastIndexOf('.');
-  if (dot < 0) return '';
-  return base.slice(dot);
-}
-
-function sanitizeStorageFileName(fileName = 'archivo') {
-  const ext = getExtension(fileName);
-  const base = String(fileName).replace(ext, '');
-  const safe = base
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9_-]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 80) || 'archivo';
-  return `${safe}${ext}`;
-}
-
-function ensureAllowedFile(file) {
-  const ext = getExtension(file?.originalname || '');
-  const mime = String(file?.mimetype || '').toLowerCase();
-  if (!ALLOWED_EXTENSIONS.has(ext)) {
-    return `Tipo de archivo no permitido (${ext || 'sin extensión'})`;
-  }
-  if (!ALLOWED_MIME_TYPES.has(mime)) {
-    return `MIME type no permitido (${mime || 'desconocido'})`;
-  }
-  if (Number(file?.size || 0) > MAX_FILE_SIZE_BYTES) {
-    return 'El archivo supera el máximo permitido de 25 MB';
-  }
-  return null;
-}
-
-async function ensureStorageBucketExists() {
-  const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
-  if (listError) {
-    throw new Error(listError.message || 'No se pudieron listar buckets de storage');
-  }
-  const exists = (buckets || []).some((bucket) => bucket?.name === STORAGE_BUCKET);
-  if (exists) return;
-
-  const { error: createError } = await supabaseAdmin.storage.createBucket(STORAGE_BUCKET, {
-    public: false
-  });
-  if (createError && !/already exists/i.test(String(createError.message || ''))) {
-    throw new Error(createError.message || `No se pudo crear bucket ${STORAGE_BUCKET}`);
-  }
 }
 
 async function canAccessModule(role, moduleId) {
@@ -449,7 +235,7 @@ router.post('/nutrition-modules', authenticateToken, async (req, res) => {
       });
     }
 
-    processPendingDocumentNotifications({ batchSize: 10, source: 'post-create' })
+    processPendingDocumentNotifications({ supabaseAdmin, batchSize: 10, source: 'post-create' })
       .then((result) => {
         console.info('[nutrition-modules-email] Worker post-create resultado', {
           documentId: data.id,
@@ -487,6 +273,7 @@ router.post('/internal/nutrition-modules/process-notifications', async (req, res
 
     const batchSize = Math.max(1, Math.min(100, Number(req.body?.batchSize || 20)));
     const { claimed, sent, failed } = await processPendingDocumentNotifications({
+      supabaseAdmin,
       batchSize,
       source: 'internal-endpoint'
     });
@@ -748,7 +535,7 @@ router.post('/nutrition-modules/:id/files', authenticateToken, upload.array('fil
       }
     }
 
-    await ensureStorageBucketExists();
+    await ensureStorageBucketExists(supabaseAdmin);
 
     const createdRows = [];
     for (const file of files) {
@@ -831,7 +618,7 @@ router.delete('/nutrition-modules/files/:fileId', authenticateToken, async (req,
       return res.status(404).json({ error: 'Archivo adjunto no encontrado' });
     }
 
-    await ensureStorageBucketExists();
+    await ensureStorageBucketExists(supabaseAdmin);
 
     const removeStorage = await supabaseAdmin.storage
       .from(STORAGE_BUCKET)
@@ -887,7 +674,7 @@ router.get('/nutrition-modules/files/:fileId/download', authenticateToken, async
       return res.status(moduleCheck.status).json({ error: moduleCheck.reason });
     }
 
-    await ensureStorageBucketExists();
+    await ensureStorageBucketExists(supabaseAdmin);
 
     const downloadResult = await supabaseAdmin.storage
       .from(STORAGE_BUCKET)
