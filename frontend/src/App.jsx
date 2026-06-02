@@ -405,7 +405,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'tutorial') {
-      return <TutorialPage />;
+      return <TutorialPage onGoToUpload={() => navigateToSection('upload')} />;
     }
 
     if (currentSection === 'adminUsers') {

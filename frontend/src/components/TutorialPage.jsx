@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Grid,
@@ -20,23 +21,23 @@ const steps = [
     icon: <UploadFileRoundedIcon />
   },
   {
-    title: 'Paso 2: Esperar el procesamiento automático',
-    description: 'La aplicación procesa los registros y aplica reglas de clasificación automáticamente.',
+    title: 'Paso 2: Procesamiento automático',
+    description: 'La plataforma analiza los registros y aplica automáticamente las reglas de clasificación configuradas.',
     icon: <SettingsSuggestRoundedIcon />
   },
   {
-    title: 'Paso 3: Revisar area clasificada, tipo y accion',
-    description: 'Validá las columnas clave para tomar decisiones sobre cada incidencia.',
+    title: 'Paso 3: Revisar área clasificada, tipo y acción',
+    description: 'Revisá el área asignada, el tipo de desvío y las acciones sugeridas para cada incidencia.',
     icon: <FactCheckRoundedIcon />
   },
   {
     title: 'Paso 4: Filtrar resultados',
-    description: 'Usa busqueda, area y tipo de desvio para enfocarte en lo mas relevante.',
+    description: 'Usá la búsqueda, el área y el tipo de desvío para enfocarte en lo más relevante.',
     icon: <FilterAltRoundedIcon />
   },
   {
     title: 'Paso 5: Exportar resultados',
-    description: 'Descargá la vista filtrada en CSV o Excel para compartir o documentar.',
+    description: 'Descargá la vista filtrada en CSV o Excel para compartir o documentar la información.',
     icon: <DownloadRoundedIcon />
   },
   {
@@ -46,7 +47,7 @@ const steps = [
   }
 ];
 
-export default function TutorialPage() {
+export default function TutorialPage({ onGoToUpload }) {
   return (
     <Box>
       <Card sx={{ mb: 2.5 }}>
@@ -55,7 +56,7 @@ export default function TutorialPage() {
             Cómo usar la aplicación
           </Typography>
           <Typography color="text.secondary">
-            Esta herramienta analiza registros de calidad desde archivos Excel para clasificar incidencias y facilitar el seguimiento.
+            Esta herramienta analiza registros de calidad desde archivos Excel para clasificar incidencias y facilitar su seguimiento.
           </Typography>
         </CardContent>
       </Card>
@@ -94,9 +95,19 @@ export default function TutorialPage() {
       <Card sx={{ mt: 2.5 }}>
         <CardContent sx={{ p: 2.5 }}>
           <Typography sx={{ fontWeight: 700, mb: 0.5 }}>Nota final</Typography>
-          <Typography color="text.secondary" variant="body2">
-            Una estructura de Excel clara y consistente mejora significativamente la calidad del análisis y la precisión de clasificación.
-          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: { xs: 'stretch', sm: 'flex-end' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' } }}>
+            <Box>
+              <Typography color="text.secondary" variant="body2">
+                Una estructura de Excel clara y consistente mejora significativamente la calidad del análisis y la precisión de clasificación.
+              </Typography>
+              <Typography color="text.secondary" variant="body2" sx={{ mt: 0.75 }}>
+                Para obtener mejores resultados, mantené encabezados claros y evitá modificar la estructura habitual del archivo.
+              </Typography>
+            </Box>
+            <Button variant="contained" onClick={onGoToUpload} sx={{ alignSelf: { xs: 'stretch', sm: 'flex-end' }, whiteSpace: 'nowrap' }}>
+              Ir a Cargar archivos
+            </Button>
+          </Box>
         </CardContent>
       </Card>
     </Box>
