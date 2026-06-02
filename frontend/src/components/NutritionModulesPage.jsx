@@ -450,9 +450,9 @@ export default function NutritionModulesPage({ user }) {
         </DialogContent>
         <DialogActions>
           {canManage && (
-            <Button component="label" variant="outlined" disabled={uploadingFiles}>
+            <Button component="label" htmlFor="nutrition-module-dialog-files" variant="outlined" disabled={uploadingFiles}>
               {uploadingFiles ? 'Subiendo...' : 'Subir archivos'}
-              <input hidden type="file" multiple onChange={handleUploadFilesFromDialog} />
+              <input id="nutrition-module-dialog-files" hidden type="file" multiple onChange={handleUploadFilesFromDialog} />
             </Button>
           )}
           <Button onClick={() => setFilesDialogOpen(false)}>Cerrar</Button>

@@ -101,9 +101,9 @@ export default function NutritionModuleForm({
             <MenuItem value="estrategias">Estrategias</MenuItem>
           </TextField>
           <Box>
-            <Button component="label" variant="outlined">
+            <Button component="label" htmlFor="nutrition-module-form-files" variant="outlined">
               Adjuntar archivos
-              <input hidden type="file" multiple onChange={handleFilesChange} />
+              <input id="nutrition-module-form-files" hidden type="file" multiple onChange={handleFilesChange} />
             </Button>
             {!!selectedFiles.length && (
               <Box sx={{ mt: 1 }}>
