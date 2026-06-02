@@ -369,7 +369,7 @@ Caso J: “Falta rotulación...” -> NC
   - Casos con pipes, saltos de línea, “falta;” y textos compuestos.
 - Reglas a no tocar primero:
   - parseo de headers (ya robusto).
-  - persistencia/salida API.
+  - persistencia/salida API..
 
 25. Evidencias de código con archivo, función y línea aproximada
 - Endpoint upload: backend/src/routes/analysis.js:22-24
