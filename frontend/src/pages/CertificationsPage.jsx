@@ -260,6 +260,7 @@ export default function CertificationsPage() {
                 onCreate={onCreate}
                 onSendTest={onSendTest}
                 sendingTestId={sendingTestId}
+                authorizedRecipients={authorizedRecipients}
               />
           )}
           </Stack>

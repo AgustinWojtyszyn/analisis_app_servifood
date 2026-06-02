@@ -42,16 +42,29 @@ function throwNotFound(message) {
 function validatePayload(payload = {}) {
   const name = String(payload.name || '').trim();
   const expirationDate = String(payload.expirationDate || '').trim();
+  const rawUrl = payload.url ?? payload.enlace ?? '';
+  const url = String(rawUrl || '').trim();
 
   if (!name) throwBadRequest('El nombre es requerido');
   if (!expirationDate) throwBadRequest('La fecha de vencimiento es requerida');
   if (!parseDateInputToParts(expirationDate)) throwBadRequest('La fecha de vencimiento es inválida');
+  if (url) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error('invalid_protocol');
+      }
+    } catch {
+      throwBadRequest('El enlace debe ser una URL válida con http:// o https://');
+    }
+  }
 
   return {
     name,
     type: String(payload.type || '').trim() || null,
     module: String(payload.module || '').trim() || null,
     description: String(payload.description || '').trim() || null,
+    url: url || null,
     expiration_date: expirationDate,
     responsible_area: String(payload.responsibleArea || '').trim() || null,
     responsible_person: String(payload.responsiblePerson || '').trim() || null

@@ -6,10 +6,20 @@ const initialState = {
   type: '',
   module: '',
   description: '',
+  url: '',
   expirationDate: '',
   responsibleArea: '',
   responsiblePerson: ''
 };
+
+function isValidHttpUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 export default function CertificationForm({ open, onClose, onSubmit, initialValue = null, loading = false }) {
   const [form, setForm] = useState(initialState);
@@ -21,6 +31,7 @@ export default function CertificationForm({ open, onClose, onSubmit, initialValu
         type: initialValue.type || '',
         module: initialValue.module || '',
         description: initialValue.description || '',
+        url: initialValue.url || '',
         expirationDate: initialValue.expirationDate || '',
         responsibleArea: initialValue.responsibleArea || '',
         responsiblePerson: initialValue.responsiblePerson || ''
@@ -31,9 +42,12 @@ export default function CertificationForm({ open, onClose, onSubmit, initialValu
   }, [initialValue, open]);
 
   const handleChange = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+  const urlValue = String(form.url || '').trim();
+  const urlInvalid = Boolean(urlValue) && !isValidHttpUrl(urlValue);
 
   const submit = (e) => {
     e.preventDefault();
+    if (urlInvalid) return;
     onSubmit?.(form);
   };
 
@@ -62,13 +76,24 @@ export default function CertificationForm({ open, onClose, onSubmit, initialValu
               <TextField fullWidth label="Responsable" value={form.responsiblePerson} onChange={(e) => handleChange('responsiblePerson', e.target.value)} />
             </Grid>
             <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Enlace a la certificación"
+                placeholder="https://..."
+                value={form.url}
+                error={urlInvalid}
+                helperText={urlInvalid ? 'Debe comenzar con http:// o https://' : ' '}
+                onChange={(e) => handleChange('url', e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12}>
               <TextField fullWidth multiline minRows={3} label="Descripción" value={form.description} onChange={(e) => handleChange('description', e.target.value)} />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose} disabled={loading}>Cancelar</Button>
-          <Button type="submit" variant="contained" disabled={loading}>{initialValue ? 'Guardar cambios' : 'Crear'}</Button>
+          <Button type="submit" variant="contained" disabled={loading || urlInvalid}>{initialValue ? 'Guardar cambios' : 'Crear'}</Button>
         </DialogActions>
       </Box>
     </Dialog>

@@ -84,6 +84,7 @@ export function enrichCertificationWithNotification(certification = {}, now = ne
     type: certification.type || '',
     module: certification.module || '',
     description: certification.description || '',
+    url: certification.url || '',
     expirationDate: certification.expiration_date || null,
     responsibleArea: certification.responsible_area || '',
     responsiblePerson: certification.responsible_person || '',
