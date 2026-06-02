@@ -2,8 +2,6 @@ import {
   normalizeCellValue,
   normalizeForMatch,
   containsAny,
-  buildRowObjectFromExcel,
-  buildNormalizedRowKeyMap,
   getRowValueByCandidates,
   normalizeIncidentText
 } from '../../analyzeExcel/normalizers.js';
@@ -42,7 +40,6 @@ import {
 } from './classifiers/areaClassifier.js';
 import {
   esTextoAccion,
-  getTextoAccion,
   buildActions,
   classifyResponsibleByArea,
   classifyActionStatusFromRow
@@ -50,34 +47,22 @@ import {
 import { validateFinalRecord } from './validation.js';
 import { detectCompanyAreaFromRecord } from './companyDetector.js';
 import {
-  splitHallazgos,
-  isGestionSgiaText,
-  isTextoNoValidoHallazgo,
-  isInvalidDetectedFinding,
-  hasUsefulFindingText,
-  extractYearFromIsoDate,
-  hasExplicitYearToken,
-  parseFechaValue,
   inferRawDateType,
-  isUsefulNonHallazgoValue,
-  isGenericCategoryLabelAsArea,
-  contieneArea,
   sanitizeHallazgo,
   isRepeatedHeaderRow,
-  getHallazgo,
-  getTextoHallazgo,
   buildClassificationText,
   buildClassificationExplanation,
   classifyConfidence,
   buildAnalysisText,
-  normalizeClassificationForStats,
-  normalizeScopeForStats,
   applyActionFallbacks,
   buildFinalRecordPayload,
   resolveScopeMetadata,
-  applyOriginalClassificationOverride,
-  applyInocuidadHardPriority
 } from './recordProcessor.utils.js';
+import { extractInitialRecordFields } from './recordProcessor/fieldExtraction.js';
+import { buildDiscardedRowResult } from './recordProcessor/discardResult.js';
+import { applyFinalRecordOverrides } from './recordProcessor/finalRecordOverrides.js';
+import { updateNegativeLeadContext } from './recordProcessor/contextContinuation.js';
+import { hasExplicitOriginalValue } from './recordProcessor/helpers.js';
 
 function processRow({
   index,
@@ -90,299 +75,76 @@ function processRow({
   enableClassificationTrace,
   enableFillDownTrace
 }) {
-  const getValue = (headerIndex) => {
-    const indexToUse = Number.isInteger(headerIndex) ? headerIndex : null;
-    return indexToUse == null ? '' : rowValues?.[indexToUse];
-  };
-  const hasExplicitOriginalValue = (value = '') => {
-    const normalized = normalizeForMatch(normalizeCellValue(value || '').trim());
-    if (!normalized) return false;
-    return ![
-      '-',
-      'na',
-      'n a',
-      'nd',
-      'n d',
-      's d',
-      's/d',
-      'no aplica',
-      'sin dato',
-      'sin datos',
-      'pendiente',
-      'revisar manualmente',
-      'revision manual',
-      'area',
-      'area sector',
-      'area proceso',
-      'clasificacion',
-      'clasificacion del desvio',
-      'clasificación del desvío',
-      'tipo',
-      'estado',
-      'responsable'
-    ].includes(normalized);
-  };
-
-  const row = buildRowObjectFromExcel(headerValues, rowValues);
-  const rowKeyMap = buildNormalizedRowKeyMap(row);
-  const accionDetectada = getTextoAccion(row);
-
-  const actividadRealizadaRaw = getRowValueByCandidates(row, rowKeyMap, [
-    'Actividad realizada',
-    'Actividad realizada / Descripción',
-    'Actividad realizada / Descripcion'
-  ]) || normalizeCellValue(getValue(headerIndexes.actividadRealizada));
-
-  const tipoActividadRaw = getRowValueByCandidates(row, rowKeyMap, [
-    'Tipo de actividad',
-    'Tipo actividad'
-  ]) || normalizeCellValue(getValue(headerIndexes.tipoActividad));
-
-  const areaProcesoRaw = getRowValueByCandidates(row, rowKeyMap, [
-    'Área / Proceso',
-    'Area / Proceso',
-    'Área / Sector',
-    'Area / Sector',
-    'Área/Proceso',
-    'Area/Proceso',
-    'Sector',
-    'Area'
-  ]) || normalizeCellValue(getValue(headerIndexes.areaProceso));
-
-  const resultadoRaw = getRowValueByCandidates(row, rowKeyMap, [
-    'Resultado'
-  ]) || normalizeCellValue(getValue(headerIndexes.resultado));
-
-  const desvioRaw = getRowValueByCandidates(row, rowKeyMap, [
-    '¿Desvío?',
-    '¿Desvio?',
-    'Desvío',
-    'Desvio'
-  ]) || normalizeCellValue(getValue(headerIndexes.desvio));
-
-  const accionRaw = getRowValueByCandidates(row, rowKeyMap, [
-    '¿Acción?',
-    '¿Accion?',
-    'Acción',
-    'Accion'
-  ]) || normalizeCellValue(getValue(headerIndexes.accion));
-
-  const numeroAccionRaw = getRowValueByCandidates(row, rowKeyMap, [
-    'N° Acción',
-    'N° Accion',
-    'Nro Acción',
-    'Nro Accion',
-    'Numero accion'
-  ]) || normalizeCellValue(getValue(headerIndexes.numeroAccion));
-
-  const notaTecnicaRaw = getRowValueByCandidates(row, rowKeyMap, [
-    'Nota técnica',
-    'Nota tecnica'
-  ]) || normalizeCellValue(getValue(headerIndexes.notaTecnica));
-
-  const fechaRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
-    'Fecha',
-    'Fecha del desvío',
-    'Fecha del desvio',
-    'Fecha de registro'
-  ]) || getValue(headerIndexes.fecha)).trim();
-
-  const responsableOriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, ['Responsable', 'Responsable asignado']) || '').trim();
-  const iso22000OriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
-    'ISO 22000',
-    'Iso 22000',
-    'ISO',
-    'Clausula ISO',
-    'Cláusula ISO'
-  ]) || '').trim();
-  const classificationOriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
-    'Clasificacion del desvio',
-    'Clasificación del desvío',
-    'Clasificacion del desvío',
-    'Clasificación del desvio',
-    'Clasificación',
-    'Clasificacion',
-    'Categoría',
-    'Categoria',
-    'Categoría del desvío',
-    'Categoria del desvio',
-    'Resultado clasificado'
-  ]) || '').trim();
-  const tipoDesvioOriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
-    'Tipo desvio',
-    'Tipo desvío',
-    'Tipo'
-  ]) || '').trim();
-  const scopeOriginalRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
-    'Desvío interno/externo',
-    'Desvio interno/externo',
-    'Desvío externo/ Interno',
-    'Desvio externo/ Interno',
-    'Desvío externo / Interno',
-    'Desvio externo / Interno',
-    'Desvio externo/interno'
-  ]) || '').trim();
-
-  const desvioDetectadoOriginal = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
-    'Desvío detectado',
-    'Desvio detectado',
-    'Hallazgo detectado'
-  ]) || getValue(headerIndexes.hallazgoDetectado) || '').trim();
-  const areaOriginal = normalizeCellValue(areaProcesoRaw).trim();
-  const descripcionRaw = getRowValueByCandidates(row, rowKeyMap, [
-    'Descripción',
-    'Descripcion',
-    'Descripción del desvío',
-    'Descripcion del desvio',
-    'Detalle del desvío',
-    'Detalle del desvio'
-  ]) || normalizeCellValue(getValue(headerIndexes.descripcion));
-  const observacionesRaw = getRowValueByCandidates(row, rowKeyMap, [
-    'Observaciones',
-    'Observación',
-    'Observacion'
-  ]) || normalizeCellValue(getValue(headerIndexes.observaciones));
-  const accionInmediataRaw = getRowValueByCandidates(row, rowKeyMap, [
-    'Acción inmediata',
-    'Accion inmediata'
-  ]) || normalizeCellValue(getValue(headerIndexes.accionInmediata));
-  const accionCorrectivaRaw = getRowValueByCandidates(row, rowKeyMap, [
-    'Acción Correctiva Propuesta',
-    'Accion Correctiva Propuesta',
-    'Acción correctiva propuesta',
-    'Accion correctiva propuesta',
-    'Acción correctiva',
-    'Accion correctiva'
-  ]) || normalizeCellValue(getValue(headerIndexes.accionCorrectiva));
-  const estadoAccionRaw = normalizeCellValue(getRowValueByCandidates(row, rowKeyMap, [
-    'Estado',
-    'Estado acción',
-    'Estado accion',
-    'Status',
-    'Estado de acción',
-    'Estado de accion'
-  ]) || '').trim();
-  const hallazgoRawText = normalizeCellValue(desvioDetectadoOriginal).trim();
-  const noFindingSignal = isExplicitNoFindingText(hallazgoRawText);
-  const hallazgoVacioOInvalido = isInvalidDetectedFinding(hallazgoRawText);
-  const hallazgoSanitizado = sanitizeHallazgo(hallazgoRawText);
-  const becameNoFindingAfterSanitize = normalizeForMatch(hallazgoSanitizado) === normalizeForMatch('Sin hallazgo detectado') && !noFindingSignal;
-
-  const hasSupportData = [
-    fechaRaw,
+  const {
+    row,
+    rowKeyMap,
+    getValue,
+    accionDetectada,
     areaProcesoRaw,
+    accionRaw,
+    numeroAccionRaw,
+    notaTecnicaRaw,
+    fechaRaw,
     responsableOriginalRaw,
+    iso22000OriginalRaw,
+    classificationOriginalRaw,
+    tipoDesvioOriginalRaw,
+    scopeOriginalRaw,
+    desvioDetectadoOriginal,
+    areaOriginal,
     descripcionRaw,
     observacionesRaw,
-    accionRaw,
     accionInmediataRaw,
     accionCorrectivaRaw,
-    notaTecnicaRaw,
-    numeroAccionRaw
-  ].some((value) => isUsefulNonHallazgoValue(value));
-  const shouldDiscardByEmptyHallazgo = hallazgoVacioOInvalido || becameNoFindingAfterSanitize;
-  const shouldDiscardAsEmptyRow = !noFindingSignal && !hasSupportData && hallazgoVacioOInvalido;
-
-  const fechaParsed = parseFechaValue(fechaRaw, fillDownState.fecha, fillDownState.contextYear);
-  let fecha = fechaParsed || fillDownState.fecha;
-  const parsedYear = extractYearFromIsoDate(fecha);
-  const hasExplicitYear = hasExplicitYearToken(fechaRaw);
-  if (
-    fecha
-    && Number.isInteger(fillDownState.contextYear)
-    && Number.isInteger(parsedYear)
-    && !hasExplicitYear
-    && parsedYear !== fillDownState.contextYear
-  ) {
-    const [, mm = '', dd = ''] = String(fecha).match(/^\d{4}-(\d{2})-(\d{2})$/) || [];
-    if (mm && dd) {
-      fecha = `${String(fillDownState.contextYear).padStart(4, '0')}-${mm}-${dd}`;
-    }
-  }
-  const areaProcesoRawNormalized = normalizeCellValue(areaProcesoRaw).trim();
-  const canInheritAreaFromFillDown = fillDownState.areaProceso && !isGenericCategoryLabelAsArea(fillDownState.areaProceso);
-  const areaProceso = areaProcesoRawNormalized || (canInheritAreaFromFillDown ? fillDownState.areaProceso : '');
-  const actividadRealizada = normalizeCellValue(actividadRealizadaRaw).trim() || fillDownState.actividadRealizada;
-  const tipoActividad = normalizeCellValue(tipoActividadRaw).trim() || fillDownState.tipoActividad;
-  const resultado = normalizeCellValue(resultadoRaw).trim();
-  const desvio = normalizeCellValue(desvioRaw).trim();
-  const accion = normalizeCellValue(accionRaw).trim();
-  const numeroAccion = normalizeCellValue(numeroAccionRaw).trim();
-  const notaTecnica = normalizeCellValue(notaTecnicaRaw).trim();
-  const responsableOriginal = responsableOriginalRaw || fillDownState.responsableOriginal;
-  const iso22000Original = iso22000OriginalRaw || fillDownState.iso22000Original;
-  const classificationOriginal = classificationOriginalRaw || fillDownState.classificationOriginal;
-  const tipoDesvioOriginal = tipoDesvioOriginalRaw || fillDownState.tipoDesvioOriginal;
-
-  if (fecha && normalizeForMatch(fecha) !== 'fecha') {
-    fillDownState.fecha = fecha;
-    const y = extractYearFromIsoDate(fecha);
-    if (Number.isInteger(y)) fillDownState.contextYear = y;
-  }
-  if (
-    areaProcesoRawNormalized
-    && !['area', 'area sector', 'area proceso'].includes(normalizeForMatch(areaProcesoRawNormalized))
-    && !isGenericCategoryLabelAsArea(areaProcesoRawNormalized)
-  ) {
-    fillDownState.areaProceso = areaProcesoRawNormalized;
-  }
-  if (actividadRealizada && normalizeForMatch(actividadRealizada) !== 'actividad realizada') fillDownState.actividadRealizada = actividadRealizada;
-  if (tipoActividad && normalizeForMatch(tipoActividad) !== 'tipo de actividad') fillDownState.tipoActividad = tipoActividad;
-  if (responsableOriginal) fillDownState.responsableOriginal = responsableOriginal;
-  if (iso22000Original) fillDownState.iso22000Original = iso22000Original;
-  if (classificationOriginal) fillDownState.classificationOriginal = classificationOriginal;
-  if (tipoDesvioOriginal) fillDownState.tipoDesvioOriginal = tipoDesvioOriginal;
-
-  const hasRealRowSignal = hasUsefulFindingText(desvioDetectadoOriginal);
-  const invalidDetectedFinding = !hasUsefulFindingText(desvioDetectadoOriginal);
+    estadoAccionRaw,
+    hallazgoRawText,
+    noFindingSignal,
+    becameNoFindingAfterSanitize,
+    shouldDiscardByEmptyHallazgo,
+    shouldDiscardAsEmptyRow,
+    fecha,
+    areaProceso,
+    actividadRealizada,
+    tipoActividad,
+    resultado,
+    desvio,
+    accion,
+    numeroAccion,
+    notaTecnica,
+    responsableOriginal,
+    iso22000Original,
+    classificationOriginal,
+    tipoDesvioOriginal,
+    hasRealRowSignal,
+    invalidDetectedFinding
+  } = extractInitialRecordFields({
+    rowValues,
+    headerValues,
+    headerIndexes,
+    fillDownState
+  });
 
   if (!hasRealRowSignal || invalidDetectedFinding || shouldDiscardAsEmptyRow || shouldDiscardByEmptyHallazgo) {
-    const discardedReason = shouldDiscardByEmptyHallazgo
-      ? (becameNoFindingAfterSanitize ? 'desvio_detectado_no_util_post_sanitize' : 'desvio_detectado_vacio')
-      : (shouldDiscardAsEmptyRow
-        ? 'fila_vacia_incompleta'
-        : (!hasRealRowSignal ? 'sin_senales_reales' : 'desvio_detectado_invalido'));
-    if (enableFillDownTrace) {
-      console.log('[fill-down-discarded]', {
-        index: index + 1,
-        motivo: discardedReason,
-        desvioDetectadoOriginal,
-        areaOriginal,
-        tipoDesvioOriginal: tipoDesvioOriginalRaw
-      });
-    }
-
-    return {
-      skipped: true,
-      discardedReason,
+    return buildDiscardedRowResult({
+      index,
+      enableFillDownTrace,
+      shouldDiscardByEmptyHallazgo,
+      becameNoFindingAfterSanitize,
+      shouldDiscardAsEmptyRow,
+      hasRealRowSignal,
       noFindingSignal,
-      incrementNoFindingAntes: noFindingSignal || normalizeForMatch(sanitizeHallazgo(hallazgoRawText)) === normalizeForMatch('Sin hallazgo detectado'),
-      incrementConformesExplicitosReales: noFindingSignal,
-      discardedByEmptyHallazgoPayload: shouldDiscardByEmptyHallazgo
-        ? {
-          fila: index + 1,
-          fecha: normalizeCellValue(fechaRaw).trim() || '-',
-          area: normalizeCellValue(areaProcesoRaw).trim() || '-',
-          desvioDetectado: hallazgoRawText || '-',
-          responsable: normalizeCellValue(responsableOriginalRaw).trim() || '-',
-          descripcion: normalizeCellValue(descripcionRaw).trim() || '-',
-          observaciones: normalizeCellValue(observacionesRaw).trim() || '-'
-        }
-        : null,
-      discardedEmptyRowPayload: shouldDiscardAsEmptyRow
-        ? {
-          fila: index + 1,
-          fecha: normalizeCellValue(fechaRaw).trim() || '-',
-          area: normalizeCellValue(areaProcesoRaw).trim() || '-',
-          hallazgo: hallazgoRawText || '-',
-          responsable: normalizeCellValue(responsableOriginalRaw).trim() || '-',
-          descripcion: normalizeCellValue(descripcionRaw).trim() || '-',
-          observaciones: normalizeCellValue(observacionesRaw).trim() || '-',
-          accion: normalizeCellValue(accionRaw).trim() || '-',
-          notaTecnica: normalizeCellValue(notaTecnicaRaw).trim() || '-'
-        }
-        : null
-    };
+      hallazgoRawText,
+      desvioDetectadoOriginal,
+      areaOriginal,
+      tipoDesvioOriginalRaw,
+      fechaRaw,
+      areaProcesoRaw,
+      responsableOriginalRaw,
+      descripcionRaw,
+      observacionesRaw,
+      accionRaw,
+      notaTecnicaRaw
+    });
   }
 
   const rawRecord = {
@@ -777,141 +539,32 @@ function processRow({
     accionCorrectivaRaw
   }));
 
-  applyOriginalClassificationOverride(finalRecord, {
-    hasOriginalClassification,
-    tipoDesvioOriginalRaw: classificationOriginalRaw,
-    tipoOriginal
-  });
-
-  applyInocuidadHardPriority({
+  applyFinalRecordOverrides({
     finalRecord,
     hasOriginalClassification,
-    tipoDesvioOriginalRaw: classificationOriginalRaw
+    classificationOriginalRaw,
+    tipoOriginal,
+    scopeOriginalRaw,
+    accionInmediataRaw,
+    accionCorrectivaRaw,
+    estadoAccionRaw,
+    responsableOriginalRaw,
+    areaOriginalPreservable,
+    iso22000OriginalRaw
   });
-
-  finalRecord.alcanceDesvio = scopeOriginalRaw || finalRecord.alcanceDesvio;
-  finalRecord.scope_original = scopeOriginalRaw || null;
-  finalRecord.scope_normalized = normalizeScopeForStats(finalRecord.alcanceDesvio);
-  finalRecord.immediate_action = normalizeCellValue(accionInmediataRaw).trim();
-  finalRecord.corrective_action = normalizeCellValue(accionCorrectivaRaw).trim();
-
-  if (hasExplicitOriginalValue(estadoAccionRaw)) {
-    finalRecord.estadoAccion = normalizeCellValue(estadoAccionRaw).trim();
-    finalRecord.estadoAcciones = normalizeCellValue(estadoAccionRaw).trim();
-  }
-  if (hasExplicitOriginalValue(responsableOriginalRaw)) {
-    finalRecord.responsable = normalizeCellValue(responsableOriginalRaw).trim();
-  }
-  if (hasExplicitOriginalValue(accionInmediataRaw)) {
-    finalRecord.accionInmediata = normalizeCellValue(accionInmediataRaw).trim();
-    finalRecord.immediate_action = normalizeCellValue(accionInmediataRaw).trim();
-  }
-  if (hasExplicitOriginalValue(accionCorrectivaRaw)) {
-    finalRecord.accionCorrectiva = normalizeCellValue(accionCorrectivaRaw).trim();
-    finalRecord.corrective_action = normalizeCellValue(accionCorrectivaRaw).trim();
-  }
-  if (areaOriginalPreservable) {
-    finalRecord.areaClasificada = areaOriginalPreservable;
-    finalRecord.areaSector = areaOriginalPreservable;
-  }
-  if (hasExplicitOriginalValue(scopeOriginalRaw)) {
-    const scopeOriginal = normalizeCellValue(scopeOriginalRaw).trim();
-    finalRecord.alcanceDesvio = scopeOriginal;
-    finalRecord.scope_original = scopeOriginal;
-    finalRecord.scope_normalized = normalizeScopeForStats(scopeOriginal);
-  }
-  if (hasExplicitOriginalValue(iso22000OriginalRaw)) {
-    const isoOriginal = normalizeCellValue(iso22000OriginalRaw).trim();
-    finalRecord.iso22000 = isoOriginal;
-    finalRecord.relacionIso22000 = isoOriginal;
-  }
-  if (hasOriginalClassification) {
-    const classificationOriginal = normalizeCellValue(classificationOriginalRaw).trim();
-    finalRecord.categoriaDesvio = classificationOriginal;
-    finalRecord.clasificacionDesvio = classificationOriginal;
-    finalRecord.classification = classificationOriginal;
-    finalRecord.classification_original = classificationOriginal;
-    finalRecord.classification_normalized = classificationOriginal;
-    finalRecord.preserveOriginalClassification = true;
-  }
-  finalRecord.traceability = {
-    areaSector: {
-      valor_original_excel: areaOriginalPreservable || null,
-      valor_final_usado: finalRecord.areaSector || finalRecord.areaClasificada || null,
-      fuente_del_valor: areaOriginalPreservable ? 'excel' : 'heuristica'
-    },
-    clasificacion: {
-      valor_original_excel: hasOriginalClassification ? normalizeCellValue(classificationOriginalRaw).trim() : null,
-      valor_final_usado: finalRecord.clasificacionDesvio || finalRecord.categoriaDesvio || null,
-      fuente_del_valor: hasOriginalClassification ? 'excel' : 'heuristica'
-    },
-    tipo: {
-      valor_original_excel: hasExplicitOriginalValue(scopeOriginalRaw) ? normalizeCellValue(scopeOriginalRaw).trim() : null,
-      valor_final_usado: finalRecord.scope_normalized || finalRecord.alcanceDesvio || null,
-      fuente_del_valor: hasExplicitOriginalValue(scopeOriginalRaw) ? 'excel' : 'heuristica'
-    },
-    estado: {
-      valor_original_excel: hasExplicitOriginalValue(estadoAccionRaw) ? normalizeCellValue(estadoAccionRaw).trim() : null,
-      valor_final_usado: finalRecord.estadoAcciones || finalRecord.estadoAccion || null,
-      fuente_del_valor: hasExplicitOriginalValue(estadoAccionRaw) ? 'excel' : 'heuristica'
-    },
-    relacionIso22000: {
-      valor_original_excel: hasExplicitOriginalValue(iso22000OriginalRaw) ? normalizeCellValue(iso22000OriginalRaw).trim() : null,
-      valor_final_usado: finalRecord.relacionIso22000 || finalRecord.iso22000 || null,
-      fuente_del_valor: hasExplicitOriginalValue(iso22000OriginalRaw) ? 'excel' : 'heuristica'
-    },
-    accionInmediata: {
-      valor_original_excel: hasExplicitOriginalValue(accionInmediataRaw) ? normalizeCellValue(accionInmediataRaw).trim() : null,
-      valor_final_usado: finalRecord.immediate_action || finalRecord.accionInmediata || null,
-      fuente_del_valor: hasExplicitOriginalValue(accionInmediataRaw) ? 'excel' : 'heuristica'
-    },
-    accionCorrectiva: {
-      valor_original_excel: hasExplicitOriginalValue(accionCorrectivaRaw) ? normalizeCellValue(accionCorrectivaRaw).trim() : null,
-      valor_final_usado: finalRecord.corrective_action || finalRecord.accionCorrectiva || null,
-      fuente_del_valor: hasExplicitOriginalValue(accionCorrectivaRaw) ? 'excel' : 'heuristica'
-    },
-    responsable: {
-      valor_original_excel: hasExplicitOriginalValue(responsableOriginalRaw) ? normalizeCellValue(responsableOriginalRaw).trim() : null,
-      valor_final_usado: finalRecord.responsable || null,
-      fuente_del_valor: hasExplicitOriginalValue(responsableOriginalRaw) ? 'excel' : 'heuristica'
-    }
-  };
-
-  // Ajuste final: la acción correctiva debe responder a la categoría final validada.
-  if (!hasOriginalClassification && normalizeCellValue(finalRecord.resultadoClasificado).trim() === 'No conforme') {
-    const finalActions = buildActions({
-      resultadoClasificado: finalRecord.resultadoClasificado,
-      text: [finalRecord.hallazgoDetectado, finalRecord.descripcion, finalRecord.observaciones, finalRecord.actividadRealizada].filter(Boolean).join(' | '),
-      hallazgoDetectado: finalRecord.hallazgoDetectado,
-      accionInmediataOriginal: finalRecord.accionInmediata,
-      accionCorrectivaOriginal: finalRecord.accionCorrectiva,
-      categoriaDesvio: finalRecord.categoriaDesvio,
-      iso22000: finalRecord.iso22000
-    });
-    finalRecord.accionInmediata = finalActions.accionInmediata || finalRecord.accionInmediata;
-    finalRecord.accionCorrectiva = finalActions.accionCorrectiva || finalRecord.accionCorrectiva;
-  }
 
   const explicitRawNoFinding = isExplicitNoFindingRawValue(rawRecord.rawDesvioDetectado || finalRecord.rawDesvioDetectado || '');
   const isAutoConforme = isAutoGeneratedConformeRecord(finalRecord);
 
-  const shouldOpenNegativeLead = hasRowContinuationSignal(rawRecord.hallazgoDetectado)
-    && (explicitNegativeInRow || /falta\s*[;:,]?\s*$/i.test(normalizeCellValue(rawRecord.hallazgoDetectado)));
-  if (explicitNoFindingRow) {
-    contextState.negativeLeadWindow = 0;
-    contextState.leadTopicText = '';
-  } else if (shouldOpenNegativeLead) {
-    contextState.negativeLeadWindow = contextState.maxLeadWindow;
-    contextState.leadTopicText = normalizeIncidentText(textForClassification);
-  } else if (contextState.negativeLeadWindow > 0) {
-    const rowHasOwnCompleteSignal = explicitNegativeInRow || !neutralTechnicalRow;
-    if (rowHasOwnCompleteSignal) {
-      contextState.negativeLeadWindow = 0;
-      contextState.leadTopicText = '';
-    } else {
-      contextState.negativeLeadWindow -= 1;
-    }
-  }
+  updateNegativeLeadContext({
+    contextState,
+    rawRecord,
+    textForClassification,
+    explicitNoFindingRow,
+    explicitNegativeInRow,
+    neutralTechnicalRow,
+    hasRowContinuationSignalFn: hasRowContinuationSignal
+  });
 
   return {
     skipped: false,
