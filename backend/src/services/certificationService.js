@@ -2,7 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { enrichCertificationWithNotification, getCertificationNotificationTrigger } from './certificationNotificationService.js';
 import { parseDateInputToParts, getArgentinaDateISO } from '../utils/argentinaDateUtils.js';
 import {
-  getCertificationNotificationRecipients
+  getCertificationNotificationRecipients,
+  sendCertificationExpirationPilotEmail
 } from './email/emailService.js';
 import { processCertificationAutomaticNotification } from './certificationAutomaticNotificationService.js';
 
@@ -251,29 +252,77 @@ export async function sendCertificationExpirationTestNotification(certificationI
   }
 
   const triggerInfo = getCertificationNotificationTrigger(data?.expiration_date);
-  if (!triggerInfo.shouldNotify) {
-    return {
-      success: false,
-      message: 'La certificación no dispara notificación hoy. Ajustá la fecha para que venza entre 2 y 7 días, mañana o hoy.',
-      recipients: getCertificationNotificationRecipients(),
-      certificationId: id,
-      triggerType: triggerInfo.triggerType,
-      daysUntilExpiration: triggerInfo.daysUntilExpiration
-    };
+  const manualTriggerInfo = {
+    ...triggerInfo,
+    shouldNotify: true,
+    triggerType: triggerInfo.triggerType || 'manual_test',
+    humanTriggerLabel: triggerInfo.humanTriggerLabel || 'Prueba manual'
+  };
+  const recipients = getCertificationNotificationRecipients();
+  const results = [];
+  let sent = 0;
+  let failed = 0;
+
+  for (const recipient of recipients) {
+    try {
+      const providerResult = await sendCertificationExpirationPilotEmail({
+        certification: data,
+        triggerInfo: manualTriggerInfo,
+        to: recipient
+      });
+      const accepted = Array.isArray(providerResult?.accepted) ? providerResult.accepted : [];
+      const rejected = Array.isArray(providerResult?.rejected) ? providerResult.rejected : [];
+      const acceptedByProvider = accepted.map((mail) => String(mail || '').toLowerCase()).includes(String(recipient || '').toLowerCase());
+
+      if (!acceptedByProvider || rejected.length) {
+        failed += 1;
+        results.push({
+          recipient,
+          status: 'failed',
+          messageId: providerResult?.messageId || null,
+          accepted,
+          rejected,
+          error: rejected.length ? `Proveedor rechazó: ${rejected.join(', ')}` : 'El proveedor SMTP no confirmó aceptación del destinatario'
+        });
+        continue;
+      }
+
+      sent += 1;
+      results.push({
+        recipient,
+        status: 'sent',
+        messageId: providerResult?.messageId || null,
+        accepted,
+        rejected
+      });
+    } catch (sendError) {
+      failed += 1;
+      results.push({
+        recipient,
+        status: 'failed',
+        error: sendError?.message || 'Error de envío SMTP'
+      });
+    }
   }
 
-  const runResult = await processCertificationAutomaticNotification(data);
+  if (failed > 0 || sent === 0) {
+    const error = new Error(
+      `No se pudo completar el envío manual. Enviados: ${sent}. Errores: ${failed}. ${results.filter((row) => row.status === 'failed').map((row) => `${row.recipient}: ${row.error || 'error desconocido'}`).join(' | ')}`
+    );
+    error.status = 502;
+    error.details = results;
+    throw error;
+  }
 
   return {
     success: true,
-    message: 'Notificación manual ejecutada usando la lista fija de destinatarios autorizados',
-    recipients: runResult?.recipients || getCertificationNotificationRecipients(),
+    message: 'Notificación manual aceptada por el proveedor SMTP',
+    recipients,
     certificationId: id,
-    triggerType: triggerInfo.triggerType,
-    daysUntilExpiration: triggerInfo.daysUntilExpiration,
-    sent: runResult?.sent || 0,
-    skippedAlreadySent: runResult?.skippedAlreadySent || 0,
-    failed: runResult?.failed || 0,
-    results: runResult?.results || []
+    triggerType: manualTriggerInfo.triggerType,
+    daysUntilExpiration: manualTriggerInfo.daysUntilExpiration,
+    sent,
+    failed,
+    results
   };
 }
