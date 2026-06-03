@@ -99,6 +99,16 @@ export default function CertificationTable({
     minWidth: 150,
     boxShadow: '-8px 0 12px -12px rgba(15,42,102,0.55)'
   };
+  const stickyHeadNameSx = {
+    ...stickyNameSx,
+    backgroundColor: '#f3f6fb',
+    zIndex: 4
+  };
+  const stickyHeadActionsSx = {
+    ...stickyActionsSx,
+    backgroundColor: '#f3f6fb',
+    zIndex: 4
+  };
   const headCellSx = {
     py: 1.2,
     px: 1.8,
@@ -128,13 +138,13 @@ export default function CertificationTable({
         <Table size="small" sx={{ minWidth: 1080, tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ ...headCellSx, ...stickyNameSx, zIndex: 4 }}>Nombre</TableCell>
+              <TableCell sx={{ ...headCellSx, ...stickyHeadNameSx }}>Nombre</TableCell>
               <TableCell sx={{ ...headCellSx, minWidth: 210, width: 220 }}>Módulo/Categoría</TableCell>
               <TableCell sx={{ ...headCellSx, minWidth: 140, width: 150 }}>Vencimiento</TableCell>
               <TableCell sx={{ ...headCellSx, minWidth: 140, width: 150 }}>Días restantes</TableCell>
               <TableCell sx={{ ...headCellSx, minWidth: 170, width: 180 }}>Estado</TableCell>
               <TableCell sx={{ ...headCellSx, minWidth: 210, width: 230 }}>Recordatorio</TableCell>
-              <TableCell align="right" sx={{ ...headCellSx, ...stickyActionsSx, zIndex: 4 }}>Acciones</TableCell>
+              <TableCell align="right" sx={{ ...headCellSx, ...stickyHeadActionsSx }}>Acciones</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
