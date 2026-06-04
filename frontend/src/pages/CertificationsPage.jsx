@@ -44,6 +44,7 @@ export default function CertificationsPage() {
   const [sendingTestId, setSendingTestId] = useState('');
   const [runningJob, setRunningJob] = useState(false);
   const [searchTerm, setSearchTerm] = useState(initialCertificationSearch);
+  const [descriptionSearchTerm, setDescriptionSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [moduleFilter, setModuleFilter] = useState('all');
 
@@ -88,17 +89,24 @@ export default function CertificationsPage() {
 
   const filteredItems = useMemo(() => {
     const search = String(searchTerm || '').trim().toLowerCase();
+    const descriptionKeywords = String(descriptionSearchTerm || '')
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
     return items.filter((item) => {
       const name = String(item?.name || '').toLowerCase();
       const id = String(item?.id || '').toLowerCase();
+      const description = String(item?.description || '').toLowerCase();
       const moduleName = String(item?.module || '');
       const status = String(item?.status || '');
       const matchesSearch = !search || name.includes(search) || id.includes(search);
+      const matchesDescription = !descriptionKeywords.length || descriptionKeywords.every((keyword) => description.includes(keyword));
       const matchesStatus = statusFilter === 'all' || status === statusFilter;
       const matchesModule = moduleFilter === 'all' || moduleName === moduleFilter;
-      return matchesSearch && matchesStatus && matchesModule;
+      return matchesSearch && matchesDescription && matchesStatus && matchesModule;
     });
-  }, [items, searchTerm, statusFilter, moduleFilter]);
+  }, [items, searchTerm, descriptionSearchTerm, statusFilter, moduleFilter]);
 
   const onCreate = () => {
     setEditing(null);
@@ -225,13 +233,20 @@ export default function CertificationsPage() {
 
             {triggerBanner && <Alert severity="warning" sx={{ py: 0.4 }}>{triggerBanner}</Alert>}
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(220px, 1fr) 210px 230px' }, gap: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(210px, 1fr) minmax(230px, 1.2fr) 190px 220px' }, gap: 1 }}>
               <TextField
                 size="small"
                 label="Buscar por nombre..."
                 placeholder="Buscar por nombre..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <TextField
+                size="small"
+                label="Buscar en descripción"
+                placeholder="Palabras clave de la descripción"
+                value={descriptionSearchTerm}
+                onChange={(e) => setDescriptionSearchTerm(e.target.value)}
               />
               <TextField size="small" select label="Estado" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <MenuItem value="all">Todos</MenuItem>
