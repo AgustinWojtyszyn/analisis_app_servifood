@@ -68,6 +68,7 @@ function normalizePublicPath(pathname) {
 function getSectionFromPath(pathname) {
   const normalizedPath = normalizeProtectedPath(pathname);
   if (normalizedPath.startsWith('/analisis/')) return 'history';
+  if (normalizedPath === '/politicas-seguridad/confirmacion') return 'policies';
   const match = Object.entries(sectionPathMap).find(([, path]) => path === normalizedPath);
   return match?.[0] || 'declaration';
 }
@@ -343,7 +344,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'policies') {
-      return <HealthPoliciesPage />;
+      return <HealthPoliciesPage user={layoutUser} onGoDashboard={() => navigateToSection(isAdmin ? 'panel' : 'declaration')} />;
     }
 
     if (currentSection === 'declarationHistory') {
