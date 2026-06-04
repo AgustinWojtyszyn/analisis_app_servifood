@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -14,6 +14,7 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   Typography
 } from '@mui/material';
@@ -56,6 +57,17 @@ export default function CertificationTable({
   authorizedRecipients = []
 }) {
   const [detailItem, setDetailItem] = useState(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  useEffect(() => {
+    setPage(0);
+  }, [items.length, rowsPerPage]);
+
+  const paginatedItems = useMemo(() => {
+    const start = page * rowsPerPage;
+    return items.slice(start, start + rowsPerPage);
+  }, [items, page, rowsPerPage]);
 
   if (!items.length) {
     return (
@@ -148,7 +160,7 @@ export default function CertificationTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map((item) => (
+            {paginatedItems.map((item) => (
               <TableRow key={item.id} hover sx={{ '&:hover td': { backgroundColor: '#f8fbff' } }}>
                 <TableCell sx={{ py: 1.1, px: 1.8, ...stickyNameSx }}>
                   <Typography sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>{item.name}</Typography>
@@ -173,6 +185,33 @@ export default function CertificationTable({
           </TableBody>
         </Table>
       </TableContainer>
+      <TablePagination
+        component="div"
+        count={items.length}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        rowsPerPageOptions={[10, 50, 100]}
+        onPageChange={(_, nextPage) => setPage(nextPage)}
+        onRowsPerPageChange={(event) => {
+          setRowsPerPage(parseInt(event.target.value, 10));
+          setPage(0);
+        }}
+        labelRowsPerPage="Filas por página"
+        labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+        sx={{
+          border: '1px solid #d7e1f0',
+          borderTop: 0,
+          borderRadius: '0 0 8px 8px',
+          '.MuiTablePagination-toolbar': {
+            minHeight: 44,
+            px: { xs: 1, sm: 1.5 }
+          },
+          '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+            fontSize: 13,
+            color: '#42546f'
+          }
+        }}
+      />
 
       <Dialog open={Boolean(detailItem)} onClose={() => setDetailItem(null)} fullWidth maxWidth="md">
         <DialogTitle sx={{ pb: 1 }}>
