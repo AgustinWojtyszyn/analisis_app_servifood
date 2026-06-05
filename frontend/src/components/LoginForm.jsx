@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
-  Loader2,
-  User
+  Loader2
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
+import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
+
+const inputClassName = 'w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors [&:-webkit-autofill]:bg-slate-900 [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s] [&:-webkit-autofill]:shadow-[0_0_0px_1000px_#0f172a_inset] disabled:cursor-not-allowed disabled:opacity-60';
 
 function mapSupabaseUser(user) {
   if (!user) return null;
@@ -47,14 +49,6 @@ function sanitizeAuthErrorMessage(err) {
   }
 
   return err?.message || 'Error de autenticación. Intentá nuevamente.';
-}
-
-function FieldIcon({ children }) {
-  return (
-    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-      {children}
-    </span>
-  );
 }
 
 export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwitchMode }) {
@@ -224,129 +218,155 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-10 text-white">
-      <section className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.26em] text-orange-400">
-            Servi Food
-          </p>
-          <h1 className="mt-4 text-3xl font-bold text-white">
-            {isRegister ? 'Crear acceso' : 'Iniciar sesión'}
+    <main className="flex min-h-screen w-full bg-slate-950 text-slate-100">
+      <section className="relative flex w-full flex-col items-center justify-center overflow-hidden p-8 lg:w-1/2">
+        <div className="pointer-events-none absolute left-1/4 top-1/4 h-96 w-96 rounded-full bg-orange-600/10 blur-[120px]" />
+
+        <div className="relative z-10 w-full max-w-md">
+          <img
+            src={servifoodLogo}
+            alt="Servi Food"
+            className="mb-8 h-20 w-auto object-contain"
+          />
+
+          <h1 className="mb-2 text-4xl font-black leading-tight text-white">
+            Portal de Calidad y Operaciones
           </h1>
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            Portal interno de gestión operativa, calidad y auditoría.
+          <p className="mb-8 text-slate-400">
+            Acceso centralizado al ecosistema de auditoría y salud.
           </p>
-        </div>
 
-        {(error || infoMessage) && (
-          <div
-            className={`mb-5 flex gap-3 rounded-xl border px-4 py-3 text-sm ${
-              error
-                ? 'border-red-400/20 bg-red-500/10 text-red-100'
-                : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
-            }`}
-            role="alert"
-          >
-            {error ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
-            <span>{error || infoMessage}</span>
-          </div>
-        )}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 shadow-2xl backdrop-blur-md sm:p-8">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-white">
+                {isRegister ? 'Registrarse' : 'Iniciar Sesión'}
+              </h2>
+              <p className="mt-2 text-sm text-slate-500">
+                {isRegister ? 'Creá tu acceso para operar dentro del portal.' : 'Ingresá con tus credenciales corporativas.'}
+              </p>
+            </div>
 
-        <form onSubmit={handleSubmit}>
-          {isRegister && (
-            <div className="mb-4 flex flex-col gap-1">
-              <label className="text-sm font-medium text-slate-300">Nombre</label>
-              <div className="relative">
-                <FieldIcon>
-                  <User size={18} aria-hidden="true" />
-                </FieldIcon>
+            {(error || infoMessage) && (
+              <div
+                className={`mb-5 flex gap-3 rounded-xl border px-4 py-3 text-sm ${
+                  error
+                    ? 'border-red-400/20 bg-red-500/10 text-red-100'
+                    : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
+                }`}
+                role="alert"
+              >
+                {error ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
+                <span>{error || infoMessage}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              {isRegister && (
+                <div className="mb-4 flex flex-col gap-1">
+                  <label className="text-sm font-medium text-slate-300">Nombre</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={loading}
+                    required
+                    autoComplete="name"
+                    className={inputClassName}
+                    placeholder="Tu nombre"
+                  />
+                </div>
+              )}
+
+              <div className="mb-4 flex flex-col gap-1">
+                <label className="text-sm font-medium text-slate-300">Email</label>
                 <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
                   required
-                  autoComplete="name"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
-                  placeholder="Tu nombre"
+                  autoComplete="email"
+                  className={inputClassName}
+                  placeholder="tu@email.com"
                 />
               </div>
-            </div>
-          )}
 
-          <div className="flex flex-col gap-1 mb-4">
-            <label className="text-sm font-medium text-slate-300">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-              required
-              autoComplete="email"
-              className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors [&:-webkit-autofill]:bg-slate-900 [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s] [&:-webkit-autofill]:shadow-[0_0_0px_1000px_#0f172a_inset]"
-              placeholder="tu@email.com"
-            />
-          </div>
+              <div className="mb-4 flex flex-col gap-1">
+                <label className="text-sm font-medium text-slate-300">Contraseña</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                  autoComplete={isRegister ? 'new-password' : 'current-password'}
+                  className={inputClassName}
+                  placeholder="••••••••"
+                />
+              </div>
 
-          <div className="flex flex-col gap-1 mb-4">
-            <label className="text-sm font-medium text-slate-300">Contraseña</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              required
-              autoComplete={isRegister ? 'new-password' : 'current-password'}
-              className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors [&:-webkit-autofill]:bg-slate-900 [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s] [&:-webkit-autofill]:shadow-[0_0_0px_1000px_#0f172a_inset]"
-              placeholder="••••••••"
-            />
-          </div>
+              {!isRegister && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => onSwitchMode?.('forgotPassword')}
+                    disabled={loading}
+                    className="text-sm font-medium text-slate-500 transition hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
+              )}
 
-          {!isRegister && (
-            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-6 flex w-full items-center justify-center rounded-xl bg-orange-500 px-4 py-3.5 font-bold text-white shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] transition-all hover:-translate-y-0.5 hover:bg-orange-600 focus:outline-none focus:ring-4 focus:ring-orange-500/20 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+              >
+                {loading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : (isRegister ? 'Registrarse' : 'Iniciar Sesión')}
+              </button>
+
+              {!isRegister && showResendConfirmation && (
+                <button
+                  type="button"
+                  className="mt-3 w-full rounded-xl border border-slate-800 px-4 py-3 text-sm font-medium text-slate-300 transition hover:border-slate-700 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={handleResendConfirmation}
+                  disabled={loading}
+                >
+                  Reenviar correo de confirmación
+                </button>
+              )}
+            </form>
+
+            <div className="mt-6 space-y-3 text-center">
+              <p className="text-sm text-slate-500">
+                ¿Necesitás acceso? Contactá a un administrador.
+              </p>
               <button
                 type="button"
-                onClick={() => onSwitchMode?.('forgotPassword')}
+                onClick={() => switchMode(!isRegister)}
                 disabled={loading}
-                className="text-sm font-medium text-slate-500 transition hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                className="text-sm font-medium text-slate-400 transition hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                ¿Olvidaste tu contraseña?
+                {isRegister ? '¿Ya tenés cuenta? Iniciá sesión' : '¿No tenés cuenta? Registrate aquí'}
               </button>
             </div>
-          )}
+          </div>
+        </div>
+      </section>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-6 flex w-full items-center justify-center rounded-xl bg-orange-500 px-4 py-3.5 font-bold text-white shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] transition-all hover:-translate-y-0.5 hover:bg-orange-600 focus:outline-none focus:ring-4 focus:ring-orange-500/20 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-          >
-            {loading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesión')}
-          </button>
-
-          {!isRegister && showResendConfirmation && (
-            <button
-              type="button"
-              className="w-full rounded-xl border border-slate-800 px-4 py-3 text-sm font-medium text-slate-300 transition hover:border-slate-700 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-              onClick={handleResendConfirmation}
-              disabled={loading}
-            >
-              Reenviar correo de confirmación
-            </button>
-          )}
-        </form>
-
-        <div className="mt-6 space-y-3 text-center">
-          <p className="text-sm text-slate-500">
-            ¿Necesitás acceso? Contactá a un administrador.
+      <section className="relative hidden items-center justify-center bg-[url('https://images.unsplash.com/photo-1577906096429-f73c2c312435?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center p-12 lg:flex lg:w-1/2">
+        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[2px]" />
+        <div className="relative z-10 max-w-xl">
+          <p className="mb-4 text-sm font-bold tracking-widest text-orange-500">
+            SERVI FOOD CATERING
           </p>
-          <button
-            type="button"
-            onClick={() => switchMode(!isRegister)}
-            disabled={loading}
-            className="text-sm font-medium text-slate-400 transition hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isRegister ? 'Ya tengo acceso' : 'Solicitar registro'}
-          </button>
+          <h2 className="mb-6 text-5xl font-bold leading-tight text-white">
+            Nuestro compromiso es la calidad
+          </h2>
+          <p className="text-lg leading-8 text-slate-300">
+            Herramienta interna para la gestión integral de inocuidad, políticas operativas y salud del equipo.
+          </p>
         </div>
       </section>
     </main>
