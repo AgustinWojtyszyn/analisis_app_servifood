@@ -8,6 +8,7 @@ import FileUpload from './components/FileUpload';
 import { SummaryGrid } from './components/Dashboard';
 import AnalysisResults from './components/AnalysisResults';
 import AnalysisHistory from './components/AnalysisHistory';
+import DynamicWelcomePortal from './components/DynamicWelcomePortal';
 import RulesConfig from './components/RulesConfig';
 import ChartsPage from './components/ChartsPage';
 import ProfilePage from './components/ProfilePage';
@@ -25,7 +26,7 @@ import { useAuth } from './hooks/useAuth';
 import { deleteAnalysis, getAnalysisById, updateAnalysisStatus } from './services/analysis';
 
 const sectionPathMap = {
-  panel: '/historial',
+  panel: '/inicio',
   upload: '/cargar',
   history: '/historial',
   rules: '/reglas',
@@ -50,7 +51,7 @@ const publicPaths = new Set(['/', '/login', '/register', '/forgot-password', '/r
 const protectedPathAliases = {
   '/politicas': '/politicas-seguridad'
 };
-const BASE_ALLOWED_SECTIONS = new Set(['declaration', 'policies']);
+const BASE_ALLOWED_SECTIONS = new Set(['panel', 'declaration', 'policies']);
 
 function normalizeProtectedPath(pathname) {
   return protectedPathAliases[pathname] || pathname;
@@ -69,7 +70,7 @@ function getSectionFromPath(pathname) {
   if (normalizedPath.startsWith('/analisis/')) return 'history';
   if (normalizedPath === '/politicas-seguridad/confirmacion') return 'policies';
   const match = Object.entries(sectionPathMap).find(([, path]) => path === normalizedPath);
-  return match?.[0] || 'declaration';
+  return match?.[0] || 'panel';
 }
 
 function normalizeRole(role) {
@@ -98,6 +99,7 @@ function MainApp({ user, onLogout }) {
   const sidebarSections = useMemo(() => {
     if (canViewNutritionModules && !isAdmin) {
       return [
+        { id: 'panel', label: 'Inicio' },
         { id: 'declaration', label: 'Declaración de Salud' },
         { id: 'policies', label: 'Políticas de Seguridad' },
         { id: 'nutritionModules', label: 'Documentos SGC' },
@@ -107,6 +109,7 @@ function MainApp({ user, onLogout }) {
 
     if (!isAdmin) {
       return [
+        { id: 'panel', label: 'Inicio' },
         { id: 'declaration', label: 'Declaración de Salud' },
         { id: 'policies', label: 'Políticas de Seguridad' },
         ...(canViewCertifications ? [{ id: 'certifications', label: 'Certificaciones' }] : [])
@@ -366,7 +369,17 @@ function MainApp({ user, onLogout }) {
       return <CertificationsPage />;
     }
 
-    if (currentSection === 'panel' || currentSection === 'history') {
+    if (currentSection === 'panel') {
+      return (
+        <DynamicWelcomePortal
+          user={layoutUser}
+          role={normalizedRole}
+          onNavigate={navigateToSection}
+        />
+      );
+    }
+
+    if (currentSection === 'history') {
       return (
         <AnalysisHistory
           key={`history-${reloadHistoryKey}`}

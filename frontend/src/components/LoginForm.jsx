@@ -1,7 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   AlertCircle,
-  CalendarClock,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -12,7 +11,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
-import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 
 function mapSupabaseUser(user) {
   if (!user) return null;
@@ -53,33 +51,6 @@ function sanitizeAuthErrorMessage(err) {
   }
 
   return err?.message || 'Error de autenticación. Intentá nuevamente.';
-}
-
-function DailyDateWidget() {
-  const formattedDate = useMemo(() => {
-    return new Intl.DateTimeFormat('es-AR', {
-      weekday: 'long',
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    }).format(new Date());
-  }, []);
-
-  return (
-    <div className="mt-9 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-left text-slate-200 shadow-2xl backdrop-blur-md">
-      <span className="grid h-11 w-11 place-items-center rounded-xl bg-orange-500/90 text-white">
-        <CalendarClock size={20} strokeWidth={2.2} aria-hidden="true" />
-      </span>
-      <span>
-        <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-          Declaración diaria
-        </span>
-        <time className="block text-sm font-medium capitalize text-slate-100">
-          {formattedDate}
-        </time>
-      </span>
-    </div>
-  );
 }
 
 function FieldIcon({ children }) {
@@ -256,179 +227,150 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
-        <section className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950 px-6 py-10 sm:px-8 lg:min-h-screen">
-          <div className="pointer-events-none absolute h-96 w-96 rounded-full bg-blue-600/10 blur-[100px]" />
-          <div className="relative z-10 w-full max-w-md">
-            <div className="mb-10">
-              <img
-                src={servifoodLogo}
-                alt="Servi Food"
-                className="mb-10 h-20 w-auto object-contain"
-              />
-              <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl">
-                Portal de Calidad y Operaciones
-              </h1>
-              <p className="mt-5 text-base leading-7 text-slate-400">
-                Acceso centralizado al sistema de auditoría, SGC y declaraciones diarias de salud.
-              </p>
-            </div>
+    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-6 py-10 text-white">
+      <section className="w-full max-w-sm">
+        <div className="mb-8 text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.26em] text-orange-400">
+            Servi Food
+          </p>
+          <h1 className="mt-4 text-3xl font-bold text-white">
+            {isRegister ? 'Crear acceso' : 'Iniciar sesión'}
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-500">
+            Portal interno de gestión operativa, calidad y auditoría.
+          </p>
+        </div>
 
-            {(error || infoMessage) && (
-              <div
-                className={`mb-5 flex gap-3 rounded-lg border px-4 py-3 text-sm ${
-                  error
-                    ? 'border-red-400/20 bg-red-500/10 text-red-100'
-                    : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
-                }`}
-                role="alert"
-              >
-                {error ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
-                <span>{error || infoMessage}</span>
-              </div>
-            )}
+        {(error || infoMessage) && (
+          <div
+            className={`mb-5 flex gap-3 rounded-xl border px-4 py-3 text-sm ${
+              error
+                ? 'border-red-400/20 bg-red-500/10 text-red-100'
+                : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
+            }`}
+            role="alert"
+          >
+            {error ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
+            <span>{error || infoMessage}</span>
+          </div>
+        )}
 
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              {isRegister && (
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium text-slate-300">Nombre</span>
-                  <span className="relative block">
-                    <FieldIcon>
-                      <User size={18} aria-hidden="true" />
-                    </FieldIcon>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      disabled={loading}
-                      required
-                      autoComplete="name"
-                      className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
-                      placeholder="Tu nombre"
-                    />
-                  </span>
-                </label>
-              )}
-
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-300">Email</span>
-                <span className="relative block">
-                  <FieldIcon>
-                    <Mail size={18} aria-hidden="true" />
-                  </FieldIcon>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={loading}
-                    required
-                    autoComplete="email"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
-                    placeholder="nombre@servifood.com"
-                  />
-                </span>
-              </label>
-
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-300">Contraseña</span>
-                <span className="relative block">
-                  <FieldIcon>
-                    <Lock size={18} aria-hidden="true" />
-                  </FieldIcon>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={loading}
-                    required
-                    autoComplete={isRegister ? 'new-password' : 'current-password'}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 pr-12 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
-                    placeholder="••••••••"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    disabled={loading}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  >
-                    {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-                  </button>
-                </span>
-              </label>
-
-              {!isRegister && (
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => onSwitchMode?.('forgotPassword')}
-                    disabled={loading}
-                    className="text-sm font-medium text-slate-500 transition hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    ¿Olvidaste tu contraseña?
-                  </button>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-6 flex w-full items-center justify-center rounded-xl bg-orange-500 px-4 py-3.5 font-bold text-white shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] transition-all hover:-translate-y-0.5 hover:bg-orange-600 focus:outline-none focus:ring-4 focus:ring-orange-500/20 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-              >
-                {loading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesión')}
-              </button>
-
-              {!isRegister && showResendConfirmation && (
-                <button
-                  type="button"
-                  className="w-full rounded-lg border border-slate-800 px-4 py-3 text-sm font-medium text-slate-300 transition hover:border-slate-700 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={handleResendConfirmation}
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          {isRegister && (
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-slate-300">Nombre</span>
+              <span className="relative block">
+                <FieldIcon>
+                  <User size={18} aria-hidden="true" />
+                </FieldIcon>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   disabled={loading}
-                >
-                  Reenviar correo de confirmación
-                </button>
-              )}
-            </form>
+                  required
+                  autoComplete="name"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  placeholder="Tu nombre"
+                />
+              </span>
+            </label>
+          )}
 
-            <div className="mt-6 space-y-3 text-center">
-              <p className="text-sm text-slate-500">
-                ¿Necesitás acceso? Contactá a un administrador.
-              </p>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-slate-300">Email</span>
+            <span className="relative block">
+              <FieldIcon>
+                <Mail size={18} aria-hidden="true" />
+              </FieldIcon>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                required
+                autoComplete="email"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="nombre@servifood.com"
+              />
+            </span>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-slate-300">Contraseña</span>
+            <span className="relative block">
+              <FieldIcon>
+                <Lock size={18} aria-hidden="true" />
+              </FieldIcon>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                required
+                autoComplete={isRegister ? 'new-password' : 'current-password'}
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 pr-12 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
+                placeholder="••••••••"
+              />
               <button
                 type="button"
-                onClick={() => switchMode(!isRegister)}
+                onClick={() => setShowPassword((prev) => !prev)}
                 disabled={loading}
-                className="text-sm font-medium text-slate-400 transition hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
-                {isRegister ? 'Ya tengo acceso' : 'Solicitar registro'}
+                {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+              </button>
+            </span>
+          </label>
+
+          {!isRegister && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => onSwitchMode?.('forgotPassword')}
+                disabled={loading}
+                className="text-sm font-medium text-slate-500 transition hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                ¿Olvidaste tu contraseña?
               </button>
             </div>
-          </div>
-        </section>
+          )}
 
-        <section className="relative hidden min-h-screen items-center justify-center overflow-hidden px-10 lg:flex">
-          <img
-            src="https://images.unsplash.com/photo-1577906096429-f73c2c312435?q=80&w=2070&auto=format&fit=crop"
-            alt=""
-            aria-hidden="true"
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-[2px]" />
-          <div className="relative z-10 max-w-2xl text-center">
-            <p className="mb-5 text-sm font-semibold uppercase tracking-[0.28em] text-orange-300/90">
-              Servi Food
-            </p>
-            <h2 className="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-5xl font-bold leading-tight text-transparent lg:text-6xl">
-              Nuestro compromiso es la calidad
-            </h2>
-            <p className="mx-auto mt-6 max-w-lg text-lg leading-8 text-slate-300">
-              Portal interno para la gestión de inocuidad, políticas operativas y salud del equipo.
-            </p>
-            <DailyDateWidget />
-          </div>
-        </section>
-      </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-6 flex w-full items-center justify-center rounded-xl bg-orange-500 px-4 py-3.5 font-bold text-white shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] transition-all hover:-translate-y-0.5 hover:bg-orange-600 focus:outline-none focus:ring-4 focus:ring-orange-500/20 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+          >
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesión')}
+          </button>
+
+          {!isRegister && showResendConfirmation && (
+            <button
+              type="button"
+              className="w-full rounded-xl border border-slate-800 px-4 py-3 text-sm font-medium text-slate-300 transition hover:border-slate-700 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleResendConfirmation}
+              disabled={loading}
+            >
+              Reenviar correo de confirmación
+            </button>
+          )}
+        </form>
+
+        <div className="mt-6 space-y-3 text-center">
+          <p className="text-sm text-slate-500">
+            ¿Necesitás acceso? Contactá a un administrador.
+          </p>
+          <button
+            type="button"
+            onClick={() => switchMode(!isRegister)}
+            disabled={loading}
+            className="text-sm font-medium text-slate-400 transition hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isRegister ? 'Ya tengo acceso' : 'Solicitar registro'}
+          </button>
+        </div>
+      </section>
     </main>
   );
 }
