@@ -406,8 +406,8 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
     if (currentSection === 'panel') {
       return (
         <DynamicWelcomePortal
-          user={layoutUser}
-          role={normalizedRole}
+          user={currentUserProfile}
+          role={currentUserProfile?.role}
           onNavigate={navigateToSection}
         />
       );

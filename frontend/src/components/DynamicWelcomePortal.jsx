@@ -145,12 +145,13 @@ function UserView({ user, onNavigate }) {
   );
 }
 
-export default function DynamicWelcomePortal({ user, role, onNavigate }) {
-  const normalizedRole = String(role || '').toLowerCase();
-  const isAdmin = normalizedRole === 'admin' || normalizedRole === 'nutricionista';
+export default function DynamicWelcomePortal(props) {
+  const { user, role, onNavigate } = props;
+  const currentRole = (props.role || role || '').trim().toLowerCase();
+  const isAdmin = currentRole === 'admin' || currentRole === 'nutricionista';
 
   if (isAdmin) {
-    return <AdminView user={user} role={normalizedRole} onNavigate={onNavigate} />;
+    return <AdminView user={user} role={currentRole} onNavigate={onNavigate} />;
   }
 
   return <UserView user={user} onNavigate={onNavigate} />;
