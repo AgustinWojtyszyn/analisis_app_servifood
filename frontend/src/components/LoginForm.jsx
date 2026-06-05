@@ -66,8 +66,8 @@ function DailyDateWidget() {
   }, []);
 
   return (
-    <div className="mt-9 inline-flex items-center gap-3 rounded-lg border border-white/15 bg-white/10 px-5 py-3 text-left text-slate-200 shadow-2xl shadow-black/20 backdrop-blur-md">
-      <span className="grid h-10 w-10 place-items-center rounded-md bg-orange-500/90 text-white">
+    <div className="mt-9 flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-left text-slate-200 shadow-2xl backdrop-blur-md">
+      <span className="grid h-11 w-11 place-items-center rounded-xl bg-orange-500/90 text-white">
         <CalendarClock size={20} strokeWidth={2.2} aria-hidden="true" />
       </span>
       <span>
@@ -258,13 +258,14 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
-        <section className="flex min-h-screen w-full items-center justify-center bg-slate-950 px-6 py-10 sm:px-8 lg:min-h-screen">
-          <div className="w-full max-w-md">
+        <section className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-slate-950 px-6 py-10 sm:px-8 lg:min-h-screen">
+          <div className="pointer-events-none absolute h-96 w-96 rounded-full bg-blue-600/10 blur-[100px]" />
+          <div className="relative z-10 w-full max-w-md">
             <div className="mb-10">
               <img
                 src={servifoodLogo}
                 alt="Servi Food"
-                className="mb-7 h-20 w-auto object-contain"
+                className="mb-10 h-20 w-auto object-contain"
               />
               <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl">
                 Portal de Calidad y Operaciones
@@ -291,7 +292,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
             <form className="space-y-4" onSubmit={handleSubmit}>
               {isRegister && (
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-300">Nombre</span>
+                  <span className="mb-1.5 block text-sm font-medium text-slate-300">Nombre</span>
                   <span className="relative block">
                     <FieldIcon>
                       <User size={18} aria-hidden="true" />
@@ -303,7 +304,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
                       disabled={loading}
                       required
                       autoComplete="name"
-                      className="h-12 w-full rounded-lg border border-slate-800 bg-slate-900 pl-10 pr-4 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
                       placeholder="Tu nombre"
                     />
                   </span>
@@ -311,7 +312,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
               )}
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-300">Email</span>
+                <span className="mb-1.5 block text-sm font-medium text-slate-300">Email</span>
                 <span className="relative block">
                   <FieldIcon>
                     <Mail size={18} aria-hidden="true" />
@@ -323,14 +324,14 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
                     disabled={loading}
                     required
                     autoComplete="email"
-                    className="h-12 w-full rounded-lg border border-slate-800 bg-slate-900 pl-10 pr-4 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
                     placeholder="nombre@servifood.com"
                   />
                 </span>
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-300">Contraseña</span>
+                <span className="mb-1.5 block text-sm font-medium text-slate-300">Contraseña</span>
                 <span className="relative block">
                   <FieldIcon>
                     <Lock size={18} aria-hidden="true" />
@@ -342,7 +343,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
                     disabled={loading}
                     required
                     autoComplete={isRegister ? 'new-password' : 'current-password'}
-                    className="h-12 w-full rounded-lg border border-slate-800 bg-slate-900 pl-10 pr-12 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 pr-12 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
                     placeholder="••••••••"
                   />
                   <button
@@ -373,7 +374,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
               <button
                 type="submit"
                 disabled={loading}
-                className="flex h-12 w-full items-center justify-center rounded-lg bg-orange-500 px-4 text-sm font-bold text-white shadow-lg shadow-orange-950/30 transition hover:bg-orange-600 focus:outline-none focus:ring-4 focus:ring-orange-500/20 disabled:cursor-not-allowed disabled:opacity-70"
+                className="mt-6 flex w-full items-center justify-center rounded-xl bg-orange-500 px-4 py-3.5 font-bold text-white shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] transition-all hover:-translate-y-0.5 hover:bg-orange-600 focus:outline-none focus:ring-4 focus:ring-orange-500/20 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
               >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesión')}
               </button>
@@ -406,14 +407,19 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
           </div>
         </section>
 
-        <section className="relative hidden min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950 px-10 lg:flex">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.18),transparent_30%),radial-gradient(circle_at_70%_80%,rgba(14,165,233,0.16),transparent_35%)]" />
-          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px]" />
+        <section className="relative hidden min-h-screen items-center justify-center overflow-hidden px-10 lg:flex">
+          <img
+            src="https://images.unsplash.com/photo-1577906096429-f73c2c312435?q=80&w=2070&auto=format&fit=crop"
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-[2px]" />
           <div className="relative z-10 max-w-2xl text-center">
             <p className="mb-5 text-sm font-semibold uppercase tracking-[0.28em] text-orange-300/90">
               Servi Food
             </p>
-            <h2 className="text-5xl font-bold leading-tight text-white xl:text-6xl">
+            <h2 className="bg-gradient-to-r from-white to-slate-400 bg-clip-text text-5xl font-bold leading-tight text-transparent lg:text-6xl">
               Nuestro compromiso es la calidad
             </h2>
             <p className="mx-auto mt-6 max-w-lg text-lg leading-8 text-slate-300">
