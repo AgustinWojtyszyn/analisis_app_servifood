@@ -1,0 +1,185 @@
+AUDITORIA FUNCIONAL DE LA APP SERVIFOOD
+Fecha: 2026-06-05
+
+1. RESUMEN EJECUTIVO
+
+La aplicacion es una plataforma web interna para Servifood orientada a gestion operativa, calidad, inocuidad y cumplimiento documental. No es solamente una app de analisis de Excel: el sistema evoluciono hacia un panel administrativo con modulos de carga y clasificacion de desvios, declaraciones diarias de salud, politicas de seguridad, documentos SGC, certificaciones, alertas por vencimiento y gestion de usuarios.
+
+El producto ofrece valor principalmente en tres frentes:
+- Centraliza informacion critica de calidad, inocuidad y cumplimiento.
+- Automatiza tareas repetitivas como clasificar registros de Excel, calcular resumenes, exportar resultados y enviar avisos.
+- Diferencia permisos por rol para que cada usuario vea solo lo que corresponde.
+
+2. USUARIOS Y PERMISOS
+
+La app trabaja con autenticacion Supabase y perfiles en la tabla profiles. Los roles principales son:
+
+Admin:
+- Accede al dashboard, cargas Excel, historial, graficos, reglas, usuarios, declaraciones de salud, documentos SGC y certificaciones.
+- Puede cargar y reprocesar analisis, exportar informacion, borrar registros y administrar usuarios.
+
+Nutricionista:
+- Accede a declaracion de salud, politicas, documentos SGC y certificaciones.
+- Puede gestionar documentos SGC y certificaciones cuando el backend lo autoriza como rol operativo.
+
+Usuario comun:
+- Accede principalmente a declaracion diaria de salud y politicas de seguridad.
+- No puede acceder al modulo administrativo de analisis Excel ni a la gestion general.
+
+El backend valida tokens de Supabase, verifica que el perfil exista, que el usuario este activo y que el rol sea suficiente para cada ruta.
+
+3. MODULOS PRINCIPALES
+
+3.1 Landing, login y recuperacion de cuenta
+
+La app incluye pantalla publica, login, registro, recuperacion de contrasena y reset de contrasena. El flujo usa Supabase Auth desde el frontend y luego consulta el perfil para determinar rol, nombre, estado y permisos.
+
+3.2 Declaracion diaria de salud
+
+Modulo para que cada usuario complete una declaracion diaria. Registra sintomas, fiebre, contacto reciente, aceptacion de politica vigente y compromiso de informar sintomas durante la jornada.
+
+Funcionalidad ofrecida:
+- Consulta si el usuario ya completo la declaracion del dia.
+- Evita duplicados por fecha y usuario.
+- Calcula una evaluacion sanitaria con estado, semaforo y accion sugerida.
+- Permite editar o eliminar la declaracion propia solo dentro de una ventana inicial de 15 minutos.
+- Admin puede ver todas las declaraciones, eliminarlas y exportarlas.
+
+Este modulo funciona como control diario de aptitud o riesgo sanitario operacional.
+
+3.3 Politicas de seguridad
+
+La app permite consultar una politica activa de salud/seguridad. Los usuarios deben aceptarla dentro del flujo de declaracion. Tambien existe registro de aceptaciones de politicas desde el frontend.
+
+3.4 Analisis de archivos Excel
+
+Es el modulo historico central de la aplicacion. Permite a administradores cargar uno o varios archivos Excel, procesarlos y guardar resultados en analysis_history.
+
+Funcionalidad ofrecida:
+- Carga individual y carga multiple de hasta 10 archivos.
+- Validacion de archivo y limite de tamano.
+- Procesamiento de registros desde Excel.
+- Clasificacion de desvios por categoria, origen, area, estado, ISO 22000 y otros campos derivados.
+- Historial de analisis.
+- Vista de detalle por analisis.
+- Borrado individual, borrado masivo y borrado total.
+- Cambio de estado, archivo de analisis y exportacion masiva.
+- Reproceso historico de clasificaciones e ISO.
+
+Categorias visibles en resultados:
+- Legales.
+- Logistica.
+- Calidad.
+- Mantenimiento.
+- Inocuidad.
+- Recursos Humanos.
+- Revisar manualmente.
+
+La interfaz permite filtrar, buscar, paginar, separar por categorias, revisar columnas originales y exportar resultados a Excel. Tambien hay graficos asociados al analisis seleccionado.
+
+3.5 Dashboard, historial y graficos
+
+El administrador cuenta con historial de analisis y resumenes. La app muestra metricas agregadas y resultados procesados. El panel se comporta mas como una bandeja de analisis historicos que como un dashboard ejecutivo independiente.
+
+3.6 Configuracion de reglas
+
+Existe un modulo de reglas administrables. Permite listar, crear, editar y borrar reglas de negocio. El acceso es solo para admin.
+
+Este modulo complementa el analisis Excel, aunque parte de la clasificacion actual parece estar resuelta por servicios internos especificos, no solamente por reglas simples de palabras clave.
+
+3.7 Documentos SGC / modulos nutricionales
+
+La app incluye gestion de documentos SGC bajo rutas llamadas nutrition-modules. Funcionalmente opera como biblioteca/documentacion interna.
+
+Funcionalidad ofrecida:
+- Listar documentos.
+- Crear, editar y eliminar documentos.
+- Clasificar por apartado: procedimiento, registro o estrategias.
+- Mantener titulo, descripcion, contenido, estado y publicacion.
+- Adjuntar hasta 10 archivos.
+- Listar, descargar y eliminar adjuntos.
+- Descargar/exportar documentos en Excel.
+- Enviar o procesar notificaciones por email cuando se crean documentos.
+
+Los usuarios sin permisos de gestion solo deberian ver documentos aprobados.
+
+3.8 Certificaciones
+
+Modulo para administrar certificaciones con fecha de vencimiento y responsables.
+
+Funcionalidad ofrecida:
+- Crear, listar, editar y eliminar certificaciones.
+- Registrar nombre, tipo, modulo, descripcion, URL, fecha de vencimiento, area responsable y persona responsable.
+- Calcular estado de vigencia: activa, proxima a vencer, vence hoy/manana o vencida.
+- Detectar triggers de notificacion.
+- Enviar notificaciones automaticas o pruebas manuales por email.
+- Consultar preview de notificaciones.
+- Ejecutar job interno protegido por secreto para avisos automaticos.
+
+Este modulo sirve para seguimiento preventivo de vencimientos y reduce riesgo de certificaciones caducadas sin aviso.
+
+3.9 Gestion de usuarios
+
+Modulo administrativo conectado a Supabase.
+
+Funcionalidad ofrecida:
+- Listar perfiles con email, nombre, rol, estado y fecha de creacion.
+- Cambiar rol entre user, nutricionista y admin.
+- Activar o desactivar usuarios.
+- Eliminar cuenta de autenticacion en Supabase y dejar perfil desactivado.
+- Bloquea acciones riesgosas como desactivar o eliminar el propio usuario.
+
+4. ARQUITECTURA OBSERVADA
+
+Frontend:
+- React 18 con Vite.
+- Material UI.
+- Axios para API REST.
+- Supabase JS para autenticacion y algunas consultas directas.
+- Recharts y xlsx para graficos/exportaciones.
+
+Backend:
+- Node.js 20, Express.
+- Supabase como fuente principal actual de autenticacion y datos operativos.
+- Prisma/SQLite sigue presente en el schema y dependencias, pero la app actual usa muchas tablas Supabase como analysis_history, profiles, health_declarations, nutrition_modules y certifications.
+- ExcelJS y xlsx para procesamiento de Excel.
+- Nodemailer para emails.
+- Multer para carga de archivos.
+
+Observacion importante: el README describe una version mas antigua centrada en SQLite, Prisma, JWT propio y reglas simples. El codigo actual muestra una app mas amplia y con Supabase como dependencia central. Conviene actualizar la documentacion base para evitar confusion tecnica y operativa.
+
+5. LO QUE LA APP OFRECE EN TERMINOS DE NEGOCIO
+
+- Control diario de salud y cumplimiento de politicas.
+- Gestion interna de documentacion SGC.
+- Seguimiento de certificaciones y vencimientos.
+- Analisis y normalizacion de desvios desde Excel.
+- Clasificacion operativa por areas, categorias, origen, estado e ISO.
+- Historial auditable de analisis procesados.
+- Exportaciones para trabajo externo o reportes.
+- Administracion centralizada de usuarios y roles.
+- Notificaciones por email para documentos y certificaciones.
+
+6. FORTALEZAS
+
+- Buen control de acceso por rol en backend para los modulos sensibles.
+- Separacion razonable entre rutas, controladores y servicios.
+- Cobertura de tests en varios modulos criticos: declaraciones de salud, exportaciones, clasificacion Excel, ISO, certificaciones y permisos.
+- La app cubre procesos reales de operacion/calidad, no solo pantallas genericas.
+- El flujo de Excel tiene bastante trabajo de normalizacion y reproceso, lo que indica madurez sobre casos reales.
+- La gestion de salud diaria tiene controles utiles: unicidad diaria, ventana de edicion, evaluacion de riesgo y exportacion admin.
+
+7. DEBILIDADES O PUNTOS A REVISAR
+
+- La documentacion principal esta desactualizada respecto del estado real de la app.
+- Conviven referencias a Prisma/SQLite con una implementacion actual fuertemente basada en Supabase; esto puede confundir despliegue, mantenimiento y onboarding.
+- Algunas rutas internas deberian revisarse con especial cuidado: nutrition-modules/process-notifications no muestra autenticacion por secreto en la ruta, a diferencia del job interno de certificaciones.
+- Hay bastante logica de normalizacion duplicada o repartida entre backend y frontend para resultados Excel; esto puede generar diferencias entre lo procesado, lo mostrado y lo exportado.
+- El modulo de graficos depende del analisis seleccionado; si el usuario entra directo a graficos sin seleccionar analisis, puede quedar con informacion vacia.
+- Existen varios archivos tmp, datasets y auditorias previas en raiz/backend. Son utiles para trabajo tecnico, pero ensucian el repositorio si no estan claramente catalogados.
+
+8. CONCLUSION
+
+La app es una herramienta interna bastante completa para Servifood. Su alcance actual combina gestion de calidad, inocuidad, salud ocupacional, documentos, certificaciones y analisis de datos desde Excel. La propuesta funcional es solida: reduce trabajo manual, centraliza informacion sensible y permite trazabilidad sobre procesos administrativos y operativos.
+
+El principal pendiente no parece ser agregar mas funciones, sino ordenar el producto: actualizar documentacion, clarificar la arquitectura real Supabase/Prisma, revisar seguridad de jobs internos, consolidar logica duplicada de clasificacion/exportacion y limpiar archivos temporales. Con esos ajustes, la app quedaria mucho mas mantenible y mas facil de presentar a usuarios o responsables tecnicos.
