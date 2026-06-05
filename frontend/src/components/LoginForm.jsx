@@ -6,9 +6,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
-import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 
-const inputClassName = 'w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors [&:-webkit-autofill]:bg-slate-900 [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s] [&:-webkit-autofill]:shadow-[0_0_0px_1000px_#0f172a_inset] disabled:cursor-not-allowed disabled:opacity-60';
+const inputClassName = 'w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 [&:-webkit-autofill]:bg-slate-900 [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:shadow-[0_0_0px_1000px_#0f172a_inset]';
 
 function mapSupabaseUser(user) {
   if (!user) return null;
@@ -218,157 +217,139 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
   };
 
   return (
-    <main className="flex min-h-screen w-full bg-slate-950 text-slate-100">
-      <section className="relative flex w-full flex-col items-center justify-center overflow-hidden p-8 lg:w-1/2">
-        <div className="pointer-events-none absolute left-1/4 top-1/4 h-96 w-96 rounded-full bg-orange-600/10 blur-[120px]" />
+    <div className="min-h-screen flex w-full bg-slate-950 text-slate-100 overflow-hidden font-sans">
+      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 relative z-10">
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-orange-600/10 rounded-full blur-[100px]"></div>
+        </div>
 
-        <div className="relative z-10 w-full max-w-md">
-          <img
-            src={servifoodLogo}
-            alt="Servi Food"
-            className="mb-8 h-20 w-auto object-contain"
-          />
+        <div className="max-w-md w-full relative z-20">
+          <div className="text-center mb-10">
+            <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
+              Portal de Calidad
+            </h1>
+            <p className="text-slate-400">
+              Acceso centralizado al ecosistema de auditoría, SGC y salud operativa.
+            </p>
+          </div>
 
-          <h1 className="mb-2 text-4xl font-black leading-tight text-white">
-            Portal de Calidad y Operaciones
-          </h1>
-          <p className="mb-8 text-slate-400">
-            Acceso centralizado al ecosistema de auditoría y salud.
-          </p>
-
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 shadow-2xl backdrop-blur-md sm:p-8">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-white">
-                {isRegister ? 'Registrarse' : 'Iniciar Sesión'}
-              </h2>
-              <p className="mt-2 text-sm text-slate-500">
-                {isRegister ? 'Creá tu acceso para operar dentro del portal.' : 'Ingresá con tus credenciales corporativas.'}
-              </p>
+          {(error || infoMessage) && (
+            <div
+              className={`mb-5 flex gap-3 rounded-xl border px-4 py-3 text-sm ${
+                error
+                  ? 'border-red-400/20 bg-red-500/10 text-red-100'
+                  : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
+              }`}
+              role="alert"
+            >
+              {error ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
+              <span>{error || infoMessage}</span>
             </div>
+          )}
 
-            {(error || infoMessage) && (
-              <div
-                className={`mb-5 flex gap-3 rounded-xl border px-4 py-3 text-sm ${
-                  error
-                    ? 'border-red-400/20 bg-red-500/10 text-red-100'
-                    : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
-                }`}
-                role="alert"
-              >
-                {error ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
-                <span>{error || infoMessage}</span>
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            {isRegister && (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Nombre</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={loading}
+                  className={inputClassName}
+                  placeholder="Tu nombre"
+                  required
+                />
               </div>
             )}
 
-            <form onSubmit={handleSubmit}>
-              {isRegister && (
-                <div className="mb-4 flex flex-col gap-1">
-                  <label className="text-sm font-medium text-slate-300">Nombre</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    disabled={loading}
-                    required
-                    autoComplete="name"
-                    className={inputClassName}
-                    placeholder="Tu nombre"
-                  />
-                </div>
-              )}
-
-              <div className="mb-4 flex flex-col gap-1">
-                <label className="text-sm font-medium text-slate-300">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                  required
-                  autoComplete="email"
-                  className={inputClassName}
-                  placeholder="tu@email.com"
-                />
-              </div>
-
-              <div className="mb-4 flex flex-col gap-1">
-                <label className="text-sm font-medium text-slate-300">Contraseña</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                  autoComplete={isRegister ? 'new-password' : 'current-password'}
-                  className={inputClassName}
-                  placeholder="••••••••"
-                />
-              </div>
-
-              {!isRegister && (
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => onSwitchMode?.('forgotPassword')}
-                    disabled={loading}
-                    className="text-sm font-medium text-slate-500 transition hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    ¿Olvidaste tu contraseña?
-                  </button>
-                </div>
-              )}
-
-              <button
-                type="submit"
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
-                className="mt-6 flex w-full items-center justify-center rounded-xl bg-orange-500 px-4 py-3.5 font-bold text-white shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] transition-all hover:-translate-y-0.5 hover:bg-orange-600 focus:outline-none focus:ring-4 focus:ring-orange-500/20 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-              >
-                {loading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : (isRegister ? 'Registrarse' : 'Iniciar Sesión')}
-              </button>
+                className={inputClassName}
+                placeholder="usuario@servifood.com"
+                required
+              />
+            </div>
 
-              {!isRegister && showResendConfirmation && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Contraseña</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                className={inputClassName}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+
+            {!isRegister && (
+              <div className="text-right">
                 <button
                   type="button"
-                  className="mt-3 w-full rounded-xl border border-slate-800 px-4 py-3 text-sm font-medium text-slate-300 transition hover:border-slate-700 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={handleResendConfirmation}
+                  onClick={() => onSwitchMode?.('forgotPassword')}
                   disabled={loading}
+                  className="text-sm text-slate-400 hover:text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Reenviar correo de confirmación
+                  ¿Olvidaste tu contraseña?
                 </button>
-              )}
-            </form>
+              </div>
+            )}
 
-            <div className="mt-6 space-y-3 text-center">
-              <p className="text-sm text-slate-500">
-                ¿Necesitás acceso? Contactá a un administrador.
-              </p>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg px-4 py-3.5 mt-2 shadow-[0_4px_14px_0_rgba(249,115,22,0.39)] transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+            >
+              {loading ? <Loader2 className="mx-auto h-5 w-5 animate-spin" aria-hidden="true" /> : (isRegister ? 'Registrarse' : 'Iniciar Sesión')}
+            </button>
+
+            {!isRegister && showResendConfirmation && (
               <button
                 type="button"
-                onClick={() => switchMode(!isRegister)}
+                onClick={handleResendConfirmation}
                 disabled={loading}
-                className="text-sm font-medium text-slate-400 transition hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-lg border border-slate-800 px-4 py-3 text-sm font-medium text-slate-300 transition hover:border-slate-700 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isRegister ? '¿Ya tenés cuenta? Iniciá sesión' : '¿No tenés cuenta? Registrate aquí'}
+                Reenviar correo de confirmación
               </button>
-            </div>
+            )}
+          </form>
+
+          <div className="mt-8 text-center text-sm text-slate-500">
+            ¿Necesitás acceso?
+            <button
+              type="button"
+              onClick={() => switchMode(!isRegister)}
+              disabled={loading}
+              className="text-orange-400 hover:text-orange-300 font-medium ml-1 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isRegister ? 'Iniciá sesión' : 'Solicitar registro'}
+            </button>
           </div>
         </div>
-      </section>
+      </div>
 
-      <section className="relative hidden items-center justify-center bg-[url('https://images.unsplash.com/photo-1577906096429-f73c2c312435?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center p-12 lg:flex lg:w-1/2">
-        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[2px]" />
-        <div className="relative z-10 max-w-xl">
-          <p className="mb-4 text-sm font-bold tracking-widest text-orange-500">
-            SERVI FOOD CATERING
-          </p>
-          <h2 className="mb-6 text-5xl font-bold leading-tight text-white">
+      <div className="hidden lg:flex lg:w-1/2 relative items-center justify-center p-12 bg-slate-900 border-l border-slate-800">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-30"></div>
+
+        <div className="relative z-10 max-w-lg text-center">
+          <div className="text-orange-500 tracking-[0.2em] text-sm font-bold mb-6 uppercase">Servi Food Catering</div>
+          <h2 className="text-5xl font-black text-white mb-6 leading-tight">
             Nuestro compromiso es la calidad
           </h2>
-          <p className="text-lg leading-8 text-slate-300">
-            Herramienta interna para la gestión integral de inocuidad, políticas operativas y salud del equipo.
+          <p className="text-xl text-slate-300 leading-relaxed">
+            Plataforma interna corporativa para la gestión integral de inocuidad, seguimiento de políticas operativas y salud del equipo.
           </p>
         </div>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
