@@ -2,11 +2,7 @@ import React, { useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
-  Eye,
-  EyeOff,
   Loader2,
-  Lock,
-  Mail,
   User
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
@@ -69,7 +65,6 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
   const [loading, setLoading] = useState(false);
   const [isRegister, setIsRegister] = useState(initialMode === 'register');
   const [name, setName] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [showResendConfirmation, setShowResendConfirmation] = useState(false);
 
   React.useEffect(() => {
@@ -279,49 +274,30 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
 
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-slate-300">Email</span>
-            <span className="relative block">
-              <FieldIcon>
-                <Mail size={18} aria-hidden="true" />
-              </FieldIcon>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                required
-                autoComplete="email"
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
-                placeholder="nombre@servifood.com"
-              />
-            </span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+              required
+              autoComplete="email"
+              className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder="nombre@servifood.com"
+            />
           </label>
 
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium text-slate-300">Contraseña</span>
-            <span className="relative block">
-              <FieldIcon>
-                <Lock size={18} aria-hidden="true" />
-              </FieldIcon>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                required
-                autoComplete={isRegister ? 'new-password' : 'current-password'}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 pr-12 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
-                placeholder="••••••••"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                disabled={loading}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              >
-                {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-              </button>
-            </span>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              required
+              autoComplete={isRegister ? 'new-password' : 'current-password'}
+              className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder="••••••••"
+            />
           </label>
 
           {!isRegister && (

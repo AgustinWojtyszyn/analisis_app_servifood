@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ThemeProvider, CssBaseline, Box, Typography, Paper } from '@mui/material';
 import { appTheme } from './styles/theme';
 import LoginForm from './components/LoginForm';
@@ -82,6 +82,7 @@ function MainApp({ user, onLogout }) {
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [reloadHistoryKey, setReloadHistoryKey] = useState(0);
+  const postLoginRedirectUserIdRef = useRef(null);
 
   const effectiveRole = currentUserProfile?.role || user?.role || 'user';
   const normalizedRole = normalizeRole(effectiveRole || 'user');
@@ -224,15 +225,25 @@ function MainApp({ user, onLogout }) {
 
   const navigateToSection = (nextSection) => {
     if (!allowedSections.has(nextSection)) {
-      nextSection = 'declaration';
+      nextSection = 'panel';
     }
 
-    const nextPath = sectionPathMap[nextSection] || '/historial';
+    const nextPath = sectionPathMap[nextSection] || sectionPathMap.panel;
     if (window.location.pathname !== nextPath) {
       window.history.pushState({}, '', nextPath);
     }
     setCurrentSection(nextSection);
   };
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (postLoginRedirectUserIdRef.current === user.id) return;
+
+    postLoginRedirectUserIdRef.current = user.id;
+    if (currentSection !== 'panel' || window.location.pathname !== sectionPathMap.panel) {
+      navigateToSection('panel');
+    }
+  }, [user?.id]);
 
   const navigateToAnalysis = (analysisId) => {
     if (!isAdmin) {
