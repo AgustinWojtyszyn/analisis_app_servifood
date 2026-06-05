@@ -81,6 +81,7 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
   const [currentSection, setCurrentSection] = useState(() => getSectionFromPath(window.location.pathname));
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [reloadHistoryKey, setReloadHistoryKey] = useState(0);
   const postLoginRedirectUserIdRef = useRef(null);
 
@@ -176,18 +177,32 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
     let mounted = true;
 
     async function loadCurrentProfile() {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setLoadingProfile(false);
+        return;
+      }
+
+      setLoadingProfile(true);
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, role, is_active')
+        .select('id, email, full_name, role, is_active')
         .eq('id', user.id)
         .maybeSingle();
 
       if (!mounted) return;
       if (!error && data) {
         setCurrentUserProfile(data);
+      } else {
+        setCurrentUserProfile({
+          id: user.id,
+          email: user.email || null,
+          full_name: user.name || null,
+          role: user.role || 'user',
+          is_active: true
+        });
       }
+      setLoadingProfile(false);
     }
 
     loadCurrentProfile();
@@ -197,6 +212,8 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
   }, [user?.id]);
 
   useEffect(() => {
+    if (loadingProfile) return;
+
     if (!isAdmin) {
       const normalizedPath = normalizeProtectedPath(window.location.pathname);
       const sectionFromPath = getSectionFromPath(normalizedPath);
@@ -213,7 +230,7 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
       const id = window.location.pathname.replace('/analisis/', '');
       if (id) loadAnalysis(id);
     }
-  }, [allowedSections, isAdmin]);
+  }, [allowedSections, isAdmin, loadingProfile]);
 
   const navigateToSection = (nextSection) => {
     if (!allowedSections.has(nextSection)) {
@@ -332,6 +349,14 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
   };
 
   const renderSection = () => {
+    if (loadingProfile) {
+      return (
+        <Box sx={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography sx={{ color: '#e2e8f0', fontWeight: 700 }}>Cargando perfil...</Typography>
+        </Box>
+      );
+    }
+
     if (!allowedSections.has(currentSection)) {
       return (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
@@ -438,6 +463,11 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
   };
 
   return (
+    loadingProfile ? (
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#020617' }}>
+        <Typography sx={{ color: '#e2e8f0', fontWeight: 700 }}>Cargando perfil...</Typography>
+      </Box>
+    ) : (
     <AppLayout
       user={layoutUser}
       onLogout={onLogout}
@@ -447,6 +477,7 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
     >
       {renderSection()}
     </AppLayout>
+    )
   );
 }
 
