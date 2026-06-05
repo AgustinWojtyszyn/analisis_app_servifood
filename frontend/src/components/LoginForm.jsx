@@ -121,6 +121,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
       return;
     }
 
+    window.history.replaceState({}, '', '/inicio');
     onLoginSuccess(mapSupabaseUser(data.session.user));
   };
 
@@ -140,7 +141,10 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
       throw signInError;
     }
 
-    onLoginSuccess(mapSupabaseUser(data.user));
+    if (data?.user) {
+      window.history.replaceState({}, '', '/inicio');
+      onLoginSuccess(mapSupabaseUser(data.user));
+    }
   };
 
   const handleResendConfirmation = async () => {
@@ -250,11 +254,11 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
           </div>
         )}
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit}>
           {isRegister && (
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-slate-300">Nombre</span>
-              <span className="relative block">
+            <div className="mb-4 flex flex-col gap-1">
+              <label className="text-sm font-medium text-slate-300">Nombre</label>
+              <div className="relative">
                 <FieldIcon>
                   <User size={18} aria-hidden="true" />
                 </FieldIcon>
@@ -268,12 +272,12 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
                   className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 pl-10 text-white transition-all placeholder:text-slate-500 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
                   placeholder="Tu nombre"
                 />
-              </span>
-            </label>
+              </div>
+            </div>
           )}
 
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-slate-300">Email</span>
+          <div className="flex flex-col gap-1 mb-4">
+            <label className="text-sm font-medium text-slate-300">Email</label>
             <input
               type="email"
               value={email}
@@ -282,12 +286,12 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
               required
               autoComplete="email"
               className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
-              placeholder="nombre@servifood.com"
+              placeholder="tu@email.com"
             />
-          </label>
+          </div>
 
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-slate-300">Contraseña</span>
+          <div className="flex flex-col gap-1 mb-4">
+            <label className="text-sm font-medium text-slate-300">Contraseña</label>
             <input
               type="password"
               value={password}
@@ -298,7 +302,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
               className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
               placeholder="••••••••"
             />
-          </label>
+          </div>
 
           {!isRegister && (
             <div className="flex justify-end">

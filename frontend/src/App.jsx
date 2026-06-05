@@ -530,6 +530,10 @@ function PublicApp({ onLoginSuccess }) {
 export default function App() {
   const { user, login, logout, loading, isPasswordRecovery } = useAuth();
   const isResetPasswordRoute = window.location.pathname === '/reset-password';
+  const handleLoginSuccess = (nextUser) => {
+    window.history.replaceState({}, '', sectionPathMap.panel);
+    login(nextUser);
+  };
 
   if (loading) {
     return (
@@ -546,7 +550,7 @@ export default function App() {
     <ThemeProvider theme={appTheme}>
       <CssBaseline />
       {(isResetPasswordRoute || isPasswordRecovery || !user)
-        ? <PublicApp onLoginSuccess={login} />
+        ? <PublicApp onLoginSuccess={handleLoginSuccess} />
         : <MainApp user={user} onLogout={logout} />}
     </ThemeProvider>
   );
