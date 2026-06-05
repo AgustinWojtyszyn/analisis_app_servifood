@@ -121,7 +121,6 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
       return;
     }
 
-    window.history.replaceState({}, '', '/inicio');
     onLoginSuccess(mapSupabaseUser(data.session.user));
   };
 
@@ -142,7 +141,6 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
     }
 
     if (data?.user) {
-      window.history.replaceState({}, '', '/inicio');
       onLoginSuccess(mapSupabaseUser(data.user));
     }
   };
@@ -285,7 +283,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
               disabled={loading}
               required
               autoComplete="email"
-              className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors [&:-webkit-autofill]:bg-slate-900 [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s] [&:-webkit-autofill]:shadow-[0_0_0px_1000px_#0f172a_inset]"
               placeholder="tu@email.com"
             />
           </div>
@@ -299,7 +297,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
               disabled={loading}
               required
               autoComplete={isRegister ? 'new-password' : 'current-password'}
-              className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors [&:-webkit-autofill]:bg-slate-900 [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[transition:background-color_5000s_ease-in-out_0s] [&:-webkit-autofill]:shadow-[0_0_0px_1000px_#0f172a_inset]"
               placeholder="••••••••"
             />
           </div>

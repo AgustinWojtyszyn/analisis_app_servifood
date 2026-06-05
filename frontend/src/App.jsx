@@ -77,7 +77,7 @@ function normalizeRole(role) {
   return String(role || '').trim().toLowerCase();
 }
 
-function MainApp({ user, onLogout }) {
+function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed }) {
   const [currentSection, setCurrentSection] = useState(() => getSectionFromPath(window.location.pathname));
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
@@ -159,10 +159,6 @@ function MainApp({ user, onLogout }) {
   useEffect(() => {
     const handlePopState = () => {
       const normalizedPath = normalizeProtectedPath(window.location.pathname);
-      if (window.location.pathname !== normalizedPath) {
-        window.history.replaceState({}, '', normalizedPath);
-      }
-
       setCurrentSection(getSectionFromPath(normalizedPath));
       const id = normalizedPath.startsWith('/analisis/')
         ? normalizedPath.replace('/analisis/', '')
@@ -203,10 +199,6 @@ function MainApp({ user, onLogout }) {
   useEffect(() => {
     if (!isAdmin) {
       const normalizedPath = normalizeProtectedPath(window.location.pathname);
-      if (window.location.pathname !== normalizedPath) {
-        window.history.replaceState({}, '', normalizedPath);
-      }
-
       const sectionFromPath = getSectionFromPath(normalizedPath);
       if (!allowedSections.has(sectionFromPath)) {
         navigateToSection('declaration');
@@ -234,6 +226,12 @@ function MainApp({ user, onLogout }) {
     }
     setCurrentSection(nextSection);
   };
+
+  useEffect(() => {
+    if (!postLoginTarget) return;
+    navigateToSection(postLoginTarget);
+    onPostLoginTargetConsumed?.();
+  }, [postLoginTarget]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -462,9 +460,6 @@ function PublicApp({ onLoginSuccess }) {
 
   useEffect(() => {
     const normalizedPath = normalizePublicPath(window.location.pathname);
-    if (window.location.pathname !== normalizedPath) {
-      window.history.replaceState({}, '', normalizedPath);
-    }
     setCurrentPath(normalizedPath);
 
     const handlePopState = () => {
@@ -529,9 +524,10 @@ function PublicApp({ onLoginSuccess }) {
 
 export default function App() {
   const { user, login, logout, loading, isPasswordRecovery } = useAuth();
+  const [postLoginTarget, setPostLoginTarget] = useState(null);
   const isResetPasswordRoute = window.location.pathname === '/reset-password';
   const handleLoginSuccess = (nextUser) => {
-    window.history.replaceState({}, '', sectionPathMap.panel);
+    setPostLoginTarget('panel');
     login(nextUser);
   };
 
@@ -551,7 +547,14 @@ export default function App() {
       <CssBaseline />
       {(isResetPasswordRoute || isPasswordRecovery || !user)
         ? <PublicApp onLoginSuccess={handleLoginSuccess} />
-        : <MainApp user={user} onLogout={logout} />}
+        : (
+          <MainApp
+            user={user}
+            onLogout={logout}
+            postLoginTarget={postLoginTarget}
+            onPostLoginTargetConsumed={() => setPostLoginTarget(null)}
+          />
+        )}
     </ThemeProvider>
   );
 }
