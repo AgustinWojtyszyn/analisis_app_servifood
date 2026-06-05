@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
+import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 
 const inputClassName = 'w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 [&:-webkit-autofill]:bg-slate-900 [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:shadow-[0_0_0px_1000px_#0f172a_inset]';
 
@@ -225,6 +226,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
 
         <div className="max-w-md w-full relative z-20">
           <div className="text-center mb-10">
+            <img src={servifoodLogo} alt="Servi Food" className="h-16 w-auto mb-6 mx-auto lg:mx-0" />
             <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
               Portal de Calidad
             </h1>

@@ -1,13 +1,13 @@
 import React from 'react';
 import {
   Activity,
+  Award,
   BarChart3,
   FileSpreadsheet,
   HeartPulse,
   ShieldCheck,
   UserCog,
-  Users,
-  Award
+  Users
 } from 'lucide-react';
 
 function PortalCard({ icon: Icon, title, description, tone = 'orange', featured = false, onClick }) {
@@ -24,7 +24,7 @@ function PortalCard({ icon: Icon, title, description, tone = 'orange', featured 
       type="button"
       onClick={onClick}
       className={`group w-full cursor-pointer rounded-2xl border border-slate-800 bg-slate-900/50 p-6 text-left transition-all hover:-translate-y-1 hover:border-slate-700 hover:bg-slate-800/50 ${
-        featured ? 'md:col-span-2 lg:col-span-2' : ''
+        featured ? 'md:col-span-2' : ''
       }`}
     >
       <div className="flex items-start gap-5">
@@ -32,9 +32,9 @@ function PortalCard({ icon: Icon, title, description, tone = 'orange', featured 
           <Icon size={24} strokeWidth={2.2} aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <h2 className={`${featured ? 'text-2xl' : 'text-xl'} font-bold text-white`}>
+          <h3 className={`${featured ? 'text-2xl' : 'text-xl'} font-bold text-white`}>
             {title}
-          </h2>
+          </h3>
           <p className="mt-2 text-sm leading-6 text-slate-400">
             {description}
           </p>
@@ -44,95 +44,56 @@ function PortalCard({ icon: Icon, title, description, tone = 'orange', featured 
   );
 }
 
-function UserView({ user, onNavigate }) {
-  const displayName = user?.name || user?.email || 'equipo';
+function AdminView({ role, onNavigate }) {
+  const isNutritionist = role === 'nutricionista';
 
   return (
-    <main className="flex min-h-[calc(100vh-180px)] items-center justify-center bg-slate-950 px-4 py-10 text-white">
-      <section className="w-full max-w-2xl">
-        <div className="mb-8 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-orange-400">
-            Servi Food
-          </p>
-          <h1 className="mt-4 text-4xl font-bold leading-tight text-white sm:text-5xl">
-            Hola, {displayName}. ¿Cómo te sentís hoy?
-          </h1>
-        </div>
+    <div className="p-8 max-w-7xl mx-auto">
+      <h2 className="text-3xl font-bold text-white mb-8">Panel de Gestión y Calidad</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {!isNutritionist && (
+          <>
+            <PortalCard
+              icon={FileSpreadsheet}
+              title="Auditoría Excel"
+              description="Subí planillas, clasificá desvíos y generá resultados operativos trazables."
+              tone="orange"
+              featured
+              onClick={() => onNavigate?.('upload')}
+            />
+            <PortalCard
+              icon={BarChart3}
+              title="Dashboard de Desvíos"
+              description="Visualizá gráficos y patrones por categoría, área e impacto."
+              tone="blue"
+              onClick={() => onNavigate?.('charts')}
+            />
+            <PortalCard
+              icon={Activity}
+              title="Control de Salud"
+              description="Ver declaraciones de los empleados y el estado diario del equipo."
+              tone="green"
+              onClick={() => onNavigate?.('adminHealthDeclarations')}
+            />
+          </>
+        )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <PortalCard
-            icon={HeartPulse}
-            title="Declaración Diaria de Salud"
-            description="Completá tu estado antes de iniciar la jornada."
-            tone="green"
-            onClick={() => onNavigate?.('declaration')}
-          />
-          <PortalCard
-            icon={ShieldCheck}
-            title="Políticas de Seguridad SGC"
-            description="Revisá las normativas vigentes."
-            tone="blue"
-            onClick={() => onNavigate?.('policies')}
-          />
-        </div>
-      </section>
-    </main>
-  );
-}
+        <PortalCard
+          icon={Award}
+          title="Gestión SGC y Certificaciones"
+          description="Administrá documentos, vencimientos y alertas preventivas."
+          tone="violet"
+          onClick={() => onNavigate?.('certifications')}
+        />
+        <PortalCard
+          icon={Users}
+          title="Documentos SGC"
+          description="Gestioná procedimientos, registros, estrategias y archivos asociados."
+          tone="slate"
+          onClick={() => onNavigate?.('nutritionModules')}
+        />
 
-function AdminView({ onNavigate }) {
-  return (
-    <main className="min-h-[calc(100vh-180px)] bg-slate-950 px-4 py-10 text-white sm:px-6 lg:px-8">
-      <section className="mx-auto w-full max-w-6xl">
-        <div className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-orange-400">
-            Servi Food
-          </p>
-          <h1 className="mt-4 text-4xl font-bold leading-tight text-white sm:text-5xl">
-            Panel de Gestión y Calidad
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">
-            Accedé al ecosistema operativo para auditoría, salud, documentación, certificaciones y administración.
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <PortalCard
-            icon={FileSpreadsheet}
-            title="Auditoría Excel"
-            description="Subí planillas, clasificá desvíos y generá resultados operativos trazables."
-            tone="orange"
-            featured
-            onClick={() => onNavigate?.('upload')}
-          />
-          <PortalCard
-            icon={BarChart3}
-            title="Dashboard de Desvíos"
-            description="Visualizá gráficos y patrones por categoría, área e impacto."
-            tone="blue"
-            onClick={() => onNavigate?.('charts')}
-          />
-          <PortalCard
-            icon={Activity}
-            title="Control de Salud"
-            description="Ver declaraciones de los empleados y el estado diario del equipo."
-            tone="green"
-            onClick={() => onNavigate?.('adminHealthDeclarations')}
-          />
-          <PortalCard
-            icon={Award}
-            title="Gestión SGC y Certificaciones"
-            description="Administrá documentos, vencimientos y alertas preventivas."
-            tone="violet"
-            onClick={() => onNavigate?.('certifications')}
-          />
-          <PortalCard
-            icon={Users}
-            title="Documentos SGC"
-            description="Gestioná procedimientos, registros, estrategias y archivos asociados."
-            tone="slate"
-            onClick={() => onNavigate?.('nutritionModules')}
-          />
+        {!isNutritionist && (
           <PortalCard
             icon={UserCog}
             title="Gestión de Usuarios"
@@ -140,15 +101,56 @@ function AdminView({ onNavigate }) {
             tone="blue"
             onClick={() => onNavigate?.('adminUsers')}
           />
-        </div>
-      </section>
-    </main>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function UserView({ user, onNavigate }) {
+  const displayName = user?.full_name || user?.name || user?.email || 'Equipo';
+
+  return (
+    <div className="p-8 max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60vh]">
+      <h2 className="text-3xl font-bold text-white mb-10 text-center">
+        Hola, {displayName}. ¿Cómo te sentís hoy?
+      </h2>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+        <button
+          type="button"
+          onClick={() => onNavigate?.('declaration')}
+          className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 hover:bg-slate-800 transition-all cursor-pointer text-center group"
+        >
+          <div className="bg-emerald-500/10 text-emerald-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+            <HeartPulse className="w-8 h-8" strokeWidth={2.2} aria-hidden="true" />
+          </div>
+          <h3 className="text-2xl font-bold text-white mb-3">Declaración de Salud</h3>
+          <p className="text-slate-400">Completá tu estado antes de iniciar la jornada.</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigate?.('policies')}
+          className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 hover:bg-slate-800 transition-all cursor-pointer text-center group"
+        >
+          <div className="bg-blue-500/10 text-blue-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+            <ShieldCheck className="w-8 h-8" strokeWidth={2.2} aria-hidden="true" />
+          </div>
+          <h3 className="text-2xl font-bold text-white mb-3">Políticas de Seguridad</h3>
+          <p className="text-slate-400">Revisá las normativas vigentes del SGC.</p>
+        </button>
+      </div>
+    </div>
   );
 }
 
 export default function DynamicWelcomePortal({ user, role, onNavigate }) {
-  if (String(role || '').toLowerCase() === 'admin') {
-    return <AdminView user={user} onNavigate={onNavigate} />;
+  const normalizedRole = String(role || '').toLowerCase();
+  const isAdmin = normalizedRole === 'admin' || normalizedRole === 'nutricionista';
+
+  if (isAdmin) {
+    return <AdminView user={user} role={normalizedRole} onNavigate={onNavigate} />;
   }
 
   return <UserView user={user} onNavigate={onNavigate} />;
