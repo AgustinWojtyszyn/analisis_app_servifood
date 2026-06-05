@@ -226,7 +226,6 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
 
         <div className="max-w-md w-full relative z-20">
           <div className="text-center mb-10">
-            <img src={servifoodLogo} alt="Servi Food" className="h-16 w-auto mb-6 mx-auto lg:mx-0" />
             <h1 className="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">
               Portal de Calidad
             </h1>
@@ -343,6 +342,7 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-30"></div>
 
         <div className="relative z-10 max-w-lg text-center">
+          <img src={servifoodLogo} alt="Servi Food" className="mx-auto mb-10 h-36 w-auto object-contain xl:h-44" />
           <div className="text-orange-500 tracking-[0.2em] text-sm font-bold mb-6 uppercase">Servi Food Catering</div>
           <h2 className="text-5xl font-black text-white mb-6 leading-tight">
             Nuestro compromiso es la calidad
