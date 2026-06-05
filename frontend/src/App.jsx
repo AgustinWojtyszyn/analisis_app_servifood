@@ -14,7 +14,6 @@ import ProfilePage from './components/ProfilePage';
 import TutorialPage from './components/TutorialPage';
 import AdminUsersPage from './components/AdminUsersPage';
 import AppLayout from './components/AppLayout';
-import PublicLanding from './components/PublicLanding';
 import HealthDeclarationPage from './components/HealthDeclarationPage';
 import HealthPoliciesPage from './components/HealthPoliciesPage';
 import HealthDeclarationHistoryPage from './components/HealthDeclarationHistoryPage';
@@ -495,7 +494,13 @@ function PublicApp({ onLoginSuccess }) {
     );
   }
 
-  return <PublicLanding onLogin={() => navigatePublic('/login')} onRegister={() => navigatePublic('/register')} />;
+  return (
+    <LoginForm
+      onLoginSuccess={onLoginSuccess}
+      initialMode="login"
+      onSwitchMode={(mode) => navigatePublic(resolveAuthModePath(mode))}
+    />
+  );
 }
 
 export default function App() {

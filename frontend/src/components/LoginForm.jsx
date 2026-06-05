@@ -1,21 +1,15 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Container,
-  Box,
-  TextField,
-  Button,
-  Typography,
-  Card,
-  CardContent,
-  Alert,
-  CircularProgress,
-  Link as MuiLink,
-  InputAdornment,
-  IconButton
-} from '@mui/material';
-import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
+  AlertCircle,
+  CalendarClock,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Mail,
+  User
+} from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { resolveAuthRedirectUrl } from '../lib/authRedirect';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
@@ -61,7 +55,42 @@ function sanitizeAuthErrorMessage(err) {
   return err?.message || 'Error de autenticación. Intentá nuevamente.';
 }
 
-export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBackToLanding, onSwitchMode }) {
+function DailyDateWidget() {
+  const formattedDate = useMemo(() => {
+    return new Intl.DateTimeFormat('es-AR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    }).format(new Date());
+  }, []);
+
+  return (
+    <div className="mt-9 inline-flex items-center gap-3 rounded-lg border border-white/15 bg-white/10 px-5 py-3 text-left text-slate-200 shadow-2xl shadow-black/20 backdrop-blur-md">
+      <span className="grid h-10 w-10 place-items-center rounded-md bg-orange-500/90 text-white">
+        <CalendarClock size={20} strokeWidth={2.2} aria-hidden="true" />
+      </span>
+      <span>
+        <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+          Declaración diaria
+        </span>
+        <time className="block text-sm font-medium capitalize text-slate-100">
+          {formattedDate}
+        </time>
+      </span>
+    </div>
+  );
+}
+
+function FieldIcon({ children }) {
+  return (
+    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+      {children}
+    </span>
+  );
+}
+
+export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwitchMode }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -121,11 +150,6 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
       throw signUpError;
     }
 
-    console.info('[auth] register_result', {
-      hasUser: Boolean(data?.user),
-      hasSession: Boolean(data?.session)
-    });
-
     if (!data?.session) {
       setInfoMessage('Cuenta creada. Revisá tu correo para confirmar la cuenta.');
       return;
@@ -149,11 +173,6 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
       });
       throw signInError;
     }
-
-    console.info('[auth] login_result', {
-      hasUser: Boolean(data?.user),
-      hasSession: Boolean(data?.session)
-    });
 
     onLoginSuccess(mapSupabaseUser(data.user));
   };
@@ -195,30 +214,36 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (loading) return;
+  const switchMode = (nextIsRegister) => {
+    if (onSwitchMode) {
+      onSwitchMode(nextIsRegister ? 'register' : 'login');
+    } else {
+      setIsRegister(nextIsRegister);
+    }
     setError('');
     setInfoMessage('');
     setShowResendConfirmation(false);
-    const submitMode = isRegister ? 'register' : 'login';
+  };
 
-    if (!validateInputs()) {
-      return;
-    }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (loading) return;
+
+    setError('');
+    setInfoMessage('');
+    setShowResendConfirmation(false);
+
+    if (!validateInputs()) return;
 
     setLoading(true);
 
     try {
-      if (submitMode === 'register') {
+      if (isRegister) {
         await handleRegister();
         return;
       }
 
-      if (submitMode === 'login') {
-        await handleLogin();
-        return;
-      }
+      await handleLogin();
     } catch (err) {
       const message = String(err?.message || '').toLowerCase();
       if (!isRegister && message.includes('email not confirmed')) {
@@ -231,188 +256,173 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onBac
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-          py: 3
-        }}
-      >
-        <Card
-          sx={{
-            width: '100%',
-            boxShadow: '0 14px 30px rgba(15,23,42,0.18)',
-            borderRadius: 3,
-            overflow: 'hidden'
-          }}
-        >
-          <Box
-            sx={{
-              px: 3,
-              pt: 2.5,
-              pb: 2,
-              background: 'linear-gradient(150deg, #12306d 0%, #1b428f 58%, #2756ba 100%)',
-              textAlign: 'center'
-            }}
-          >
-            <Box
-              component="img"
-              src={servifoodLogo}
-              alt="Servifood Logo"
-              sx={{ width: '100%', maxWidth: 210, height: 84, objectFit: 'contain', mx: 'auto', display: 'block' }}
-            />
-            <Typography sx={{ mt: 1, color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>
-              Plataforma de análisis de calidad
-            </Typography>
-          </Box>
-          <CardContent sx={{ p: 3.5, backgroundColor: '#ffffff' }}>
-            <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 3, fontWeight: 700 }}>
-              {isRegister ? 'Crear Cuenta' : 'Iniciar Sesion'}
-            </Typography>
+    <main className="min-h-screen bg-slate-950 text-white">
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
+        <section className="flex min-h-screen w-full items-center justify-center bg-slate-950 px-6 py-10 sm:px-8 lg:min-h-screen">
+          <div className="w-full max-w-md">
+            <div className="mb-10">
+              <img
+                src={servifoodLogo}
+                alt="Servi Food"
+                className="mb-7 h-20 w-auto object-contain"
+              />
+              <h1 className="text-4xl font-bold leading-tight text-white sm:text-5xl">
+                Portal de Calidad y Operaciones
+              </h1>
+              <p className="mt-5 text-base leading-7 text-slate-400">
+                Acceso centralizado al sistema de auditoría, SGC y declaraciones diarias de salud.
+              </p>
+            </div>
 
-            <Typography variant="body2" color="textSecondary" align="center" sx={{ mb: 3 }}>
-              Sistema de Analisis de Archivos Excel
-            </Typography>
+            {(error || infoMessage) && (
+              <div
+                className={`mb-5 flex gap-3 rounded-lg border px-4 py-3 text-sm ${
+                  error
+                    ? 'border-red-400/20 bg-red-500/10 text-red-100'
+                    : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
+                }`}
+                role="alert"
+              >
+                {error ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />}
+                <span>{error || infoMessage}</span>
+              </div>
+            )}
 
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-            {infoMessage && <Alert severity="success" sx={{ mb: 2 }}>{infoMessage}</Alert>}
-
-            <Box component="form" onSubmit={handleSubmit}>
+            <form className="space-y-4" onSubmit={handleSubmit}>
               {isRegister && (
-                <TextField
-                  fullWidth
-                  label="Nombre"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  margin="normal"
-                  disabled={loading}
-                  required
-                />
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-slate-300">Nombre</span>
+                  <span className="relative block">
+                    <FieldIcon>
+                      <User size={18} aria-hidden="true" />
+                    </FieldIcon>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      disabled={loading}
+                      required
+                      autoComplete="name"
+                      className="h-12 w-full rounded-lg border border-slate-800 bg-slate-900 pl-10 pr-4 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      placeholder="Tu nombre"
+                    />
+                  </span>
+                </label>
               )}
 
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                margin="normal"
-                disabled={loading}
-                required
-              />
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-300">Email</span>
+                <span className="relative block">
+                  <FieldIcon>
+                    <Mail size={18} aria-hidden="true" />
+                  </FieldIcon>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                    required
+                    autoComplete="email"
+                    className="h-12 w-full rounded-lg border border-slate-800 bg-slate-900 pl-10 pr-4 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder="nombre@servifood.com"
+                  />
+                </span>
+              </label>
 
-              <TextField
-                fullWidth
-                label="Contrasena"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                margin="normal"
-                disabled={loading}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowPassword((prev) => !prev)}
-                        edge="end"
-                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                        disabled={loading}
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  )
-                }}
-                required
-              />
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-300">Contraseña</span>
+                <span className="relative block">
+                  <FieldIcon>
+                    <Lock size={18} aria-hidden="true" />
+                  </FieldIcon>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    required
+                    autoComplete={isRegister ? 'new-password' : 'current-password'}
+                    className="h-12 w-full rounded-lg border border-slate-800 bg-slate-900 pl-10 pr-12 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  >
+                    {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                  </button>
+                </span>
+              </label>
 
               {!isRegister && (
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.5 }}>
-                  <MuiLink
-                    component="button"
+                <div className="flex justify-end">
+                  <button
                     type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (loading) return;
-                      onSwitchMode?.('forgotPassword');
-                    }}
-                    sx={{ cursor: loading ? 'default' : 'pointer', fontSize: 14, opacity: loading ? 0.6 : 1 }}
+                    onClick={() => onSwitchMode?.('forgotPassword')}
+                    disabled={loading}
+                    className="text-sm font-medium text-slate-500 transition hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     ¿Olvidaste tu contraseña?
-                  </MuiLink>
-                </Box>
+                  </button>
+                </div>
               )}
 
-              <Button
+              <button
                 type="submit"
-                fullWidth
-                variant="contained"
-                sx={{ mt: 3, mb: 2, py: 1.5, backgroundColor: '#1d4ed8', '&:hover': { backgroundColor: '#1e3a8a' } }}
                 disabled={loading}
+                className="flex h-12 w-full items-center justify-center rounded-lg bg-orange-500 px-4 text-sm font-bold text-white shadow-lg shadow-orange-950/30 transition hover:bg-orange-600 focus:outline-none focus:ring-4 focus:ring-orange-500/20 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {loading ? <CircularProgress size={24} /> : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesion')}
-              </Button>
+                {loading ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> : (isRegister ? 'Crear Cuenta' : 'Iniciar Sesión')}
+              </button>
 
               {!isRegister && showResendConfirmation && (
-                <>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: -0.5, mb: 1, textAlign: 'center' }}>
-                    Tu correo todavía no fue confirmado.
-                  </Typography>
-                <Button
+                <button
                   type="button"
-                  fullWidth
-                  variant="text"
-                  sx={{ mt: -1, mb: 1.5, textTransform: 'none' }}
+                  className="w-full rounded-lg border border-slate-800 px-4 py-3 text-sm font-medium text-slate-300 transition hover:border-slate-700 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
                   onClick={handleResendConfirmation}
                   disabled={loading}
                 >
                   Reenviar correo de confirmación
-                </Button>
-                </>
+                </button>
               )}
+            </form>
 
-              <Box sx={{ textAlign: 'center' }}>
-                {onBackToLanding && (
-                  <Button
-                    type="button"
-                    onClick={onBackToLanding}
-                    startIcon={<ArrowBackRoundedIcon />}
-                    sx={{ mb: 1.25, textTransform: 'none', fontWeight: 600 }}
-                  >
-                    Volver al inicio
-                  </Button>
-                )}
-                <Typography variant="body2">
-                  {isRegister ? 'Ya tienes cuenta?' : 'No tienes cuenta?'}{' '}
-                  <MuiLink
-                    component="button"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const nextIsRegister = !isRegister;
-                      if (onSwitchMode) {
-                        onSwitchMode(nextIsRegister ? 'register' : 'login');
-                      } else {
-                        setIsRegister(nextIsRegister);
-                      }
-                      setError('');
-                      setInfoMessage('');
-                      setShowResendConfirmation(false);
-                    }}
-                    sx={{ cursor: 'pointer' }}
-                  >
-                    {isRegister ? 'Inicia sesion' : 'Registrate aqui'}
-                  </MuiLink>
-                </Typography>
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
-      </Box>
-    </Container>
+            <div className="mt-6 space-y-3 text-center">
+              <p className="text-sm text-slate-500">
+                ¿Necesitás acceso? Contactá a un administrador.
+              </p>
+              <button
+                type="button"
+                onClick={() => switchMode(!isRegister)}
+                disabled={loading}
+                className="text-sm font-medium text-slate-400 transition hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRegister ? 'Ya tengo acceso' : 'Solicitar registro'}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="relative hidden min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950 px-10 lg:flex">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(249,115,22,0.18),transparent_30%),radial-gradient(circle_at_70%_80%,rgba(14,165,233,0.16),transparent_35%)]" />
+          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-[2px]" />
+          <div className="relative z-10 max-w-2xl text-center">
+            <p className="mb-5 text-sm font-semibold uppercase tracking-[0.28em] text-orange-300/90">
+              Servi Food
+            </p>
+            <h2 className="text-5xl font-bold leading-tight text-white xl:text-6xl">
+              Nuestro compromiso es la calidad
+            </h2>
+            <p className="mx-auto mt-6 max-w-lg text-lg leading-8 text-slate-300">
+              Portal interno para la gestión de inocuidad, políticas operativas y salud del equipo.
+            </p>
+            <DailyDateWidget />
+          </div>
+        </section>
+      </div>
+    </main>
   );
 }
