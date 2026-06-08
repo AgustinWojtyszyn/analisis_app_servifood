@@ -1,0 +1,141 @@
+AUDITORIA DOCUMENTOS SGC
+=======================
+
+Resumen funcional y técnico del módulo "Documentos SGC" del proyecto.
+
+1. Descripción general
+----------------------
+- El módulo se denomina internamente "nutrition-modules" aunque su propósito real es gestionar documentos del Sistema de Gestión de Calidad (SGC).
+- Funciona como una biblioteca/documentación interna con soporte de archivos adjuntos, exportación y notificaciones.
+- El backend usa Supabase para guardar datos de documentos, archivos adjuntos y notificaciones.
+
+2. Funcionalidades ofrecidas
+---------------------------
+- Listado de documentos SGC.
+- Visualización de detalles de un documento específico.
+- Creación de documentos SGC.
+- Edición de documentos existentes.
+- Eliminación de documentos.
+- Exportación de un documento a Excel.
+- Descarga del contenido de un documento como archivo de texto.
+- Gestión de archivos adjuntos: listado, carga, descarga y eliminación.
+- Notificaciones internas por email cuando se crean documentos.
+
+3. Estructura de datos principal
+--------------------------------
+- Tabla principal: `nutrition_modules`.
+  - Campos clave: `id`, `title`, `description`, `content`, `module_type`, `status`, `created_by`, `published_at`, `created_at`, `updated_at`.
+  - `module_type` se normaliza como: `procedimiento`, `registro` o `estrategias`.
+  - `status` en la práctica se define como `aprobado` en creación/edición.
+- Archivos adjuntos: `nutrition_module_files`.
+  - Campos clave: `id`, `module_id`, `file_name`, `file_path`, `file_type`, `file_size`, `uploaded_by`, `created_at`.
+- Notificaciones: `document_email_notifications`.
+  - Se usa para validar y encolar notificaciones tras la creación de documentos.
+
+4. Roles y permisos
+-------------------
+- Acceso de lectura y descarga: roles `admin` y `nutricionista`.
+- Gestión completa (crear, editar, borrar, subir/borrar archivos): solo rol `admin`.
+- Usuarios sin permiso de gestión solo ven documentos con `status = aprobado`.
+
+Permisos específicos por acción:
+- `listDocuments`: si no es `admin`, filtra solo documentos aprobados.
+- `getDocument`: si no es `admin`, rechaza documentos no aprobados.
+- `createDocument`: solo `admin`.
+- `updateDocument`: solo `admin`.
+- `deleteDocument`: solo `admin`.
+- `exportDocumentExcel`: si no es `admin`, solo documento aprobado.
+- `downloadDocument`: si no es `admin`, solo documento aprobado.
+- `listAttachments`: permite si el usuario puede acceder al documento.
+- `uploadAttachments`: solo `admin`.
+- `deleteAttachment`: solo `admin`.
+- `downloadAttachment`: roles `admin` y `nutricionista`, con acceso al documento.
+
+5. Flujos principales
+---------------------
+Flujo de listado y consulta:
+- Frontend solicita `GET /nutrition-modules`.
+- Backend valida token y rol.
+- Si el rol no es `admin`, solo devuelve documentos aprobados.
+- Se añade conteo de archivos adjuntos por documento.
+
+Flujo de creación:
+- Frontend envía `POST /nutrition-modules` con título, descripción, contenido y tipo de módulo.
+- Backend valida rol `admin`, campos obligatorios y tipo de sección.
+- Inserta documento con `status = aprobado` y `published_at`.
+- Registra métricas de notificación y lanza worker para procesar notificaciones en segundo plano.
+
+Flujo de edición:
+- Frontend envía `PUT /nutrition-modules/:id`.
+- Backend valida rol `admin`, existencia del documento y campos.
+- Actualiza la publicación y marca `status = aprobado`.
+
+Flujo de eliminación:
+- Frontend envía `DELETE /nutrition-modules/:id`.
+- Backend valida rol `admin` y elimina el registro.
+
+Flujo de exportación a Excel:
+- Frontend solicita `GET /nutrition-modules/:id/export/excel`.
+- Backend valida rol, existencia y estado.
+- Genera un archivo XLSX con datos clave del documento.
+
+Flujo de descarga en texto:
+- Frontend solicita `GET /nutrition-modules/:id/download`.
+- Backend valida rol, existencia y estado.
+- Genera un `.txt` con título, apartado, descripción, aprobación y contenido.
+
+Flujo de archivos adjuntos:
+- `GET /nutrition-modules/:id/files`: lista archivos del documento.
+- `POST /nutrition-modules/:id/files`: carga hasta 10 archivos con tamaño máximo 25 MB cada uno.
+- `DELETE /nutrition-modules/files/:fileId`: borra metadata y storage del archivo.
+- `GET /nutrition-modules/files/:fileId/download`: descarga el archivo desde Supabase Storage.
+
+6. Reglas de archivos adjuntos
+------------------------------
+- Límite de 10 archivos por carga.
+- Tamaño máximo: 25 MB por archivo.
+- Extensiones permitidas: `.pdf`, `.xls`, `.xlsx`, `.csv`, `.doc`, `.docx`, `.jpg`, `.jpeg`, `.png`, `.webp`, `.txt`.
+- MIME types permitidos: PDF, Excel, Word, CSV, JPEG, PNG, WEBP, texto plano.
+- Nombre de archivo se sanitiza para storage.
+
+7. Rutas y endpoints relevantes
+--------------------------------
+- `GET /nutrition-modules`
+- `GET /nutrition-modules/:id`
+- `POST /nutrition-modules`
+- `PUT /nutrition-modules/:id`
+- `DELETE /nutrition-modules/:id`
+- `GET /nutrition-modules/:id/export/excel`
+- `GET /nutrition-modules/:id/download`
+- `GET /nutrition-modules/:id/files`
+- `POST /nutrition-modules/:id/files`
+- `DELETE /nutrition-modules/files/:fileId`
+- `GET /nutrition-modules/files/:fileId/download`
+- `POST /internal/nutrition-modules/process-notifications`
+
+8. Observaciones y riesgos
+--------------------------
+- El módulo usa el nombre técnico "nutrition-modules" en el backend, aunque su aspecto funcional es de SGC.
+- La lógica de permisos es clara, pero depende de una función de rol central; conviene validar datos de rol en Supabase y en el token.
+- `status` se fuerza a `aprobado` en todas las operaciones de creación y edición, lo que limita flujos de borrador/revisión.
+- El endpoint interno de notificaciones requiere autorización especial y es un punto de integración con worker.
+- Si la cuenta Supabase no tiene configurado storage o buckets, varias operaciones de archivo fallarán.
+
+9. UX y pantalla de frontend
+----------------------------
+- Página `Documentos SGC` con filtro por sección (`Todos`, `Estrategias`, `Procedimientos`, `Registros`).
+- Búsqueda por título.
+- Tabla de documentos con acciones: editar, eliminar, descargar, exportar Excel, ver archivos.
+- Botón de creación visible solo para admin.
+- Mensajes de error y éxito en pantalla.
+- Diálogos para edición/creación y gestión de archivos.
+
+10. Conclusión
+--------------
+El módulo `Documentos SGC` aporta:
+- Biblioteca SGC con clasificación en procedimientos, registros y estrategias.
+- Control de acceso acorde a roles.
+- Gestión de archivos y exportación.
+- Flujo de notificaciones para documentos nuevos.
+
+Recomiendo validar que la documentación del proyecto actualice el nombre técnico `nutrition-modules` a algo más alineado con SGC para evitar confusiones operativas.
