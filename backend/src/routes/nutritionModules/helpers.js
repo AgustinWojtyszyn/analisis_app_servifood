@@ -8,7 +8,7 @@ export const MAX_ZIP_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 export const MAX_ZIP_UNCOMPRESSED_BYTES = 500 * 1024 * 1024;
 export const MAX_ZIP_ENTRIES = 2500;
 export const MAX_ZIP_DEPTH = 25;
-export const ALLOWED_EXTENSIONS = new Set(['.pdf', '.xls', '.xlsx', '.csv', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.webp', '.txt']);
+export const ALLOWED_EXTENSIONS = new Set(['.pdf', '.xls', '.xlsx', '.csv', '.doc', '.docx', '.ppt', '.pptx', '.msg', '.jpg', '.jpeg', '.png', '.webp', '.txt']);
 export const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
   'application/vnd.ms-excel',
@@ -16,6 +16,10 @@ export const ALLOWED_MIME_TYPES = new Set([
   'text/csv',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-outlook',
+  'application/octet-stream',
   'image/jpeg',
   'image/png',
   'image/webp',

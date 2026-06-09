@@ -58,7 +58,7 @@ function canManageRole(role) {
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const MAX_ZIP_FILE_SIZE_BYTES = 100 * 1024 * 1024;
-const ALLOWED_EXTENSIONS = new Set(['pdf', 'xls', 'xlsx', 'csv', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp', 'txt']);
+const ALLOWED_EXTENSIONS = new Set(['pdf', 'xls', 'xlsx', 'csv', 'doc', 'docx', 'ppt', 'pptx', 'msg', 'jpg', 'jpeg', 'png', 'webp', 'txt']);
 
 function normalizeSearchValue(value = '') {
   return String(value || '')
