@@ -1,6 +1,6 @@
 import express from 'express';
 import { authenticateToken } from '../middlewares/auth.js';
-import { upload } from './nutritionModules/helpers.js';
+import { upload, zipUpload } from './nutritionModules/helpers.js';
 import {
   listDocuments,
   getDocument,
@@ -26,6 +26,11 @@ import {
   deleteAttachment,
   downloadAttachment
 } from '../controllers/sgcDocuments/attachmentsController.js';
+import {
+  analyzeZipImport,
+  confirmZipImport,
+  handleZipUploadError
+} from '../controllers/sgcDocuments/zipImportController.js';
 
 const router = express.Router();
 
@@ -34,6 +39,8 @@ router.get('/nutrition-modules/folders', authenticateToken, listFolders);
 router.post('/nutrition-modules/folders', authenticateToken, createFolder);
 router.put('/nutrition-modules/folders/:id', authenticateToken, updateFolder);
 router.delete('/nutrition-modules/folders/:id', authenticateToken, deleteFolder);
+router.post('/nutrition-modules/import/zip/analyze', authenticateToken, zipUpload.single('zip'), handleZipUploadError, analyzeZipImport);
+router.post('/nutrition-modules/import/zip/confirm', authenticateToken, confirmZipImport);
 router.get('/nutrition-modules/:id', authenticateToken, getDocument);
 router.post('/nutrition-modules', authenticateToken, createDocument);
 router.post('/internal/nutrition-modules/process-notifications', processDocumentNotifications);

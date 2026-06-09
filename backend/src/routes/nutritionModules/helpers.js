@@ -1,8 +1,13 @@
 import multer from 'multer';
+import os from 'os';
 
 export const VALID_MODULE_TYPES = new Set(['procedimiento', 'registro', 'estrategias']);
 export const STORAGE_BUCKET = 'nutrition-modules';
 export const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+export const MAX_ZIP_FILE_SIZE_BYTES = 100 * 1024 * 1024;
+export const MAX_ZIP_UNCOMPRESSED_BYTES = 500 * 1024 * 1024;
+export const MAX_ZIP_ENTRIES = 2500;
+export const MAX_ZIP_DEPTH = 25;
 export const ALLOWED_EXTENSIONS = new Set(['.pdf', '.xls', '.xlsx', '.csv', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.webp', '.txt']);
 export const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
@@ -20,6 +25,17 @@ export const ALLOWED_MIME_TYPES = new Set([
 export const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE_BYTES, files: 10 }
+});
+
+export const zipUpload = multer({
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (_req, file, cb) => {
+      const safe = sanitizeStorageFileName(file.originalname || 'documentos.zip');
+      cb(null, `sgc-import-${Date.now()}-${Math.random().toString(16).slice(2)}-${safe}`);
+    }
+  }),
+  limits: { fileSize: MAX_ZIP_FILE_SIZE_BYTES, files: 1 }
 });
 
 export function normalizeModuleType(value) {

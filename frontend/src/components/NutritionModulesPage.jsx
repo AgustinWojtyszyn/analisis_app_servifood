@@ -33,6 +33,8 @@ import NoteAddRoundedIcon from '@mui/icons-material/NoteAddRounded';
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 import NutritionModuleForm from './NutritionModuleForm';
 import {
+  analyzeNutritionModuleZip,
+  confirmNutritionModuleZipImport,
   createNutritionModule,
   createNutritionModuleFolder,
   deleteNutritionModuleFile,
@@ -55,6 +57,7 @@ function canManageRole(role) {
 }
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+const MAX_ZIP_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(['pdf', 'xls', 'xlsx', 'csv', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp', 'txt']);
 
 function normalizeSearchValue(value = '') {
@@ -210,6 +213,165 @@ function ExplorerRow({ icon, title, meta, actions, onOpen }) {
   );
 }
 
+function buildImportReport(result) {
+  if (!result) return '';
+  const lines = [
+    'Reporte de importación ZIP - Documentos SGC',
+    `Importados: ${result.imported || 0}`,
+    `Omitidos: ${result.skipped || 0}`,
+    `Duplicados: ${result.duplicates || 0}`,
+    `Fallidos: ${result.failed || 0}`,
+    '',
+    'Detalle:'
+  ];
+  (result.rows || []).forEach((row) => {
+    lines.push(`${row.status || '-'};${row.path || '-'};${row.message || row.documentId || ''}`);
+  });
+  if (result.warnings?.length) {
+    lines.push('', 'Advertencias:');
+    result.warnings.forEach((warning) => lines.push(`- ${warning}`));
+  }
+  return lines.join('\n');
+}
+
+function ZipImportDialog({ open, onClose, onAnalyze, onConfirm, analyzing, importing, analysis, result }) {
+  const [selectedZip, setSelectedZip] = useState(null);
+  const [localError, setLocalError] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedZip(null);
+    setLocalError('');
+  }, [open]);
+
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    event.target.value = '';
+    setLocalError('');
+    if (!file) {
+      setSelectedZip(null);
+      return;
+    }
+    if (!String(file.name || '').toLowerCase().endsWith('.zip')) {
+      setLocalError('El archivo debe tener extensión .zip');
+      setSelectedZip(null);
+      return;
+    }
+    if (file.size > MAX_ZIP_FILE_SIZE_BYTES) {
+      setLocalError(`El ZIP no puede superar ${formatBytes(MAX_ZIP_FILE_SIZE_BYTES)}`);
+      setSelectedZip(null);
+      return;
+    }
+    setSelectedZip(file);
+  };
+
+  const handleDownloadReport = () => {
+    const text = buildImportReport(result);
+    if (!text) return;
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `reporte_importacion_sgc_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const busy = analyzing || importing;
+  const summary = analysis?.summary || null;
+  const canImport = Boolean(analysis?.token && selectedZip && analysis.fileName === selectedZip.name && !result);
+
+  return (
+    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="md">
+      <DialogTitle>Importar ZIP</DialogTitle>
+      <DialogContent>
+        <Box sx={{ mt: 1, display: 'grid', gap: 1.25 }}>
+          <Alert severity="info">
+            Se conservará la estructura interna de carpetas. Si el ZIP contiene una carpeta envolvente DOCUMENTOS-SERVIFOOD, se importará su contenido.
+          </Alert>
+          <Alert severity="warning">
+            Se ignorarán archivos temporales, ocultos del sistema, vacíos, rutas sospechosas, ZIPs internos y extensiones no admitidas. Tamaño máximo: {formatBytes(MAX_ZIP_FILE_SIZE_BYTES)}.
+          </Alert>
+          {localError && <Alert severity="error">{localError}</Alert>}
+          <Button component="label" variant="outlined" startIcon={<UploadFileRoundedIcon />} disabled={busy}>
+            Seleccionar ZIP
+            <input hidden type="file" accept=".zip,application/zip" onChange={handleFileChange} />
+          </Button>
+          {selectedZip && (
+            <Typography variant="body2" color="text.secondary">
+              {selectedZip.name} · {formatBytes(selectedZip.size)}
+            </Typography>
+          )}
+          {summary && (
+            <Box sx={{ border: '1px solid rgba(148, 163, 184, 0.28)', borderRadius: 1, p: 1 }}>
+              <Typography sx={{ fontWeight: 800, mb: 0.75 }}>Vista previa</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 0.75 }}>
+                <Typography>Carpetas nuevas: <strong>{summary.foldersNew}</strong></Typography>
+                <Typography>Carpetas existentes: <strong>{summary.foldersExisting}</strong></Typography>
+                <Typography>Documentos nuevos: <strong>{summary.documentsNew}</strong></Typography>
+                <Typography>Archivos omitidos: <strong>{summary.filesSkipped}</strong></Typography>
+                <Typography>Duplicados: <strong>{summary.duplicates}</strong></Typography>
+                <Typography>Inválidos: <strong>{summary.invalidFiles}</strong></Typography>
+                <Typography>Tamaño descomprimido: <strong>{formatBytes(summary.totalUncompressedBytes)}</strong></Typography>
+              </Box>
+              {!!summary.warnings?.length && (
+                <Box sx={{ mt: 1, maxHeight: 180, overflow: 'auto' }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: 13 }}>Advertencias</Typography>
+                  {summary.warnings.slice(0, 60).map((warning, index) => (
+                    <Typography key={`${warning}-${index}`} variant="body2" color="text.secondary">- {warning}</Typography>
+                  ))}
+                  {summary.warnings.length > 60 && (
+                    <Typography variant="body2" color="text.secondary">Se muestran las primeras 60 advertencias.</Typography>
+                  )}
+                </Box>
+              )}
+            </Box>
+          )}
+          {result && (
+            <Box sx={{ border: '1px solid rgba(148, 163, 184, 0.28)', borderRadius: 1, p: 1 }}>
+              <Typography sx={{ fontWeight: 800, mb: 0.75 }}>Resultado final</Typography>
+              <Typography>Importados: <strong>{result.imported || 0}</strong></Typography>
+              <Typography>Omitidos: <strong>{result.skipped || 0}</strong></Typography>
+              <Typography>Duplicados: <strong>{result.duplicates || 0}</strong></Typography>
+              <Typography>Fallidos: <strong>{result.failed || 0}</strong></Typography>
+              {!!result.rows?.length && (
+                <Box sx={{ mt: 1, maxHeight: 220, overflow: 'auto' }}>
+                  {result.rows.slice(0, 80).map((row, index) => (
+                    <Typography key={`${row.path}-${index}`} variant="body2" color="text.secondary">
+                      {row.status}: {row.path}{row.message ? ` - ${row.message}` : ''}
+                    </Typography>
+                  ))}
+                  {result.rows.length > 80 && (
+                    <Typography variant="body2" color="text.secondary">Se muestran los primeros 80 registros. Descargá el reporte para ver todo.</Typography>
+                  )}
+                </Box>
+              )}
+            </Box>
+          )}
+          {(analyzing || importing) && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CircularProgress size={20} />
+              <Typography variant="body2">{analyzing ? 'Analizando ZIP...' : 'Importando documentos...'}</Typography>
+            </Box>
+          )}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        {result && <Button variant="outlined" onClick={handleDownloadReport}>Descargar reporte</Button>}
+        <Button onClick={onClose} disabled={busy}>Cerrar</Button>
+        <Button variant="outlined" onClick={() => selectedZip && onAnalyze(selectedZip)} disabled={!selectedZip || busy}>
+          Analizar ZIP
+        </Button>
+        <Button variant="contained" onClick={onConfirm} disabled={!canImport || busy}>
+          Importar
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 export default function NutritionModulesPage({ user }) {
   const [rows, setRows] = useState([]);
   const [folders, setFolders] = useState([]);
@@ -228,6 +390,11 @@ export default function NutritionModulesPage({ user }) {
   const [filesDialogRow, setFilesDialogRow] = useState(null);
   const [filesDialogFiles, setFilesDialogFiles] = useState([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [zipDialogOpen, setZipDialogOpen] = useState(false);
+  const [zipAnalyzing, setZipAnalyzing] = useState(false);
+  const [zipImporting, setZipImporting] = useState(false);
+  const [zipAnalysis, setZipAnalysis] = useState(null);
+  const [zipResult, setZipResult] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState('todos');
 
@@ -516,6 +683,47 @@ export default function NutritionModulesPage({ user }) {
     }
   };
 
+  const handleAnalyzeZip = async (file) => {
+    if (!canManage) return;
+    try {
+      setError('');
+      setSuccess('');
+      setZipResult(null);
+      setZipAnalyzing(true);
+      const analysis = await analyzeNutritionModuleZip(file);
+      setZipAnalysis(analysis);
+    } catch (err) {
+      setError(err.message || 'No se pudo analizar el ZIP');
+      setZipAnalysis(null);
+    } finally {
+      setZipAnalyzing(false);
+    }
+  };
+
+  const handleConfirmZipImport = async () => {
+    if (!canManage || !zipAnalysis?.token) return;
+    try {
+      setError('');
+      setSuccess('');
+      setZipImporting(true);
+      const result = await confirmNutritionModuleZipImport(zipAnalysis.token);
+      setZipResult(result);
+      setSuccess(`Importación finalizada: ${result.imported || 0} documentos importados`);
+      await loadLibrary();
+    } catch (err) {
+      setError(err.message || 'No se pudo importar el ZIP');
+    } finally {
+      setZipImporting(false);
+    }
+  };
+
+  const handleCloseZipDialog = () => {
+    if (zipAnalyzing || zipImporting) return;
+    setZipDialogOpen(false);
+    setZipAnalysis(null);
+    setZipResult(null);
+  };
+
   return (
     <Card>
       <CardContent>
@@ -528,6 +736,9 @@ export default function NutritionModulesPage({ user }) {
           </Box>
           {canManage && (
             <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+              <Button startIcon={<UploadFileRoundedIcon />} variant="outlined" onClick={() => setZipDialogOpen(true)}>
+                Importar ZIP
+              </Button>
               <Button startIcon={<FolderRoundedIcon />} variant="outlined" onClick={() => { setEditingFolder(null); setFolderDialogOpen(true); }}>
                 Nueva carpeta
               </Button>
@@ -697,6 +908,17 @@ export default function NutritionModulesPage({ user }) {
         onClose={() => { if (!saving) setMoveDocumentRow(null); }}
         onSubmit={handleMoveDocument}
         saving={saving}
+      />
+
+      <ZipImportDialog
+        open={zipDialogOpen}
+        onClose={handleCloseZipDialog}
+        onAnalyze={handleAnalyzeZip}
+        onConfirm={handleConfirmZipImport}
+        analyzing={zipAnalyzing}
+        importing={zipImporting}
+        analysis={zipAnalysis}
+        result={zipResult}
       />
 
       <Dialog open={filesDialogOpen} onClose={() => setFilesDialogOpen(false)} fullWidth maxWidth="sm">

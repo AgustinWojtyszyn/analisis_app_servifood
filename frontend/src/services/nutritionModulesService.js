@@ -60,6 +60,35 @@ export async function deleteNutritionModuleFolder(id) {
   });
 }
 
+export async function analyzeNutritionModuleZip(file) {
+  const token = await getAccessToken();
+  if (!token) throw new Error('No hay sesion activa');
+
+  const formData = new FormData();
+  formData.append('zip', file);
+
+  const response = await fetch(`${API_BASE_URL}/nutrition-modules/import/zip/analyze`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`
+    },
+    body: formData
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || 'Error analizando ZIP');
+  }
+  return payload;
+}
+
+export async function confirmNutritionModuleZipImport(token) {
+  return await authorizedFetch('/nutrition-modules/import/zip/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ token })
+  });
+}
+
 export async function getNutritionModuleById(id) {
   return await authorizedFetch(`/nutrition-modules/${id}`);
 }
