@@ -6,10 +6,17 @@ import {
   getDocument,
   createDocument,
   updateDocument,
+  moveDocument,
   deleteDocument,
   exportDocumentExcel,
   downloadDocument
 } from '../controllers/sgcDocuments/documentsController.js';
+import {
+  listFolders,
+  createFolder,
+  updateFolder,
+  deleteFolder
+} from '../controllers/sgcDocuments/foldersController.js';
 import {
   processDocumentNotifications
 } from '../controllers/sgcDocuments/notificationsController.js';
@@ -23,10 +30,15 @@ import {
 const router = express.Router();
 
 router.get('/nutrition-modules', authenticateToken, listDocuments);
+router.get('/nutrition-modules/folders', authenticateToken, listFolders);
+router.post('/nutrition-modules/folders', authenticateToken, createFolder);
+router.put('/nutrition-modules/folders/:id', authenticateToken, updateFolder);
+router.delete('/nutrition-modules/folders/:id', authenticateToken, deleteFolder);
 router.get('/nutrition-modules/:id', authenticateToken, getDocument);
 router.post('/nutrition-modules', authenticateToken, createDocument);
 router.post('/internal/nutrition-modules/process-notifications', processDocumentNotifications);
 router.put('/nutrition-modules/:id', authenticateToken, updateDocument);
+router.put('/nutrition-modules/:id/move', authenticateToken, moveDocument);
 router.delete('/nutrition-modules/:id', authenticateToken, deleteDocument);
 router.get('/nutrition-modules/:id/export/excel', authenticateToken, exportDocumentExcel);
 router.get('/nutrition-modules/:id/files', authenticateToken, listAttachments);

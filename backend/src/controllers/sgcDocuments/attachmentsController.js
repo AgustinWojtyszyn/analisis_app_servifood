@@ -78,6 +78,32 @@ export async function uploadAttachments(req, res) {
       }
     }
 
+    const batchKeys = new Set();
+    for (const file of files) {
+      const key = `${String(file.originalname || '').trim().toLowerCase()}::${Number(file.size || 0)}`;
+      if (batchKeys.has(key)) {
+        return res.status(400).json({ error: `${file.originalname}: archivo duplicado en la misma carga` });
+      }
+      batchKeys.add(key);
+    }
+
+    const { data: existingFiles, error: existingFilesError } = await supabaseAdmin
+      .from('nutrition_module_files')
+      .select('file_name, file_size')
+      .eq('module_id', req.params.id);
+    if (existingFilesError) {
+      return res.status(500).json({ error: existingFilesError.message || 'Error validando archivos existentes' });
+    }
+    const existingKeys = new Set((existingFiles || []).map((row) => (
+      `${String(row.file_name || '').trim().toLowerCase()}::${Number(row.file_size || 0)}`
+    )));
+    for (const file of files) {
+      const key = `${String(file.originalname || '').trim().toLowerCase()}::${Number(file.size || 0)}`;
+      if (existingKeys.has(key)) {
+        return res.status(400).json({ error: `${file.originalname}: ya existe un adjunto con el mismo nombre y tamaño en este documento` });
+      }
+    }
+
     await ensureStorageBucketExists(supabaseAdmin);
 
     const createdRows = [];

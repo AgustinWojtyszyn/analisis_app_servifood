@@ -10,6 +10,26 @@ import {
 import { processPendingDocumentNotifications } from '../../routes/nutritionModules/notificationWorker.js';
 import { resolveUserRole, supabaseAdmin } from './context.js';
 
+async function validateFolderId(folderId) {
+  if (!folderId) return null;
+  const { data, error } = await supabaseAdmin
+    .from('sgc_document_folders')
+    .select('id, status')
+    .eq('id', folderId)
+    .maybeSingle();
+  if (error) {
+    const err = new Error(error.message || 'Error validando carpeta');
+    err.statusCode = 500;
+    throw err;
+  }
+  if (!data || data.status === 'archivado') {
+    const err = new Error('La carpeta seleccionada no existe o está archivada');
+    err.statusCode = 400;
+    throw err;
+  }
+  return data.id;
+}
+
 export async function listDocuments(req, res) {
   try {
     if (!supabaseAdmin) {
@@ -121,6 +141,7 @@ export async function createDocument(req, res) {
     const content = String(req.body?.content || '').trim();
     const status = 'aprobado';
     const moduleType = normalizeModuleType(req.body?.moduleType || req.body?.module_type);
+    const folderId = await validateFolderId(req.body?.folderId || req.body?.folder_id || null);
 
     if (!title) {
       return res.status(400).json({ error: 'El título es obligatorio' });
@@ -136,6 +157,7 @@ export async function createDocument(req, res) {
       content,
       status,
       module_type: moduleType,
+      folder_id: folderId,
       created_by: req.user.id,
       published_at: status === 'aprobado' ? nowIso : null
     };
@@ -193,10 +215,10 @@ export async function createDocument(req, res) {
 
     return res.status(201).json(mapModuleRow(data));
   } catch (error) {
-    return res.status(error.message === 'Usuario inactivo' ? 403 : 500).json({
+    return res.status(error.statusCode || (error.message === 'Usuario inactivo' ? 403 : 500)).json({
       error: error.message === 'Usuario inactivo'
         ? 'Usuario inactivo'
-        : 'Error interno creando módulo nutricional'
+        : error.message || 'Error interno creando módulo nutricional'
     });
   }
 }
@@ -218,6 +240,9 @@ export async function updateDocument(req, res) {
     const content = String(req.body?.content || '').trim();
     const status = 'aprobado';
     const moduleType = normalizeModuleType(req.body?.moduleType || req.body?.module_type);
+    const hasFolder = Object.prototype.hasOwnProperty.call(req.body || {}, 'folderId')
+      || Object.prototype.hasOwnProperty.call(req.body || {}, 'folder_id');
+    const folderId = hasFolder ? await validateFolderId(req.body?.folderId ?? req.body?.folder_id ?? null) : undefined;
 
     if (!title) {
       return res.status(400).json({ error: 'El título es obligatorio' });
@@ -247,6 +272,7 @@ export async function updateDocument(req, res) {
       content,
       status,
       module_type: moduleType,
+      ...(hasFolder ? { folder_id: folderId } : {}),
       published_at: status === 'aprobado' ? (existing.published_at || nowIso) : null,
       updated_at: nowIso
     };
@@ -264,10 +290,46 @@ export async function updateDocument(req, res) {
 
     return res.json(mapModuleRow(data));
   } catch (error) {
-    return res.status(error.message === 'Usuario inactivo' ? 403 : 500).json({
+    return res.status(error.statusCode || (error.message === 'Usuario inactivo' ? 403 : 500)).json({
       error: error.message === 'Usuario inactivo'
         ? 'Usuario inactivo'
-        : 'Error interno actualizando módulo nutricional'
+        : error.message || 'Error interno actualizando módulo nutricional'
+    });
+  }
+}
+
+export async function moveDocument(req, res) {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
+    }
+
+    const role = await resolveUserRole(req.user);
+    if (!canManageByRole(role)) {
+      return res.status(403).json({ error: 'No autorizado para mover documentos' });
+    }
+
+    const folderId = await validateFolderId(req.body?.folderId ?? req.body?.folder_id ?? null);
+    const { data, error } = await supabaseAdmin
+      .from('nutrition_modules')
+      .update({ folder_id: folderId, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Error moviendo documento' });
+    }
+    if (!data) {
+      return res.status(404).json({ error: 'Documento no encontrado' });
+    }
+
+    return res.json(mapModuleRow(data));
+  } catch (error) {
+    return res.status(error.statusCode || (error.message === 'Usuario inactivo' ? 403 : 500)).json({
+      error: error.message === 'Usuario inactivo'
+        ? 'Usuario inactivo'
+        : error.message || 'Error interno moviendo documento'
     });
   }
 }

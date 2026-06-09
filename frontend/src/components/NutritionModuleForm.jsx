@@ -25,7 +25,9 @@ export default function NutritionModuleForm({
   saving = false,
   existingFiles = [],
   onDownloadFile,
-  onDeleteFile
+  onDeleteFile,
+  folderId = null,
+  validateFiles
 }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
@@ -56,6 +58,14 @@ export default function NutritionModuleForm({
 
   const handleFilesChange = (event) => {
     const files = Array.from(event.target.files || []);
+    const invalidReason = validateFiles?.(files);
+    if (invalidReason) {
+      setError(invalidReason);
+      event.target.value = '';
+      setSelectedFiles([]);
+      return;
+    }
+    setError('');
     setSelectedFiles(files);
   };
 
@@ -75,6 +85,7 @@ export default function NutritionModuleForm({
       content: form.content,
       status: 'aprobado',
       moduleType: form.moduleType,
+      folderId,
       files: selectedFiles
     });
   };

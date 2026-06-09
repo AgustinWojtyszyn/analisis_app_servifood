@@ -51,10 +51,25 @@ export function mapModuleRow(row) {
     content: row.content || '',
     status: row.status || 'aprobado',
     moduleType: row.module_type || null,
+    folderId: row.folder_id || null,
     createdBy: row.created_by || null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
     publishedAt: row.published_at || null
+  };
+}
+
+export function mapFolderRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name || '',
+    parentId: row.parent_id || null,
+    description: row.description || '',
+    status: row.status || 'activo',
+    createdBy: row.created_by || null,
+    createdAt: row.created_at || null,
+    updatedAt: row.updated_at || null
   };
 }
 
@@ -102,8 +117,19 @@ export function sanitizeStorageFileName(fileName = 'archivo') {
 }
 
 export function ensureAllowedFile(file) {
-  const ext = getExtension(file?.originalname || '');
+  const rawName = String(file?.originalname || '');
+  const trimmedName = rawName.trim();
+  const ext = getExtension(trimmedName);
   const mime = String(file?.mimetype || '').toLowerCase();
+  if (!trimmedName) {
+    return 'El nombre del archivo no puede estar vacío';
+  }
+  if (trimmedName.startsWith('~$')) {
+    return 'No se permiten archivos temporales de Office';
+  }
+  if (ext === '.tmp') {
+    return 'No se permiten archivos temporales .tmp';
+  }
   if (!ALLOWED_EXTENSIONS.has(ext)) {
     return `Tipo de archivo no permitido (${ext || 'sin extensión'})`;
   }

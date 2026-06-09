@@ -36,6 +36,30 @@ export async function getNutritionModules() {
   return await authorizedFetch('/nutrition-modules');
 }
 
+export async function getNutritionModuleFolders() {
+  return await authorizedFetch('/nutrition-modules/folders');
+}
+
+export async function createNutritionModuleFolder(payload) {
+  return await authorizedFetch('/nutrition-modules/folders', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateNutritionModuleFolder(id, payload) {
+  return await authorizedFetch(`/nutrition-modules/folders/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteNutritionModuleFolder(id) {
+  return await authorizedFetch(`/nutrition-modules/folders/${id}`, {
+    method: 'DELETE'
+  });
+}
+
 export async function getNutritionModuleById(id) {
   return await authorizedFetch(`/nutrition-modules/${id}`);
 }
@@ -51,6 +75,13 @@ export async function updateNutritionModule(id, payload) {
   return await authorizedFetch(`/nutrition-modules/${id}`, {
     method: 'PUT',
     body: JSON.stringify(payload)
+  });
+}
+
+export async function moveNutritionModule(id, folderId) {
+  return await authorizedFetch(`/nutrition-modules/${id}/move`, {
+    method: 'PUT',
+    body: JSON.stringify({ folderId: folderId || null })
   });
 }
 
