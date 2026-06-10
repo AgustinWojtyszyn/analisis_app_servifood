@@ -1,0 +1,149 @@
+1. Resumen
+- Se implemento orden manual persistente para carpetas y documentos del modulo Documentos SGC.
+- El orden se guarda en base de datos mediante sort_order en carpetas y documentos.
+- La UI mantiene la regla visual actual: primero carpetas del nivel, despues documentos del nivel.
+- Admin puede reordenar carpetas entre si y documentos entre si mediante flechas o drag and drop nativo.
+- Nutricionista ve el orden persistido, sin controles editables.
+- No se implemento mover entre carpetas por drag and drop.
+
+2. Archivos modificados
+- backend/src/controllers/sgcDocuments/documentsController.js
+- backend/src/controllers/sgcDocuments/foldersController.js
+- backend/src/controllers/sgcDocuments/zipImportController.js
+- backend/src/routes/nutritionModules.js
+- backend/src/routes/nutritionModules/helpers.js
+- frontend/src/components/NutritionModulesPage.jsx
+- frontend/src/services/nutritionModulesService.js
+
+3. Archivos creados
+- backend/sql/20260610_sgc_manual_sort_order.sql
+- backend/src/controllers/sgcDocuments/reorderController.js
+- IMPLEMENTACION_ORDEN_MANUAL_DOCUMENTOS_SGC.txt
+
+4. Migracion SQL creada
+- Archivo: backend/sql/20260610_sgc_manual_sort_order.sql
+- Agrega sort_order integer a public.sgc_document_folders.
+- Agrega sort_order integer a public.nutrition_modules.
+- Hace backfill deterministico por nivel.
+- Deja sort_order con default 0 y not null.
+- Crea indices por parent/folder y sort_order.
+- Crea la funcion public.reorder_sgc_items para persistencia atomica.
+
+5. Tablas y campos reales utilizados
+- Tabla de carpetas: public.sgc_document_folders.
+- Campo padre de carpetas: parent_id.
+- Tabla de documentos: public.nutrition_modules.
+- Campo carpeta de documentos: folder_id.
+- Raiz: parent_id null para carpetas y folder_id null para documentos.
+- Campo de orden agregado en ambas tablas: sort_order.
+
+6. Endpoint o RPC implementado
+- Endpoint backend: POST /api/nutrition-modules/reorder.
+- Controller: reorderSgcItems.
+- RPC SQL: public.reorder_sgc_items(p_item_type, p_parent_folder_id, p_ordered_ids).
+- Payload esperado:
+  type: folder o document.
+  parentFolderId: id de carpeta actual o null para raiz.
+  orderedIds: lista completa ordenada de ids del tipo dentro del nivel.
+
+7. Validaciones backend
+- Solo admin puede ejecutar reorder.
+- Nutricionista recibe 403 si intenta llamar el endpoint.
+- type debe ser folder o document.
+- orderedIds debe ser un array.
+- Rechaza IDs duplicados.
+- La funcion SQL valida que la lista incluya todos los elementos del nivel actual.
+- La funcion SQL valida que todos los IDs existan.
+- La funcion SQL valida que todos pertenezcan al mismo parent_id o folder_id indicado.
+- La funcion SQL no mezcla carpetas con documentos.
+- La funcion SQL reasigna posiciones consecutivas desde 0.
+- La funcion SQL ejecuta los updates dentro de una unica transaccion de base de datos.
+- Si falla una validacion, no persisten cambios parciales.
+
+8. Comportamiento frontend
+- Admin ve columna Orden en Documentos SGC.
+- Admin ve handle de arrastre, flecha arriba y flecha abajo.
+- Flecha arriba intercambia con el elemento anterior del mismo tipo.
+- Flecha abajo intercambia con el elemento siguiente del mismo tipo.
+- Las flechas se deshabilitan en los extremos.
+- Drag and drop permite reordenar carpetas entre carpetas y documentos entre documentos.
+- No se permite mezclar carpetas y documentos.
+- No se permite soltar dentro de carpetas ni cambiar nivel.
+- Se aplica actualizacion optimista.
+- Si backend falla, se restaura el orden anterior y se muestra error.
+- Durante guardado se deshabilitan controles para evitar requests simultaneas.
+- Nutricionista no ve controles de orden.
+
+9. Permisos finales
+- admin: puede crear, editar, mover, eliminar y reordenar segun permisos existentes.
+- nutricionista: mantiene lectura de Documentos SGC y ve el orden persistido.
+- otros roles: no reciben accesos nuevos.
+- No se duplico logica de roles; se reutilizo canManageByRole y resolveUserRole.
+
+10. Manejo de filtros
+- Con busqueda activa se deshabilitan flechas y drag and drop.
+- Con categoria distinta de TODOS se deshabilitan flechas y drag and drop.
+- Se muestra el mensaje: Quitá los filtros para modificar el orden.
+- Al quitar filtros, los controles vuelven a estar disponibles para admin.
+- No se altero el comportamiento de busqueda ni filtros.
+
+11. Manejo de creacion e importacion ZIP
+- Nueva carpeta se crea al final de su nivel con sort_order maximo + 1.
+- Nuevo documento se crea al final de su carpeta o raiz con sort_order maximo + 1.
+- Al mover carpeta a otro parent_id, queda al final del nuevo nivel.
+- Al mover documento a otro folder_id, queda al final del nuevo nivel.
+- Importacion ZIP crea carpetas nuevas al final de su nivel.
+- Importacion ZIP crea documentos nuevos al final de su carpeta.
+- Importacion ZIP ordena deterministicamente los archivos nuevos por path antes de insertarlos.
+- No se sobrescribe ni desplaza el orden previo.
+
+12. Validaciones ejecutadas
+- Revision real de tablas, rutas, controllers, helpers, servicio frontend y componente de listado.
+- node --check en controllers y ruta backend modificados: correcto.
+- git diff --check: correcto.
+- Revision estatica de endpoint y permisos.
+- Revision estatica de que no se modifico landing, login, autenticacion ni modulos ajenos.
+- /api/nutrition-modules/reorder no se probo contra una base local porque no hay psql instalado ni entorno Supabase local disponible en este workspace.
+- La migracion SQL fue revisada estaticamente; no se ejecuto localmente por falta de psql.
+
+13. Resultado del build
+- Comando: npm run build en frontend.
+- Resultado: exitoso.
+- Advertencia: Vite informa chunks mayores a 500 kB despues de minificacion. No se modifico bundling por estar fuera del alcance.
+
+14. Resultado del lint
+- Comando: npm run lint en frontend.
+- Resultado: no disponible.
+- Motivo: frontend/package.json no define script lint.
+
+15. Resultado de tests
+- Comando: npm test en backend.
+- Resultado: exitoso.
+- Total: 161 tests pasados.
+
+16. Riesgos pendientes
+- Falta ejecutar la migracion en una base real o local con psql/Supabase CLI.
+- Falta prueba manual E2E del endpoint con usuario admin y nutricionista reales.
+- Concurrencia simultanea de creacion en el mismo nivel podria generar sort_order duplicado temporalmente; el listado mantiene desempates estables por nombre/id.
+- Drag tactil en mobile depende del soporte nativo del navegador; flechas quedan disponibles como alternativa principal.
+
+17. Confirmacion de modulos no modificados
+- No se modifico landing publica.
+- No se modifico login.
+- No se modifico registro.
+- No se modifico autenticacion.
+- No se modificaron roles.
+- No se modificaron guards.
+- No se modificaron rutas privadas ajenas a Documentos SGC.
+- No se modificaron homes autenticadas.
+- No se modifico dashboard.
+- No se modifico analisis Excel.
+- No se modifico historial.
+- No se modificaron graficos.
+- No se modificaron reglas.
+- No se modificaron declaraciones de salud.
+- No se modificaron certificaciones.
+- No se modifico navegacion global.
+- No se modificaron permisos de otros modulos.
+- No se hizo commit.
+- No se abrio pull request.
