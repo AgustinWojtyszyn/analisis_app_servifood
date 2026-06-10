@@ -1,0 +1,113 @@
+Resumen de cambios
+- Se refactorizo visualmente la landing publica de ServiFood en el componente existente.
+- Se reemplazo la tarjeta generica inicial por una landing institucional completa con hero, secciones funcionales, aclaracion de accesos, CTA final y footer.
+- Se mantuvo un unico acceso principal hacia login mediante el callback existente onLogin.
+- Se mantuvo Solicitar registro solo condicionado a la existencia del callback onRegister.
+- Las tarjetas funcionales son descriptivas y no navegan a rutas privadas.
+
+Archivos modificados
+- frontend/src/components/PublicLanding.jsx
+
+Archivos creados
+- REFACTOR_LANDING_PUBLICA_SERVIFOOD.txt
+
+Decisiones visuales
+- Se conservo la identidad azul corporativa con gradientes azul oscuro y azul medio.
+- Se uso blanco como color principal de texto y naranja como color de accion.
+- Se incorporaron detalles secundarios en celeste, verde y violeta.
+- Se reutilizo el logo existente servifood_logo_white_text_HQ.png.
+- Se reutilizo lucide-react, que ya estaba instalado en la app.
+- Se implementaron tarjetas con bordes suaves, sombras sutiles y hover leve.
+- Se definio un ancho maximo de contenido de 1180px para desktop.
+- Se implementaron grillas responsive: colaborador en 2 columnas desde desktop, gestion interna en 3 columnas en desktop, 2 en tablet y 1 en mobile.
+
+Secciones implementadas
+1. Hero principal
+   - Logo centrado.
+   - Titulo: ServiFood — Plataforma de gestión y cumplimiento.
+   - Descripcion requerida.
+   - CTA principal: Ingresar.
+   - Texto secundario de acceso segun perfil autorizado.
+   - Boton secundario Solicitar registro cuando onRegister existe.
+
+2. Portal del colaborador
+   - Tarjeta Declaración de Salud.
+   - Tarjeta Políticas.
+
+3. Gestión interna
+   - Cargar archivos.
+   - Historial.
+   - Gráficos e indicadores.
+   - Configurar reglas.
+   - Gestión de usuarios.
+   - Gestor de Declaraciones.
+   - Documentos SGC.
+   - Certificaciones.
+   - Perfil.
+   - Tutorial.
+
+4. Accesos protegidos según perfil
+   - Franja diferenciada con icono de escudo.
+   - Texto requerido sobre visibilidad de herramientas segun rol.
+
+5. CTA final
+   - Titulo: Todo el ecosistema operativo en un solo lugar.
+   - Descripcion requerida.
+   - Boton Ingresar a la plataforma.
+   - Boton Solicitar registro cuando onRegister existe.
+
+6. Footer institucional
+   - ServiFood Catering.
+   - Plataforma interna de gestión y cumplimiento.
+
+Validaciones realizadas
+- / fue servido correctamente por Vite con HTTP 200.
+- /login fue servido correctamente por Vite con HTTP 200.
+- /register fue servido correctamente por Vite con HTTP 200.
+- El CTA Ingresar usa onLogin, que App.jsx ya conecta con navigatePublic('/login').
+- El CTA final Ingresar a la plataforma usa onLogin, que App.jsx ya conecta con navigatePublic('/login').
+- Solicitar registro usa onRegister, que App.jsx ya conecta con navigatePublic('/register').
+- PublicLanding.jsx no contiene href, to= ni rutas privadas.
+- PublicLanding.jsx no consulta usuarios, roles, profiles, Supabase ni autenticacion.
+- PublicLanding.jsx no contiene selector de rol.
+- PublicLanding.jsx no contiene botones separados "Ingresar como colaborador" ni "Acceso interno".
+- Las tarjetas descriptivas no tienen onClick ni navegacion.
+- Se reviso el alcance con git diff: solo quedo modificado frontend/src/components/PublicLanding.jsx y este archivo de entrega.
+- No se modifico backend.
+- No se modifico Supabase.
+- No se modifico autenticacion.
+- No se modificaron roles.
+- No se modificaron guards.
+- No se modificaron redirecciones post-login.
+- No se modifico el formulario de login.
+- No se modificaron paginas autenticadas.
+
+Resultado del build
+- Comando ejecutado: npm run build en frontend.
+- Resultado: exitoso.
+- Advertencia: Vite informa que algunos chunks superan 500 kB despues de minificacion. Esta advertencia no fue introducida como cambio funcional ni se ajusto la configuracion de bundling por estar fuera del alcance.
+
+Resultado del lint
+- Comando ejecutado: npm run lint en frontend.
+- Resultado: no disponible.
+- Motivo: frontend/package.json no define script "lint".
+
+Responsive y consola
+- Se implementaron reglas responsive en el componente para mobile, tablet y desktop.
+- Se verifico por revision estatica que no hay overflow horizontal intencional y que las grillas colapsan a una columna en mobile.
+- No se pudo ejecutar una inspeccion visual automatizada ni consola de navegador porque el entorno no tiene Chromium, Playwright ni Puppeteer instalados, y no se agregaron dependencias nuevas por requerimiento.
+
+Riesgos pendientes
+- Queda pendiente una inspeccion visual manual en navegador real para confirmar detalles finos de espaciado y consola runtime.
+- El bundle grande preexistente sigue apareciendo como advertencia de build.
+
+Confirmacion explicita
+- No se toco backend.
+- No se toco Supabase.
+- No se toco autenticacion.
+- No se tocaron roles.
+- No se tocaron guards.
+- No se tocaron redirecciones post-login.
+- No se toco el formulario de login.
+- No se hizo commit.
+- No se abrio pull request.
