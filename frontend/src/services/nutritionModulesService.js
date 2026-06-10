@@ -89,6 +89,13 @@ export async function confirmNutritionModuleZipImport(token) {
   });
 }
 
+export async function reorderNutritionModuleItems(payload) {
+  return await authorizedFetch('/nutrition-modules/reorder', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function getNutritionModuleById(id) {
   return await authorizedFetch(`/nutrition-modules/${id}`);
 }

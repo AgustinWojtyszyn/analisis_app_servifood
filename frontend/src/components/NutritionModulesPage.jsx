@@ -24,10 +24,13 @@ import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import CloudDownloadRoundedIcon from '@mui/icons-material/CloudDownloadRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded';
 import DriveFileMoveRoundedIcon from '@mui/icons-material/DriveFileMoveRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import KeyboardBackspaceRoundedIcon from '@mui/icons-material/KeyboardBackspaceRounded';
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
+import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded';
 import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
 import NoteAddRoundedIcon from '@mui/icons-material/NoteAddRounded';
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
@@ -47,6 +50,7 @@ import {
   getNutritionModuleFolders,
   getNutritionModules,
   moveNutritionModule,
+  reorderNutritionModuleItems,
   uploadNutritionModuleFiles,
   updateNutritionModule,
   updateNutritionModuleFolder
@@ -88,6 +92,24 @@ function filesLabel(value) {
   if (count <= 0) return 'Sin adjuntos';
   if (count === 1) return '1 adjunto';
   return `${count} adjuntos`;
+}
+
+function compareBySortOrderThenName(a, b, nameKey) {
+  const orderA = Number(a?.sortOrder ?? a?.sort_order ?? 0);
+  const orderB = Number(b?.sortOrder ?? b?.sort_order ?? 0);
+  if (orderA !== orderB) return orderA - orderB;
+  const nameA = String(a?.[nameKey] || '').toLocaleLowerCase('es-AR');
+  const nameB = String(b?.[nameKey] || '').toLocaleLowerCase('es-AR');
+  if (nameA !== nameB) return nameA.localeCompare(nameB, 'es-AR');
+  return String(a?.id || '').localeCompare(String(b?.id || ''));
+}
+
+function reorderByMove(items, fromIndex, toIndex) {
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return items;
+  const next = [...items];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, moved);
+  return next;
 }
 
 function FolderDialog({ open, mode, initialData, folders, currentFolderId, onClose, onSubmit, saving }) {
@@ -184,20 +206,56 @@ function MoveDocumentDialog({ open, row, folders, onClose, onSubmit, saving }) {
   );
 }
 
-function ExplorerRow({ icon, title, meta, actions, onOpen }) {
+function ExplorerRow({
+  icon,
+  title,
+  meta,
+  actions,
+  onOpen,
+  orderControls,
+  draggable = false,
+  dragging = false,
+  dragOver = false,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd
+}) {
+  const hasOrderControls = Boolean(orderControls);
   return (
     <Box
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(260px, 1.4fr) minmax(160px, 0.9fr) auto' },
+        gridTemplateColumns: {
+          xs: '1fr',
+          md: hasOrderControls
+            ? '88px minmax(260px, 1.4fr) minmax(160px, 0.9fr) auto'
+            : 'minmax(260px, 1.4fr) minmax(160px, 0.9fr) auto'
+        },
         gap: 1,
         alignItems: 'center',
         px: 1.1,
         py: 0.9,
         borderBottom: '1px solid rgba(148, 163, 184, 0.22)',
-        '&:hover': { bgcolor: 'rgba(15, 23, 42, 0.04)' }
+        opacity: dragging ? 0.58 : 1,
+        bgcolor: dragOver ? 'rgba(251, 140, 0, 0.10)' : 'transparent',
+        cursor: draggable ? 'grab' : 'default',
+        transition: 'background-color 140ms ease, opacity 140ms ease',
+        '&:hover': { bgcolor: dragOver ? 'rgba(251, 140, 0, 0.12)' : 'rgba(15, 23, 42, 0.04)' }
       }}
     >
+      {hasOrderControls && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+          {orderControls}
+        </Box>
+      )}
       <Button
         onClick={onOpen}
         startIcon={icon}
@@ -397,6 +455,9 @@ export default function NutritionModulesPage({ user }) {
   const [zipResult, setZipResult] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState('todos');
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [dragState, setDragState] = useState(null);
+  const [dragOverState, setDragOverState] = useState(null);
 
   const canManage = useMemo(() => canManageRole(user?.role), [user?.role]);
   const folderById = useMemo(() => new Map(folders.map((folder) => [folder.id, folder])), [folders]);
@@ -417,15 +478,17 @@ export default function NutritionModulesPage({ user }) {
   const currentFolders = folders.filter((folder) => {
     const matchesLocation = search ? true : (folder.parentId || null) === (currentFolderId || null);
     return matchesLocation && (!search || normalizeSearchValue(folder.name).includes(search));
-  });
+  }).sort((a, b) => compareBySortOrderThenName(a, b, 'name'));
   const currentRows = rows.filter((row) => {
     const moduleType = String(row?.moduleType || row?.module_type || '').toLowerCase();
     const matchesLocation = search ? true : (row.folderId || null) === (currentFolderId || null);
     const matchesSearch = !search || normalizeSearchValue(row?.title || '').includes(search);
     const matchesSection = selectedSection === 'todos' || moduleType === selectedSection;
     return matchesLocation && matchesSearch && matchesSection;
-  });
+  }).sort((a, b) => compareBySortOrderThenName(a, b, 'title'));
   const currentParentId = currentFolderId ? (folderById.get(currentFolderId)?.parentId || null) : null;
+  const hasRestrictedOrderView = Boolean(search) || selectedSection !== 'todos';
+  const canReorderCurrentView = canManage && !hasRestrictedOrderView && !savingOrder;
 
   useEffect(() => {
     void loadLibrary();
@@ -448,6 +511,86 @@ export default function NutritionModulesPage({ user }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyLocalOrder = (type, orderedItems) => {
+    const orderedMap = new Map(orderedItems.map((item, index) => [item.id, index]));
+    if (type === 'folder') {
+      setFolders((prev) => prev.map((folder) => (
+        orderedMap.has(folder.id) ? { ...folder, sortOrder: orderedMap.get(folder.id) } : folder
+      )));
+      return;
+    }
+    setRows((prev) => prev.map((row) => (
+      orderedMap.has(row.id) ? { ...row, sortOrder: orderedMap.get(row.id) } : row
+    )));
+  };
+
+  const persistOrder = async (type, orderedItems, previousItems) => {
+    if (!canManage || hasRestrictedOrderView || savingOrder) return;
+    const parentFolderId = currentFolderId || null;
+    try {
+      setSavingOrder(true);
+      setError('');
+      setSuccess('');
+      applyLocalOrder(type, orderedItems);
+      await reorderNutritionModuleItems({
+        type,
+        parentFolderId,
+        orderedIds: orderedItems.map((item) => item.id)
+      });
+      setSuccess('Orden guardado correctamente');
+      await loadLibrary();
+    } catch (err) {
+      applyLocalOrder(type, previousItems);
+      setError(err.message || 'No se pudo guardar el orden');
+    } finally {
+      setSavingOrder(false);
+      setDragState(null);
+      setDragOverState(null);
+    }
+  };
+
+  const handleMoveOrder = (type, index, direction) => {
+    if (!canReorderCurrentView) return;
+    const source = type === 'folder' ? currentFolders : currentRows;
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= source.length) return;
+    const next = reorderByMove(source, index, targetIndex);
+    void persistOrder(type, next, source);
+  };
+
+  const handleDragStart = (type, id, event) => {
+    if (!canReorderCurrentView) return;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', id);
+    setDragState({ type, id });
+  };
+
+  const handleDragOver = (type, id, event) => {
+    if (!canReorderCurrentView || !dragState || dragState.type !== type) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setDragOverState({ type, id });
+  };
+
+  const handleDrop = (type, targetId, event) => {
+    event.preventDefault();
+    if (!canReorderCurrentView || !dragState || dragState.type !== type || dragState.id === targetId) {
+      setDragState(null);
+      setDragOverState(null);
+      return;
+    }
+    const source = type === 'folder' ? currentFolders : currentRows;
+    const fromIndex = source.findIndex((item) => item.id === dragState.id);
+    const toIndex = source.findIndex((item) => item.id === targetId);
+    if (fromIndex < 0 || toIndex < 0) {
+      setDragState(null);
+      setDragOverState(null);
+      return;
+    }
+    const next = reorderByMove(source, fromIndex, toIndex);
+    void persistOrder(type, next, source);
   };
 
   const handleCreateDocument = () => {
@@ -724,6 +867,55 @@ export default function NutritionModulesPage({ user }) {
     setZipResult(null);
   };
 
+  const renderOrderControls = (type, index, total) => {
+    if (!canManage) return null;
+    const itemLabel = type === 'folder' ? 'carpeta' : 'documento';
+    const disabled = !canReorderCurrentView;
+    return (
+      <>
+        <Tooltip title={hasRestrictedOrderView ? 'Quitá los filtros para modificar el orden.' : 'Arrastrar para ordenar'}>
+          <Box
+            component="span"
+            sx={{
+              width: 26,
+              height: 26,
+              display: 'grid',
+              placeItems: 'center',
+              color: disabled ? 'text.disabled' : 'text.secondary',
+              cursor: disabled ? 'not-allowed' : 'grab'
+            }}
+          >
+            <DragIndicatorRoundedIcon fontSize="small" />
+          </Box>
+        </Tooltip>
+        <Tooltip title={`Mover ${itemLabel} hacia arriba`}>
+          <span>
+            <IconButton
+              size="small"
+              aria-label={`Mover ${itemLabel} hacia arriba`}
+              disabled={disabled || index === 0}
+              onClick={() => handleMoveOrder(type, index, -1)}
+            >
+              <KeyboardArrowUpRoundedIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title={`Mover ${itemLabel} hacia abajo`}>
+          <span>
+            <IconButton
+              size="small"
+              aria-label={`Mover ${itemLabel} hacia abajo`}
+              disabled={disabled || index === total - 1}
+              onClick={() => handleMoveOrder(type, index, 1)}
+            >
+              <KeyboardArrowDownRoundedIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </>
+    );
+  };
+
   return (
     <Card>
       <CardContent>
@@ -751,6 +943,10 @@ export default function NutritionModulesPage({ user }) {
 
         {error && <Alert severity="error" sx={{ mb: 1.2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 1.2 }}>{success}</Alert>}
+        {canManage && hasRestrictedOrderView && (
+          <Alert severity="info" sx={{ mb: 1.2 }}>Quitá los filtros para modificar el orden.</Alert>
+        )}
+        {savingOrder && <Alert severity="info" sx={{ mb: 1.2 }}>Guardando orden...</Alert>}
 
         {loading ? (
           <Box sx={{ py: 2 }}><CircularProgress size={22} /></Box>
@@ -799,18 +995,39 @@ export default function NutritionModulesPage({ user }) {
             </Box>
 
             <Box sx={{ border: '1px solid rgba(148, 163, 184, 0.28)', borderRadius: 1, overflow: 'hidden' }}>
-              <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: 'minmax(260px, 1.4fr) minmax(160px, 0.9fr) auto', gap: 1, px: 1.1, py: 0.75, bgcolor: 'rgba(15, 23, 42, 0.04)' }}>
+              <Box
+                sx={{
+                  display: { xs: 'none', md: 'grid' },
+                  gridTemplateColumns: canManage
+                    ? '88px minmax(260px, 1.4fr) minmax(160px, 0.9fr) auto'
+                    : 'minmax(260px, 1.4fr) minmax(160px, 0.9fr) auto',
+                  gap: 1,
+                  px: 1.1,
+                  py: 0.75,
+                  bgcolor: 'rgba(15, 23, 42, 0.04)'
+                }}
+              >
+                {canManage && <Typography sx={{ fontWeight: 800, fontSize: 13 }}>Orden</Typography>}
                 <Typography sx={{ fontWeight: 800, fontSize: 13 }}>Nombre</Typography>
                 <Typography sx={{ fontWeight: 800, fontSize: 13 }}>Detalle</Typography>
                 <Typography sx={{ fontWeight: 800, fontSize: 13, textAlign: 'right' }}>Acciones</Typography>
               </Box>
-              {[...currentFolders].map((folder) => (
+              {[...currentFolders].map((folder, index) => (
                 <ExplorerRow
                   key={folder.id}
                   icon={<FolderRoundedIcon color="primary" />}
                   title={folder.name}
                   meta={folder.description || `Actualizada ${formatDate(folder.updatedAt || folder.createdAt)}`}
                   onOpen={() => setCurrentFolderId(folder.id)}
+                  orderControls={renderOrderControls('folder', index, currentFolders.length)}
+                  draggable={canReorderCurrentView}
+                  dragging={dragState?.type === 'folder' && dragState?.id === folder.id}
+                  dragOver={dragOverState?.type === 'folder' && dragOverState?.id === folder.id}
+                  onDragStart={(event) => handleDragStart('folder', folder.id, event)}
+                  onDragOver={(event) => handleDragOver('folder', folder.id, event)}
+                  onDragLeave={() => setDragOverState(null)}
+                  onDrop={(event) => handleDrop('folder', folder.id, event)}
+                  onDragEnd={() => { setDragState(null); setDragOverState(null); }}
                   actions={canManage && (
                     <>
                       <Tooltip title="Renombrar o mover carpeta">
@@ -823,13 +1040,22 @@ export default function NutritionModulesPage({ user }) {
                   )}
                 />
               ))}
-              {[...currentRows].map((row) => (
+              {[...currentRows].map((row, index) => (
                 <ExplorerRow
                   key={row.id}
                   icon={<ArticleRoundedIcon color="info" />}
                   title={row.title}
                   meta={`${row.description || 'Sin descripción'} · ${filesLabel(row.filesCount)} · ${formatDate(row.updatedAt || row.createdAt)}`}
                   onOpen={() => handleViewFiles(row)}
+                  orderControls={renderOrderControls('document', index, currentRows.length)}
+                  draggable={canReorderCurrentView}
+                  dragging={dragState?.type === 'document' && dragState?.id === row.id}
+                  dragOver={dragOverState?.type === 'document' && dragOverState?.id === row.id}
+                  onDragStart={(event) => handleDragStart('document', row.id, event)}
+                  onDragOver={(event) => handleDragOver('document', row.id, event)}
+                  onDragLeave={() => setDragOverState(null)}
+                  onDrop={(event) => handleDrop('document', row.id, event)}
+                  onDragEnd={() => { setDragState(null); setDragOverState(null); }}
                   actions={(
                     <>
                       <Tooltip title="Exportar Excel">

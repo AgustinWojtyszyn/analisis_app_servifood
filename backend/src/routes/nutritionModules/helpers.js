@@ -72,6 +72,7 @@ export function mapModuleRow(row) {
     status: row.status || 'aprobado',
     moduleType: row.module_type || null,
     folderId: row.folder_id || null,
+    sortOrder: Number(row.sort_order ?? 0),
     createdBy: row.created_by || null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
@@ -87,6 +88,7 @@ export function mapFolderRow(row) {
     parentId: row.parent_id || null,
     description: row.description || '',
     status: row.status || 'activo',
+    sortOrder: Number(row.sort_order ?? 0),
     createdBy: row.created_by || null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null

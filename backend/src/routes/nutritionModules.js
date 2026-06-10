@@ -31,6 +31,9 @@ import {
   confirmZipImport,
   handleZipUploadError
 } from '../controllers/sgcDocuments/zipImportController.js';
+import {
+  reorderSgcItems
+} from '../controllers/sgcDocuments/reorderController.js';
 
 const router = express.Router();
 
@@ -41,6 +44,7 @@ router.put('/nutrition-modules/folders/:id', authenticateToken, updateFolder);
 router.delete('/nutrition-modules/folders/:id', authenticateToken, deleteFolder);
 router.post('/nutrition-modules/import/zip/analyze', authenticateToken, zipUpload.single('zip'), handleZipUploadError, analyzeZipImport);
 router.post('/nutrition-modules/import/zip/confirm', authenticateToken, confirmZipImport);
+router.post('/nutrition-modules/reorder', authenticateToken, reorderSgcItems);
 router.get('/nutrition-modules/:id', authenticateToken, getDocument);
 router.post('/nutrition-modules', authenticateToken, createDocument);
 router.post('/internal/nutrition-modules/process-notifications', processDocumentNotifications);

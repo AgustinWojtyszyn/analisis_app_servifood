@@ -245,6 +245,35 @@ async function loadExistingFileKeys() {
   return keys;
 }
 
+async function getNextFolderSortOrder(parentId) {
+  let query = supabaseAdmin
+    .from('sgc_document_folders')
+    .select('sort_order')
+    .neq('status', 'archivado')
+    .order('sort_order', { ascending: false })
+    .limit(1);
+
+  query = parentId ? query.eq('parent_id', parentId) : query.is('parent_id', null);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message || 'Error calculando orden de carpeta');
+  return Number(data?.[0]?.sort_order ?? -1) + 1;
+}
+
+async function getNextDocumentSortOrder(folderId) {
+  let query = supabaseAdmin
+    .from('nutrition_modules')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1);
+
+  query = folderId ? query.eq('folder_id', folderId) : query.is('folder_id', null);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message || 'Error calculando orden de documento');
+  return Number(data?.[0]?.sort_order ?? -1) + 1;
+}
+
 function buildFolderAnalysis(folderPaths, existingFolders) {
   const existingByKey = new Map();
   existingFolders.forEach((folder) => {
@@ -491,6 +520,7 @@ async function ensureFolderPath(folderSegments, cache, userId) {
         parent_id: parentId,
         description: null,
         status: 'activo',
+        sort_order: await getNextFolderSortOrder(parentId),
         created_by: userId
       })
       .select('id')
@@ -535,7 +565,14 @@ async function importAnalyzedZip(manifest, userId) {
 
   await ensureStorageBucketExists(supabaseAdmin);
 
-  for (const file of freshAnalysis.files) {
+  const filesToImport = [...freshAnalysis.files].sort((a, b) => {
+    const pathA = String(a.path || '').toLocaleLowerCase('es-AR');
+    const pathB = String(b.path || '').toLocaleLowerCase('es-AR');
+    if (pathA !== pathB) return pathA.localeCompare(pathB, 'es-AR');
+    return String(a.zipEntryName || '').localeCompare(String(b.zipEntryName || ''), 'es-AR');
+  });
+
+  for (const file of filesToImport) {
     let documentId = null;
     let storagePath = null;
     try {
@@ -557,6 +594,7 @@ async function importAnalyzedZip(manifest, userId) {
           status: 'aprobado',
           module_type: DEFAULT_IMPORTED_MODULE_TYPE,
           folder_id: folderId,
+          sort_order: await getNextDocumentSortOrder(folderId),
           created_by: userId,
           published_at: nowIso
         })

@@ -67,6 +67,25 @@ async function assertParentFolder(parentId, currentFolderId = null) {
   return data;
 }
 
+async function getNextFolderSortOrder(parentId) {
+  let query = supabaseAdmin
+    .from('sgc_document_folders')
+    .select('sort_order')
+    .neq('status', 'archivado')
+    .order('sort_order', { ascending: false })
+    .limit(1);
+
+  query = parentId ? query.eq('parent_id', parentId) : query.is('parent_id', null);
+
+  const { data, error } = await query;
+  if (error) {
+    const err = new Error(error.message || 'Error calculando orden de carpeta');
+    err.statusCode = 500;
+    throw err;
+  }
+  return Number(data?.[0]?.sort_order ?? -1) + 1;
+}
+
 async function ensureFolderIsEmpty(folderId) {
   const [{ count: childCount, error: childError }, { count: documentCount, error: documentError }] = await Promise.all([
     supabaseAdmin
@@ -107,7 +126,9 @@ export async function listFolders(req, res) {
     let query = supabaseAdmin
       .from('sgc_document_folders')
       .select('*')
-      .order('name', { ascending: true });
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true })
+      .order('id', { ascending: true });
 
     if (req.query?.includeArchived !== 'true') {
       query = query.neq('status', 'archivado');
@@ -151,6 +172,7 @@ export async function createFolder(req, res) {
         name,
         description,
         parent_id: parentId,
+        sort_order: await getNextFolderSortOrder(parentId),
         created_by: req.user.id,
         status: 'activo'
       })
@@ -196,15 +218,33 @@ export async function updateFolder(req, res) {
     }
     await assertParentFolder(parentId, id);
 
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('sgc_document_folders')
+      .select('id, parent_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (existingError) {
+      return res.status(500).json({ error: existingError.message || 'Error consultando carpeta SGC' });
+    }
+    if (!existing) {
+      return res.status(404).json({ error: 'Carpeta no encontrada' });
+    }
+
+    const payload = {
+      name,
+      description,
+      parent_id: parentId,
+      status,
+      updated_at: new Date().toISOString()
+    };
+    if ((existing.parent_id || null) !== (parentId || null)) {
+      payload.sort_order = await getNextFolderSortOrder(parentId);
+    }
+
     const { data, error } = await supabaseAdmin
       .from('sgc_document_folders')
-      .update({
-        name,
-        description,
-        parent_id: parentId,
-        status,
-        updated_at: new Date().toISOString()
-      })
+      .update(payload)
       .eq('id', id)
       .select('*')
       .maybeSingle();

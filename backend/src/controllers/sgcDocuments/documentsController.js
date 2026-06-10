@@ -30,6 +30,24 @@ async function validateFolderId(folderId) {
   return data.id;
 }
 
+async function getNextDocumentSortOrder(folderId) {
+  let query = supabaseAdmin
+    .from('nutrition_modules')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1);
+
+  query = folderId ? query.eq('folder_id', folderId) : query.is('folder_id', null);
+
+  const { data, error } = await query;
+  if (error) {
+    const err = new Error(error.message || 'Error calculando orden del documento');
+    err.statusCode = 500;
+    throw err;
+  }
+  return Number(data?.[0]?.sort_order ?? -1) + 1;
+}
+
 export async function listDocuments(req, res) {
   try {
     if (!supabaseAdmin) {
@@ -43,7 +61,9 @@ export async function listDocuments(req, res) {
     let query = supabaseAdmin
       .from('nutrition_modules')
       .select('*')
-      .order('updated_at', { ascending: false });
+      .order('sort_order', { ascending: true })
+      .order('title', { ascending: true })
+      .order('id', { ascending: true });
 
     if (!canManageByRole(role)) {
       query = query.eq('status', 'aprobado');
@@ -158,6 +178,7 @@ export async function createDocument(req, res) {
       status,
       module_type: moduleType,
       folder_id: folderId,
+      sort_order: await getNextDocumentSortOrder(folderId),
       created_by: req.user.id,
       published_at: status === 'aprobado' ? nowIso : null
     };
@@ -310,9 +331,30 @@ export async function moveDocument(req, res) {
     }
 
     const folderId = await validateFolderId(req.body?.folderId ?? req.body?.folder_id ?? null);
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from('nutrition_modules')
+      .select('id, folder_id')
+      .eq('id', req.params.id)
+      .maybeSingle();
+
+    if (existingError) {
+      return res.status(500).json({ error: existingError.message || 'Error consultando documento' });
+    }
+    if (!existing) {
+      return res.status(404).json({ error: 'Documento no encontrado' });
+    }
+
+    const payload = {
+      folder_id: folderId,
+      updated_at: new Date().toISOString()
+    };
+    if ((existing.folder_id || null) !== (folderId || null)) {
+      payload.sort_order = await getNextDocumentSortOrder(folderId);
+    }
+
     const { data, error } = await supabaseAdmin
       .from('nutrition_modules')
-      .update({ folder_id: folderId, updated_at: new Date().toISOString() })
+      .update(payload)
       .eq('id', req.params.id)
       .select('*')
       .maybeSingle();
