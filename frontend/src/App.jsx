@@ -8,7 +8,9 @@ import FileUpload from './components/FileUpload';
 import { SummaryGrid } from './components/Dashboard';
 import AnalysisResults from './components/AnalysisResults';
 import AnalysisHistory from './components/AnalysisHistory';
-import DynamicWelcomePortal from './components/DynamicWelcomePortal';
+import PublicLanding from './components/PublicLanding';
+import CollaboratorPortal from './components/CollaboratorPortal';
+import InternalManagementPortal from './components/InternalManagementPortal';
 import RulesConfig from './components/RulesConfig';
 import ChartsPage from './components/ChartsPage';
 import ProfilePage from './components/ProfilePage';
@@ -23,10 +25,19 @@ import NutritionModulesPage from './components/NutritionModulesPage';
 import CertificationsPage from './pages/CertificationsPage';
 import { supabase } from './lib/supabaseClient';
 import { useAuth } from './hooks/useAuth';
+import {
+  getAllowedSectionsForRole,
+  getFallbackSectionForRole,
+  getInitialPathForRole,
+  getInitialSectionForRole,
+  normalizeRole,
+  ROLES
+} from './lib/roleRouting';
 import { deleteAnalysis, getAnalysisById, updateAnalysisStatus } from './services/analysis';
 
 const sectionPathMap = {
-  panel: '/inicio',
+  collaboratorPortal: '/portal-colaborador',
+  internalManagement: '/gestion-interna',
   upload: '/cargar',
   history: '/historial',
   rules: '/reglas',
@@ -42,16 +53,17 @@ const sectionPathMap = {
   certifications: '/certificaciones'
 };
 
+const legacyProtectedPathAliases = new Set(['/inicio']);
 const publicAuthPathMap = {
   '/signin': '/login',
   '/signup': '/register'
 };
 
 const publicPaths = new Set(['/', '/login', '/register', '/forgot-password', '/reset-password']);
+const authOnlyPublicPaths = new Set(['/', '/login', '/register']);
 const protectedPathAliases = {
   '/politicas': '/politicas-seguridad'
 };
-const BASE_ALLOWED_SECTIONS = new Set(['panel', 'declaration', 'policies']);
 
 function normalizeProtectedPath(pathname) {
   return protectedPathAliases[pathname] || pathname;
@@ -62,22 +74,26 @@ function normalizePublicPath(pathname) {
   if (publicPaths.has(mappedPath)) {
     return mappedPath;
   }
-  return '/login';
+  const protectedPath = normalizeProtectedPath(mappedPath);
+  if (legacyProtectedPathAliases.has(protectedPath) || protectedPath.startsWith('/analisis/')) {
+    return '/login';
+  }
+  if (Object.values(sectionPathMap).includes(protectedPath) || protectedPath === '/politicas-seguridad/confirmacion') {
+    return '/login';
+  }
+  return '/';
 }
 
 function getSectionFromPath(pathname) {
   const normalizedPath = normalizeProtectedPath(pathname);
+  if (legacyProtectedPathAliases.has(normalizedPath)) return 'legacyHome';
   if (normalizedPath.startsWith('/analisis/')) return 'history';
   if (normalizedPath === '/politicas-seguridad/confirmacion') return 'policies';
   const match = Object.entries(sectionPathMap).find(([, path]) => path === normalizedPath);
-  return match?.[0] || 'panel';
+  return match?.[0] || null;
 }
 
-function normalizeRole(role) {
-  return String(role || '').trim().toLowerCase();
-}
-
-function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed }) {
+function MainApp({ user, onLogout }) {
   const [currentSection, setCurrentSection] = useState(() => getSectionFromPath(window.location.pathname));
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
@@ -85,23 +101,25 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
   const [reloadHistoryKey, setReloadHistoryKey] = useState(0);
   const postLoginRedirectUserIdRef = useRef(null);
 
-  const effectiveRole = currentUserProfile?.role || user?.role || 'user';
-  const normalizedRole = normalizeRole(effectiveRole || 'user');
-  const isAdmin = normalizedRole === 'admin';
-  const isNutritionist = normalizedRole === 'nutricionista';
+  const effectiveRole = currentUserProfile?.role || user?.role || ROLES.USER;
+  const normalizedRole = normalizeRole(effectiveRole);
+  const isAdmin = normalizedRole === ROLES.ADMIN;
+  const isNutritionist = normalizedRole === ROLES.NUTRITIONIST;
   const canViewNutritionModules = isAdmin || isNutritionist;
   const canViewCertifications = isAdmin || isNutritionist;
+  const fallbackSection = getFallbackSectionForRole(normalizedRole);
+  const fallbackPath = getInitialPathForRole(normalizedRole);
 
   const layoutUser = {
     ...user,
-    role: effectiveRole,
+    role: normalizedRole,
     name: currentUserProfile?.full_name || user?.name
   };
 
   const sidebarSections = useMemo(() => {
     if (canViewNutritionModules && !isAdmin) {
       return [
-        { id: 'panel', label: 'Inicio' },
+        { id: 'internalManagement', label: 'Inicio' },
         { id: 'declaration', label: 'Declaración de Salud' },
         { id: 'policies', label: 'Políticas de Seguridad' },
         { id: 'nutritionModules', label: 'Documentos SGC' },
@@ -111,16 +129,16 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
 
     if (!isAdmin) {
       return [
-        { id: 'panel', label: 'Inicio' },
+        { id: 'collaboratorPortal', label: 'Inicio' },
         { id: 'declaration', label: 'Declaración de Salud' },
-        { id: 'policies', label: 'Políticas de Seguridad' },
-        ...(canViewCertifications ? [{ id: 'certifications', label: 'Certificaciones' }] : [])
+        { id: 'policies', label: 'Políticas de Seguridad' }
       ];
     }
 
     return [
-      { id: 'panel', label: 'Dashboard' },
+      { id: 'internalManagement', label: 'Inicio' },
       { id: 'upload', label: 'Cargar archivos' },
+      { id: 'history', label: 'Historial' },
       { id: 'charts', label: 'Gráficos' },
       { id: 'profile', label: 'Mi Perfil' },
       { id: 'tutorial', label: 'Ver Tutorial' },
@@ -132,35 +150,17 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
       { id: 'nutritionModules', label: 'Documentos SGC' },
       { id: 'certifications', label: 'Certificaciones' }
     ];
-  }, [canViewNutritionModules, canViewCertifications, isAdmin]);
+  }, [canViewNutritionModules, isAdmin]);
 
   const allowedSections = useMemo(() => {
-    const set = new Set(BASE_ALLOWED_SECTIONS);
-    if (canViewNutritionModules) {
-      set.add('nutritionModules');
-    }
-    if (canViewCertifications) {
-      set.add('certifications');
-    }
-    if (isAdmin) {
-      set.add('panel');
-      set.add('upload');
-      set.add('charts');
-      set.add('profile');
-      set.add('tutorial');
-      set.add('rules');
-      set.add('adminUsers');
-      set.add('adminHealthDeclarations');
-      set.add('history');
-      set.add('declarationHistory');
-    }
-    return set;
-  }, [canViewNutritionModules, canViewCertifications, isAdmin]);
+    return getAllowedSectionsForRole(normalizedRole);
+  }, [normalizedRole]);
 
   useEffect(() => {
     const handlePopState = () => {
       const normalizedPath = normalizeProtectedPath(window.location.pathname);
-      setCurrentSection(getSectionFromPath(normalizedPath));
+      const sectionFromPath = getSectionFromPath(normalizedPath);
+      setCurrentSection(sectionFromPath);
       const id = normalizedPath.startsWith('/analisis/')
         ? normalizedPath.replace('/analisis/', '')
         : null;
@@ -198,7 +198,7 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
           id: user.id,
           email: user.email || null,
           full_name: user.name || null,
-          role: user.role || 'user',
+          role: ROLES.USER,
           is_active: true
         });
       }
@@ -214,55 +214,57 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
   useEffect(() => {
     if (loadingProfile) return;
 
-    if (!isAdmin) {
-      const normalizedPath = normalizeProtectedPath(window.location.pathname);
-      const sectionFromPath = getSectionFromPath(normalizedPath);
-      if (!allowedSections.has(sectionFromPath)) {
-        navigateToSection('declaration');
-        return;
-      }
+    const normalizedPath = normalizeProtectedPath(window.location.pathname);
+    const sectionFromPath = getSectionFromPath(normalizedPath);
 
-      setCurrentSection(sectionFromPath);
+    if (authOnlyPublicPaths.has(normalizedPath) || sectionFromPath === 'legacyHome' || !sectionFromPath) {
+      navigateToSection(fallbackSection, { replace: true });
       return;
     }
 
-    if (window.location.pathname.startsWith('/analisis/')) {
+    if (!allowedSections.has(sectionFromPath)) {
+      navigateToSection(fallbackSection, { replace: true });
+      return;
+    }
+
+    setCurrentSection(sectionFromPath);
+
+    if (isAdmin && window.location.pathname.startsWith('/analisis/')) {
       const id = window.location.pathname.replace('/analisis/', '');
       if (id) loadAnalysis(id);
     }
-  }, [allowedSections, isAdmin, loadingProfile]);
+  }, [allowedSections, fallbackSection, isAdmin, loadingProfile]);
 
-  const navigateToSection = (nextSection) => {
+  const navigateToSection = (nextSection, options = {}) => {
     if (!allowedSections.has(nextSection)) {
-      nextSection = 'panel';
+      nextSection = fallbackSection;
     }
 
-    const nextPath = sectionPathMap[nextSection] || sectionPathMap.panel;
+    const nextPath = sectionPathMap[nextSection] || fallbackPath;
     if (window.location.pathname !== nextPath) {
-      window.history.pushState({}, '', nextPath);
+      if (options.replace) {
+        window.history.replaceState({}, '', nextPath);
+      } else {
+        window.history.pushState({}, '', nextPath);
+      }
     }
     setCurrentSection(nextSection);
   };
 
   useEffect(() => {
-    if (!postLoginTarget) return;
-    navigateToSection(postLoginTarget);
-    onPostLoginTargetConsumed?.();
-  }, [postLoginTarget]);
-
-  useEffect(() => {
+    if (loadingProfile) return;
     if (!user?.id) return;
     if (postLoginRedirectUserIdRef.current === user.id) return;
 
     postLoginRedirectUserIdRef.current = user.id;
-    if (currentSection !== 'panel' || window.location.pathname !== sectionPathMap.panel) {
-      navigateToSection('panel');
+    if (authOnlyPublicPaths.has(window.location.pathname) || window.location.pathname === '/inicio') {
+      navigateToSection(getInitialSectionForRole(normalizedRole), { replace: true });
     }
-  }, [user?.id]);
+  }, [loadingProfile, normalizedRole, user?.id]);
 
   const navigateToAnalysis = (analysisId) => {
     if (!isAdmin) {
-      navigateToSection('declaration');
+      navigateToSection(fallbackSection, { replace: true });
       return;
     }
 
@@ -359,14 +361,9 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
 
     if (!allowedSections.has(currentSection)) {
       return (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
-            No tenés permisos para acceder a esta sección
-          </Typography>
-          <Typography color="text.secondary">
-            No tenés permisos para acceder a esta sección.
-          </Typography>
-        </Paper>
+        <Box sx={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography sx={{ color: '#e2e8f0', fontWeight: 700 }}>Redirigiendo...</Typography>
+        </Box>
       );
     }
 
@@ -376,11 +373,11 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
     }
 
     if (currentSection === 'declaration') {
-      return <HealthDeclarationPage onOpenPolicies={() => navigateToSection('policies')} onAfterDelete={() => navigateToSection(isAdmin ? 'panel' : 'declaration')} />;
+      return <HealthDeclarationPage onOpenPolicies={() => navigateToSection('policies')} onAfterDelete={() => navigateToSection(isAdmin ? 'internalManagement' : 'declaration')} />;
     }
 
     if (currentSection === 'policies') {
-      return <HealthPoliciesPage user={layoutUser} onGoDashboard={() => navigateToSection(isAdmin ? 'panel' : 'declaration')} />;
+      return <HealthPoliciesPage user={layoutUser} onGoDashboard={() => navigateToSection(fallbackSection)} />;
     }
 
     if (currentSection === 'declarationHistory') {
@@ -403,14 +400,12 @@ function MainApp({ user, onLogout, postLoginTarget, onPostLoginTargetConsumed })
       return <CertificationsPage />;
     }
 
-    if (currentSection === 'panel') {
-      return (
-        <DynamicWelcomePortal
-          user={currentUserProfile}
-          role={currentUserProfile?.role}
-          onNavigate={navigateToSection}
-        />
-      );
+    if (currentSection === 'collaboratorPortal') {
+      return <CollaboratorPortal user={layoutUser} onNavigate={navigateToSection} />;
+    }
+
+    if (currentSection === 'internalManagement') {
+      return <InternalManagementPortal user={layoutUser} role={normalizedRole} onNavigate={navigateToSection} />;
     }
 
     if (currentSection === 'history') {
@@ -491,10 +486,17 @@ function PublicApp({ onLoginSuccess }) {
 
   useEffect(() => {
     const normalizedPath = normalizePublicPath(window.location.pathname);
+    if (window.location.pathname !== normalizedPath) {
+      window.history.replaceState({}, '', normalizedPath);
+    }
     setCurrentPath(normalizedPath);
 
     const handlePopState = () => {
-      setCurrentPath(normalizePublicPath(window.location.pathname));
+      const nextPath = normalizePublicPath(window.location.pathname);
+      if (window.location.pathname !== nextPath) {
+        window.history.replaceState({}, '', nextPath);
+      }
+      setCurrentPath(nextPath);
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -508,6 +510,15 @@ function PublicApp({ onLoginSuccess }) {
     }
     setCurrentPath(normalizedPath);
   };
+
+  if (currentPath === '/') {
+    return (
+      <PublicLanding
+        onLogin={() => navigatePublic('/login')}
+        onRegister={() => navigatePublic('/register')}
+      />
+    );
+  }
 
   if (currentPath === '/login') {
     return (
@@ -555,11 +566,18 @@ function PublicApp({ onLoginSuccess }) {
 
 export default function App() {
   const { user, login, logout, loading, isPasswordRecovery } = useAuth();
-  const [postLoginTarget, setPostLoginTarget] = useState(null);
   const isResetPasswordRoute = window.location.pathname === '/reset-password';
   const handleLoginSuccess = (nextUser) => {
-    setPostLoginTarget('panel');
     login(nextUser);
+  };
+  const handleLogout = async () => {
+    if (window.location.pathname !== '/') {
+      window.history.replaceState({}, '', '/');
+    }
+    await logout();
+    if (window.location.pathname !== '/') {
+      window.history.replaceState({}, '', '/');
+    }
   };
 
   if (loading) {
@@ -581,9 +599,7 @@ export default function App() {
         : (
           <MainApp
             user={user}
-            onLogout={logout}
-            postLoginTarget={postLoginTarget}
-            onPostLoginTargetConsumed={() => setPostLoginTarget(null)}
+            onLogout={handleLogout}
           />
         )}
     </ThemeProvider>

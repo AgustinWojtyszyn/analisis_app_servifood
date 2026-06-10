@@ -1,0 +1,1383 @@
+AUDITORIA COMPLETA DEL MODULO "DOCUMENTOS SGC"
+================================================
+
+Fecha de auditoria: 2026-06-09
+Repositorio auditado: /home/aggustin/.vscode/analisis_app_servifood
+
+
+1. RESUMEN EJECUTIVO
+--------------------
+
+El modulo "Documentos SGC" es una biblioteca documental interna para gestionar documentos del Sistema de Gestion de Calidad / Inocuidad.
+
+Internamente mantiene nombres historicos de "nutrition-modules", pero funcionalmente corresponde a "Documentos SGC".
+
+El modulo actualmente permite:
+
+- Navegar una biblioteca jerarquica por carpetas y subcarpetas.
+- Buscar carpetas y documentos.
+- Filtrar documentos por apartado: Todos, Estrategias, Procedimientos, Registros.
+- Crear carpetas.
+- Renombrar carpetas.
+- Mover carpetas.
+- Archivar carpetas vacias.
+- Crear documentos manualmente.
+- Editar documentos.
+- Mover documentos entre carpetas.
+- Eliminar documentos.
+- Adjuntar multiples archivos a documentos.
+- Ver adjuntos.
+- Descargar adjuntos.
+- Eliminar adjuntos.
+- Descargar el contenido de un documento como .txt.
+- Exportar un documento a Excel.
+- Importar una biblioteca documental completa desde un ZIP.
+- Procesar notificaciones internas por email cuando se crean documentos.
+
+El acceso esta dividido por rol:
+
+- Admin: gestion completa.
+- Nutricionista: lectura, navegacion y descarga.
+- Otros roles: sin acceso funcional al modulo.
+
+
+2. ARQUITECTURA GENERAL
+-----------------------
+
+Frontend:
+
+- React + Vite.
+- Material UI para componentes visuales.
+- Pantalla principal:
+  frontend/src/components/NutritionModulesPage.jsx
+- Formulario de documento:
+  frontend/src/components/NutritionModuleForm.jsx
+- Servicio HTTP:
+  frontend/src/services/nutritionModulesService.js
+
+Backend:
+
+- Node.js + Express.
+- Rutas del modulo:
+  backend/src/routes/nutritionModules.js
+- Helpers compartidos:
+  backend/src/routes/nutritionModules/helpers.js
+- Controladores:
+  backend/src/controllers/sgcDocuments/documentsController.js
+  backend/src/controllers/sgcDocuments/foldersController.js
+  backend/src/controllers/sgcDocuments/attachmentsController.js
+  backend/src/controllers/sgcDocuments/zipImportController.js
+  backend/src/controllers/sgcDocuments/notificationsController.js
+  backend/src/controllers/sgcDocuments/context.js
+
+Base de datos y storage:
+
+- Supabase Postgres para tablas.
+- Supabase Storage para archivos adjuntos.
+- Bucket usado:
+  nutrition-modules
+- Cliente backend:
+  se usa SUPABASE_SERVICE_ROLE_KEY desde backend.
+- El service role no se expone en frontend.
+
+
+3. TABLAS PRINCIPALES
+---------------------
+
+3.1. nutrition_modules
+
+Es la tabla principal de documentos SGC.
+
+Campos relevantes usados por el backend:
+
+- id
+- title
+- description
+- content
+- status
+- module_type
+- folder_id
+- created_by
+- created_at
+- updated_at
+- published_at
+
+Observaciones:
+
+- El nombre tecnico es "nutrition_modules", aunque representa documentos SGC.
+- status se fuerza a "aprobado" en creacion y edicion.
+- module_type solo admite:
+  procedimiento
+  registro
+  estrategias
+- folder_id es nullable.
+- Los documentos antiguos sin folder_id siguen existiendo y aparecen en raiz / sin carpeta.
+
+3.2. sgc_document_folders
+
+Tabla de carpetas jerarquicas del modulo.
+
+Campos:
+
+- id
+- name
+- parent_id
+- description
+- status
+- created_by
+- created_at
+- updated_at
+
+Reglas:
+
+- parent_id nullable indica carpeta raiz.
+- parent_id apunta a otra carpeta.
+- status puede ser:
+  activo
+  archivado
+- No se permite parent_id igual al propio id.
+- Hay trigger para evitar ciclos.
+- Hay trigger para impedir archivar carpetas con subcarpetas activas o documentos.
+
+3.3. nutrition_module_files
+
+Tabla de adjuntos de documentos.
+
+Campos:
+
+- id
+- module_id
+- file_name
+- file_path
+- file_type
+- file_size
+- uploaded_by
+- created_at
+
+Reglas:
+
+- module_id referencia nutrition_modules.
+- file_path apunta al archivo en Supabase Storage.
+- Los adjuntos se descargan desde backend, no directamente desde frontend.
+
+3.4. document_email_notifications
+
+Tabla de cola de notificaciones por email.
+
+Uso:
+
+- Al crear documentos manualmente se encola una notificacion.
+- Un worker interno procesa notificaciones pendientes.
+- La importacion ZIP crea documentos directamente en DB; por el codigo actual puede disparar triggers de DB si estan activos, pero no llama manualmente al worker post-create por cada archivo importado.
+
+
+4. MIGRACION SQL DE CARPETAS
+----------------------------
+
+Archivo:
+
+backend/sql/20260609_sgc_document_folders.sql
+
+Incluye:
+
+- Creacion de tabla sgc_document_folders.
+- Agregado de folder_id nullable en nutrition_modules.
+- Indices por parent_id, lower(name), status y folder_id.
+- Indice unico parcial para evitar dos carpetas activas con mismo nombre normalizado bajo el mismo padre.
+- Trigger de updated_at para carpetas.
+- Trigger prevent_sgc_folder_cycles para evitar ciclos al mover carpetas.
+- Trigger prevent_archiving_non_empty_sgc_folder para evitar archivar carpetas con contenido.
+- RLS para sgc_document_folders.
+- RLS para nutrition_modules.
+- Seed idempotente de estructura documental inicial.
+
+Seed actual:
+
+- Usa rutas jerarquicas en jsonb.
+- Busca un usuario admin activo para created_by.
+- Si no hay admin, usa cualquier perfil activo.
+- Si no hay perfiles activos, omite el seed y emite NOTICE.
+- Crea carpetas solo si no existe una carpeta activa con mismo nombre bajo el mismo padre.
+- Incluye 20 carpetas raiz.
+- Incluye 90 carpetas totales en el arbol semilla actual.
+
+
+5. ROLES Y PERMISOS
+-------------------
+
+5.1. Fuente de verdad de rol
+
+El backend resuelve el rol con resolveUserRole:
+
+- Lee profiles.role y profiles.is_active desde Supabase.
+- Si is_active es false, rechaza como "Usuario inactivo".
+- Normaliza el rol a lowercase.
+
+5.2. Roles admitidos
+
+canManageByRole:
+
+- Solo admin.
+
+canViewByRole:
+
+- admin
+- nutricionista
+
+5.3. Permisos efectivos
+
+Admin puede:
+
+- Ver carpetas.
+- Crear carpetas.
+- Renombrar carpetas.
+- Mover carpetas.
+- Archivar carpetas vacias.
+- Ver documentos.
+- Crear documentos.
+- Editar documentos.
+- Mover documentos.
+- Eliminar documentos.
+- Exportar a Excel.
+- Descargar documento .txt.
+- Ver adjuntos.
+- Subir adjuntos.
+- Descargar adjuntos.
+- Borrar adjuntos.
+- Analizar ZIP.
+- Confirmar importacion ZIP.
+
+Nutricionista puede:
+
+- Ver carpetas.
+- Navegar carpetas.
+- Ver documentos aprobados.
+- Descargar documentos.
+- Ver adjuntos.
+- Descargar adjuntos.
+
+Nutricionista no puede:
+
+- Crear carpetas.
+- Editar carpetas.
+- Archivar carpetas.
+- Crear documentos.
+- Editar documentos.
+- Mover documentos.
+- Eliminar documentos.
+- Subir adjuntos.
+- Borrar adjuntos.
+- Importar ZIP.
+
+Otros roles:
+
+- No tienen acceso al modulo por backend.
+
+
+6. ENDPOINTS DEL MODULO
+-----------------------
+
+Todos los endpoints de usuario usan authenticateToken, salvo el endpoint interno de notificaciones.
+
+6.1. Documentos
+
+GET /api/nutrition-modules
+
+- Lista documentos.
+- Admin ve todos.
+- No admin con permiso ve solo status = aprobado.
+- Agrega filesCount contando adjuntos por documento.
+
+GET /api/nutrition-modules/:id
+
+- Obtiene un documento por id.
+- Nutricionista solo puede ver si status = aprobado.
+
+POST /api/nutrition-modules
+
+- Crea documento.
+- Solo admin.
+- Campos requeridos:
+  title
+  moduleType / module_type
+- Campos opcionales:
+  description
+  content
+  folderId / folder_id
+- status siempre queda "aprobado".
+- published_at se setea en creacion.
+- Valida que folder_id exista y no este archivado.
+- Encola notificacion y dispara worker post-create en segundo plano.
+
+PUT /api/nutrition-modules/:id
+
+- Edita documento.
+- Solo admin.
+- Requiere title y moduleType.
+- Puede actualizar folder_id si se envia.
+- Mantiene published_at si ya existia.
+- Fuerza status = aprobado.
+
+PUT /api/nutrition-modules/:id/move
+
+- Mueve documento a otra carpeta o a raiz.
+- Solo admin.
+- Valida que la carpeta destino exista y este activa.
+- Si folderId es null, mueve a raiz.
+
+DELETE /api/nutrition-modules/:id
+
+- Elimina documento.
+- Solo admin.
+- Hace delete fisico en nutrition_modules.
+- La tabla de archivos tiene referencia a modulo; segun migracion original nutrition_module_files usa on delete cascade.
+- No elimina manualmente archivos de Storage en este controlador.
+
+GET /api/nutrition-modules/:id/export/excel
+
+- Exporta un documento a Excel.
+- Admin y nutricionista.
+- Nutricionista solo si el documento esta aprobado.
+- Genera un XLSX con:
+  Titulo
+  Descripcion
+  Contenido
+  Fecha de creacion
+  Fecha de actualizacion
+  Fecha de aprobacion
+
+GET /api/nutrition-modules/:id/download
+
+- Descarga el contenido del documento como .txt.
+- Admin y nutricionista.
+- Nutricionista solo si aprobado.
+- El archivo incluye:
+  Titulo
+  Apartado
+  Descripcion
+  Aprobado
+  Contenido
+
+6.2. Carpetas
+
+GET /api/nutrition-modules/folders
+
+- Lista carpetas.
+- Admin y nutricionista.
+- Por defecto excluye status archivado.
+- Si query includeArchived=true, incluye archivadas.
+
+POST /api/nutrition-modules/folders
+
+- Crea carpeta.
+- Solo admin.
+- Requiere name.
+- parentId es opcional.
+- Si parentId existe, valida que la carpeta destino exista y este activa.
+
+PUT /api/nutrition-modules/folders/:id
+
+- Edita carpeta.
+- Solo admin.
+- Permite cambiar:
+  name
+  description
+  parentId
+  status
+- Valida que name no este vacio.
+- Valida status activo/archivado.
+- Si se archiva, primero valida que la carpeta este vacia.
+- Si se mueve, evita ciclos:
+  no mover dentro de si misma
+  no mover dentro de una descendiente
+
+DELETE /api/nutrition-modules/folders/:id
+
+- Archiva carpeta.
+- Solo admin.
+- No elimina fisicamente.
+- Antes de archivar valida:
+  sin subcarpetas activas
+  sin documentos
+
+6.3. Adjuntos
+
+GET /api/nutrition-modules/:id/files
+
+- Lista adjuntos de un documento.
+- Admin y nutricionista si tienen acceso al documento.
+- Devuelve:
+  id
+  moduleId
+  fileName
+  filePath
+  fileType
+  fileSize
+  uploadedBy
+  createdAt
+
+POST /api/nutrition-modules/:id/files
+
+- Sube adjuntos manuales.
+- Solo admin.
+- Usa multer en memoria.
+- Permite hasta 10 archivos por request.
+- Limite por archivo: 25 MB.
+- Valida extensiones y MIME type.
+- Valida duplicados dentro del mismo lote por nombre + tamaño.
+- Valida duplicados contra adjuntos existentes del mismo documento por nombre + tamaño.
+- Crea bucket si no existe.
+- Sube cada archivo a Supabase Storage.
+- Crea metadata en nutrition_module_files.
+- Si falla guardar metadata, borra el archivo recien subido en Storage.
+
+DELETE /api/nutrition-modules/files/:fileId
+
+- Borra un adjunto.
+- Solo admin.
+- Busca metadata.
+- Borra archivo en Storage.
+- Luego borra metadata en DB.
+
+GET /api/nutrition-modules/files/:fileId/download
+
+- Descarga adjunto.
+- Admin y nutricionista si tienen acceso al documento asociado.
+- Descarga desde Supabase Storage.
+- Devuelve Content-Type del file_type guardado.
+- Devuelve Content-Disposition attachment.
+
+6.4. Importacion ZIP
+
+POST /api/nutrition-modules/import/zip/analyze
+
+- Analiza ZIP.
+- Solo admin.
+- Recibe un unico archivo field "zip".
+- Limite de ZIP comprimido: 100 MB.
+- No escribe en DB ni Storage.
+- Guarda temporalmente el ZIP y un manifest con token.
+- Devuelve token y vista previa.
+
+POST /api/nutrition-modules/import/zip/confirm
+
+- Confirma importacion ZIP.
+- Solo admin.
+- Recibe token de analisis.
+- Valida que el token exista, no haya expirado y pertenezca al mismo usuario.
+- Reanaliza el ZIP antes de importar.
+- Crea carpetas faltantes.
+- Crea documentos.
+- Sube adjuntos.
+- Limpia temporales al finalizar.
+
+6.5. Notificaciones
+
+POST /api/internal/nutrition-modules/process-notifications
+
+- Endpoint interno.
+- No usa authenticateToken normal.
+- Usa isWorkerAuthorized.
+- Procesa cola document_email_notifications.
+- batchSize minimo 1, maximo 100.
+
+
+7. OPCIONES Y FLUJO DE LA INTERFAZ
+----------------------------------
+
+Pantalla principal:
+
+- Titulo: Documentos SGC.
+- Subtitulo segun rol:
+  Admin: "Gestioná carpetas, documentos y adjuntos del SGC."
+  No admin: "Consultá documentos y adjuntos autorizados del SGC."
+
+Acciones visibles para admin:
+
+- Importar ZIP.
+- Nueva carpeta.
+- Crear documento.
+
+Acciones visibles para nutricionista:
+
+- No ve botones de gestion.
+- Puede navegar y descargar.
+
+7.1. Busqueda
+
+Campo:
+
+- "Buscar carpeta o documento..."
+
+Comportamiento:
+
+- Normaliza texto a lowercase.
+- Quita acentos para comparar.
+- Si hay busqueda activa, busca globalmente en todas las carpetas y documentos.
+- Si no hay busqueda, muestra solo el nivel actual.
+
+7.2. Filtros por apartado
+
+Opciones:
+
+- Todos.
+- Estrategias.
+- Procedimientos.
+- Registros.
+
+Comportamiento:
+
+- Filtra documentos por moduleType.
+- Las carpetas no se filtran por apartado.
+
+7.3. Breadcrumbs
+
+Muestra:
+
+- Documentos SGC
+- Cada carpeta de la ruta actual.
+
+Cada segmento es clickeable.
+
+Boton Volver:
+
+- Si esta en raiz, queda deshabilitado.
+- Si esta dentro de una carpeta, vuelve al padre.
+
+7.4. Listado tipo explorador
+
+Muestra dos tipos de filas:
+
+- Carpeta: icono de carpeta.
+- Documento: icono de articulo.
+
+Fila de carpeta:
+
+- Nombre.
+- Descripcion o fecha de actualizacion.
+- Click abre la carpeta.
+- Admin ve acciones:
+  renombrar/mover
+  archivar carpeta vacia
+
+Fila de documento:
+
+- Titulo.
+- Descripcion.
+- Cantidad de adjuntos.
+- Fecha de actualizacion.
+- Click abre dialogo de adjuntos.
+- Acciones:
+  exportar Excel
+  descargar documento
+  ver adjuntos
+  editar documento (admin)
+  mover documento (admin)
+  borrar documento (admin)
+
+Estado vacio:
+
+- Si no hay busqueda:
+  "Esta carpeta todavía no contiene elementos."
+- Si hay busqueda:
+  "No se encontraron carpetas ni documentos."
+
+
+8. FLUJO DE CARPETAS EN FRONTEND
+--------------------------------
+
+8.1. Crear carpeta
+
+Boton:
+
+- Nueva carpeta.
+
+Modal:
+
+- Nombre.
+- Descripcion.
+- Ubicacion:
+  Raiz
+  cualquier carpeta existente permitida
+
+Al guardar:
+
+- Llama createNutritionModuleFolder.
+- Refresca biblioteca.
+- Muestra mensaje de exito o error.
+
+8.2. Editar / mover carpeta
+
+Accion:
+
+- Icono editar en fila de carpeta.
+
+Modal:
+
+- Mismo que crear carpeta.
+- Precarga datos.
+- Bloquea como destinos la propia carpeta y sus descendientes en frontend.
+
+Backend:
+
+- Vuelve a validar ciclos.
+
+8.3. Archivar carpeta
+
+Accion:
+
+- Icono eliminar/archivar.
+
+Confirmacion:
+
+- "¿Seguro que querés archivar esta carpeta? Solo se permite si no contiene documentos ni subcarpetas activas."
+
+Backend:
+
+- Valida carpeta vacia.
+- Cambia status a archivado.
+- No elimina fisicamente.
+
+
+9. FLUJO DE DOCUMENTOS MANUALES
+-------------------------------
+
+9.1. Crear documento
+
+Boton:
+
+- Crear documento.
+
+Modal:
+
+- Titulo obligatorio.
+- Descripcion.
+- Contenido.
+- Apartado obligatorio:
+  Procedimiento
+  Registro
+  Estrategias
+- Adjuntar archivos.
+
+Ubicacion:
+
+- Se crea en la carpeta actual.
+- Si se esta en raiz, folderId queda null.
+
+Validacion frontend:
+
+- Titulo obligatorio.
+- Apartado obligatorio.
+- Archivos:
+  nombre no vacio
+  extension presente
+  no empieza con ~$
+  no .tmp
+  extension admitida
+  menor o igual a 25 MB
+  sin duplicados en la misma seleccion por nombre + tamaño
+
+Proceso:
+
+1. POST /nutrition-modules crea documento.
+2. Si habia archivos seleccionados, POST /nutrition-modules/:id/files los sube.
+3. Refresca biblioteca.
+
+9.2. Editar documento
+
+Accion:
+
+- Icono editar.
+
+Modal:
+
+- Precarga titulo, descripcion, contenido y apartado.
+- Carga adjuntos existentes para mostrarlos.
+- Permite agregar nuevos adjuntos.
+- Permite descargar o borrar adjuntos existentes.
+
+Proceso:
+
+1. PUT /nutrition-modules/:id actualiza documento.
+2. Si hay nuevos archivos, POST /nutrition-modules/:id/files.
+3. Refresca biblioteca.
+
+9.3. Mover documento
+
+Accion:
+
+- Icono mover.
+
+Modal:
+
+- Selector de nueva ubicacion:
+  Raiz / Sin carpeta
+  carpetas existentes
+
+Proceso:
+
+- PUT /nutrition-modules/:id/move con folderId o null.
+
+9.4. Eliminar documento
+
+Accion:
+
+- Icono borrar.
+
+Confirmacion:
+
+- "¿Seguro que querés borrar este documento? Esta acción no se puede deshacer."
+
+Proceso:
+
+- DELETE /nutrition-modules/:id.
+
+Nota tecnica:
+
+- El controlador elimina el documento de DB.
+- No hace borrado manual de archivos en Storage.
+- La metadata puede eliminarse por cascade en DB si la FK esta con on delete cascade.
+- El archivo fisico en Storage podria quedar si no hay limpieza externa.
+
+
+10. FLUJO DE ADJUNTOS
+---------------------
+
+10.1. Ver adjuntos
+
+Accion:
+
+- Ver adjuntos.
+- Click en fila de documento tambien abre adjuntos.
+
+Modal:
+
+- Titulo: "Archivos adjuntos: <documento>"
+- Lista:
+  nombre
+  MIME/type
+  tamaño
+  fecha
+- Si no hay:
+  "Este documento no tiene archivos adjuntos."
+
+Acciones:
+
+- Descargar.
+- Borrar (solo admin).
+- Subir archivos (solo admin).
+
+10.2. Subir adjuntos desde modal
+
+Frontend:
+
+- Valida extensiones.
+- Valida tamaño.
+- Valida temporales y duplicados en seleccion.
+
+Backend:
+
+- Repite validaciones.
+- Verifica admin.
+- Verifica acceso al documento.
+- Verifica duplicados contra existentes.
+- Sube a bucket nutrition-modules.
+
+10.3. Descargar adjunto
+
+Frontend:
+
+- Llama downloadNutritionModuleFile.
+- Crea Blob y descarga con nombre de Content-Disposition.
+
+Backend:
+
+- Verifica rol.
+- Busca fileRow.
+- Verifica acceso al documento.
+- Descarga desde Storage.
+- Devuelve attachment.
+
+10.4. Borrar adjunto
+
+Frontend:
+
+- Pide confirmacion.
+
+Backend:
+
+- Solo admin.
+- Borra primero Storage.
+- Borra despues metadata.
+
+
+11. EXTENSIONES Y LIMITES DE ARCHIVOS
+-------------------------------------
+
+Extensiones admitidas para adjuntos manuales y ZIP:
+
+- .pdf
+- .xls
+- .xlsx
+- .csv
+- .doc
+- .docx
+- .ppt
+- .pptx
+- .msg
+- .jpg
+- .jpeg
+- .png
+- .webp
+- .txt
+
+MIME types admitidos en carga manual:
+
+- application/pdf
+- application/vnd.ms-excel
+- application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+- text/csv
+- application/msword
+- application/vnd.openxmlformats-officedocument.wordprocessingml.document
+- application/vnd.ms-powerpoint
+- application/vnd.openxmlformats-officedocument.presentationml.presentation
+- application/vnd.ms-outlook
+- application/octet-stream
+- image/jpeg
+- image/png
+- image/webp
+- text/plain
+
+Limite por adjunto:
+
+- 25 MB.
+
+Cantidad por request manual:
+
+- 10 archivos.
+
+Validaciones de seguridad de adjuntos:
+
+- Nombre no vacio.
+- Extension admitida.
+- MIME admitido.
+- No temporales de Office que empiezan con ~$.
+- No .tmp.
+- No superar 25 MB.
+- No duplicados dentro del mismo lote por nombre + tamaño.
+- No duplicados ya existentes en el mismo documento por nombre + tamaño.
+
+
+12. FLUJO DE IMPORTACION ZIP
+----------------------------
+
+12.1. Boton y modal
+
+Boton:
+
+- Importar ZIP.
+- Solo visible para admin.
+
+Modal:
+
+- Selector de archivo .zip.
+- Texto informativo:
+  se conservara la estructura interna.
+  si contiene carpeta envolvente DOCUMENTOS-SERVIFOOD, se importara su contenido.
+- Advertencia:
+  se ignoran temporales, ocultos, vacios, rutas sospechosas, ZIPs internos y extensiones no admitidas.
+- Muestra tamaño maximo:
+  100 MB.
+- Boton Analizar ZIP.
+- Vista previa.
+- Boton Importar.
+- Resultado final.
+- Descargar reporte.
+
+12.2. Analisis previo
+
+Endpoint:
+
+- POST /api/nutrition-modules/import/zip/analyze
+
+No escribe en DB ni Storage.
+
+Proceso:
+
+1. Valida token y rol admin.
+2. Recibe ZIP con multer en disco temporal.
+3. Rechaza si no es .zip.
+4. Abre ZIP con yauzl usando lazyEntries.
+5. Recorre entradas.
+6. Valida limites.
+7. Normaliza separadores \ a /.
+8. Rechaza rutas sospechosas.
+9. Omite entradas de sistema.
+10. Detecta carpeta envolvente DOCUMENTOS-SERVIFOOD y la quita.
+11. Clasifica carpetas y archivos.
+12. Valida archivos.
+13. Calcula carpetas nuevas/existentes.
+14. Calcula documentos importables.
+15. Detecta duplicados.
+16. Guarda manifest temporal con token.
+17. Devuelve resumen.
+
+Resumen devuelto:
+
+- foldersNew
+- foldersExisting
+- documentsNew
+- filesSkipped
+- duplicates
+- invalidFiles
+- totalUncompressedBytes
+- warnings
+- limits
+- files importables
+- folderPaths
+- token
+- fileName
+
+12.3. Validaciones de ZIP
+
+Limites:
+
+- ZIP comprimido: 100 MB.
+- Total descomprimido: 500 MB.
+- Archivo individual: 25 MB.
+- Entradas maximas: 2500.
+- Profundidad maxima: 25 segmentos.
+- Token temporal: 60 minutos.
+
+Entradas rechazadas u omitidas:
+
+- Rutas vacias.
+- Rutas absolutas.
+- Rutas tipo C:/.
+- Rutas con ../.
+- __MACOSX.
+- .DS_Store.
+- Entradas que empiezan con ._.
+- Archivos que empiezan con ~$.
+- Archivos .tmp.
+- Archivos .zip internos.
+- Archivos sin extension permitida.
+- Archivos vacios.
+- Archivos mayores a 25 MB.
+- Rutas con profundidad mayor a 25.
+- ZIP con mas de 2500 entradas.
+- ZIP con total descomprimido mayor a 500 MB.
+
+12.4. Confirmacion de importacion
+
+Endpoint:
+
+- POST /api/nutrition-modules/import/zip/confirm
+
+Proceso:
+
+1. Valida token y rol admin.
+2. Carga manifest temporal.
+3. Valida que el manifest sea del mismo usuario.
+4. Valida que no haya expirado.
+5. Reanaliza el ZIP antes de importar.
+6. Carga carpetas activas existentes.
+7. Carga claves de adjuntos existentes.
+8. Asegura bucket nutrition-modules.
+9. Recorre archivos importables.
+10. Para cada archivo:
+    - crea o reutiliza carpeta destino
+    - verifica duplicado en carpeta por nombre normalizado + tamaño
+    - crea documento
+    - lee archivo del ZIP
+    - calcula hash SHA-256 parcial para ruta segura
+    - sube archivo a Storage
+    - crea metadata en nutrition_module_files
+    - registra resultado
+11. Si falla un archivo:
+    - registra error
+    - borra Storage si ya habia subido
+    - borra documento si ya habia sido creado
+    - continua con el siguiente
+12. Al final borra ZIP temporal y manifest.
+
+12.5. Campos por defecto en documentos importados
+
+Cuando se importa un archivo desde ZIP:
+
+- title:
+  nombre del archivo sin extension.
+- description:
+  "Importado desde ZIP: <ruta interna>"
+- content:
+  string vacio.
+- status:
+  aprobado.
+- module_type:
+  registro.
+- folder_id:
+  id de la carpeta de la ruta.
+- created_by:
+  usuario admin que confirma.
+- published_at:
+  fecha actual.
+
+Razon de module_type = registro:
+
+- El esquema solo admite procedimiento, registro y estrategias.
+- Desde un archivo individual no se puede inferir con certeza el apartado documental.
+- "registro" es el valor conservador usado para no romper filtros ni constraints.
+
+12.6. Deteccion de duplicados en ZIP
+
+Dentro del ZIP:
+
+- Compara carpeta normalizada + nombre normalizado + tamaño.
+- Si coincide, omite como duplicado.
+
+Contra datos existentes:
+
+- Carga documentos y adjuntos existentes.
+- Calcula carpeta destino + nombre normalizado + tamaño.
+- Si ya existe, omite.
+
+Notas:
+
+- No sobrescribe archivos.
+- No reemplaza documentos existentes.
+- No borra documentos anteriores.
+- No guarda hash persistente en DB.
+- Usa hash SHA-256 solo para generar ruta de Storage mas unica.
+
+12.7. Reporte final
+
+El frontend muestra:
+
+- Importados.
+- Omitidos.
+- Duplicados.
+- Fallidos.
+- Detalle de filas.
+
+Permite descargar reporte .txt.
+
+Contenido del reporte:
+
+- Totales.
+- Detalle por archivo:
+  status
+  path
+  mensaje o documentId
+- Advertencias.
+
+
+13. STORAGE
+-----------
+
+Bucket:
+
+- nutrition-modules
+
+Creacion:
+
+- ensureStorageBucketExists lista buckets.
+- Si no existe, lo crea privado.
+
+Rutas manuales:
+
+- <documentId>/<Date.now()>-<safeName>
+
+Rutas ZIP:
+
+- <documentId>/<Date.now()>-<hash16>-<safeName>
+
+Sanitizacion:
+
+- Quita acentos.
+- Reemplaza caracteres no alfanumericos, guion bajo o guion por _.
+- Recorta base a 80 caracteres.
+- Mantiene extension.
+
+Descarga:
+
+- Siempre pasa por backend.
+- Backend usa file_path guardado.
+- Devuelve archivo como attachment.
+
+
+14. NOTIFICACIONES
+------------------
+
+Al crear documento manualmente:
+
+- createDocument inserta en nutrition_modules.
+- Trigger SQL de notificaciones puede encolar document_email_notifications.
+- El backend consulta la cola para validar.
+- Llama processPendingDocumentNotifications en segundo plano.
+
+Endpoint interno:
+
+- /api/internal/nutrition-modules/process-notifications
+
+Autorizacion:
+
+- isWorkerAuthorized.
+
+Riesgo/observacion:
+
+- La importacion ZIP inserta directamente documentos en nutrition_modules.
+- Si existe trigger DB de notificaciones, podria encolar notificaciones por cada documento importado.
+- El controlador ZIP no llama manualmente al worker por cada archivo.
+
+
+15. RLS Y SEGURIDAD EN BASE DE DATOS
+------------------------------------
+
+sgc_document_folders:
+
+- SELECT para admin y nutricionista activos.
+- INSERT solo admin activo, created_by = auth.uid().
+- UPDATE solo admin activo.
+- DELETE solo admin activo.
+
+nutrition_modules:
+
+- SELECT para admin y nutricionista activos, status = aprobado.
+- INSERT solo admin activo, created_by = auth.uid().
+- UPDATE solo admin activo.
+- DELETE solo admin activo.
+
+Observacion importante:
+
+- El backend usa service role, por lo que las validaciones de permisos reales para API estan implementadas en controladores.
+- RLS protege accesos directos desde clientes autenticados si se usara Supabase client con usuario.
+
+
+16. COMPATIBILIDAD CON DOCUMENTOS EXISTENTES
+--------------------------------------------
+
+- folder_id es nullable.
+- Documentos antiguos sin folder_id se muestran en raiz cuando no hay busqueda.
+- La busqueda global los sigue encontrando.
+- Los filtros por apartado siguen usando moduleType.
+- Descarga, Excel y adjuntos siguen usando id de documento, no dependen de carpeta.
+
+
+17. ERRORES Y ESTADOS VISIBLES
+------------------------------
+
+Frontend usa:
+
+- Alert severity error para errores.
+- Alert severity success para exito.
+- CircularProgress para carga general.
+- CircularProgress para analizar/importar ZIP.
+- Textos "Guardando...", "Subiendo...", "Analizando ZIP...", "Importando documentos...".
+
+Errores tipicos mostrados:
+
+- No se pudo cargar biblioteca documental.
+- No se pudo guardar documento.
+- No se pudo guardar carpeta.
+- No se pudo archivar carpeta.
+- No se pudo mover documento.
+- No se pudo descargar documento.
+- No se pudo eliminar documento.
+- No se pudieron cargar adjuntos.
+- No se pudo borrar adjunto.
+- No se pudo descargar adjunto.
+- No se pudo analizar ZIP.
+- No se pudo importar ZIP.
+
+
+18. LIMITES CONFIGURADOS
+------------------------
+
+Adjuntos manuales:
+
+- 25 MB por archivo.
+- 10 archivos por request.
+
+ZIP:
+
+- 100 MB comprimido.
+- 500 MB total descomprimido.
+- 2500 entradas maximo.
+- 25 niveles de profundidad.
+- 25 MB por archivo interno.
+- 60 minutos de vigencia de token de analisis.
+
+JSON/body general del backend:
+
+- Express JSON limit 1 MB.
+- Express urlencoded limit 1 MB.
+
+
+19. DEPENDENCIAS RELACIONADAS
+-----------------------------
+
+Backend:
+
+- multer:
+  carga manual de adjuntos y carga temporal de ZIP.
+- yauzl:
+  lectura segura/lazy de ZIP.
+- exceljs:
+  exportacion de documento a Excel.
+- @supabase/supabase-js:
+  DB y Storage.
+
+
+20. FLUJO COMPLETO: NAVEGACION Y CONSULTA
+-----------------------------------------
+
+1. Usuario entra a Documentos SGC.
+2. Frontend llama:
+   GET /nutrition-modules
+   GET /nutrition-modules/folders
+3. Backend valida token y rol.
+4. Backend devuelve documentos y carpetas permitidos.
+5. Frontend arma:
+   - mapa de carpetas
+   - breadcrumbs
+   - nivel actual
+   - lista de carpetas
+   - lista de documentos
+6. Usuario navega:
+   - click en carpeta cambia currentFolderId.
+   - breadcrumb cambia currentFolderId.
+   - volver usa parentId.
+7. Si busca:
+   - busqueda pasa a ser global.
+8. Si filtra:
+   - solo filtra documentos por moduleType.
+
+
+21. FLUJO COMPLETO: CREACION MANUAL CON ADJUNTOS
+------------------------------------------------
+
+1. Admin presiona Crear documento.
+2. Completa titulo, descripcion, contenido y apartado.
+3. Puede adjuntar archivos.
+4. Frontend valida archivos seleccionados.
+5. POST /nutrition-modules crea documento.
+6. Backend valida admin, title, moduleType y folderId.
+7. Inserta documento aprobado.
+8. Se encola/procesa notificacion.
+9. Si habia archivos:
+   POST /nutrition-modules/:id/files
+10. Backend valida admin, acceso al documento y archivos.
+11. Sube archivos a Storage.
+12. Inserta metadata.
+13. Frontend cierra modal, limpia estado y recarga biblioteca.
+
+
+22. FLUJO COMPLETO: IMPORTACION ZIP
+-----------------------------------
+
+1. Admin presiona Importar ZIP.
+2. Selecciona un .zip.
+3. Frontend valida extension y tamaño comprimido maximo.
+4. Admin presiona Analizar ZIP.
+5. Frontend envia ZIP a /import/zip/analyze.
+6. Backend valida admin.
+7. Backend analiza sin escribir datos finales.
+8. Backend devuelve resumen y token.
+9. Frontend muestra vista previa.
+10. Admin presiona Importar.
+11. Frontend envia token a /import/zip/confirm.
+12. Backend valida token, usuario y expiracion.
+13. Backend reanaliza el ZIP.
+14. Backend crea/reutiliza carpetas.
+15. Backend crea un documento por archivo valido.
+16. Backend sube cada archivo como adjunto.
+17. Backend registra importados, duplicados, fallidos y omitidos.
+18. Backend limpia temporales.
+19. Frontend muestra resultado final.
+20. Admin puede descargar reporte .txt.
+
+
+23. RIESGOS Y OBSERVACIONES
+---------------------------
+
+1. Eliminacion de documentos:
+
+El controlador borra el documento de DB, pero no borra explicitamente los archivos fisicos de Storage asociados. Si la DB borra metadata por cascade, los objetos del bucket pueden quedar huerfanos.
+
+2. Importacion ZIP y timeouts:
+
+El procesamiento ZIP ocurre dentro de una request HTTP. Para ZIPs muy grandes o muchos archivos, podria chocar con timeouts de Render/proxy. Los limites actuales reducen el riesgo, pero una importacion real grande podria requerir worker en segundo plano.
+
+3. MIME application/octet-stream:
+
+Se admite para adjuntos porque algunos navegadores/SO reportan archivos Office o .msg como octet-stream. La extension sigue siendo validada.
+
+4. Duplicados:
+
+La deduplicacion persistente se basa en carpeta + nombre normalizado + tamaño. No usa hash persistente porque la tabla no tiene campo hash.
+
+5. Notificaciones masivas:
+
+Si hay triggers DB para document_email_notifications sobre nutrition_modules, una importacion masiva podria generar muchas notificaciones.
+
+6. Descripciones de importacion:
+
+Los documentos importados usan descripcion tecnica "Importado desde ZIP: ruta". No se infiere metadata documental.
+
+7. Apartado de importacion:
+
+Los documentos importados quedan como module_type = registro. Es conservador, pero puede requerir reclasificacion manual si el negocio necesita diferenciar procedimientos/estrategias.
+
+
+24. ARCHIVOS AUDITADOS
+----------------------
+
+Backend:
+
+- backend/src/routes/nutritionModules.js
+- backend/src/routes/nutritionModules/helpers.js
+- backend/src/controllers/sgcDocuments/context.js
+- backend/src/controllers/sgcDocuments/documentsController.js
+- backend/src/controllers/sgcDocuments/foldersController.js
+- backend/src/controllers/sgcDocuments/attachmentsController.js
+- backend/src/controllers/sgcDocuments/zipImportController.js
+- backend/src/controllers/sgcDocuments/notificationsController.js
+- backend/sql/20260609_sgc_document_folders.sql
+
+Frontend:
+
+- frontend/src/components/NutritionModulesPage.jsx
+- frontend/src/components/NutritionModuleForm.jsx
+- frontend/src/services/nutritionModulesService.js
+
+
+25. CONCLUSION
+--------------
+
+El modulo Documentos SGC ya funciona como biblioteca documental jerarquica con carpetas, subcarpetas, documentos, adjuntos, descargas, exportacion Excel e importacion ZIP.
+
+La seguridad principal esta en backend:
+
+- validacion de token;
+- resolucion de rol desde profiles;
+- admin requerido para escritura;
+- nutricionista limitado a lectura y descarga;
+- validaciones de carpeta, archivo y ZIP;
+- service role solo en backend.
+
+La interfaz esta orientada a un explorador simple:
+
+- breadcrumbs;
+- boton volver;
+- busqueda global;
+- filtros por apartado;
+- acciones por iconos;
+- modales para crear/editar/mover/importar;
+- estados de carga, error y exito.
+
+Las areas a vigilar antes de uso masivo son:
+
+- limpieza de objetos Storage al borrar documentos;
+- posible volumen de notificaciones al importar cientos de archivos;
+- timeouts si el ZIP real es muy pesado;
+- reclasificacion posterior de documentos importados, ya que se crean como "registro".

@@ -1,0 +1,709 @@
+AUDITORIA_LANDING_PAGES_Y_REDIRECCIONES
+Fecha de auditoria: 2026-06-10
+Alcance: frontend, backend, rutas, autenticacion, perfiles Supabase, roles y redirecciones.
+Restricciones cumplidas: no se modificaron archivos existentes, no se implementaron cambios, no se generaron migraciones, no se alteraron rutas/permisos/componentes.
+
+RESUMEN EJECUTIVO
+
+La aplicacion no tiene hoy una landing publica institucional activa. Existe un componente PublicLanding con contenido generico de "Analisis de Calidad", pero no esta importado ni renderizado por App.jsx. En la practica, la ruta "/" para usuarios no autenticados cae en PublicApp y termina mostrando LoginForm, no PublicLanding.
+
+La separacion entre "portal del colaborador" y "gestion interna" existe solo parcialmente despues de autenticar, dentro de MainApp, mediante allowedSections, sidebarSections y DynamicWelcomePortal. No hay un router declarativo ni guards de rutas dedicados. El frontend usa window.location.pathname, window.history.pushState y estado local para simular rutas.
+
+La redireccion post-login no distingue roles de forma explicita. App.jsx fija siempre postLoginTarget = "panel". Despues MainApp fuerza /inicio para cualquier usuario autenticado. La experiencia por rol aparece porque /inicio renderiza DynamicWelcomePortal y ese componente muestra una vista distinta segun role. Por lo tanto, todos los roles terminan tecnicamente en la misma ruta inicial: /inicio.
+
+La fuente de verdad mas fuerte del rol es public.profiles.role en Supabase, usada por useAuth, MainApp y los middlewares backend. Sin embargo, existen fallbacks a app_metadata.role y a "user"; ademas, el frontend usa "user" como rol base, mientras el requerimiento funcional menciona "usuario". En codigo real el rol comun es "user", no "usuario".
+
+El backend protege endpoints criticos con authenticateToken, requireAdmin y requireAdminOrNutritionist. Para Documentos SGC, la ruta solo declara authenticateToken, pero los controllers resuelven rol y aplican canViewByRole/canManageByRole. Por lo tanto, hay proteccion backend real, aunque distribuida.
+
+DIAGNOSTICO PRINCIPAL
+
+Por que se sigue viendo una unica entrada generica:
+
+1. PublicLanding existe pero no esta conectada.
+   - frontend/src/components/PublicLanding.jsx:32-244 define la landing generica.
+   - frontend/src/App.jsx no importa PublicLanding.
+   - frontend/src/App.jsx:547-553 devuelve LoginForm como fallback de PublicApp.
+
+2. "/" no renderiza landing institucional.
+   - frontend/src/App.jsx:50 incluye "/" como public path.
+   - frontend/src/App.jsx:484-553 define PublicApp.
+   - No hay branch para currentPath === "/".
+   - Resultado: "/" cae en el return final de PublicApp y muestra LoginForm.
+
+3. La separacion por rol ocurre dentro de /inicio, no como recorridos separados.
+   - frontend/src/App.jsx:560-563 setea postLoginTarget en "panel".
+   - frontend/src/App.jsx:257-260 fuerza navigateToSection("panel") por usuario autenticado.
+   - sectionPathMap.panel es "/inicio" en frontend/src/App.jsx:28-30.
+   - frontend/src/App.jsx:406-413 renderiza DynamicWelcomePortal para currentSection "panel".
+   - frontend/src/components/DynamicWelcomePortal.jsx:148-157 bifurca UI segun role.
+
+4. No existe una funcion central reutilizable para decidir landing post-login por rol.
+   - Hay normalizeRole en App.jsx:76-78.
+   - Hay resolveAuthRedirectUrl en frontend/src/lib/authRedirect.js:18-47, pero solo decide URL/origin de Supabase, no destino interno por rol.
+   - No existe getPostLoginRoute(role) ni equivalente.
+
+MAPA DE ARCHIVOS RELACIONADOS
+
+frontend/src/main.jsx
+- Lineas 1-10.
+- Responsabilidad: monta App en #root.
+- Activo: si.
+- Rol en flujo: punto de entrada SPA.
+
+frontend/index.html
+- Lineas 1-14.
+- Responsabilidad: documento HTML Vite, root de React.
+- Activo: si.
+
+frontend/vite.config.js
+- Lineas 4-15.
+- Responsabilidad: base "/", dev server puerto 3000 y proxy /api a backend 5000.
+- Activo: si.
+
+frontend/src/App.jsx
+- Lineas 28-43: sectionPathMap. Define rutas internas: /inicio, /cargar, /historial, /reglas, /graficos, /perfil, /tutorial, /admin-usuarios, /declaracion-salud, /politicas-seguridad, /mi-declaraciones, /admin-declaraciones-salud, /modulos-nutricionales, /certificaciones.
+- Lineas 45-50: aliases publicos y publicPaths.
+- Lineas 56-74: normalizacion de rutas y mapeo pathname -> seccion.
+- Lineas 76-78: normalizeRole.
+- Lineas 80-482: MainApp autenticada.
+- Lineas 88-94: effectiveRole, isAdmin, isNutritionist, canViewNutritionModules, canViewCertifications.
+- Lineas 101-135: menu condicional por rol.
+- Lineas 137-158: allowedSections por rol.
+- Lineas 176-212: carga de perfil desde Supabase profiles.
+- Lineas 214-233: guard frontend para no-admin y analisis.
+- Lineas 235-245: navigateToSection con pushState.
+- Lineas 247-260: consumo de postLoginTarget y redireccion inicial a panel.
+- Lineas 351-463: renderizado condicional de secciones.
+- Lineas 484-553: PublicApp para login/register/forgot/reset. No renderiza PublicLanding.
+- Lineas 556-591: App raiz, decide PublicApp vs MainApp.
+- Activo: si.
+- Observacion: concentra routing, guard visual, carga de perfil y redireccion. Es el archivo clave.
+
+frontend/src/components/PublicLanding.jsx
+- Lineas 9-30: featureItems orientados a analisis de Excel/calidad.
+- Lineas 32-244: componente PublicLanding con botones onLogin/onRegister.
+- Activo: aparentemente no usado. No hay import en App.jsx.
+- Rol en flujo: landing publica creada pero desconectada.
+- Estado: obsoleto o pendiente de conectar.
+
+frontend/src/components/LoginForm.jsx
+- Lineas 13-24: mapSupabaseUser usa app_metadata.role || "user"; no consulta profiles.
+- Lineas 89-119: registro Supabase, emailRedirectTo via resolveAuthRedirectUrl.
+- Lineas 121-140: login con signInWithPassword y onLoginSuccess.
+- Lineas 179-188: cambio login/register.
+- Lineas 220-356: UI de login/registro.
+- Activo: si.
+- Rol en flujo: pantalla publica real en "/" y "/login"; tambien "/register" con initialMode register.
+- Observacion: el rol que devuelve al instante puede ser "user" aunque profiles diga otra cosa; useAuth/MainApp corrigen luego.
+
+frontend/src/hooks/useAuth.js
+- Lineas 4-18: mapSupabaseUser con prioridad profile.role, luego appMetadata.role, luego "user".
+- Lineas 28-72: ensureProfileFromAuthUser consulta profiles; si no existe lo inserta con role "user"; si falta full_name lo actualiza.
+- Lineas 74-89: bootstrap con supabase.auth.getSession.
+- Lineas 93-108: onAuthStateChange, setea isPasswordRecovery, user y token en localStorage.
+- Lineas 120-125: logout con supabase.auth.signOut.
+- Activo: si.
+- Rol en flujo: fuente principal de sesion y usuario frontend.
+- Riesgo: si falla la consulta de profile, ensureProfileFromAuthUser devuelve null y mapSupabaseUser cae a app_metadata.role o "user".
+
+frontend/src/lib/authRedirect.js
+- Lineas 1-2: dominios hardcodeados.
+- Lineas 18-47: resolveAuthRedirectUrl decide origin para emails de Supabase.
+- Activo: si.
+- Rol en flujo: redireccion externa/email, no post-login interno.
+
+frontend/src/lib/supabaseClient.js
+- Lineas 1-10.
+- Responsabilidad: crea cliente Supabase con VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.
+- Activo: si.
+
+frontend/src/components/ForgotPasswordPage.jsx
+- Lineas 24-59: resetPasswordForEmail con redirectTo `${window.location.origin}/reset-password`.
+- Lineas 61-138: UI recuperacion.
+- Activo: si, ruta "/forgot-password".
+
+frontend/src/components/ResetPasswordPage.jsx
+- Lineas 40-85: prepara sesion desde hash tokens o code y replaceState a "/reset-password".
+- Lineas 87-130: updateUser password, luego signOut y vuelve a login.
+- Lineas 132-258: UI.
+- Activo: si, ruta "/reset-password".
+
+frontend/src/components/AppLayout.jsx
+- Lineas 36-52: iconos por seccion.
+- Lineas 54-317: layout autenticado con sidebar, header y boton Salir.
+- Lineas 65-118: metadata de titulos por seccion.
+- Lineas 161-195: render de secciones recibidas desde App.jsx.
+- Activo: si.
+- Rol en flujo: layout privado; no decide permisos, solo renderiza sections.
+
+frontend/src/components/DynamicWelcomePortal.jsx
+- Lineas 47-108: AdminView; si role es nutricionista oculta algunas tarjetas.
+- Lineas 110-146: UserView con Declaracion de Salud y Politicas.
+- Lineas 148-157: decide AdminView si role es admin o nutricionista; si no, UserView.
+- Activo: si, en /inicio.
+- Rol en flujo: separacion parcial de experiencia autenticada.
+- Observacion: llama "AdminView" tambien para nutricionista, aunque restringe algunas tarjetas.
+
+frontend/src/components/SmartHome.jsx
+- Lineas 14-19: mocks hardcodeados isAuthenticated=true, role="admin", mockUser.
+- Lineas 38-106: PublicLandingLogin mock.
+- Lineas 136-198: AdminLanding mock.
+- Lineas 200-235: UserLanding mock.
+- Lineas 237-247: seleccion mock.
+- Activo: aparentemente no usado. No hay import en App.jsx.
+- Estado: prototipo/duplicado/obsoleto.
+
+frontend/src/components/ProfilePage.jsx
+- Lineas relevantes detectadas por busqueda: 28-32 props y defaults; 58-66 consulta profiles; 104-106 update full_name; 157 muestra role readonly.
+- Activo: si, solo admin por allowedSections.
+- Rol en flujo: perfil actual, lectura directa de profiles.
+
+frontend/src/components/AdminUsersPage.jsx
+- Lineas relevantes detectadas: 62-67 cambio local de role/is_active; 80-85 update y callback; 159-165 menu roles user/nutricionista/admin.
+- Activo: si, solo admin por frontend y backend.
+- Rol en flujo: gestion de roles.
+
+frontend/src/components/NutritionModulesPage.jsx
+- Lineas 55-56: canManageRole solo admin.
+- Lineas 375 y 401: componente recibe user y calcula canManage.
+- Activo: si, admin/nutricionista en frontend.
+- Rol en flujo: Documentos SGC; nutricionista ve, admin gestiona.
+
+frontend/src/components/HealthPoliciesPage.jsx
+- Lineas detectadas: 277 props user/onGoDashboard; 287 estado confirmationView por pathname; 328-336 pushState entre /politicas-seguridad y /politicas-seguridad/confirmacion; 346 acepta politica.
+- Activo: si.
+- Rol en flujo: vista comun base para todos los roles autenticados.
+
+frontend/src/services/api.js
+- Lineas 3-18: axios base /api y Authorization desde localStorage supabase_access_token.
+- Lineas 20-25: rulesService.
+- Activo: si.
+
+frontend/src/services/analysis.js
+- Lineas 5-8: getAccessToken desde supabase.auth.getSession.
+- Lineas 83-106: authorizedFetch.
+- Lineas 108-205: endpoints de analisis.
+- Activo: si.
+- Observacion: todos dependen de token actual.
+
+frontend/src/services/nutritionModulesService.js
+- Lineas 5-25: authorizedFetch.
+- Lineas 35-243: endpoints Documentos SGC.
+- Activo: si.
+
+frontend/src/services/certificationService.js
+- Lineas 5-23: authorizedFetch.
+- Lineas 25-61: endpoints certificaciones.
+- Activo: si.
+
+frontend/src/services/healthDeclarations.js
+- Lineas 5-27: authFetch.
+- Lineas 29-65: endpoints usuario/admin salud.
+- Lineas 75-108: export y politica activa.
+- Activo: si.
+
+frontend/src/services/adminUsersService.js
+- Lineas 5-25: authorizedFetch.
+- Lineas 27-42: get/update/delete admin users.
+- Activo: si.
+
+backend/src/server.js
+- Lineas 130-139: monta endpoints API protegidos.
+- Lineas 141-156: sirve frontend build y fallback SPA para cualquier ruta no /api sin extension.
+- Activo: si.
+- Rol en flujo: habilita ingreso directo por URL al frontend.
+
+backend/src/middlewares/auth.js
+- Lineas 14-67: authenticateToken valida JWT Supabase, consulta profiles, rechaza sin perfil/inactivo, setea req.user.role.
+- Lineas 72-127: requireAdmin usa profiles como fuente de verdad y exige admin.
+- Lineas 129-178: requireAdminOrNutritionist exige admin o nutricionista.
+- Activo: si.
+- Rol en flujo: proteccion backend central.
+
+backend/src/routes/analysis.js
+- Lineas 23-41: todos los endpoints de analisis requieren authenticateToken + requireAdmin.
+- Activo: si.
+- Rol en flujo: dashboard analisis solo admin en backend.
+
+backend/src/routes/rules.js
+- Lineas 11, 16, 22, 28: reglas requieren authenticateToken + requireAdmin.
+- Activo: si.
+
+backend/src/routes/healthDeclarations.js
+- Lineas 18-23: endpoints salud personales requieren autenticacion.
+- Lineas 24-26: endpoints admin salud requieren requireAdmin.
+- Activo: si.
+
+backend/src/routes/nutritionModules.js
+- Lineas 37-55: endpoints Documentos SGC declaran authenticateToken.
+- Observacion: permisos finos estan en controllers/context, no en la ruta.
+- Activo: si.
+
+backend/src/controllers/sgcDocuments/context.js
+- Lineas 15-33: resolveUserRole consulta profiles y normaliza.
+- Lineas 35-50: canAccessModule permite solo roles con canViewByRole y restringe no-admin a status aprobado.
+- Activo: si.
+
+backend/src/routes/nutritionModules/helpers.js
+- Lineas 51-63: canManageByRole admin; canViewByRole admin/nutricionista; normalizeRole.
+- Activo: si.
+
+backend/src/controllers/sgcDocuments/documentsController.js
+- Lineas 33-86: listDocuments exige canViewByRole; no-admin solo aprobado.
+- Lineas 88-126: getDocument exige canViewByRole y aprobado para no-admin.
+- Lineas 128-224: createDocument exige canManageByRole.
+- Lineas 226-253 y siguientes: updateDocument exige canManageByRole.
+- Activo: si.
+
+backend/src/controllers/sgcDocuments/foldersController.js
+- Lineas 96-127: listFolders exige canViewByRole.
+- Lineas 129-170: createFolder exige canManageByRole.
+- Lineas 172-225: updateFolder exige canManageByRole.
+- Lineas 227-260: deleteFolder exige canManageByRole.
+- Activo: si.
+
+backend/src/routes/certificationRoutes.js
+- Lineas 15-21: certificaciones requieren authenticateToken + requireAdminOrNutritionist.
+- Activo: si.
+
+backend/src/routes/adminUsers.js
+- Linea 14: VALID_ROLES = user, nutricionista, admin.
+- Lineas 16-35: listar usuarios, admin.
+- Lineas 37-73: actualizar role/is_active, admin.
+- Lineas 75-127: eliminar/desactivar usuario, admin.
+- Activo: si.
+
+backend/sql/20260421_supabase_handle_new_user.sql
+- Lineas 4-27: trigger handle_new_user crea profiles con role "user".
+- Lineas 36-47: backfill profiles con role "user".
+- Rol en flujo: origen DB del rol comun.
+
+backend/sql/20260519_profiles_role_nutricionista.sql
+- Lineas 21-24: constraint profiles_role_check permite user, admin, nutricionista.
+- Rol en flujo: fuente de roles validos en DB.
+
+backend/prisma/schema.prisma
+- Lineas 13-24: modelo User sqlite con role default "user".
+- Estado: aparentemente legacy/no alineado con Supabase actual.
+- Riesgo: documentacion tecnica vieja o alternativa puede confundir; no aparece como fuente activa del auth actual.
+
+LANDING PAGE ACTUAL
+
+Componente exacto mostrado hoy:
+- Para usuario no autenticado en "/": LoginForm, no PublicLanding.
+- Evidencia: App.jsx:579-580 renderiza PublicApp cuando !user. PublicApp no tiene branch "/" y cae al return final App.jsx:547-553, que renderiza LoginForm.
+
+Ruta:
+- "/" esta en publicPaths App.jsx:50, pero no tiene contenido propio.
+- "/login" renderiza LoginForm explicitamente App.jsx:512-520.
+- "/register" renderiza LoginForm initialMode="register" App.jsx:523-531.
+
+Informacion que muestra:
+- LoginForm muestra "Portal de Calidad", "Acceso centralizado al ecosistema de auditoria, SGC y salud operativa" y un panel visual "Servi Food Catering" / "Nuestro compromiso es la calidad" (LoginForm.jsx:227-235, 344-352).
+- PublicLanding desconectado muestra "ANALISIS DE CALIDAD" y features de Excel/desvios (PublicLanding.jsx:83-107, 163-240).
+
+Logica condicional segun sesion o rol:
+- Public area: solo depende de !user, reset password o password recovery en App.jsx:579.
+- No hay logica por rol en landing publica.
+- La logica por rol empieza en MainApp, despues de autenticacion y perfil.
+
+Publica o privada:
+- LoginForm en "/" y "/login" es publico.
+- DynamicWelcomePortal en "/inicio" es privado.
+
+Llamados a login diferenciados:
+- No. LoginForm es unico.
+- PublicLanding, si estuviera conectado, tiene botones onLogin/onRegister pero no recorridos diferenciados por colaborador/gestion.
+
+Intento parcial de separar portal colaborador y gestion interna:
+- Si, dentro de DynamicWelcomePortal.
+- UserView: Declaracion de Salud y Politicas (DynamicWelcomePortal.jsx:110-146).
+- AdminView: Auditoria Excel, Dashboard, Salud, SGC, Certificaciones, Usuarios (DynamicWelcomePortal.jsx:47-108).
+- Nutricionista usa AdminView con restricciones visuales (lineas 48, 54, 96).
+
+Componentes creados pero no conectados:
+- PublicLanding.jsx: no importado.
+- SmartHome.jsx: prototipo con mocks hardcodeados, no importado.
+
+Codigo muerto, comentarios, TODOs o rutas previstas:
+- No se detectaron TODOs relevantes en los archivos auditados.
+- SmartHome parece prototipo muerto por mocks.
+- PublicLanding parece landing previa/desconectada.
+
+Redireccion automatica de autenticados:
+- Si. App.jsx renderiza MainApp si user existe (579-588).
+- MainApp fuerza navigateToSection("panel") una vez por user.id (253-260), lo que lleva a /inicio.
+
+Que ocurre si entra un admin autenticado a "/":
+- App.jsx no muestra PublicApp porque user existe.
+- MainApp carga profile, normaliza role admin.
+- Luego navega a /inicio y muestra DynamicWelcomePortal AdminView completo.
+
+Que ocurre si entra un usuario comun autenticado a "/":
+- MainApp carga profile.
+- Redirige a /inicio.
+- DynamicWelcomePortal ve role no admin/no nutricionista y muestra UserView con Declaracion y Politicas.
+- Si intenta URL no permitida, App.jsx:217-222 lo manda a declaration.
+
+Que ocurre si entra una nutricionista autenticada a "/":
+- MainApp carga profile.
+- Redirige a /inicio.
+- isNutritionist permite nutritionModules/certifications.
+- DynamicWelcomePortal la trata como "AdminView" pero oculta tarjetas no permitidas por isNutritionist.
+
+SISTEMA DE RUTAS FRONTEND REAL
+
+No hay React Router. Las rutas son pathnames manejados manualmente con window.location.pathname, getSectionFromPath y pushState. El backend sirve index.html para cualquier ruta no /api sin extension.
+
+TABLA DE RUTAS
+
+RUTA | COMPONENTE | PUBLICA/PRIVADA | ROLES PERMITIDOS | REDIRECCION SI NO TIENE ACCESO | OBSERVACIONES
+/ | LoginForm si no autenticado; MainApp si autenticado | Publica/privada segun sesion | Publico o cualquier autenticado | Autenticado termina en /inicio | No renderiza PublicLanding.
+/login | LoginForm | Publica | No autenticado | Si autenticado, MainApp y /inicio | Alias /signin -> /login.
+/register | LoginForm initialMode register | Publica | No autenticado | Si autenticado, MainApp y /inicio | Alias /signup -> /register, aunque /signup no esta en publicPaths; normalizePublicPath lo mapea.
+/forgot-password | ForgotPasswordPage | Publica | No autenticado | Si autenticado normal no entra, salvo PublicApp por !user | Usa resetPasswordForEmail.
+/reset-password | ResetPasswordPage | Publica especial | Con recovery/session de Supabase | Vuelve a /login tras update/signOut | App fuerza PublicApp por isResetPasswordRoute.
+/inicio | DynamicWelcomePortal | Privada | user, nutricionista, admin | No autenticado ve LoginForm por PublicApp fallback | Misma ruta para todos los roles.
+/cargar | FileUpload | Privada | admin frontend y backend | No-admin a /declaracion-salud | API upload exige requireAdmin.
+/historial | AnalysisHistory | Privada | admin frontend y backend | No-admin a /declaracion-salud | API history exige requireAdmin.
+/analisis/:id | AnalysisResults detalle | Privada | admin frontend y backend | No-admin a /declaracion-salud o null transitorio | Ruta dinamica manual.
+/graficos | ChartsPage | Privada | admin frontend | No-admin a /declaracion-salud | Datos dependen de selectedAnalysis; backend analisis admin.
+/reglas | RulesConfig | Privada | admin frontend y backend | No-admin a /declaracion-salud | API /rules requireAdmin.
+/perfil | ProfilePage | Privada | admin frontend | No-admin a /declaracion-salud | Perfil no visible para user/nutricionista por menu/allowedSections.
+/tutorial | TutorialPage | Privada | admin frontend | No-admin a /declaracion-salud | Sin endpoint critico directo.
+/admin-usuarios | AdminUsersPage | Privada | admin frontend y backend | No-admin a /declaracion-salud | API /admin/users requireAdmin.
+/declaracion-salud | HealthDeclarationPage | Privada | user, nutricionista, admin | No autenticado LoginForm | BASE_ALLOWED_SECTIONS para todos autenticados.
+/politicas-seguridad | HealthPoliciesPage | Privada | user, nutricionista, admin | No autenticado LoginForm | BASE_ALLOWED_SECTIONS.
+/politicas | HealthPoliciesPage | Privada | user, nutricionista, admin | Alias a /politicas-seguridad | protectedPathAliases.
+/politicas-seguridad/confirmacion | HealthPoliciesPage confirmationView | Privada | user, nutricionista, admin | No autenticado LoginForm | getSectionFromPath lo mapea a policies.
+/mi-declaraciones | HealthDeclarationHistoryPage | Privada | admin frontend | No-admin a /declaracion-salud | Nombre sugiere usuario, pero solo admin en allowedSections.
+/admin-declaraciones-salud | HealthDeclarationsAdminPage | Privada | admin frontend y backend | No-admin a /declaracion-salud | API admin salud requireAdmin.
+/modulos-nutricionales | NutritionModulesPage | Privada | admin, nutricionista frontend/backend | User a /declaracion-salud | Backend controller permite ver admin/nutricionista; gestionar solo admin.
+/certificaciones | CertificationsPage | Privada | admin, nutricionista frontend/backend | User a /declaracion-salud | Backend requireAdminOrNutritionist.
+/* desconocida publica | LoginForm | Publica si no user | No autenticado | normalizePublicPath -> /login en estado, pero no siempre cambia URL | Puede quedar URL rara mostrando LoginForm.
+/* desconocida privada | DynamicWelcomePortal panel por default | Privada | Segun sesion | getSectionFromPath default panel | Path desconocido autenticado puede mostrar panel sin normalizar URL hasta redirect inicial.
+
+Rutas duplicadas/huerfanas:
+- /signin y /signup son aliases publicos en App.jsx:45-48.
+- /politicas es alias protegido a /politicas-seguridad App.jsx:51-53.
+- PublicLanding y SmartHome son componentes huerfanos.
+- /mi-declaraciones existe pero solo admin puede acceder; para usuario comun no aparece, aunque funcionalmente suena a historial propio.
+
+Rutas accesibles sin proteccion:
+- Las rutas publicas de auth.
+- No se detecto pantalla administrativa accesible sin sesion porque App.jsx decide PublicApp si !user.
+- Riesgo: proteccion frontend es manual; si se agrega una seccion sin actualizar allowedSections puede quedar inconsistente.
+
+Rutas que dependen solamente de ocultar botones:
+- En frontend, sidebarSections oculta botones, pero allowedSections agrega una segunda capa de guard UI.
+- Backend protege analisis/reglas/admin/salud-admin/certificaciones/SGC.
+- Para Documentos SGC la proteccion no esta en route-level excepto authenticateToken; esta en controllers.
+
+Acceso directo pegando URL:
+- Admin puede acceder directo a /cargar, /historial, /analisis/:id, etc.
+- Usuario comun/nutricionista a rutas admin no permitidas son redirigidos a /declaracion-salud despues de cargar profile.
+- Durante loadingProfile se muestra "Cargando perfil...", evitando render de pantalla incorrecta.
+
+Redirecciones inconsistentes/circulares/fallbacks:
+- No se detecto circularidad clara.
+- Inconsistencia: "/" publico no muestra landing sino login.
+- Inconsistencia: post-login siempre "panel"; la diferenciacion es contenido, no ruta.
+- Fallback publico de ruta desconocida muestra LoginForm pero no necesariamente reemplaza pathname.
+- Fallback privado de ruta desconocida cae a panel por getSectionFromPath default.
+
+AUTENTICACION Y CARGA DEL PERFIL
+
+Flujo paso a paso:
+
+1. App monta desde main.jsx.
+2. useAuth inicia loading=true (useAuth.js:20-23).
+3. bootstrap llama supabase.auth.getSession (useAuth.js:74-75).
+4. Si hay session.user, llama ensureProfileFromAuthUser (useAuth.js:77).
+5. ensureProfileFromAuthUser consulta public.profiles por id (useAuth.js:34-38).
+6. Si hay error, devuelve null (useAuth.js:40-42).
+7. Si no hay profile, inserta profiles con role "user" e is_active true (useAuth.js:44-57).
+8. Si existe profile sin full_name y metadata trae nombre, lo actualiza (useAuth.js:60-69).
+9. mapSupabaseUser arma user con role profile.role || appMetadata.role || "user" (useAuth.js:12-17).
+10. Guarda access_token en localStorage o lo borra (useAuth.js:82-87).
+11. App deja de mostrar "Cargando..." (App.jsx:565-574).
+12. Si no hay user o hay recovery/reset, renderiza PublicApp (App.jsx:579-580).
+13. Si hay user, renderiza MainApp (App.jsx:581-588).
+14. MainApp vuelve a consultar profiles con id,email,full_name,role,is_active (App.jsx:176-191).
+15. Si no hay error y data existe, usa ese profile (App.jsx:193-195).
+16. Si falla o no existe, crea fallback local con role user.role || "user" e is_active true (App.jsx:196-203).
+17. Mientras loadingProfile, muestra pantalla completa "Cargando perfil..." (App.jsx:465-470).
+18. Al terminar, calcula role efectivo y allowedSections, y ejecuta redireccion/guard (App.jsx:88-158, 214-233, 253-260).
+
+Tabla/endpoints de rol:
+- Frontend lee directamente Supabase table public.profiles.
+- Backend lee public.profiles en authenticateToken/requireAdmin/requireAdminOrNutritionist.
+- SQL crea profiles por trigger desde auth.users.
+
+Cuando se conoce role:
+- Primer role conocido: al terminar useAuth bootstrap/onAuthStateChange.
+- Role definitivo para UI privada: al terminar carga de profile en MainApp.
+- Hay un estado intermedio potencial donde LoginForm mapSupabaseUser devuelve app_metadata.role || "user" antes de que useAuth/MainApp corrija.
+
+Mientras profile carga:
+- App global: "Cargando..." durante useAuth.loading.
+- MainApp: pantalla completa "Cargando perfil..." durante loadingProfile.
+
+Si profile no existe:
+- useAuth intenta crearlo con role "user".
+- Backend authenticateToken, en cambio, rechaza con 403 "Perfil de usuario no encontrado" si no existe.
+- MainApp, si su consulta no trae data, usa fallback local role user.role || "user".
+- Riesgo: frontend puede dejar entrar visualmente como user aunque backend luego rechace endpoints si el perfil realmente falta.
+
+Si sesion existe pero profile falla:
+- useAuth devuelve user desde app_metadata o "user".
+- MainApp fallback local.
+- Backend falla cerrado en error real de profiles: authenticateToken 500 o requireAdmin 500.
+
+Si role viene vacio/mal escrito/desconocido:
+- normalizeRole en frontend trim/lowercase.
+- isAdmin solo "admin"; isNutritionist solo "nutricionista".
+- Rol desconocido queda como no-admin y no-nutricionista, con experiencia de usuario comun.
+- Backend requireAdmin/requireAdminOrNutritionist rechaza roles desconocidos.
+- DB constraint nueva permite solo user/admin/nutricionista si fue aplicada.
+
+Flicker visual:
+- Hay loadingProfile de pantalla completa, por lo que se evita render de admin/user incorrecto durante la segunda carga.
+- Posible transitorio menor: handleLoginSuccess setea user con role de app_metadata/"user"; MainApp muestra loadingProfile antes de renderizar secciones, mitigando flicker.
+
+Estados de error:
+- useAuth no expone error de profile.
+- MainApp no muestra error de profile; usa fallback local.
+- Backend si devuelve errores.
+- Login/reset/forgot muestran errores propios.
+
+ROLES Y PERMISOS
+
+Roles reales usados:
+
+user
+- Fuente DB por defecto: backend/sql/20260421_supabase_handle_new_user.sql:11-17 y 37-43.
+- Constraint: backend/sql/20260519_profiles_role_nutricionista.sql:21-24.
+- Frontend fallback: useAuth.js:16, 49; App.jsx:88-89, 201; LoginForm.jsx:23.
+- AdminUsers: backend/src/routes/adminUsers.js:14, 47-48; frontend AdminUsersPage menu user/nutricionista/admin.
+- Uso: usuario comun/colaborador.
+- Riesgo: el requerimiento habla de "usuario", pero el codigo usa "user".
+
+admin
+- Frontend: App.jsx:90, 145-156; DynamicWelcomePortal.jsx:151; NutritionModulesPage canManage.
+- Backend: requireAdmin, admin routes, SGC canManage.
+- DB: constraint y policies.
+- Uso: gestion completa.
+
+nutricionista
+- Frontend: App.jsx:91-94; DynamicWelcomePortal.jsx:48, 151; AdminUsersPage menu.
+- Backend: requireAdminOrNutritionist; SGC canViewByRole; certification routes.
+- DB: migration constraint.
+- Uso: Documentos SGC y certificaciones autorizadas.
+
+usuario
+- No se detecta como role valido de codigo. Solo aparece en textos en espanol.
+- Riesgo: si se carga "usuario" en profiles.role, frontend lo tratara como usuario comun por fallback no-admin, pero backend lo rechazara para cualquier permiso especial y la constraint nueva no lo permitiria.
+
+nutritionist
+- No se detecta como role valido.
+
+Mayusculas/minusculas/espacios:
+- Frontend App normalizeRole usa trim/lowercase.
+- Backend middlewares usan toLowerCase, pero authenticateToken no hace trim en profileRole (auth.js:54); requireAdmin tampoco trim (auth.js:107); requireAdminOrNutritionist tampoco trim (auth.js:165).
+- SGC helpers si usan trim/lowercase.
+- Riesgo: role " admin " podria funcionar en SGC helpers pero fallar en requireAdmin.
+
+Permisos inferidos por email:
+- No se detecto inferencia por email.
+
+Permisos desde metadata:
+- LoginForm usa app_metadata.role || "user" solo para armar user inicial.
+- useAuth usa profile.role con prioridad sobre app_metadata.role.
+- Backend ignora metadata para permisos y usa profiles.
+
+Fuente de verdad actual:
+- Recomendable considerar public.profiles.role como fuente real.
+- Backend ya lo hace.
+- Frontend lo hace, pero con fallbacks que pueden ocultar errores.
+
+Fuente de verdad recomendada:
+- Una unica funcion/constante compartida de roles validos: user, nutricionista, admin.
+- Una funcion central de destino inicial por rol.
+- Evitar "usuario" como valor persistido salvo migracion integral.
+
+REDIRECCION POST-LOGIN
+
+Ruta actual post-login:
+- Todos los usuarios: /inicio.
+- Evidencia: App.jsx:560-563 setPostLoginTarget("panel"), y sectionPathMap.panel = "/inicio" App.jsx:28-30.
+- MainApp tambien fuerza /inicio para cada user.id App.jsx:253-260.
+
+Distingue roles:
+- No para la ruta.
+- Si para el contenido mostrado dentro de /inicio.
+
+Logica centralizada o repetida:
+- Parcialmente centralizada en App.jsx.
+- La decision de secciones permitidas esta en App.jsx.
+- La decision de vista inicial por rol esta implicita en DynamicWelcomePortal, no centralizada como ruta.
+
+Funcion reutilizable:
+- No existe getHomeByRole/getPostLoginRoute.
+
+URLs hardcodeadas:
+- sectionPathMap hardcodea rutas internas.
+- resolveAuthRedirectUrl hardcodea dominios analisis.servifoodapp.site y onrender.
+- ForgotPasswordPage hardcodea redirectTo `${window.location.origin}/reset-password`.
+
+Callback OAuth/login tradicional:
+- No se encontro uso de signInWithOAuth/Google OAuth en LoginForm.
+- useAuth onAuthStateChange capturaria sesiones OAuth si Supabase las crea, pero no hay boton/flujo Google en UI auditada.
+
+Diferencias refresh, ingreso directo URL y login nuevo:
+- Refresh con sesion: useAuth getSession -> MainApp -> carga profile -> respeta pathname si admin; no-admin redirige si ruta no permitida.
+- Login nuevo: handleLoginSuccess siempre setea postLoginTarget panel -> /inicio.
+- Ingreso directo sin sesion a ruta privada: PublicApp muestra LoginForm, no conserva next/returnTo.
+- Tras login desde ruta privada pegada, se pierde destino y va /inicio.
+
+Cierre de sesion:
+- AppLayout boton Salir llama onLogout (AppLayout.jsx:271-278).
+- useAuth.logout hace supabase.auth.signOut, setUser(null), borra token (useAuth.js:120-125).
+- App vuelve a PublicApp. Si pathname quedo en /inicio, normalizePublicPath lo convierte internamente a /login, pero no necesariamente cambia la URL.
+
+Boton volver del navegador:
+- MainApp escucha popstate y recalcula currentSection (App.jsx:160-174).
+- PublicApp escucha popstate para public paths (App.jsx:492-502).
+- Riesgo: al cerrar sesion desde /inicio, el estado publico puede mostrar login mientras pathname sigue siendo /inicio hasta nueva navegacion.
+
+SIMULACIONES
+
+A. Usuario no autenticado
+- App loading -> useAuth no encuentra sesion -> user null.
+- App renderiza PublicApp.
+- Si URL es "/" cae a LoginForm.
+- Si intenta /cargar directo, normalizePublicPath devuelve /login en estado, pero no hay replaceState obligatorio.
+
+B. Usuario comun autenticado
+- useAuth obtiene/crea profile role "user".
+- MainApp carga profile.
+- effectiveRole user, isAdmin false, isNutritionist false.
+- allowedSections: panel, declaration, policies.
+- Redirige a /inicio.
+- /inicio muestra UserView.
+- Si pega /cargar, se redirige a /declaracion-salud.
+
+C. Nutricionista autenticada
+- role nutricionista.
+- allowedSections: panel, declaration, policies, nutritionModules, certifications.
+- Redirige a /inicio.
+- /inicio muestra AdminView restringido: SGC y Certificaciones, sin Excel/Dashboard/Salud Admin/Usuarios.
+- Si pega /cargar, se redirige a /declaracion-salud.
+
+D. Admin autenticado
+- role admin.
+- allowedSections incluye panel, upload, charts, profile, tutorial, rules, adminUsers, adminHealthDeclarations, history, declarationHistory, nutritionModules, certifications.
+- Redirige a /inicio.
+- Puede navegar a panel interno completo.
+
+E. Sesion valida pero perfil inexistente
+- useAuth intenta insertar profile "user".
+- Si insercion funciona: queda usuario comun.
+- Si falla/sin data: frontend puede crear user fallback "user"; MainApp tambien fallback local.
+- Backend authenticateToken rechazara endpoints si profiles sigue sin existir.
+
+F. Rol desconocido
+- Frontend: role desconocido se normaliza, no coincide con admin/nutricionista, queda experiencia usuario comun.
+- Backend: requireAdmin y requireAdminOrNutritionist rechazan.
+- DB constraint deberia impedirlo si aplicada.
+
+MENUS Y EXPERIENCIA POR ROL
+
+Usuario comun:
+- Sidebar: Inicio, Declaracion de Salud, Politicas de Seguridad (App.jsx:112-119).
+- Inicio: UserView con Declaracion y Politicas (DynamicWelcomePortal.jsx:110-146).
+- Proteccion: allowedSections y backend para endpoints personales.
+
+Nutricionista:
+- Sidebar: Inicio, Declaracion de Salud, Politicas, Documentos SGC, Certificaciones (App.jsx:101-110).
+- Inicio: AdminView restringido; oculta tarjetas no nutricionista (DynamicWelcomePortal.jsx:48, 54-79, 96-104).
+- Backend: Documentos SGC view y certificaciones permitidas; analisis/reglas/admin usuarios no permitidos.
+
+Admin:
+- Sidebar: Dashboard, Cargar archivos, Graficos, Mi Perfil, Tutorial, Configurar Reglas, Gestion de usuarios, Mi Declaracion Salud, Gestor Declaraciones, Politicas, Documentos SGC, Certificaciones (App.jsx:121-134).
+- Inicio: AdminView completo.
+- Backend: requireAdmin para analisis, reglas, admin users, salud admin.
+
+Ocultar botones es unica proteccion:
+- No, no es unica. Existe allowedSections en frontend y guards backend.
+- Pero no hay componentes RouteGuard separados ni rutas declarativas.
+- La proteccion de UI esta acoplada a App.jsx.
+
+BRECHAS CONTRA EL CONTEXTO FUNCIONAL ESPERADO
+
+Portal del colaborador:
+- Parcialmente existe solo autenticado: /inicio UserView, /declaracion-salud, /politicas-seguridad.
+- Falta ruta o shell explicitamente llamado "portal colaborador".
+- Falta landing/entrada publica que oriente a colaborador.
+- Falta historial personal visible si se esperaba "consulta" amplia; /mi-declaraciones esta reservado a admin.
+
+Gestion interna:
+- Existe como conjunto de secciones admin en App.jsx.
+- No existe ruta base separada tipo /gestion o /admin.
+- Nutricionista comparte "AdminView" nominalmente, aunque restringido.
+
+Redirecciones por rol:
+- No existen rutas post-login distintas.
+- Existe mismo destino /inicio con render condicional.
+- Requerimiento esperado "usuario -> portal colaborador, nutricionista -> Documentos SGC/vistas autorizadas, admin -> panel interno completo" no esta implementado como redireccion real.
+
+ALCANCE MINIMO RECOMENDADO PARA DIVIDIR SIN DUPLICAR LOGICA
+
+1. Definir constantes de roles y rutas iniciales:
+- user -> /portal o /declaracion-salud o /inicio-colaborador.
+- nutricionista -> /modulos-nutricionales o /inicio-gestion con subset.
+- admin -> /inicio o /dashboard.
+
+2. Crear una funcion unica getInitialPathForRole(role), usando public.profiles.role como fuente.
+
+3. Conectar una landing publica real en "/".
+- Puede reutilizar PublicLanding, pero su contenido deberia dejar de estar centrado solo en Excel si sera entrada institucional.
+- Login deberia quedar en "/login".
+
+4. Separar semanticamente home autenticado:
+- Mantener componentes compartidos, pero evitar que nutricionista sea "AdminView" por nombre.
+- Un PortalColaborador y un GestionInternaHome pueden reutilizar PortalCard.
+
+5. Reemplazar o encapsular routing manual:
+- Minimo: centralizar sectionPathMap, allowedSections y getSectionFromPath.
+- Ideal: React Router con ProtectedRoute y RoleRoute.
+
+6. Preservar returnTo para accesos directos:
+- Si no autenticado entra a /modulos-nutricionales, despues del login podria volver si su rol lo permite.
+
+7. Alinear "usuario" vs "user":
+- Decidir valor persistido. Hoy debe ser "user".
+- Si se quiere "usuario", requiere migracion DB, backend, frontend y policies.
+
+RIESGOS PRIORIZADOS
+
+ALTO
+- "/" no muestra landing institucional; muestra login. Esto contradice el objetivo de entrada unica institucional.
+- Post-login no distingue roles por ruta; todos van a /inicio.
+- No existe funcion central de destino por rol; la logica esta repartida entre App.jsx y DynamicWelcomePortal.
+
+MEDIO
+- PublicLanding y SmartHome son codigo huerfano/prototipo y pueden generar confusion.
+- Frontend usa fallbacks silenciosos a "user" si falla profiles, ocultando errores de permisos hasta llamadas API.
+- "usuario" en requerimiento no coincide con "user" en codigo/DB.
+- Backend no aplica trim en todos los middlewares de rol.
+
+BAJO
+- Rutas desconocidas publicas/privadas tienen fallbacks poco explicitos.
+- /mi-declaraciones suena a usuario comun pero esta permitido solo para admin.
+- LoginForm combina login y registro en el mismo componente, funcional pero acopla experiencias.
+
+CONCLUSION
+
+El estado actual no implementa una separacion clara entre landing institucional, portal del colaborador y gestion interna. Implementa una unica app autenticada con un home comun (/inicio) que cambia contenido segun rol. La landing publica generica existe pero esta desconectada, y la pantalla visible para "/" sin sesion es LoginForm.
+
+La seguridad backend esta razonablemente cubierta para los modulos criticos, pero la experiencia y redireccion por rol estan incompletas desde el punto de vista funcional. El cambio minimo futuro no deberia duplicar logica: deberia centralizar roles/rutas iniciales, conectar una landing publica real, y convertir el home autenticado en destinos semanticamente separados por rol manteniendo componentes compartidos.

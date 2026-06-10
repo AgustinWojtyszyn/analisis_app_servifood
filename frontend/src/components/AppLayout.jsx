@@ -34,7 +34,8 @@ import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 const drawerWidth = 260;
 
 const sectionIcons = {
-  panel: <DashboardRoundedIcon />,
+  collaboratorPortal: <HealthAndSafetyRoundedIcon />,
+  internalManagement: <DashboardRoundedIcon />,
   upload: <UploadFileRoundedIcon />,
   history: <HistoryRoundedIcon />,
   results: <InsightsRoundedIcon />,
@@ -63,9 +64,13 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
   }, [user]);
 
   const sectionMeta = useMemo(() => ({
-    panel: {
-      title: 'Panel Principal',
-      subtitle: 'Subí archivos y gestioná tus resultados desde un solo flujo'
+    collaboratorPortal: {
+      title: 'Portal del colaborador',
+      subtitle: 'Declaración de salud y políticas de seguridad'
+    },
+    internalManagement: {
+      title: 'Gestión interna',
+      subtitle: 'Accesos operativos habilitados según rol'
     },
     history: {
       title: 'Historial',

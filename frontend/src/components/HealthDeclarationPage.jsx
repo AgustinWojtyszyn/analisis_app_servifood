@@ -316,7 +316,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
             <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1.5 }}>
               <Typography variant="h5" sx={{ fontWeight: 800, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>Formulario de declaración</Typography>
               <Button variant="text" onClick={() => { setShowForm(false); setEditingId(null); }} sx={{ color: formHelperColor, width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'flex-start', sm: 'center' } }}>
-                Volver al panel
+                Volver al inicio
               </Button>
             </Stack>
 

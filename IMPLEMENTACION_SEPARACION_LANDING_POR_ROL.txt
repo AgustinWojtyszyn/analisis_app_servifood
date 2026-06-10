@@ -1,0 +1,270 @@
+IMPLEMENTACION_SEPARACION_LANDING_POR_ROL
+Fecha: 2026-06-10
+
+RESUMEN DE CAMBIOS
+
+Se implemento la separacion de experiencia publica y homes autenticados por rol conservando el ruteo manual existente basado en window.location.pathname, window.history.pushState, replaceState, popstate y estado local.
+
+La ruta "/" sin sesion ahora muestra una landing institucional publica. El login queda en "/login" y el registro en "/register". Los usuarios autenticados ya no terminan todos en "/inicio": el rol real cargado desde public.profiles.role define el destino inicial.
+
+DESTINOS POR ROL
+
+user:
+- Ruta inicial: /portal-colaborador
+- Seccion inicial: collaboratorPortal
+- Fallback: /portal-colaborador
+- Accesos: inicio, declaracion de salud, politicas de seguridad
+
+nutricionista:
+- Ruta inicial: /gestion-interna
+- Seccion inicial: internalManagement
+- Fallback: /gestion-interna
+- Accesos: inicio, declaracion de salud, politicas de seguridad, Documentos SGC, certificaciones
+
+admin:
+- Ruta inicial: /gestion-interna
+- Seccion inicial: internalManagement
+- Fallback: /gestion-interna
+- Accesos: inicio, cargar archivos, historial, analisis detalle, graficos, perfil, tutorial, reglas, gestion de usuarios, declaracion de salud, politicas, declaraciones administrativas, Documentos SGC, certificaciones
+
+Rol vacio, invalido o desconocido:
+- Se normaliza de forma segura a user.
+- No se cambio el valor tecnico persistido del rol comun: sigue siendo user.
+
+ARCHIVOS CREADOS
+
+frontend/src/lib/roleRouting.js
+- Centraliza roles validos, normalizacion, ruta inicial, seccion inicial, fallback y secciones permitidas por rol.
+
+frontend/src/components/PortalActionCard.jsx
+- Tarjeta reutilizable para los homes autenticados.
+
+frontend/src/components/CollaboratorPortal.jsx
+- Home autenticado para rol user en /portal-colaborador.
+- Enfocado en declaracion de salud y politicas.
+
+frontend/src/components/InternalManagementPortal.jsx
+- Home autenticado para admin y nutricionista en /gestion-interna.
+- Admin ve accesos internos completos.
+- Nutricionista ve solo Documentos SGC, certificaciones, politicas y declaracion de salud.
+
+IMPLEMENTACION_SEPARACION_LANDING_POR_ROL.txt
+- Este archivo de entrega.
+
+ARCHIVOS MODIFICADOS
+
+frontend/src/App.jsx
+- Agrega /portal-colaborador y /gestion-interna al mapa de secciones.
+- Mantiene /inicio como alias legado y lo redirige por rol con replaceState.
+- Conecta PublicLanding en "/" sin sesion.
+- Rutas privadas pegadas sin sesion redirigen a /login.
+- Rutas publicas desconocidas sin sesion redirigen a /.
+- Rutas desconocidas con sesion redirigen al home inicial correspondiente al rol.
+- Reemplaza postLoginTarget="panel" por redireccion posterior a carga de perfil real.
+- Usa roleRouting.js para allowedSections y fallbacks.
+- Logout navega explicitamente a "/" con replaceState y muestra la landing publica.
+
+frontend/src/components/PublicLanding.jsx
+- Se reutilizo el componente existente, cambiando su contenido para una landing institucional real.
+- Titulo: ServiFood - Plataforma de gestion y cumplimiento.
+- Incluye dos recorridos visuales: Portal del colaborador y Gestion interna.
+- Ambos CTAs navegan a /login.
+- Mantiene acceso visible a registro porque /register ya estaba habilitado.
+
+frontend/src/components/AppLayout.jsx
+- Agrega metadata e iconos para collaboratorPortal e internalManagement.
+- Retira metadata vieja de panel.
+- El menu Inicio apunta a la seccion inicial real que recibe desde App.jsx.
+
+frontend/src/components/HealthDeclarationPage.jsx
+- Cambia el texto visible "Volver al panel" por "Volver al inicio".
+
+ARCHIVOS ELIMINADOS
+
+frontend/src/components/SmartHome.jsx
+- Eliminado porque era un prototipo con mocks hardcodeados y sin imports reales.
+
+frontend/src/components/DynamicWelcomePortal.jsx
+- Eliminado porque fue reemplazado por homes semanticos separados y ya no tenia imports.
+
+RUTAS FINALES RELEVANTES
+
+Publicas sin sesion:
+- / -> PublicLanding institucional
+- /login -> LoginForm login
+- /register -> LoginForm registro
+- /forgot-password -> ForgotPasswordPage
+- /reset-password -> ResetPasswordPage
+
+Privadas:
+- /portal-colaborador -> CollaboratorPortal, rol user
+- /gestion-interna -> InternalManagementPortal, roles admin y nutricionista
+- /declaracion-salud -> HealthDeclarationPage, todos los roles autenticados
+- /politicas-seguridad -> HealthPoliciesPage, todos los roles autenticados
+- /modulos-nutricionales -> NutritionModulesPage, admin y nutricionista
+- /certificaciones -> CertificationsPage, admin y nutricionista
+- /cargar -> FileUpload, admin
+- /historial -> AnalysisHistory, admin
+- /analisis/:id -> detalle de analisis, admin
+- /graficos -> ChartsPage, admin
+- /reglas -> RulesConfig, admin
+- /admin-usuarios -> AdminUsersPage, admin
+- /admin-declaraciones-salud -> HealthDeclarationsAdminPage, admin
+- /perfil -> ProfilePage, admin
+- /tutorial -> TutorialPage, admin
+
+Alias:
+- /inicio -> redireccion por rol:
+  - user: /portal-colaborador
+  - nutricionista: /gestion-interna
+  - admin: /gestion-interna
+- /politicas -> /politicas-seguridad
+- /signin -> /login sin sesion
+- /signup -> /register sin sesion
+
+DECISIONES TECNICAS
+
+- No se agrego React Router.
+- No se modifico backend.
+- No se modifico SQL, migraciones, Supabase ni politicas RLS.
+- No se cambiaron endpoints.
+- No se uso email ni metadata como fuente definitiva de permisos.
+- La decision final de destino autenticado ocurre despues de cargar el perfil en MainApp.
+- Si la consulta de profile falla en MainApp, el fallback de UI es seguro y equivalente a user.
+- Se uso replaceState para redirecciones automaticas y alias, para evitar historial inconsistente.
+- Se uso pushState para navegacion iniciada por el usuario desde landing, sidebar o tarjetas.
+- Se restauro frontend/dist/index.html despues del build para no dejar artefactos generados dentro del cambio fuente.
+
+VALIDACIONES EJECUTADAS
+
+1. Build frontend
+Comando:
+cd frontend && npm run build
+
+Resultado:
+OK. Vite build finalizo correctamente.
+
+Salida relevante:
+- 14172 modules transformed.
+- built in 1m
+- Warning no bloqueante: algunos chunks superan 500 kB despues de minificacion.
+
+2. Tests backend
+Comando:
+cd backend && npm test
+
+Resultado:
+OK.
+
+Salida relevante:
+- tests 161
+- pass 161
+- fail 0
+- duration_ms 13463.905632
+
+3. Lint
+Resultado:
+No ejecutado porque frontend/package.json no define script lint.
+
+4. Verificacion de reglas centralizadas
+Comando:
+node --input-type=module con import de frontend/src/lib/roleRouting.js
+
+Resultado:
+- user -> /portal-colaborador, collaboratorPortal
+- nutricionista -> /gestion-interna, internalManagement
+- admin -> /gestion-interna, internalManagement
+- rol vacio -> user, /portal-colaborador
+- usuario -> user, /portal-colaborador
+
+CHECKLIST DE CRITERIOS DE ACEPTACION
+
+Sin sesion:
+- / muestra landing institucional: implementado.
+- /login muestra login: implementado.
+- /register muestra registro: implementado.
+- /cargar no muestra contenido privado: implementado; redirige a /login.
+
+Rol user:
+- Login termina en /portal-colaborador: implementado despues de cargar profile.
+- / termina en /portal-colaborador: implementado.
+- /inicio termina en /portal-colaborador: implementado como alias.
+- /cargar redirige a /portal-colaborador: implementado.
+- No ve menu admin: implementado.
+- Puede abrir declaracion de salud: implementado.
+- Puede abrir politicas: implementado.
+
+Rol nutricionista:
+- Login termina en /gestion-interna: implementado despues de cargar profile.
+- / termina en /gestion-interna: implementado.
+- /inicio termina en /gestion-interna: implementado como alias.
+- Puede entrar a Documentos SGC: implementado.
+- Puede entrar a certificaciones: implementado.
+- No puede entrar a cargar Excel: implementado por guard frontend y backend existente.
+- No puede entrar a usuarios: implementado por guard frontend y backend existente.
+- No puede entrar a reglas: implementado por guard frontend y backend existente.
+- No ve botones admin indebidos: implementado.
+
+Rol admin:
+- Login termina en /gestion-interna: implementado despues de cargar profile.
+- / termina en /gestion-interna: implementado.
+- /inicio termina en /gestion-interna: implementado como alias.
+- Conserva accesos administrativos existentes: implementado, incluyendo Historial en sidebar.
+- Puede entrar a modulos existentes sin cambios backend: implementado a nivel frontend; backend no se modifico.
+
+Logout:
+- Termina en /: implementado.
+- Muestra landing publica: implementado.
+- No conserva pathname privado visible: implementado con replaceState antes y despues de signOut.
+
+Refresh:
+- /, /login, /portal-colaborador, /gestion-interna, /modulos-nutricionales, /certificaciones y /cargar quedan cubiertas por carga de sesion + profile + guards por rol.
+- No se pudo probar con sesiones reales de Supabase en navegador desde este entorno, pero el flujo de codigo y el build fueron validados.
+
+Acceso directo por URL:
+- Rutas privadas sin sesion redirigen a /login.
+- Rutas privadas con sesion respetan permisos por rol.
+- Rutas desconocidas sin sesion redirigen a /.
+- Rutas desconocidas con sesion redirigen al destino inicial por rol.
+- No se detectan loops por inspeccion del flujo y build.
+
+Compatibilidad:
+- /inicio sigue funcionando como alias.
+- Recuperacion de contrasena conserva /forgot-password y /reset-password.
+- Registro conserva /register.
+- Sesion Supabase sigue usando useAuth y MainApp.
+- Sidebar mobile no fue reescrito; sigue usando AppLayout.
+- Desktop sigue usando AppLayout.
+
+RIESGOS PENDIENTES
+
+- No hay script lint disponible en frontend.
+- No se hicieron pruebas manuales con usuarios reales de Supabase porque el entorno no incluye credenciales/sesiones interactivas.
+- useAuth mantiene su fallback historico a app_metadata cuando no logra leer profile; MainApp corrige el destino final al cargar profiles y cae seguro a user si su consulta falla. No se modifico useAuth para evitar ampliar el alcance.
+- El warning de chunk size del build ya existia como riesgo de performance/bundle, no bloquea esta implementacion.
+
+COSAS QUE NO SE TOCARON
+
+- Backend.
+- Middlewares de auth.
+- Rutas backend.
+- Controllers de Documentos SGC.
+- Servicios API.
+- Supabase.
+- SQL.
+- Migraciones.
+- Politicas RLS.
+- Endpoints.
+- Logica de analisis Excel.
+- Logica de declaraciones de salud salvo un texto visible.
+- Logica de certificaciones.
+- Logica de carga Excel.
+
+INCOMPATIBILIDADES DETECTADAS
+
+- No se detecto incompatibilidad backend/DB que impida cumplir el objetivo.
+- Se mantuvo el rol tecnico user como valor persistido del usuario comun.
+
+RESUMEN CONSOLA
+
+Implementacion completada. Build frontend OK. Tests backend OK: 161 passed, 0 failed. Lint no disponible por falta de script.
