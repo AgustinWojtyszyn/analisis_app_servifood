@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  AlertTitle,
   Box,
   Breadcrumbs,
   Button,
@@ -62,6 +63,7 @@ function canManageRole(role) {
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 const MAX_ZIP_FILE_SIZE_BYTES = 100 * 1024 * 1024;
+const ORDER_SAVE_DEBOUNCE_MS = 400;
 const ALLOWED_EXTENSIONS = new Set(['pdf', 'xls', 'xlsx', 'csv', 'doc', 'docx', 'ppt', 'pptx', 'msg', 'jpg', 'jpeg', 'png', 'webp', 'txt']);
 
 function normalizeSearchValue(value = '') {
@@ -110,6 +112,15 @@ function reorderByMove(items, fromIndex, toIndex) {
   const [moved] = next.splice(fromIndex, 1);
   next.splice(toIndex, 0, moved);
   return next;
+}
+
+function buildOrderKey(type, parentFolderId) {
+  return `${type}:${parentFolderId || 'root'}`;
+}
+
+function sameOrder(a = [], b = []) {
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
 }
 
 function FolderDialog({ open, mode, initialData, folders, currentFolderId, onClose, onSubmit, saving }) {
@@ -456,8 +467,13 @@ export default function NutritionModulesPage({ user }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSection, setSelectedSection] = useState('todos');
   const [savingOrder, setSavingOrder] = useState(false);
+  const [orderSaved, setOrderSaved] = useState(false);
+  const [orderLocked, setOrderLocked] = useState(false);
+  const [orderErrorOpen, setOrderErrorOpen] = useState(false);
   const [dragState, setDragState] = useState(null);
   const [dragOverState, setDragOverState] = useState(null);
+  const orderQueueRef = useRef(new Map());
+  const orderSaveTimerRef = useRef(null);
 
   const canManage = useMemo(() => canManageRole(user?.role), [user?.role]);
   const folderById = useMemo(() => new Map(folders.map((folder) => [folder.id, folder])), [folders]);
@@ -488,10 +504,16 @@ export default function NutritionModulesPage({ user }) {
   }).sort((a, b) => compareBySortOrderThenName(a, b, 'title'));
   const currentParentId = currentFolderId ? (folderById.get(currentFolderId)?.parentId || null) : null;
   const hasRestrictedOrderView = Boolean(search) || selectedSection !== 'todos';
-  const canReorderCurrentView = canManage && !hasRestrictedOrderView && !savingOrder;
+  const canReorderCurrentView = canManage && !hasRestrictedOrderView && !orderLocked;
 
   useEffect(() => {
     void loadLibrary();
+  }, []);
+
+  useEffect(() => () => {
+    if (orderSaveTimerRef.current) {
+      clearTimeout(orderSaveTimerRef.current);
+    }
   }, []);
 
   const loadLibrary = async () => {
@@ -504,6 +526,7 @@ export default function NutritionModulesPage({ user }) {
       ]);
       setRows(Array.isArray(documentsData) ? documentsData : []);
       setFolders(Array.isArray(foldersData) ? foldersData : []);
+      orderQueueRef.current.clear();
     } catch (err) {
       setError(err.message || 'No se pudo cargar la biblioteca documental');
       setRows([]);
@@ -513,8 +536,8 @@ export default function NutritionModulesPage({ user }) {
     }
   };
 
-  const applyLocalOrder = (type, orderedItems) => {
-    const orderedMap = new Map(orderedItems.map((item, index) => [item.id, index]));
+  const applyLocalOrder = (type, orderedItemsOrIds) => {
+    const orderedMap = new Map(orderedItemsOrIds.map((item, index) => [typeof item === 'string' ? item : item.id, index]));
     if (type === 'folder') {
       setFolders((prev) => prev.map((folder) => (
         orderedMap.has(folder.id) ? { ...folder, sortOrder: orderedMap.get(folder.id) } : folder
@@ -526,29 +549,101 @@ export default function NutritionModulesPage({ user }) {
     )));
   };
 
-  const persistOrder = async (type, orderedItems, previousItems) => {
-    if (!canManage || hasRestrictedOrderView || savingOrder) return;
-    const parentFolderId = currentFolderId || null;
-    try {
-      setSavingOrder(true);
-      setError('');
-      setSuccess('');
-      applyLocalOrder(type, orderedItems);
-      await reorderNutritionModuleItems({
-        type,
-        parentFolderId,
-        orderedIds: orderedItems.map((item) => item.id)
-      });
-      setSuccess('Orden guardado correctamente');
-      await loadLibrary();
-    } catch (err) {
-      applyLocalOrder(type, previousItems);
-      setError(err.message || 'No se pudo guardar el orden');
-    } finally {
-      setSavingOrder(false);
-      setDragState(null);
-      setDragOverState(null);
+  const handleOrderPersistFailure = (entry) => {
+    if (orderSaveTimerRef.current) {
+      clearTimeout(orderSaveTimerRef.current);
+      orderSaveTimerRef.current = null;
     }
+    orderQueueRef.current.clear();
+    applyLocalOrder(entry.type, entry.confirmedIds);
+    setSavingOrder(false);
+    setOrderSaved(false);
+    setOrderLocked(true);
+    setOrderErrorOpen(true);
+    setDragState(null);
+    setDragOverState(null);
+  };
+
+  const flushOrderQueue = async () => {
+    if (orderLocked) return;
+    const entries = [...orderQueueRef.current.entries()];
+    if (!entries.length) {
+      setSavingOrder(false);
+      return;
+    }
+
+    setSavingOrder(entries.some(([, entry]) => entry.dirty || entry.inFlight));
+
+    for (const [key, entry] of entries) {
+      if (entry.inFlight || !entry.dirty) continue;
+      entry.inFlight = true;
+      entry.dirty = false;
+      const sentIds = [...entry.orderedIds];
+      orderQueueRef.current.set(key, entry);
+      setSavingOrder(true);
+      try {
+        await reorderNutritionModuleItems({
+          type: entry.type,
+          parentFolderId: entry.parentFolderId,
+          orderedIds: sentIds
+        });
+        const latest = orderQueueRef.current.get(key);
+        if (!latest) continue;
+        latest.inFlight = false;
+        if (sameOrder(latest.orderedIds, sentIds)) {
+          latest.confirmedIds = sentIds;
+          latest.dirty = false;
+          setOrderSaved(true);
+          window.setTimeout(() => setOrderSaved(false), 1800);
+        } else {
+          latest.dirty = true;
+        }
+        orderQueueRef.current.set(key, latest);
+      } catch {
+        handleOrderPersistFailure(entry);
+        return;
+      }
+    }
+
+    const hasPending = [...orderQueueRef.current.values()].some((entry) => entry.dirty);
+    const hasInFlight = [...orderQueueRef.current.values()].some((entry) => entry.inFlight);
+    setSavingOrder(hasPending || hasInFlight);
+    if (hasPending && !orderSaveTimerRef.current) {
+      orderSaveTimerRef.current = window.setTimeout(() => {
+        orderSaveTimerRef.current = null;
+        void flushOrderQueue();
+      }, ORDER_SAVE_DEBOUNCE_MS);
+    }
+  };
+
+  const scheduleOrderPersist = (type, orderedItems, previousItems) => {
+    if (!canManage || hasRestrictedOrderView || orderLocked) return;
+    const parentFolderId = currentFolderId || null;
+    const key = buildOrderKey(type, parentFolderId);
+    const existing = orderQueueRef.current.get(key);
+    const orderedIds = orderedItems.map((item) => item.id);
+    const confirmedIds = existing?.confirmedIds || previousItems.map((item) => item.id);
+    orderQueueRef.current.set(key, {
+      type,
+      parentFolderId,
+      orderedIds,
+      confirmedIds,
+      dirty: true,
+      inFlight: Boolean(existing?.inFlight)
+    });
+    applyLocalOrder(type, orderedItems);
+    setError('');
+    setSuccess('');
+    setOrderSaved(false);
+    setSavingOrder(true);
+
+    if (orderSaveTimerRef.current) {
+      clearTimeout(orderSaveTimerRef.current);
+    }
+    orderSaveTimerRef.current = window.setTimeout(() => {
+      orderSaveTimerRef.current = null;
+      void flushOrderQueue();
+    }, ORDER_SAVE_DEBOUNCE_MS);
   };
 
   const handleMoveOrder = (type, index, direction) => {
@@ -557,7 +652,7 @@ export default function NutritionModulesPage({ user }) {
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= source.length) return;
     const next = reorderByMove(source, index, targetIndex);
-    void persistOrder(type, next, source);
+    scheduleOrderPersist(type, next, source);
   };
 
   const handleDragStart = (type, id, event) => {
@@ -590,7 +685,7 @@ export default function NutritionModulesPage({ user }) {
       return;
     }
     const next = reorderByMove(source, fromIndex, toIndex);
-    void persistOrder(type, next, source);
+    scheduleOrderPersist(type, next, source);
   };
 
   const handleCreateDocument = () => {
@@ -871,9 +966,12 @@ export default function NutritionModulesPage({ user }) {
     if (!canManage) return null;
     const itemLabel = type === 'folder' ? 'carpeta' : 'documento';
     const disabled = !canReorderCurrentView;
+    const disabledHint = orderLocked
+      ? 'Recargá la página para volver a modificar el orden.'
+      : 'Quitá los filtros para modificar el orden.';
     return (
       <>
-        <Tooltip title={hasRestrictedOrderView ? 'Quitá los filtros para modificar el orden.' : 'Arrastrar para ordenar'}>
+        <Tooltip title={disabled ? disabledHint : 'Arrastrar para ordenar'}>
           <Box
             component="span"
             sx={{
@@ -943,10 +1041,26 @@ export default function NutritionModulesPage({ user }) {
 
         {error && <Alert severity="error" sx={{ mb: 1.2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 1.2 }}>{success}</Alert>}
+        {orderErrorOpen && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 1.2 }}
+            action={(
+              <Button color="inherit" size="small" onClick={() => window.location.reload()}>
+                Recargar página
+              </Button>
+            )}
+            onClose={() => setOrderErrorOpen(false)}
+          >
+            <AlertTitle>No pudimos guardar el nuevo orden</AlertTitle>
+            Restauramos la organización anterior para evitar inconsistencias. Recargá la página y volvé a intentarlo.
+          </Alert>
+        )}
         {canManage && hasRestrictedOrderView && (
           <Alert severity="info" sx={{ mb: 1.2 }}>Quitá los filtros para modificar el orden.</Alert>
         )}
         {savingOrder && <Alert severity="info" sx={{ mb: 1.2 }}>Guardando orden...</Alert>}
+        {orderSaved && !savingOrder && <Alert severity="success" sx={{ mb: 1.2 }}>Orden guardado</Alert>}
 
         {loading ? (
           <Box sx={{ py: 2 }}><CircularProgress size={22} /></Box>
