@@ -1,0 +1,87 @@
+Resumen de cambios
+- Se simplifico la landing publica para que funcione como entrada institucional breve y legible.
+- Se elimino la grilla extensa de tarjetas administrativas.
+- Se redujo el contenido a cinco secciones: hero, beneficios, usos por perfil, acceso automatico y CTA con footer.
+- Se mantuvieron unicamente los botones publicos Ingresar y Solicitar registro.
+- Las columnas de uso son informativas y no permiten elegir rol.
+
+Archivos modificados
+- frontend/src/components/PublicLanding.jsx
+
+Archivos creados
+- SIMPLIFICACION_LANDING_PUBLICA.txt
+
+Decisiones visuales
+- Se mantuvo el fondo azul corporativo con gradientes sobrios.
+- Se mantuvo el logo existente de ServiFood.
+- Se mantuvo naranja como color principal de accion.
+- Se hizo mas visible el boton Solicitar registro sin competir con Ingresar.
+- Se reemplazaron tarjetas grandes por cuatro items compactos de beneficio.
+- Se agruparon funcionalidades en dos bloques claros: Colaboradores y Gestion interna.
+- Se redujeron iconos y colores para evitar saturacion visual.
+- Se mejoraron contraste, tamano de texto secundario y espaciado.
+- Se definio un layout responsive: una columna en mobile y dos columnas en desktop para beneficios y usos.
+
+Secciones implementadas
+1. Hero principal
+   - Logo centrado.
+   - Titulo requerido.
+   - Subtitulo requerido.
+   - Boton Ingresar.
+   - Boton Solicitar registro cuando onRegister esta disponible.
+
+2. Que permite hacer la plataforma
+   - Centralizar documentacion.
+   - Gestionar salud operativa.
+   - Analizar informacion.
+   - Controlar accesos.
+
+3. Usos segun perfil
+   - Colaboradores.
+   - Gestion interna.
+   - Sin botones separados ni selector de rol.
+
+4. Acceso automatico segun perfil
+   - Explica que el inicio de sesion es unico y que la plataforma muestra herramientas segun la cuenta.
+
+5. CTA final y footer
+   - Titulo Ingresá a la plataforma.
+   - Texto requerido.
+   - Botones Ingresar y Solicitar registro.
+   - Footer minimo de ServiFood Catering.
+
+Validaciones realizadas
+- / responde HTTP 200 en Vite.
+- /login responde HTTP 200 en Vite.
+- /register responde HTTP 200 en Vite.
+- El boton Ingresar usa el callback onLogin existente, conectado en App.jsx a navigatePublic('/login').
+- El boton Solicitar registro usa el callback onRegister existente, conectado en App.jsx a navigatePublic('/register').
+- PublicLanding.jsx no contiene href, to=, rutas privadas ni enlaces a modulos internos.
+- PublicLanding.jsx no contiene textos "Ingresar como colaborador" ni "Acceso interno".
+- PublicLanding.jsx no consulta rol, usuario, Supabase ni profiles.
+- No hay tarjetas individuales para cada modulo administrativo.
+- Las listas de funcionalidades son informativas y no navegables.
+- Se reviso git status: el cambio fuente queda acotado a frontend/src/components/PublicLanding.jsx y este archivo de entrega.
+
+Resultado del build
+- Comando ejecutado: npm run build en frontend.
+- Resultado: exitoso.
+- Advertencia: Vite informa que algunos chunks superan 500 kB despues de minificacion. No se modifico la configuracion de bundling por estar fuera del alcance.
+
+Resultado del lint
+- Comando ejecutado: npm run lint en frontend.
+- Resultado: no disponible.
+- Motivo: frontend/package.json no define script "lint".
+
+Confirmacion de alcance
+- No se toco login.
+- No se toco registro.
+- No se toco autenticacion.
+- No se tocaron roles.
+- No se tocaron guards.
+- No se tocaron redirecciones post-login.
+- No se tocaron paginas autenticadas.
+- No se toco backend.
+- No se agregaron librerias.
+- No se hizo commit.
+- No se abrio pull request.
