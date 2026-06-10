@@ -1,0 +1,187 @@
+CORRECCION_SEPARACION_PORTALES_POR_ROL
+Fecha: 2026-06-10
+
+RESUMEN
+
+Se corrigio quirurgicamente la landing publica para eliminar la seleccion manual de portal antes del login. La aplicacion conserva una unica entrada institucional neutra y el destino real sigue resolviendose automaticamente despues de autenticar, con el rol leido desde public.profiles.role y normalizado por la capa central de roleRouting.
+
+PROBLEMA CORREGIDO
+
+La landing publica mostraba dos recorridos seleccionables:
+- Portal del colaborador.
+- Gestion interna.
+
+Tambien mostraba dos CTAs diferenciados:
+- Ingresar como colaborador.
+- Acceso interno.
+
+Eso era conceptualmente incorrecto porque el usuario no debe elegir manualmente su portal. La eleccion del destino corresponde al sistema despues del login, segun el rol real del perfil.
+
+ARCHIVOS CREADOS
+
+CORRECCION_SEPARACION_PORTALES_POR_ROL.txt
+- Archivo de entrega solicitado.
+
+ARCHIVOS MODIFICADOS
+
+frontend/src/components/PublicLanding.jsx
+- Se elimino la tarjeta Portal del colaborador.
+- Se elimino la tarjeta Gestion interna.
+- Se elimino el boton Ingresar como colaborador.
+- Se elimino el boton Acceso interno.
+- Se elimino cualquier flujo visual de seleccion manual de portal.
+- Se dejo un unico CTA principal: Ingresar.
+- Se conserva el acceso a registro mediante Solicitar registro porque /register ya estaba habilitado.
+- Se mantiene la landing responsive y con el titulo/descripcion requeridos.
+
+ARCHIVOS ELIMINADOS
+
+Ninguno en esta correccion.
+
+RUTAS FINALES
+
+Sin sesion:
+- / muestra landing institucional neutra.
+- /login muestra el login unico.
+- /register muestra registro si esta habilitado.
+- Ruta privada pegada directamente redirige a /login.
+- Ruta desconocida redirige a /.
+
+Con sesion:
+- user redirige a /portal-colaborador.
+- nutricionista redirige a /gestion-interna.
+- admin redirige a /gestion-interna.
+- /inicio queda como alias retrocompatible y redirige segun rol.
+- /login y /register con sesion redirigen segun rol.
+
+COMPORTAMIENTO FINAL POR ROL
+
+user:
+- Home: /portal-colaborador.
+- Ve un portal simple con Declaracion de Salud y Politicas.
+- No ve Documentos SGC, Certificaciones, analisis ni modulos admin.
+- Si pega rutas administrativas, vuelve a /portal-colaborador.
+
+nutricionista:
+- Home: /gestion-interna.
+- Ve el subset autorizado: Documentos SGC, Certificaciones, Politicas y Declaracion de Salud.
+- No ve Cargar archivos, Dashboard e indicadores, Historial, Reglas, Gestion de usuarios ni Declaraciones administrativas.
+- Si pega una ruta exclusiva de admin, vuelve a /gestion-interna.
+
+admin:
+- Home: /gestion-interna.
+- Conserva el sidebar administrativo completo.
+- Conserva accesos a Cargar archivos, Dashboard e indicadores, Historial, Declaraciones administrativas, Reglas, Gestion de usuarios, Documentos SGC, Certificaciones, Politicas y Declaracion de Salud.
+
+MENU FINAL POR ROL
+
+user:
+- Inicio.
+- Declaracion de Salud.
+- Politicas.
+
+nutricionista:
+- Inicio.
+- Declaracion de Salud.
+- Politicas.
+- Documentos SGC.
+- Certificaciones.
+
+admin:
+- Inicio.
+- Cargar archivos.
+- Historial.
+- Graficos.
+- Mi Perfil.
+- Ver Tutorial.
+- Configurar Reglas.
+- Gestion de usuarios.
+- Mi Declaracion Salud.
+- Gestor Declaraciones.
+- Politicas.
+- Documentos SGC.
+- Certificaciones.
+
+VALIDACIONES EJECUTADAS
+
+Build frontend:
+- Comando: cd frontend && npm run build
+- Resultado: OK.
+- Salida relevante: 14172 modules transformed, built in 23.00s.
+- Warning no bloqueante: algunos chunks superan 500 kB despues de minificacion.
+
+Tests:
+- Comando: cd backend && npm test
+- Resultado: OK.
+- Salida relevante: tests 161, pass 161, fail 0.
+
+Lint:
+- No ejecutado.
+- Motivo: frontend/package.json no define script lint. Scripts disponibles: dev, build, preview.
+
+Revisiones adicionales:
+- Se reviso que PublicLanding.jsx ya no contenga "Portal del colaborador", "Gestion interna", "Ingresar como colaborador" ni "Acceso interno".
+- Se reviso que no queden imports activos a DynamicWelcomePortal ni SmartHome.
+- Se reviso que el build no deje cambios de dist en el estado final; frontend/dist/index.html fue restaurado despues del build.
+
+ELEMENTOS NO MODIFICADOS
+
+- Backend.
+- Supabase.
+- SQL.
+- Politicas RLS.
+- Endpoints.
+- Roles tecnicos persistidos: user, nutricionista, admin.
+- Sistema de ruteo manual.
+- LoginForm.
+- App.jsx.
+- roleRouting.js.
+- CollaboratorPortal.jsx.
+- InternalManagementPortal.jsx.
+- AppLayout.jsx.
+- Logica de recuperacion de contrasena.
+- Logica de registro.
+- Funcionalidades administrativas existentes.
+
+CHECKLIST DE ACEPTACION
+
+Sin sesion:
+- / muestra landing neutra con un unico boton Ingresar: cumplido.
+- No existen botones distintos para colaborador e interno en la landing: cumplido.
+- /login mantiene login unico: sin cambios.
+- /register sigue funcionando si ya estaba habilitado: sin cambios.
+
+Rol user:
+- Login termina en /portal-colaborador: sin cambios respecto a la implementacion anterior.
+- Sidebar user solo contiene Inicio, Declaracion de Salud y Politicas: sin cambios.
+- Portal user solo contiene Declaracion de Salud y Politicas: sin cambios.
+- No ve Documentos SGC, Certificaciones, analisis ni modulos admin: sin cambios.
+- /gestion-interna o /cargar pegadas manualmente vuelven a /portal-colaborador: sin cambios.
+
+Rol nutricionista:
+- Login termina en /gestion-interna: sin cambios.
+- Sidebar restringido a Inicio, Declaracion de Salud, Politicas, Documentos SGC y Certificaciones: sin cambios.
+- No ve analisis ni administracion: sin cambios.
+- /cargar pegada manualmente vuelve a /gestion-interna: sin cambios.
+
+Rol admin:
+- Login termina en /gestion-interna: sin cambios.
+- Conserva el sidebar administrativo completo: sin cambios.
+- Conserva tarjetas internas existentes de gestion: sin cambios.
+- Puede ingresar a modulos previamente disponibles: sin cambios.
+
+Navegacion:
+- /inicio redirige segun rol: sin cambios.
+- Logout termina en /: sin cambios.
+- No se introdujeron loops nuevos.
+- Mobile y desktop conservan el mismo layout.
+
+RIESGOS PENDIENTES
+
+- No se probaron sesiones reales de Supabase en navegador desde este entorno.
+- No hay script lint disponible en frontend.
+- El warning de chunk size del build persiste como advertencia no bloqueante.
+
+RESUMEN CONSOLA
+
+Correccion completada. Landing publica neutra con un unico CTA Ingresar. Build frontend OK. Tests backend OK: 161 passed, 0 failed. Lint no disponible.
