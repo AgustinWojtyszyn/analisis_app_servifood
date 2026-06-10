@@ -1,0 +1,103 @@
+Resumen de cambios
+- Se redisenio completamente la landing publica de ServiFood en el componente existente.
+- Se reemplazo la composicion anterior por una entrada institucional compacta con identidad corporativa mas marcada.
+- Se agrego un header institucional con logo, texto Plataforma interna y botones publicos.
+- Se creo un hero en dos columnas para desktop con composicion visual propia en HTML, CSS e iconos existentes.
+- Se reorganizo el contenido en tres pilares del ecosistema ServiFood, sin crear un catalogo de modulos.
+- Se agrego una seccion integrada de experiencia segun perfil sin selector de rol ni accesos separados.
+- Se mantuvo la navegacion publica existente mediante callbacks onLogin y onRegister.
+
+Archivos modificados
+- frontend/src/components/PublicLanding.jsx
+
+Archivos creados
+- REDISENO_LANDING_SERVIFOOD.txt
+
+Decisiones visuales
+- Se mantuvo azul profundo como base con degradados sobrios.
+- Se uso blanco para titulos y textos principales.
+- Se uso naranja ServiFood como acento principal en botones, detalles y lineas de tarjetas.
+- Se reutilizo el logo local existente servifood_logo_white_text_HQ.png.
+- No se usaron imagenes externas ni fotos de stock.
+- Se reutilizo lucide-react, ya disponible en el proyecto.
+- Se evito una estetica de dashboard y una grilla de modulos independientes.
+- Se creo una composicion visual personalizada para representar Operacion, Documentacion y Seguimiento alrededor del Ecosistema de calidad.
+- Se mantuvieron bordes suaves, sombras moderadas, contraste alto y microinteracciones breves.
+- Se definio un ancho maximo de 1240 px y layouts responsive para desktop, tablet y mobile.
+
+Estructura final
+1. Header institucional
+   - Logo ServiFood.
+   - Texto Plataforma interna.
+   - Boton Solicitar registro.
+   - Boton Ingresar.
+
+2. Hero principal
+   - Etiqueta SERVIFOOD CATERING.
+   - Titulo Gestion, cumplimiento y calidad en un solo lugar.
+   - Descripcion requerida.
+   - CTA Ingresar a la plataforma.
+   - CTA Solicitar registro.
+   - Texto de acceso segun perfil.
+   - Composicion visual propia del ecosistema ServiFood.
+
+3. Tres pilares del ecosistema ServiFood
+   - Calidad y analisis.
+   - Documentacion y cumplimiento.
+   - Salud operativa y accesos.
+
+4. Experiencia segun perfil
+   - Colaboradores.
+   - Personal autorizado.
+   - Seccion informativa sin botones por perfil.
+
+5. CTA final y footer
+   - Todo el ecosistema ServiFood, centralizado.
+   - Ingresar.
+   - Solicitar registro.
+   - Footer minimo ServiFood Catering.
+
+Validaciones realizadas
+- / responde HTTP 200 en Vite.
+- /login responde HTTP 200 en Vite.
+- /register responde HTTP 200 en Vite.
+- El boton Ingresar usa onLogin, conectado en App.jsx a navigatePublic('/login').
+- El boton Ingresar a la plataforma usa onLogin, conectado en App.jsx a navigatePublic('/login').
+- El boton Solicitar registro usa onRegister, conectado en App.jsx a navigatePublic('/register').
+- PublicLanding.jsx no contiene href, to=, rutas privadas ni enlaces directos a modulos internos.
+- PublicLanding.jsx no contiene selector de rol.
+- PublicLanding.jsx no contiene botones "Ingresar como colaborador" ni "Acceso interno".
+- PublicLanding.jsx no consulta sesion, usuario, Supabase, profiles ni roles.
+- Se revisaron imports sin uso luego del redisenio.
+- Se verifico por revision estatica que el layout mobile usa una sola columna y overflowX hidden.
+- Se reviso git status para confirmar el alcance de archivos.
+
+Resultado del build
+- Comando ejecutado: npm run build en frontend.
+- Resultado: exitoso.
+- Advertencia: Vite informa que algunos chunks superan 500 kB despues de minificacion. No se modifico la configuracion de bundling por estar fuera del alcance.
+
+Resultado del lint
+- Comando ejecutado: npm run lint en frontend.
+- Resultado: no disponible.
+- Motivo: frontend/package.json no define script "lint".
+
+Riesgos pendientes
+- Queda pendiente una revision visual manual fina en navegador real para ajustar detalles de espaciado si hiciera falta.
+- La advertencia de bundle grande permanece como condicion existente del build.
+
+Confirmacion explicita
+- No se toco login.
+- No se toco registro.
+- No se toco autenticacion.
+- No se tocaron roles.
+- No se tocaron guards.
+- No se tocaron rutas privadas.
+- No se tocaron homes autenticadas.
+- No se tocaron redirecciones post-login.
+- No se toco backend.
+- No se toco Supabase.
+- No se tocaron SQL ni endpoints.
+- No se agregaron librerias.
+- No se hizo commit.
+- No se abrio pull request.
