@@ -1,194 +1,135 @@
-# Analysis App - Sistema de Análisis de Archivos Excel
+# Servifood Analysis App
 
-Una aplicación web moderna para cargar, procesar y analizar archivos Excel con reglas de negocio configurable.
+Aplicacion web para gestion interna de Servifood: carga y analisis de archivos Excel, historial de analisis, documentos SGC, certificaciones, declaraciones de salud, politicas y administracion de usuarios.
 
-## 🚀 Características
-
-- ✅ Login y gestión de usuarios (Admin y Usuario común)
-- ✅ Carga de archivos Excel (drag & drop)
-- ✅ Análisis automático con reglas de negocio
-- ✅ Dashboard con métricas y gráficos
-- ✅ Historial de análisis
-- ✅ Configuración de reglas (solo admin)
-- ✅ Exportación a CSV
-- ✅ Interfaz moderna y responsive
-
-## 🛠️ Stack Tecnológico
-
-### Backend
-- **Node.js** + **Express.js**
-- **SQLite** con **Prisma ORM**
-- **ExcelJS** para parsear Excel
-- **JWT** para autenticación
-- **bcryptjs** para hash de contraseñas
+## Arquitectura actual
 
 ### Frontend
-- **React 18** + **Vite**
-- **Material-UI** para componentes
-- **Axios** para requests HTTP
 
-## 📋 Requisitos
+- React 18 con Vite.
+- Material UI para componentes visuales.
+- Supabase Auth desde el cliente con clave anonima/publica.
+- Consume el backend Express por `/api` o por `VITE_API_URL`.
 
-- Node.js >= 16
-- npm o yarn
-- Navegador moderno
+### Backend
 
-## 🔧 Instalación y Ejecución
+- Node.js 20 con Express.
+- Supabase como base de datos operativa.
+- Supabase Auth para validar sesiones.
+- Supabase Service Role solo en backend para operaciones administrativas y consultas protegidas.
+- ExcelJS para lectura principal de archivos Excel.
+- Rutas API para analisis, reglas, documentos SGC, certificaciones, declaraciones de salud y usuarios admin.
 
-### 1. Clonar o descargar el proyecto
+### Roles
+
+- `admin`: acceso a gestion interna, cargas Excel, historial, reglas, usuarios, documentos SGC, certificaciones y gestor de declaraciones.
+- `nutricionista`: acceso a gestion interna, documentos SGC, certificaciones, declaracion propia y politicas.
+- `user`: acceso al portal colaborador, declaracion propia y politicas.
+
+Los permisos efectivos se resuelven desde la tabla `profiles` en Supabase. El backend revalida el token y el perfil en endpoints protegidos.
+
+## Variables de entorno
+
+No commitear archivos `.env` ni valores reales.
+
+### Backend (`backend/.env`)
 
 ```bash
-cd /home/aggustin/analysis-app
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+DATABASE_URL=
+FRONTEND_URL=
+CORS_ORIGIN=
+ALLOWED_ORIGINS=
+INTERNAL_CRON_SECRET=
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
+DOCUMENT_NOTIFICATION_RECIPIENTS=
+CERTIFICATION_NOTIFICATION_RECIPIENTS=
 ```
 
-### 2. Instalar dependencias del backend
+Notas:
+
+- `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` son obligatorias para endpoints protegidos del backend.
+- `DATABASE_URL` se mantiene porque el proyecto aun genera Prisma Client para compatibilidad de partes legacy.
+- `FRONTEND_URL`, `CORS_ORIGIN` o `ALLOWED_ORIGINS` deben configurarse en produccion para CORS.
+- Variables SMTP y destinatarios son necesarias solo para notificaciones por email.
+
+### Frontend (`frontend/.env.local`)
+
+```bash
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_API_URL=
+```
+
+Notas:
+
+- `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` son obligatorias.
+- `VITE_API_URL` es opcional si frontend y backend se sirven bajo el mismo dominio con `/api`.
+
+## Instalacion local
+
+### Backend
 
 ```bash
 cd backend
 npm install
-```
-
-### 3. Configurar la base de datos
-
-```bash
-# Generar cliente Prisma
-npm run prisma:generate
-
-# Crear y migrar la BD (SQLite)
-npm run prisma:migrate
-# O simplemente:
-npx prisma migrate dev
-```
-
-### 4. Iniciar el backend
-
-```bash
+npm run build
 npm run dev
-# O en producción:
-npm start
 ```
 
-El backend estará en `http://localhost:5000`
+Por defecto el backend usa `PORT=5000` si no se define otra variable.
 
-**Credenciales por defecto:**
-- Email: `admin@example.com`
-- Contraseña: `admin123`
-
-### 5. Instalar dependencias del frontend
+### Frontend
 
 ```bash
-cd ../frontend
+cd frontend
 npm install
-```
-
-### 6. Iniciar el frontend
-
-```bash
 npm run dev
 ```
 
-El frontend estará en `http://localhost:3000`
+Vite publica normalmente en `http://localhost:5173`.
 
-## 📁 Estructura de Carpetas
+## Build y verificacion
 
-```
-analysis-app/
-├── backend/                    # Servidor Express
-│   ├── src/
-│   │   ├── controllers/       # Controladores
-│   │   ├── services/          # Lógica de negocio
-│   │   ├── routes/            # Rutas API
-│   │   ├── middlewares/       # Autenticación, etc
-│   │   ├── utils/             # Utilidades (JWT, auth)
-│   │   └── server.js          # Entrada principal
-│   ├── prisma/
-│   │   └── schema.prisma      # Modelo de datos
-│   └── package.json
-│
-├── frontend/                   # App React
-│   ├── src/
-│   │   ├── components/        # Componentes React
-│   │   ├── pages/             # Páginas
-│   │   ├── services/          # Servicios API
-│   │   ├── hooks/             # Custom hooks
-│   │   ├── styles/            # Temas y estilos
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── index.html
-│   ├── vite.config.js
-│   └── package.json
-│
-├── shared/                     # Código compartido
-│   ├── businessRules/
-│   │   └── defaultRules.json  # Reglas por defecto
-│   └── types/
-│
-└── README.md
+```bash
+cd frontend
+npm run build
+
+cd ../backend
+npm run build
+npm test
 ```
 
-## 📊 Flujo de Uso
+## Deploy
 
-1. **Login**: Usuario inicia sesión con email y contraseña
-2. **Cargar archivo**: Arrastra o selecciona un archivo Excel (.xlsx, .xls)
-3. **Procesamiento**: El sistema valida y analiza el archivo
-4. **Resultados**: Ve métricas, tabla de registros y recomendaciones
-5. **Historial**: Accede a análisis previos
-6. **Configurar** (solo admin): Edita las reglas de análisis
+El backend puede servir el build de Vite desde `frontend/dist` y exponer las APIs bajo `/api`.
 
-## 🎯 Reglas de Análisis Incluidas
+Pasos esperados para despliegue:
 
-- **Logística**: "faltó mercadería", "falta de", "demora", "retraso"
-- **Inocuidad**: "producto en mal estado", "defectuoso", "producto defectuoso"
-- **Calidad**: "problema de calidad", "defecto", "control de calidad"
-- **Reclamo Externo**: "cliente reclamó", "reclamo cliente", "queja cliente"
-- **Reclamo Interno**: "incumplimiento interno", "incumplimiento"
+1. Configurar variables de entorno del backend.
+2. Configurar variables de entorno del frontend durante el build.
+3. Ejecutar build del frontend.
+4. Ejecutar build del backend.
+5. Iniciar `node backend/src/bootstrap.js` o `npm start` desde `backend`.
 
-Las reglas son completamente configurables desde la UI.
+## Datos y migraciones
 
-## 📈 Acciones Sugeridas
+La base operativa actual esta en Supabase. Los scripts SQL versionados viven en `backend/sql`.
 
-- **1 incidencia**: Aviso
-- **2 incidencias**: Seguimiento
-- **3+ incidencias**: Medida correctiva
+El directorio `backend/prisma` describe una estructura SQLite legacy y no representa por si solo todo el esquema productivo actual. No usarlo como fuente unica de verdad para Supabase.
 
-## 💾 Estructura del Excel Esperado
+## Referencias legacy
 
-El archivo debe tener las siguientes columnas (en cualquier orden):
+Referencias antiguas a SQLite local, autenticacion JWT/bcrypt propia y credenciales `admin@example.com / admin123` pertenecen a versiones previas del proyecto. La autenticacion vigente es Supabase Auth y los usuarios/roles se administran por Supabase y la tabla `profiles`.
 
-| Fecha | Empleado | Sector | Descripción | Tipo | Observación | Responsable |
-|-------|----------|--------|-------------|------|-------------|-------------|
-| 2024-04-01 | Juan | Logística | Faltó mercadería | Falta | - | Pedro |
-| 2024-04-02 | Ana | Calidad | Producto en mal estado | Reclamo | - | Laura |
+## Seguridad operativa
 
-## 🔐 Seguridad
-
-- Contraseñas hasheadas con bcryptjs
-- JWT para autenticación sin estado
-- Validación de permisos (rol-based)
-- Manejo de errores seguro
-
-## 🚀 Próximos Pasos / Mejoras
-
-- [ ] Exportar a PDF
-- [ ] Gráficos avanzados (charts.js, recharts)
-- [ ] Integración con base de datos PostgreSQL
-- [ ] Autenticación con Supabase Auth
-- [ ] Análisis con IA (opcional)
-- [ ] Webhooks para notificaciones
-- [ ] Tests unitarios e integración
-
-## 📞 Soporte
-
-Si encuentras problemas:
-
-1. Verifica que Node.js esté instalado: `node --version`
-2. Asegúrate de que los puertos 5000 y 3000 estén disponibles
-3. Verifica los logs en la terminal
-
-## 📄 Licencia
-
-MIT - Libre para usar y modificar
-
----
-
-¡Gracias por usar Analysis App! 🎉
+- No imprimir ni commitear secretos.
+- Mantener `SUPABASE_SERVICE_ROLE_KEY` solo en backend.
+- Configurar CORS explicitamente en produccion.
+- Validar perfiles y roles en backend, no solo en UI.

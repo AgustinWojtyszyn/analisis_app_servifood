@@ -11,12 +11,14 @@ const CATEGORY = {
 };
 
 const CLASSIFIER_BUILD_TS = '2026-05-11T00:00:00Z';
-console.log('[CLASSIFIER ACTIVE]', {
-  module: 'deviationClassifier.js',
-  buildTs: CLASSIFIER_BUILD_TS,
-  loadedAt: new Date().toISOString(),
-  pid: process.pid
-});
+if (process.env.DEVIATION_CLASSIFIER_DEBUG === '1') {
+  console.log('[CLASSIFIER ACTIVE]', {
+    module: 'deviationClassifier.js',
+    buildTs: CLASSIFIER_BUILD_TS,
+    loadedAt: new Date().toISOString(),
+    pid: process.pid
+  });
+}
 
 function buildText({ text = '', area = '', immediateAction = '', correctiveAction = '', iso = '' } = {}) {
   return normalizeIncidentText([text, area, immediateAction, correctiveAction, iso].filter(Boolean).join(' | '));

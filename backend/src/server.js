@@ -19,6 +19,7 @@ const PORT = process.env.PORT || 5000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isProduction = process.env.NODE_ENV === 'production';
+const enableStartupDiagnostics = !isProduction || process.env.DEBUG_STARTUP === '1';
 
 function normalizeOrigin(origin = '') {
   return String(origin).trim().replace(/\/+$/, '');
@@ -187,13 +188,9 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  if (isProduction) {
-    console.log(`[CORS] Entorno producción. Orígenes permitidos: ${allowedOrigins.length}`);
-  } else {
-    console.log('[CORS] Entorno desarrollo. Orígenes permitidos:', allowedOrigins);
+  if (enableStartupDiagnostics) {
+    console.log(`[CORS] Entorno ${isProduction ? 'producción' : 'desarrollo'}. Orígenes permitidos:`, allowedOrigins);
   }
-  console.log('SUPABASE_URL:', process.env.SUPABASE_URL);
-  console.log('SUPABASE_KEY_OK:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
   console.log(`Servidor ejecutandose en http://localhost:${PORT}`);
 });
 

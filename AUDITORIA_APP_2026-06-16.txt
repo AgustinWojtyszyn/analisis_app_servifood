@@ -1,0 +1,174 @@
+zaAUDITORIA APP SERVIFOOD - 2026-06-16
+
+Resumen ejecutivo
+
+La app compila y la suite automatizada del backend pasa completa. No aparecieron fallos bloqueantes en build/test, pero si hay problemas importantes de seguridad en dependencias, configuracion fragil, documentacion desactualizada y algunas inconsistencias funcionales/de mantenimiento.
+
+Verificacion ejecutada
+
+- Backend: npm test en backend
+  Resultado: 161 tests OK.
+
+- Frontend: npm run build en frontend
+  Resultado: OK.
+  Advertencia: chunk principal grande, aproximadamente 1.65 MB minificado y 503.96 KB gzip.
+
+- Backend: npm run build en backend
+  Resultado: OK. Prisma Client generado correctamente.
+
+- Revision de secretos locales:
+  Existen backend/.env y frontend/.env.local, pero estan ignorados por git correctamente.
+
+
+Hallazgos
+
+1. ALTO - Dependencias con vulnerabilidades
+
+npm audit --omit=dev falla en backend y frontend.
+
+Backend:
+- nodemailer <= 8.0.8
+- tmp 0.2.6
+- xlsx *
+
+Frontend:
+- form-data 4.0.0 - 4.0.5
+- ws 8.0.0 - 8.20.1
+- xlsx *
+
+Archivos relacionados:
+- backend/package.json
+- frontend/package.json
+
+Notas:
+- nodemailer tiene fix via upgrade mayor a nodemailer 9, potencialmente breaking.
+- tmp tiene fix con npm audit fix.
+- xlsx no tiene fix disponible segun npm audit.
+- El parsing principal de Excel subido usa exceljs y tiene validaciones, pero xlsx se usa para exportaciones y en frontend. Conviene migrar esas exportaciones a exceljs o alternativa mantenida.
+
+
+2. MEDIO - Configuracion frontend falla tarde si faltan variables Supabase
+
+Archivo:
+- frontend/src/lib/supabaseClient.js
+
+Problema:
+El codigo solo hace console.warn si faltan VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY, pero igualmente ejecuta createClient(supabaseUrl, supabaseAnonKey).
+
+Impacto:
+En un deploy mal configurado la app puede romper en runtime con un error poco claro.
+
+Recomendacion:
+Fallar explicitamente con un mensaje controlado o renderizar una pantalla de configuracion faltante antes de crear el cliente Supabase.
+
+
+3. MEDIO - README y Prisma no representan la arquitectura actual
+
+Archivos:
+- README.md
+- backend/prisma/schema.prisma
+
+Problema:
+El README describe SQLite, Prisma local, JWT, bcrypt y credenciales admin@example.com / admin123.
+La app actual usa Supabase Auth y tablas Supabase como profiles, analysis_history, nutrition_modules, health_declarations y certifications.
+
+El schema.prisma tambien modela una arquitectura anterior con User, Analysis, ProcessedRecord y BusinessRule en SQLite.
+
+Impacto:
+No rompe los tests actuales, pero puede romper onboarding, migraciones, despliegues o tareas de mantenimiento si alguien sigue esos archivos.
+
+Recomendacion:
+Actualizar README con la arquitectura real y decidir si Prisma sigue siendo necesario. Si solo queda para reglas legacy, documentarlo claramente. Si ya no corresponde, remover o aislar el schema viejo.
+
+
+4. MEDIO - Logs de produccion excesivos
+
+Archivo principal:
+- backend/src/server.js
+
+Problema:
+Al iniciar, el servidor imprime SUPABASE_URL y SUPABASE_KEY_OK. No imprime la key, pero expone informacion de configuracion.
+
+Tambien hay muchos console.log, console.info y console.warn en backend/frontend relacionados con clasificacion, auth, uploads y notificaciones.
+
+Impacto:
+Ruido operativo, posible exposicion innecesaria de configuracion, y dificultad para distinguir errores reales.
+
+Recomendacion:
+Usar logger con niveles y desactivar trazas de diagnostico en produccion. Mantener solo logs operativos necesarios y sin datos sensibles.
+
+
+5. BAJO / FUNCIONAL - Bulk delete de analisis no respeta capacidad admin global
+
+Archivo:
+- backend/src/controllers/analysis/analysisQueries.js
+
+Problema:
+deleteAnalysisBulk siempre filtra por user_id = req.user.id.
+La ruta exige admin, pero un admin no puede borrar en lote analisis de otros usuarios.
+
+Inconsistencia:
+deleteAnalysis individual si permite que un admin borre cualquier analisis, mientras bulk delete no.
+
+Impacto:
+Puede ser intencional, pero la politica queda inconsistente y puede generar comportamiento inesperado en administracion.
+
+Recomendacion:
+Definir politica:
+- Si admin debe poder borrar cualquier analisis en lote, ajustar deleteAnalysisBulk.
+- Si no debe poder hacerlo, alinear deleteAnalysis individual y la UI.
+
+
+6. BAJO - Bundle frontend grande
+
+Resultado observado:
+- frontend/dist/assets/index-f2c49cd3.js: aproximadamente 1.65 MB minificado.
+- Gzip informado por Vite: aproximadamente 503.96 KB.
+
+Impacto:
+Carga inicial mas lenta, especialmente en redes moviles o equipos de baja potencia.
+
+Probables causas:
+- MUI
+- Recharts
+- xlsx en frontend
+
+Recomendacion:
+Aplicar code splitting con dynamic import en paginas pesadas, separar graficos/exportaciones y evitar cargar xlsx en el bundle inicial.
+
+
+7. BAJO - Archivos temporales versionados
+
+Ubicacion:
+- backend/tmp_*
+
+Resultado:
+Hay 18 archivos backend/tmp_* trackeados por git.
+
+Impacto:
+Aumentan ruido de mantenimiento. Algunos scripts usan SUPABASE_SERVICE_ROLE_KEY si se ejecutan manualmente.
+
+Recomendacion:
+Moverlos a scripts/ o test/fixtures/ si son utiles. Si son descartables, removerlos del repo y agregar patron tmp_* al .gitignore.
+
+
+Notas positivas
+
+- Backend tests: 161/161 OK.
+- Frontend build: OK.
+- Backend build: OK.
+- Upload principal de Excel valida extension .xlsx, MIME, firma ZIP y entradas minimas del archivo.
+- Las rutas SGC pasan por authenticateToken y los controladores revalidan permisos por rol. Las mutaciones quedan restringidas a admin mediante canManageByRole.
+- Los .env locales estan ignorados por git.
+
+
+Prioridad recomendada
+
+1. Corregir vulnerabilidades auditables.
+2. Migrar o reemplazar usos de xlsx sin fix disponible.
+3. Actualizar README y decidir el destino del schema Prisma legacy.
+4. Endurecer inicializacion de Supabase en frontend.
+5. Limpiar logs de produccion.
+6. Alinear politica de borrado bulk para admins.
+7. Reducir bundle frontend con code splitting.
+8. Limpiar o reubicar archivos tmp_*.

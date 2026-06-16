@@ -15,3 +15,5 @@ yarn-error.log*
 .idea/
 .prisma/
 .env*.local
+tmp_*
+backend/tmp_*
