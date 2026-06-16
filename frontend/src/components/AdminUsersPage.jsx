@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardContent,
+  InputAdornment,
   MenuItem,
   Table,
   TableBody,
@@ -16,6 +17,7 @@ import {
   Typography,
   Switch
 } from '@mui/material';
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { deleteAdminUser, getAdminUsers, updateAdminUser } from '../services/adminUsersService';
 
 function formatDate(value) {
@@ -38,8 +40,34 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const usersById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+  const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return users.filter((profile) => {
+      const matchesSearch = !query || [
+        profile.email,
+        profile.full_name,
+        profile.role
+      ].some((value) => String(value || '').toLowerCase().includes(query));
+
+      const role = String(profile.role || 'user').toLowerCase();
+      const matchesRole = roleFilter === 'all' || role === roleFilter;
+
+      const isActive = Boolean(profile.is_active);
+      const matchesStatus = statusFilter === 'all'
+        || (statusFilter === 'active' && isActive)
+        || (statusFilter === 'inactive' && !isActive);
+
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+  }, [roleFilter, search, statusFilter, users]);
+
+  const hasActiveFilters = Boolean(search.trim()) || roleFilter !== 'all' || statusFilter !== 'all';
 
   useEffect(() => {
     loadUsers();
@@ -122,6 +150,12 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
     setDeletingId(null);
   };
 
+  const handleClearFilters = () => {
+    setSearch('');
+    setRoleFilter('all');
+    setStatusFilter('all');
+  };
+
   return (
     <Card>
       <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
@@ -134,6 +168,66 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'minmax(260px, 1fr) 180px 180px auto' },
+            gap: 1.5,
+            alignItems: 'center',
+            mb: 2.5
+          }}
+        >
+          <TextField
+            size="small"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por email, nombre o rol"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRoundedIcon fontSize="small" />
+                </InputAdornment>
+              )
+            }}
+          />
+          <TextField
+            select
+            size="small"
+            label="Rol"
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <MenuItem value="all">Todos</MenuItem>
+            <MenuItem value="user">user</MenuItem>
+            <MenuItem value="nutricionista">nutricionista</MenuItem>
+            <MenuItem value="admin">admin</MenuItem>
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label="Estado"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <MenuItem value="all">Todos</MenuItem>
+            <MenuItem value="active">Activos</MenuItem>
+            <MenuItem value="inactive">Inactivos</MenuItem>
+          </TextField>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={handleClearFilters}
+            disabled={!hasActiveFilters}
+            sx={{ minHeight: 40, whiteSpace: 'nowrap' }}
+          >
+            Limpiar filtros
+          </Button>
+        </Box>
+
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Mostrando {filteredUsers.length} de {users.length} usuarios
+        </Typography>
 
         <TableContainer>
           <Table>
@@ -148,7 +242,7 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
               </TableRow>
             </TableHead>
             <TableBody>
-              {!loading && users.map((profile) => (
+              {!loading && filteredUsers.map((profile) => (
                 <TableRow key={profile.id} hover>
                   <TableCell>{profile.email}</TableCell>
                   <TableCell>{profile.full_name || 'Sin nombre'}</TableCell>
@@ -207,6 +301,13 @@ export default function AdminUsersPage({ currentUserId, onCurrentUserUpdated }) 
                 <TableRow>
                   <TableCell colSpan={6}>
                     <Box sx={{ py: 2, textAlign: 'center', color: 'text.secondary' }}>No hay usuarios disponibles.</Box>
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loading && users.length > 0 && filteredUsers.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <Box sx={{ py: 2, textAlign: 'center', color: 'text.secondary' }}>No hay usuarios que coincidan con los filtros.</Box>
                   </TableCell>
                 </TableRow>
               )}
