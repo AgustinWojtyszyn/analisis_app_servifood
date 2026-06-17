@@ -1,3 +1,5 @@
+import { getIsoFieldState } from './excel/analyzeExcel/isoFieldUtils.js';
+
 function normalizeText(value) {
   return String(value || '')
     .toLowerCase()
@@ -69,6 +71,11 @@ function buildContextKeyFromText(text, fallbackIndex) {
   return key || `fila_${fallbackIndex}`;
 }
 
+function readExistingIsoForCase(record = {}) {
+  const isoFieldState = getIsoFieldState(record);
+  return isoFieldState.canonical || isoFieldState.legacy ? isoFieldState.value : '';
+}
+
 function groupRowsIntoCases(records = []) {
   const grouped = new Map();
 
@@ -93,7 +100,7 @@ function groupRowsIntoCases(records = []) {
       areaClasificada: String(record?.areaClasificada || '').trim(),
       resultadoClasificado: String(record?.resultadoClasificado || '').trim(),
       tipoDesvio: String(record?.tipoDesvio || '').trim(),
-      iso22000: String(record?.iso22000 || '').trim(),
+      iso22000: readExistingIsoForCase(record),
       usefulText: useful
     });
   });
@@ -315,7 +322,7 @@ export function classifyDeviationCase(input = {}) {
   const existingArea = rows.find((r) => String(r?.areaClasificada || '').trim())?.areaClasificada || '';
   const existingResult = rows.find((r) => String(r?.resultadoClasificado || '').trim())?.resultadoClasificado || '';
   const existingTipo = rows.find((r) => String(r?.tipoDesvio || '').trim())?.tipoDesvio || '';
-  const existingIso = rows.find((r) => String(r?.iso22000 || '').trim())?.iso22000 || '';
+  const existingIso = rows.map(readExistingIsoForCase).find((iso) => iso) || '';
 
   if (!consolidatedText) {
     return {
