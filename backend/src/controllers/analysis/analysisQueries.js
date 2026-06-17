@@ -10,6 +10,8 @@ import {
 import { getSupabaseAdmin, STATUS_VALUES } from './context.js';
 
 const MAX_BULK_DELETE_IDS = 100;
+const MAX_DELETE_ALL_BATCH_SIZE = 100;
+const DELETABLE_ANALYSIS_STATUSES = new Set(['exported', 'archived']);
 
 function normalizeBulkDeleteIds(rawIds = []) {
   const input = Array.isArray(rawIds) ? rawIds : [];
@@ -277,18 +279,82 @@ export async function deleteAllAnalyses(req, res) {
     }
 
     const isAdmin = isAdminUser(req.user);
-    const targetUserId = isAdmin && userId ? userId : req.user.id;
-
-    const { error } = await supabaseAdmin
-      .from('analysis_history')
-      .delete()
-      .eq('user_id', targetUserId);
-
-    if (error) {
-      return returnSupabaseError(res, 'delete_all_analyses', error);
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Acceso solo para administradores' });
     }
 
-    return res.json({ success: true, userId: targetUserId });
+    const targetUserId = typeof userId === 'string' ? userId.trim() : '';
+    let selectQuery = supabaseAdmin
+      .from('analysis_history')
+      .select('id, user_id, status');
+
+    if (targetUserId) {
+      selectQuery = selectQuery.eq('user_id', targetUserId);
+    }
+
+    const selectResult = await selectQuery;
+
+    if (selectResult.error) {
+      return returnSupabaseError(res, 'delete_all_analyses_select', selectResult.error);
+    }
+
+    const rows = Array.isArray(selectResult.data) ? selectResult.data : [];
+    const candidateRows = rows.filter((row) => DELETABLE_ANALYSIS_STATUSES.has(String(row?.status || '').toLowerCase()));
+    const skippedRows = rows.filter((row) => !DELETABLE_ANALYSIS_STATUSES.has(String(row?.status || '').toLowerCase()));
+    const candidateIds = [...new Set(candidateRows.map((row) => row.id).filter(Boolean))];
+    const skippedActiveIds = skippedRows.map((row) => row.id).filter(Boolean);
+    const deletedIds = [];
+    const failedIds = [];
+    const skippedChangedIds = [];
+    const errors = [];
+
+    for (let index = 0; index < candidateIds.length; index += MAX_DELETE_ALL_BATCH_SIZE) {
+      const batchIds = candidateIds.slice(index, index + MAX_DELETE_ALL_BATCH_SIZE);
+      let deleteQuery = supabaseAdmin
+        .from('analysis_history')
+        .delete()
+        .select('id')
+        .in('id', batchIds)
+        .in('status', [...DELETABLE_ANALYSIS_STATUSES]);
+
+      if (targetUserId) {
+        deleteQuery = deleteQuery.eq('user_id', targetUserId);
+      }
+
+      const deleteResult = await deleteQuery;
+      if (deleteResult.error) {
+        failedIds.push(...batchIds);
+        errors.push({
+          ids: batchIds,
+          message: deleteResult.error?.message || 'Error eliminando análisis procesados'
+        });
+        continue;
+      }
+
+      const batchDeletedIds = Array.isArray(deleteResult.data)
+        ? deleteResult.data.map((row) => row.id).filter(Boolean)
+        : [];
+      deletedIds.push(...batchDeletedIds);
+      const deletedSet = new Set(batchDeletedIds);
+      skippedChangedIds.push(...batchIds.filter((id) => !deletedSet.has(id)));
+    }
+
+    const allSkippedIds = [...new Set([...skippedActiveIds, ...skippedChangedIds])];
+
+    return res.json({
+      success: true,
+      userId: targetUserId || null,
+      candidatesCount: candidateIds.length,
+      deletedCount: deletedIds.length,
+      deletedIds,
+      skippedActiveCount: allSkippedIds.length,
+      skippedActiveIds: allSkippedIds,
+      failedCount: failedIds.length,
+      failedIds,
+      errors,
+      notFoundIds: [],
+      warning: failedIds.length > 0 || allSkippedIds.length > 0 ? 'partial_delete' : null
+    });
   } catch (error) {
     console.error('Error eliminando todos los análisis:', error);
     return res.status(500).json({ error: 'Error eliminando todos los análisis' });

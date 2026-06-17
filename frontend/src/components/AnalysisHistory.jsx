@@ -106,6 +106,13 @@ function buildBulkDeleteMessage(response = {}) {
   return `Eliminados: ${deleted}. No encontrados: ${notFound}. No autorizados: ${unauthorized}. Fallidos: ${failed}.`;
 }
 
+function buildDeleteProcessedMessage(response = {}) {
+  const deleted = Number(response?.deletedCount || 0);
+  const skipped = Number(response?.skippedActiveCount || 0);
+  const failed = Number(response?.failedCount || 0);
+  return `Análisis procesados eliminados: ${deleted}. Conservados por estar activos/no eliminables: ${skipped}. Fallidos: ${failed}.`;
+}
+
 export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onAfterReprocess = null, onAfterDelete = null }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +140,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   const [debugResult, setDebugResult] = useState(null);
   const [debugDialogOpen, setDebugDialogOpen] = useState(false);
   const [deletingBulk, setDeletingBulk] = useState(false);
+  const [deletingProcessed, setDeletingProcessed] = useState(false);
 
   useEffect(() => {
     loadHistory();
@@ -167,6 +175,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const isReprocessingIso = reprocessingIso || reprocessingIsoDebug;
+  const isDeletingAnalysis = deletingBulk || deletingProcessed;
 
   const toggleSelectAll = () => {
     if (selectedIds.length === items.length) {
@@ -181,6 +190,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   };
 
   const handleDeleteOne = async (id) => {
+    if (isDeletingAnalysis || isReprocessingIso) return;
     const { error: deleteError } = await deleteAnalysis(id);
     if (deleteError) {
       setError(deleteError.message || 'No se pudo eliminar el análisis');
@@ -194,7 +204,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   };
 
   const handleDeleteBulk = async () => {
-    if (!selectedIds.length || deletingBulk) return;
+    if (!selectedIds.length || isDeletingAnalysis || isReprocessingIso) return;
     const confirmed = window.confirm(`¿Eliminar ${selectedIds.length} análisis seleccionados?`);
     if (!confirmed) return;
 
@@ -230,23 +240,34 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   };
 
   const handleDeleteAll = async () => {
-    const value = window.prompt('Escribe BORRAR para eliminar todos los análisis');
+    if (isDeletingAnalysis || isReprocessingIso) return;
+    const value = window.prompt('Se eliminarán solo análisis finalizados/procesados. Los análisis activos o en procesamiento se conservarán. Esta acción no se puede deshacer. Escribe BORRAR para continuar.');
     if (value !== 'BORRAR') {
       setError('Confirmación inválida. Debe ser BORRAR');
       return;
     }
 
     try {
-      await deleteAllAnalyses('BORRAR');
-      setSuccess('Todos los análisis fueron eliminados');
-      loadHistory();
+      setDeletingProcessed(true);
+      setError('');
+      const response = await deleteAllAnalyses('BORRAR', { userId: filters.userId });
+      setSuccess(buildDeleteProcessedMessage(response));
+      const deletedIds = Array.isArray(response?.deletedIds) ? response.deletedIds : [];
+      setSelectedIds((prev) => prev.filter((id) => !deletedIds.includes(id)));
+      if (typeof onAfterDelete === 'function') {
+        onAfterDelete(deletedIds);
+      }
+      await loadHistory();
     } catch (err) {
-      setError(err.message || 'No se pudo eliminar todo');
+      setError(err.message || 'No se pudieron eliminar los análisis procesados');
+    } finally {
+      setDeletingProcessed(false);
     }
   };
 
   const handleArchiveOne = async (analysis) => {
     if (!analysis?.id) return;
+    if (isDeletingAnalysis || isReprocessingIso) return;
     const confirmed = window.confirm(`¿Archivar el análisis "${analysis.filename}"?`);
     if (!confirmed) return;
 
@@ -260,7 +281,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   };
 
   const handleReprocessIsoAll = async () => {
-    if (isReprocessingIso) return;
+    if (isReprocessingIso || isDeletingAnalysis) return;
     const confirmed = window.confirm('Esto recalculará la relación ISO 22000 de todos tus análisis guardados usando las reglas actuales. No modificará los datos originales del Excel. ¿Continuar?');
     if (!confirmed) return;
 
@@ -283,7 +304,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   };
 
   const handleReprocessIsoDebug = async () => {
-    if (!isAdmin || isReprocessingIso) return;
+    if (!isAdmin || isReprocessingIso || isDeletingAnalysis) return;
     const confirmed = window.confirm('Esto recalculará la relación ISO 22000 con diagnóstico visible para administradores. ¿Continuar?');
     if (!confirmed) return;
 
@@ -414,7 +435,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
         <Button
           variant="contained"
           onClick={handleReprocessIsoAll}
-          disabled={isReprocessingIso || loading}
+          disabled={isReprocessingIso || isDeletingAnalysis || loading}
           sx={{
             borderRadius: 2,
             textTransform: 'none',
@@ -429,17 +450,19 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
           <Button
             variant="outlined"
             onClick={handleReprocessIsoDebug}
-            disabled={isReprocessingIso || loading}
+            disabled={isReprocessingIso || isDeletingAnalysis || loading}
             sx={btnGhostSx}
           >
             {reprocessingIsoDebug ? 'Generando diagnóstico...' : 'Reprocesar ISO con diagnóstico'}
           </Button>
         )}
-        <Button variant="outlined" onClick={() => handleExportBulk()} disabled={!selectedIds.length} sx={btnGhostSx}>Exportar seleccionados</Button>
-        <Button variant="outlined" color="error" onClick={handleDeleteBulk} disabled={!selectedIds.length || deletingBulk} sx={btnSoftDangerSx}>
+        <Button variant="outlined" onClick={() => handleExportBulk()} disabled={!selectedIds.length || isDeletingAnalysis} sx={btnGhostSx}>Exportar seleccionados</Button>
+        <Button variant="outlined" color="error" onClick={handleDeleteBulk} disabled={!selectedIds.length || isDeletingAnalysis || isReprocessingIso} sx={btnSoftDangerSx}>
           {deletingBulk ? 'Eliminando...' : 'Eliminar seleccionados'}
         </Button>
-        <Button variant="outlined" color="error" onClick={handleDeleteAll} sx={btnSoftDangerSx}>Eliminar todos los análisis</Button>
+        <Button variant="outlined" color="error" onClick={handleDeleteAll} disabled={isDeletingAnalysis || isReprocessingIso} sx={btnSoftDangerSx}>
+          {deletingProcessed ? 'Eliminando...' : 'Eliminar análisis procesados'}
+        </Button>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
@@ -465,6 +488,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
                   checked={items.length > 0 && selectedIds.length === items.length}
                   indeterminate={selectedIds.length > 0 && selectedIds.length < items.length}
                   onChange={toggleSelectAll}
+                  disabled={isDeletingAnalysis || isReprocessingIso}
                 />
               </TableCell>
               <TableCell sx={headCellSx}>Archivo</TableCell>
@@ -495,7 +519,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
                 }}
               >
                 <TableCell padding="checkbox">
-                  <Checkbox checked={selectedSet.has(analysis.id)} onChange={() => toggleSelectOne(analysis.id)} />
+                  <Checkbox checked={selectedSet.has(analysis.id)} onChange={() => toggleSelectOne(analysis.id)} disabled={isDeletingAnalysis || isReprocessingIso} />
                 </TableCell>
                 <TableCell sx={{ maxWidth: 320 }}>
                   <Tooltip title={analysis.filename || ''} placement="top-start">
@@ -525,11 +549,11 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
                     <Button variant="outlined" size="small" onClick={() => onSelectAnalysis(analysis.id)} sx={btnGhostSx}>Ver detalle</Button>
                     <Button variant="text" size="small" onClick={() => handleExportBulk([analysis.id])} sx={{ color: '#2563eb', fontWeight: 700 }}>Exportar</Button>
                     {isAdmin && analysis.status === 'active' && (
-                      <Button variant="text" color="warning" size="small" sx={{ fontWeight: 700 }} onClick={() => handleArchiveOne(analysis)}>
+                      <Button variant="text" color="warning" size="small" sx={{ fontWeight: 700 }} disabled={isDeletingAnalysis || isReprocessingIso} onClick={() => handleArchiveOne(analysis)}>
                         Archivar
                       </Button>
                     )}
-                    <Button variant="text" color="error" size="small" sx={{ fontWeight: 700 }} onClick={() => handleDeleteOne(analysis.id)}>Eliminar</Button>
+                    <Button variant="text" color="error" size="small" sx={{ fontWeight: 700 }} disabled={isDeletingAnalysis || isReprocessingIso} onClick={() => handleDeleteOne(analysis.id)}>Eliminar</Button>
                   </Box>
                 </TableCell>
               </TableRow>

@@ -137,10 +137,11 @@ export async function deleteAnalysesBulk(ids = []) {
   });
 }
 
-export async function deleteAllAnalyses(confirmText = 'BORRAR') {
+export async function deleteAllAnalyses(confirmText = 'BORRAR', options = {}) {
+  const userId = typeof options.userId === 'string' ? options.userId.trim() : '';
   return await authorizedFetch('/analysis/all', {
     method: 'DELETE',
-    body: JSON.stringify({ confirmText })
+    body: JSON.stringify({ confirmText, ...(userId ? { userId } : {}) })
   });
 }
 
