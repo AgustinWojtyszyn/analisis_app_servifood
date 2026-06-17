@@ -82,7 +82,7 @@ export function ResultsFilters({
   );
 }
 
-export function AdvancedSection({ exportMode, onExportModeChange, handleExportExcel, recordsForExportLength, activeExportLabel, handleShareWhatsApp, excelIcon, whatsappIcon }) {
+export function AdvancedSection({ exportMode, onExportModeChange, handleExportExcel, recordsForExportLength, activeExportLabel, isExportingExcel, handleShareWhatsApp, excelIcon, whatsappIcon }) {
   return (
     <Accordion sx={{ mb: 1.5, backgroundColor: 'rgba(148,163,184,0.08)', border: '1px solid rgba(148,163,184,0.22)' }}>
       <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />}>
@@ -94,9 +94,9 @@ export function AdvancedSection({ exportMode, onExportModeChange, handleExportEx
             <option value="all">Exportar todos</option>
             <option value="filtered">Exportar vista filtrada</option>
           </TextField>
-          <Button variant="contained" onClick={handleExportExcel} disabled={recordsForExportLength === 0} size="small" sx={{ backgroundColor: '#1d6f42', color: '#fff' }}>
+          <Button variant="contained" onClick={handleExportExcel} disabled={recordsForExportLength === 0 || isExportingExcel} size="small" sx={{ backgroundColor: '#1d6f42', color: '#fff' }}>
             <img src={excelIcon} alt="" width={16} height={16} style={{ marginRight: 8 }} />
-            {activeExportLabel}
+            {isExportingExcel ? 'Exportando...' : activeExportLabel}
           </Button>
           <Button variant="contained" onClick={handleShareWhatsApp} size="small" sx={{ backgroundColor: '#25d366', color: '#fff' }}>
             <img src={whatsappIcon} alt="" width={16} height={16} style={{ marginRight: 8 }} />

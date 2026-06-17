@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Box,
   Paper,
   TablePagination,
@@ -180,6 +181,8 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
   const [filterStatus, setFilterStatus] = useState('all');
   const [activeCategory, setActiveCategory] = useState('todos');
   const [exportMode, setExportMode] = useState('all');
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [exportError, setExportError] = useState('');
   const [expandedRows, setExpandedRows] = useState({});
   const topScrollRef = useRef(null);
   const tableContainerRef = useRef(null);
@@ -291,6 +294,9 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
   const activeExportConfig = exportConfigByFilter[activeCategory] || exportConfigByFilter.todos;
 
   const handleExportExcel = async () => {
+    if (isExportingExcel) return;
+    setIsExportingExcel(true);
+    setExportError('');
     const baseHeaders = [
       'Fecha',
       'Área/Sector',
@@ -315,14 +321,21 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
       'Estado de acciones': normalizeEstado(record)
     }));
 
-    await downloadAnalysisResultsWorkbook({
-      headers: baseHeaders,
-      rows,
-      fileName: activeExportConfig.fileName
-    });
+    try {
+      await downloadAnalysisResultsWorkbook({
+        headers: baseHeaders,
+        rows,
+        fileName: activeExportConfig.fileName
+      });
 
-    resetLocalState();
-    await onExportSuccess?.(analysisId);
+      resetLocalState();
+      await onExportSuccess?.(analysisId);
+    } catch (error) {
+      console.error('Error exportando Excel:', error);
+      setExportError('No se pudo exportar el Excel. Intentá nuevamente.');
+    } finally {
+      setIsExportingExcel(false);
+    }
   };
 
   const handleShareWhatsApp = async () => {
@@ -415,10 +428,13 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
         handleExportExcel={handleExportExcel}
         recordsForExportLength={recordsForExport.length}
         activeExportLabel={exportMode === 'filtered' ? `${activeExportConfig.label} (vista actual)` : `${activeExportConfig.label} (todos)`}
+        isExportingExcel={isExportingExcel}
         handleShareWhatsApp={handleShareWhatsApp}
         excelIcon={excelIcon}
         whatsappIcon={whatsappIcon}
       />
+
+      {exportError && <Alert severity="error" sx={{ mb: 1.5 }}>{exportError}</Alert>}
 
       <Box ref={topScrollRef} sx={{ overflowX: 'auto', overflowY: 'hidden', mb: 0.75 }}><Box sx={{ width: scrollContentWidth, height: 1 }} /></Box>
 

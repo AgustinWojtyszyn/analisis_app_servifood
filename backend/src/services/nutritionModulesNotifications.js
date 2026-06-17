@@ -10,6 +10,7 @@ export const FIXED_RECIPIENTS = [
 
 let transporter = null;
 let warnedMissingConfig = false;
+let createTransport = (options) => nodemailer.createTransport(options);
 const EXPECTED_SMTP_HOST = 'smtp.resend.com';
 const EXPECTED_SMTP_PORT = 587;
 const EXPECTED_SMTP_USER = 'resend';
@@ -71,7 +72,7 @@ function getTransporter() {
     return null;
   }
 
-  transporter = nodemailer.createTransport({
+  transporter = createTransport({
     host,
     port,
     secure,
@@ -266,3 +267,15 @@ export async function sendDocumentCreatedEmailNotification(notification) {
 }
 
 export { sanitizeErrorMessage };
+
+export function __setNutritionModulesEmailTransportFactoryForTests(factory) {
+  createTransport = factory;
+  transporter = null;
+  warnedMissingConfig = false;
+}
+
+export function __resetNutritionModulesEmailServiceForTests() {
+  createTransport = (options) => nodemailer.createTransport(options);
+  transporter = null;
+  warnedMissingConfig = false;
+}

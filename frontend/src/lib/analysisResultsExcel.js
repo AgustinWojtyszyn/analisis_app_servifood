@@ -1,9 +1,13 @@
-import ExcelJS from 'exceljs';
-
 const ANALYSIS_RESULTS_EXCEL_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const ANALYSIS_RESULTS_SHEET_NAME = 'Resultados';
 
+async function loadExcelJs() {
+  const module = await import('exceljs');
+  return module.default || module;
+}
+
 async function buildAnalysisResultsWorkbookBuffer({ headers = [], rows = [] } = {}) {
+  const ExcelJS = await loadExcelJs();
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(ANALYSIS_RESULTS_SHEET_NAME);
   sheet.addRow(headers);

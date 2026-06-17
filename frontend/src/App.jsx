@@ -1,28 +1,15 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { ThemeProvider, CssBaseline, Box, Typography, Paper } from '@mui/material';
 import { appTheme } from './styles/theme';
 import LoginForm from './components/LoginForm';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
 import ResetPasswordPage from './components/ResetPasswordPage';
-import FileUpload from './components/FileUpload';
 import { SummaryGrid } from './components/Dashboard';
 import AnalysisResults from './components/AnalysisResults';
-import AnalysisHistory from './components/AnalysisHistory';
 import PublicLanding from './components/PublicLanding';
 import CollaboratorPortal from './components/CollaboratorPortal';
 import InternalManagementPortal from './components/InternalManagementPortal';
-import RulesConfig from './components/RulesConfig';
-import ChartsPage from './components/ChartsPage';
-import ProfilePage from './components/ProfilePage';
-import TutorialPage from './components/TutorialPage';
-import AdminUsersPage from './components/AdminUsersPage';
 import AppLayout from './components/AppLayout';
-import HealthDeclarationPage from './components/HealthDeclarationPage';
-import HealthPoliciesPage from './components/HealthPoliciesPage';
-import HealthDeclarationHistoryPage from './components/HealthDeclarationHistoryPage';
-import HealthDeclarationsAdminPage from './components/HealthDeclarationsAdminPage';
-import NutritionModulesPage from './components/NutritionModulesPage';
-import CertificationsPage from './pages/CertificationsPage';
 import { supabase } from './lib/supabaseClient';
 import { useAuth } from './hooks/useAuth';
 import {
@@ -34,6 +21,28 @@ import {
   ROLES
 } from './lib/roleRouting';
 import { deleteAnalysis, getAnalysisById, updateAnalysisStatus } from './services/analysis';
+
+const AdminUsersPage = lazy(() => import('./components/AdminUsersPage'));
+const AnalysisHistory = lazy(() => import('./components/AnalysisHistory'));
+const CertificationsPage = lazy(() => import('./pages/CertificationsPage'));
+const ChartsPage = lazy(() => import('./components/ChartsPage'));
+const FileUpload = lazy(() => import('./components/FileUpload'));
+const HealthDeclarationHistoryPage = lazy(() => import('./components/HealthDeclarationHistoryPage'));
+const HealthDeclarationPage = lazy(() => import('./components/HealthDeclarationPage'));
+const HealthDeclarationsAdminPage = lazy(() => import('./components/HealthDeclarationsAdminPage'));
+const HealthPoliciesPage = lazy(() => import('./components/HealthPoliciesPage'));
+const NutritionModulesPage = lazy(() => import('./components/NutritionModulesPage'));
+const ProfilePage = lazy(() => import('./components/ProfilePage'));
+const RulesConfig = lazy(() => import('./components/RulesConfig'));
+const TutorialPage = lazy(() => import('./components/TutorialPage'));
+
+function SectionFallback() {
+  return (
+    <Box sx={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Typography sx={{ color: '#e2e8f0', fontWeight: 700 }}>Cargando...</Typography>
+    </Box>
+  );
+}
 
 const sectionPathMap = {
   collaboratorPortal: '/portal-colaborador',
@@ -475,7 +484,9 @@ function MainApp({ user, onLogout }) {
       currentSection={currentSection}
       onSelectSection={navigateToSection}
     >
-      {renderSection()}
+      <Suspense fallback={<SectionFallback />}>
+        {renderSection()}
+      </Suspense>
     </AppLayout>
     )
   );

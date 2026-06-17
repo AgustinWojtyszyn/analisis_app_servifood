@@ -11,6 +11,7 @@ export const CERTIFICATION_TEST_EMAIL_RECIPIENT = 'agustinwojtyszyn99@gmail.com'
 
 let transporter = null;
 let warnedMissingConfig = false;
+let createTransport = (options) => nodemailer.createTransport(options);
 
 function normalizeEmail(value = '') {
   return String(value || '').trim().toLowerCase();
@@ -78,7 +79,7 @@ function getTransporter() {
     return null;
   }
 
-  transporter = nodemailer.createTransport({
+  transporter = createTransport({
     host,
     port,
     secure,
@@ -234,4 +235,16 @@ export async function sendCertificationExpirationPilotEmail({ certification, tri
     accepted: Array.isArray(info?.accepted) ? info.accepted : [],
     rejected: Array.isArray(info?.rejected) ? info.rejected : []
   };
+}
+
+export function __setCertificationEmailTransportFactoryForTests(factory) {
+  createTransport = factory;
+  transporter = null;
+  warnedMissingConfig = false;
+}
+
+export function __resetCertificationEmailServiceForTests() {
+  createTransport = (options) => nodemailer.createTransport(options);
+  transporter = null;
+  warnedMissingConfig = false;
 }
