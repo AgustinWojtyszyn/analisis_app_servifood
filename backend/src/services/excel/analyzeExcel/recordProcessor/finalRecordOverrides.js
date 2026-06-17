@@ -5,6 +5,7 @@ import {
   applyOriginalClassificationOverride,
   normalizeScopeForStats
 } from '../recordProcessor.utils.js';
+import { getIsoFieldState } from '../isoFieldUtils.js';
 import { hasExplicitOriginalValue } from './helpers.js';
 
 function applyFinalRecordOverrides({
@@ -77,6 +78,9 @@ function applyFinalRecordOverrides({
     finalRecord.classification_normalized = classificationOriginal;
     finalRecord.preserveOriginalClassification = true;
   }
+  const isoFieldState = getIsoFieldState(finalRecord);
+  const hasIsoForTraceability = Boolean(isoFieldState.canonical || isoFieldState.legacy);
+  const isoForTraceability = hasIsoForTraceability ? isoFieldState.value : null;
   finalRecord.traceability = {
     areaSector: {
       valor_original_excel: areaOriginalPreservable || null,
@@ -100,7 +104,7 @@ function applyFinalRecordOverrides({
     },
     relacionIso22000: {
       valor_original_excel: hasExplicitOriginalValue(iso22000OriginalRaw) ? normalizeCellValue(iso22000OriginalRaw).trim() : null,
-      valor_final_usado: finalRecord.relacionIso22000 || finalRecord.iso22000 || null,
+      valor_final_usado: isoForTraceability,
       fuente_del_valor: hasExplicitOriginalValue(iso22000OriginalRaw) ? 'excel' : 'heuristica'
     },
     accionInmediata: {

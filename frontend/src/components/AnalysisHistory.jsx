@@ -35,23 +35,11 @@ import {
   getAnalysisHistory,
   reprocessIsoAllAnalyses
 } from '../services/analysis';
+import { isIsoManualValue, readCanonicalIso } from '../lib/isoFields.js';
 
 const limitOptions = [10, 25, 50];
 const toNumber = (value) => Number(value || 0);
 const EMPTY_LABEL = '—';
-
-function normalizeCompare(value = '') {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
-
-function isManualIsoValue(value = '') {
-  const normalized = normalizeCompare(value);
-  return normalized.includes('revisar manualmente') || normalized.includes('revision manual');
-}
 
 function getShortId(id = '') {
   const fullId = String(id || '').trim();
@@ -71,8 +59,7 @@ function getManualCount(analysis = {}) {
   if (Number.isFinite(summaryManual) && summaryManual >= 0) return summaryManual;
   const records = Array.isArray(analysis?.records) ? analysis.records : [];
   return records.reduce((count, record) => {
-    const iso = String(record?.relacionIso22000 || record?.iso22000 || '').trim() || 'Revisar manualmente';
-    return count + (isManualIsoValue(iso) ? 1 : 0);
+    return count + (isIsoManualValue(readCanonicalIso(record)) ? 1 : 0);
   }, 0);
 }
 
