@@ -1,0 +1,60 @@
+Auditoria de pendientes - SERVIFOOD Analisis
+
+Fecha: 2026-06-17
+
+Resultado general:
+No se encontraron errores funcionales pendientes en el codigo productivo actual.
+La suite backend pasa, el build frontend pasa y el arbol de trabajo quedo limpio al momento de la auditoria.
+
+Prioridad alta:
+1. Vulnerabilidades de dependencias detectadas por npm audit --omit=dev.
+   Backend:
+   - nodemailer
+   - tmp
+   - xlsx
+
+   Frontend:
+   - form-data
+   - ws
+   - xlsx
+
+   Observaciones:
+   - xlsx tiene vulnerabilidades altas y npm audit reporta que no hay fix disponible.
+   - nodemailer requiere upgrade mayor a 9.x para corregir todo; es breaking change.
+   - tmp, form-data y ws tendrian correccion con npm audit fix.
+
+Prioridad media:
+2. No hay tests frontend configurados.
+   - npm --prefix frontend test falla porque no existe script test.
+   - Quedan sin cobertura automatizada componentes y flujos del frontend como historial, carga, login y reset password.
+
+3. Build frontend con warning de bundle grande.
+   - El bundle JS principal queda alrededor de 1.65 MB, gzip alrededor de 506 KB.
+   - No rompe produccion, pero puede afectar carga inicial.
+   - Candidato futuro: code splitting.
+
+Prioridad baja:
+4. Quedan dos lecturas relacionIso22000 || iso22000 solo en tests.
+   - backend/test/inocuidadPriorityOverride.test.js:33
+   - backend/test/inocuidadPriorityOverride.test.js:56
+   - No son codigo productivo ni flujo activo de la app.
+
+5. Logs de debug/traza.
+   - Los logs relevantes revisados estan protegidos por flags:
+     DEBUG_EXCEL_ANALYSIS
+     REPROCESS_*_TRACE
+     CLASSIFICATION_FLOW_TRACE
+     import.meta.env.DEV
+   - No se consideran bug productivo en este momento.
+
+Validacion ejecutada:
+- npm --prefix backend test: OK, 210/210.
+- npm --prefix frontend run build: OK, con warning de chunk grande.
+- npm --prefix frontend test: falla porque no existe script test.
+- npm audit --omit=dev: encontro vulnerabilidades altas.
+- git diff --check: OK.
+- git status --short: limpio antes de crear este archivo.
+
+Resumen:
+No quedan fixes funcionales pendientes detectados.
+Lo mas importante pendiente es seguridad de dependencias, especialmente xlsx y nodemailer.
