@@ -11,6 +11,7 @@ import {
   getSupabaseAdmin
 } from './context.js';
 import { recalculateIsoForStoredResults } from './analysisHelpers.js';
+import { readCanonicalIso } from '../../services/excel/analyzeExcel/isoFieldUtils.js';
 
 export async function reprocessHistoryClassifications(req, res) {
   try {
@@ -174,7 +175,7 @@ export async function reprocessIsoAll(req, res) {
           if (changedRecords.length > 0) {
             const firstChanged = changedRecords[0];
             const persistedRecord = persistedRecords[firstChanged.recordIndex] || {};
-            postSaveValue = normalizeCellValue(persistedRecord?.relacionIso22000 || persistedRecord?.iso22000).trim() || null;
+            postSaveValue = readCanonicalIso(persistedRecord);
             postSaveMatchesExpected = postSaveValue === firstChanged.nextIso;
           } else {
             postSaveValue = null;

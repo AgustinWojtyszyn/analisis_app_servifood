@@ -1,6 +1,7 @@
 import { normalizeCellValue } from '../services/analyzeExcel/normalizers.js';
 import { classifyDeviation } from '../services/excel/analyzeExcel/classifiers/deviationClassifier.js';
 import { normalizeCategory, CANONICAL } from '../services/excel/analyzeExcel/categoryNormalization.js';
+import { isIsoManualValue, readCanonicalIso } from '../services/excel/analyzeExcel/isoFieldUtils.js';
 
 const ENABLE_REPROCESS_CLASSIFICATION_TRACE = process.env.REPROCESS_CLASSIFICATION_TRACE === '1';
 const ENABLE_CLASSIFICATION_FLOW_TRACE = process.env.CLASSIFICATION_FLOW_TRACE === '1';
@@ -22,8 +23,7 @@ function normalizeCompare(value = '') {
 }
 
 function isManualIsoValue(value = '') {
-  const normalized = normalizeCompare(value);
-  return normalized.includes('revisar manualmente') || normalized.includes('revision manual');
+  return isIsoManualValue(value);
 }
 
 function hasExcelClassificationSource(record = {}) {
@@ -71,7 +71,7 @@ function normalizeExportEstado(record = {}) {
 }
 
 function normalizeExportIso(record = {}) {
-  const raw = normalizeCellValue(record.relacionIso22000 || record.iso22000).trim();
+  const raw = readCanonicalIso(record);
   if (!raw || raw === '-') return '';
 
   const normalized = raw
@@ -197,7 +197,7 @@ function normalizeStoredAnalysisResults(results = {}) {
   const totalMantenimiento = sumBy((name) => isExact(name, CANONICAL.MANTENIMIENTO) || isExact(name, 'Desvío de Mantenimiento'));
   const totalRRHH = sumBy((name) => isExact(name, CANONICAL.RRHH) || isExact(name, 'Desvío de Recursos Humanos'));
   const totalRevisionManual = normalizedRecords.reduce((acc, record) => {
-    const iso = normalizeCellValue(record.relacionIso22000 || record.iso22000).trim() || 'Revisar manualmente';
+    const iso = readCanonicalIso(record);
     return acc + (isManualIsoValue(iso) ? 1 : 0);
   }, 0);
 

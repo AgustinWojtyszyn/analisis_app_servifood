@@ -89,11 +89,168 @@ const OPERATIONAL_PLANNING_TERMS = [
   'menu toda la semana', 'menú toda la semana'
 ];
 
+const DEFAULT_ISO_CATALOG = [
+  '8.4 Control de procesos, productos o servicios provistos externamente',
+  ...ISO_RULES.map((rule) => rule.requirement),
+  '8.1 Planificación y control operacional',
+  '8.2 PRP',
+  '8.5 HACCP',
+  '8.5.1 Control operacional',
+  '7.1 Recursos',
+  '7.2 Competencia',
+  '7.5 Información documentada',
+  '9.2 Auditoría interna',
+  '10.2 Acción correctiva',
+  'Revisar manualmente'
+];
+
+function extractIsoCatalogText(entry = {}) {
+  if (typeof entry === 'string' || typeof entry === 'number') return normalizeCellValue(entry).trim();
+  if (!entry || typeof entry !== 'object') return '';
+  const code = normalizeCellValue(
+    entry.code
+      || entry.codigo
+      || entry.clause
+      || entry.clausula
+      || entry.iso
+      || entry.requirementCode
+  ).trim();
+  const description = normalizeCellValue(
+    entry.description
+      || entry.descripcion
+      || entry.name
+      || entry.nombre
+      || entry.title
+      || entry.titulo
+      || entry.requirement
+      || entry.requisito
+      || entry.label
+  ).trim();
+  return [code, description].filter(Boolean).join(' ').trim();
+}
+
+function getIsoClauseCode(value = '') {
+  const text = normalizeCellValue(value).trim();
+  const match = text.match(/^(\d+(?:\.\d+){0,2})(?!\.\d)\b/);
+  return match ? match[1] : '';
+}
+
+function findIsoCatalogEntry(clauseCode = '', isoCatalog = DEFAULT_ISO_CATALOG) {
+  const expected = normalizeCellValue(clauseCode).trim();
+  if (!expected) return null;
+  const entries = Array.isArray(isoCatalog) ? isoCatalog : DEFAULT_ISO_CATALOG;
+  for (const entry of entries) {
+    const text = extractIsoCatalogText(entry);
+    if (!text) continue;
+    if (getIsoClauseCode(text) === expected) return text;
+  }
+  return null;
+}
+
+function isIsoClauseAvailable(clauseCode = '', isoCatalog = DEFAULT_ISO_CATALOG) {
+  return Boolean(findIsoCatalogEntry(clauseCode, isoCatalog));
+}
+
+function selectIsoClauseFromCatalog({ preferredClause, fallbackClause, isoCatalog = DEFAULT_ISO_CATALOG } = {}) {
+  const preferred = findIsoCatalogEntry(preferredClause, isoCatalog);
+  if (preferred) {
+    return {
+      iso: preferred,
+      selectedClause: preferredClause,
+      fallbackUsed: false,
+      fallbackReason: null
+    };
+  }
+
+  const fallback = findIsoCatalogEntry(fallbackClause, isoCatalog);
+  if (fallback) {
+    return {
+      iso: fallback,
+      selectedClause: fallbackClause,
+      fallbackUsed: true,
+      fallbackReason: `${preferredClause}_not_available_in_active_catalog`
+    };
+  }
+
+  return {
+    iso: 'Revisar manualmente',
+    selectedClause: null,
+    fallbackUsed: true,
+    fallbackReason: `${preferredClause}_and_${fallbackClause}_not_available_in_active_catalog`
+  };
+}
+
+function detectSupplierFruitIsoSignal({
+  descripcionDetectada = '',
+  actividadRealizada = '',
+  areaClasificada = '',
+  extraText = ''
+} = {}) {
+  const text = normalizeIncidentText([descripcionDetectada, actividadRealizada, areaClasificada, extraText].filter(Boolean).join(' | '));
+  if (!text) return { matched: false, signals: [] };
+
+  const hasAny = (terms = []) => terms.some((term) => text.includes(normalizeIncidentText(term)));
+  const supplierSignals = [];
+  const fruitSignals = [];
+  const defectSignals = [];
+
+  if (hasAny(['proveedor', 'proveedores', 'reclamo al proveedor', 'reclamo proveedor', 'devuelve al proveedor', 'devolucion al proveedor', 'devolución al proveedor'])) {
+    supplierSignals.push('supplier');
+  }
+  if (hasAny(['recepcion', 'recepción', 'control de proveedor', 'control proveedor', 'producto recibido', 'pedido recibido', 'mercaderia', 'mercadería', 'materia prima', 'insumo'])) {
+    supplierSignals.push('receiving_or_input');
+  }
+  if (hasAny(['fruta', 'frutas'])) fruitSignals.push('fruit');
+  if (hasAny(['manzana', 'manzanas'])) fruitSignals.push('apple');
+  if (hasAny(['verde', 'verdes'])) defectSignals.push('green');
+  if (hasAny(['chica', 'chicas', 'chico', 'chicos', 'calibre', 'tamaño', 'tamano', 'pequeña', 'pequeñas', 'pequena', 'pequenas'])) {
+    defectSignals.push('size_or_caliber');
+  }
+  if (hasAny(['decomiso', 'decomisa', 'decomisar', 'fuera de refrigeracion', 'fuera de refrigeración', 'temperatura critica', 'temperatura crítica', 'contaminacion interna', 'contaminación interna'])) {
+    return { matched: false, signals: ['critical_internal_safety'] };
+  }
+
+  // Priority: supplier/receiving + fruit/apple, or explicit apple + quality defect.
+  // This sits before generic quality/operational 8.5.1 rules, while critical safety signals above block it.
+  const supplierWithFruit = supplierSignals.length > 0 && fruitSignals.length > 0;
+  const appleWithDefect = fruitSignals.includes('apple') && defectSignals.length > 0;
+  const matched = supplierWithFruit || appleWithDefect;
+  return {
+    matched,
+    signals: [...new Set([...supplierSignals, ...fruitSignals, ...defectSignals])]
+  };
+}
+
+function resolveSupplierFruitIsoRule(input = {}, options = {}) {
+  const detected = detectSupplierFruitIsoSignal(input);
+  if (!detected.matched) return null;
+  const selected = selectIsoClauseFromCatalog({
+    preferredClause: '8.4',
+    fallbackClause: '8.5.1',
+    isoCatalog: options.isoCatalog
+  });
+  return {
+    iso: selected.iso,
+    matchedRule: 'supplier_fruit_iso',
+    decisionReason: selected.fallbackUsed
+      ? selected.fallbackReason
+      : 'supplier_fruit_business_rule',
+    supplierFruitSignals: detected.signals,
+    preferredClause: '8.4',
+    selectedClause: selected.selectedClause,
+    fallbackUsed: selected.fallbackUsed,
+    fallbackReason: selected.fallbackReason
+  };
+}
+
 function classifyIso22000FromDescription(
-  { descripcionDetectada, actividadRealizada, areaClasificada, resultadoClasificado }
+  { descripcionDetectada, actividadRealizada, areaClasificada, resultadoClasificado, isoCatalog = DEFAULT_ISO_CATALOG }
 ) {
   const text = normalizeIncidentText([descripcionDetectada, actividadRealizada, areaClasificada].join(' | '));
   if (!text) return 'Revisar manualmente';
+
+  const supplierFruitRule = resolveSupplierFruitIsoRule({ descripcionDetectada, actividadRealizada, areaClasificada }, { isoCatalog });
+  if (supplierFruitRule) return supplierFruitRule.iso;
 
   const normalizedRule = classifyNormalizedRule(text);
   if (normalizedRule) return normalizedRule.iso22000;
@@ -286,6 +443,14 @@ function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadR
 export {
   ISO_RULES,
   COMPOSITE_ISO_ORDER,
+  DEFAULT_ISO_CATALOG,
+  extractIsoCatalogText,
+  getIsoClauseCode,
+  findIsoCatalogEntry,
+  isIsoClauseAvailable,
+  selectIsoClauseFromCatalog,
+  detectSupplierFruitIsoSignal,
+  resolveSupplierFruitIsoRule,
   classifyIso22000FromDescription,
   splitIsoLabels,
   canonicalizeIsoLabel,

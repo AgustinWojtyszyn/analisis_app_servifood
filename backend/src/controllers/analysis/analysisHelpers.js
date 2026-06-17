@@ -2,17 +2,20 @@ import { normalizeCellValue, normalizeIncidentText } from '../../services/analyz
 import {
   classifyIso22000FromDescription,
   resolveIsoWithContextFallback,
-  mergeCompositeIsoLabels
+  mergeCompositeIsoLabels,
+  resolveSupplierFruitIsoRule
 } from '../../services/excel/analyzeExcel/classifiers/isoClassifier.js';
+import {
+  getIsoFieldState,
+  isIsoManualValue,
+  normalizeIsoValue,
+  readCanonicalIso,
+  writeCanonicalIso
+} from '../../services/excel/analyzeExcel/isoFieldUtils.js';
 import { ENABLE_REPROCESS_ISO_TRACE } from './context.js';
 
 export function isIsoManual(value = '') {
-  const normalized = normalizeCellValue(value)
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-  return normalized.includes('revisar manualmente') || normalized.includes('revision manual');
+  return isIsoManualValue(value);
 }
 
 export function isInvalidStoredIso(value = '') {
@@ -28,7 +31,7 @@ export function isInvalidStoredIso(value = '') {
   return false;
 }
 
-export function resolveRecordIsoWithCurrentRules(record = {}) {
+export function resolveRecordIsoWithCurrentRules(record = {}, options = {}) {
   const pickFirstText = (...candidates) => {
     for (const value of candidates) {
       const normalized = normalizeCellValue(value || '').trim();
@@ -107,7 +110,8 @@ export function resolveRecordIsoWithCurrentRules(record = {}) {
     return { iso: 'Revisar manualmente', matchedRule: 'insufficient_text', decisionReason: 'manual_insufficient_data', usedFields, sourceTextPreview };
   }
 
-  const explicitIso = pickFirstText(record?.relacionIso22000, record?.iso22000, record?.iso, record?.normaISO);
+  const explicitIsoState = getIsoFieldState(record);
+  const explicitIso = pickFirstText(explicitIsoState.canonical, explicitIsoState.legacy, record?.iso, record?.normaISO);
 
   const hasAny = (terms = []) => terms.some((term) => strongText.includes(normalizeIncidentText(term)));
   const clasificacionNorm = normalizeIncidentText(clasificacion);
@@ -151,6 +155,23 @@ export function resolveRecordIsoWithCurrentRules(record = {}) {
   if (hasOperationalDelaySignal || hasDispatchFailureSignal) {
     return { iso: '8.5.1 Control operacional', matchedRule: 'operational_delay_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
+  const supplierFruitRule = !hasStrongInternalHaccpSignal
+    ? resolveSupplierFruitIsoRule({
+        descripcionDetectada,
+        actividadRealizada: actividadConAcciones,
+        areaClasificada,
+        extraText: [
+          record?.proveedor,
+          record?.producto,
+          record?.requisito,
+          record?.descripcionOriginal,
+          record?.columnasOriginales && typeof record.columnasOriginales === 'object' ? Object.values(record.columnasOriginales).join(' | ') : ''
+        ].filter(Boolean).join(' | ')
+      }, { isoCatalog: options.isoCatalog })
+    : null;
+  if (supplierFruitRule) {
+    return { ...supplierFruitRule, usedFields, sourceTextPreview };
+  }
   if (hasSupplierActorSignal && hasSupplierProductSignal && !hasStrongInternalHaccpSignal) {
     return { iso: '8.4 Control de procesos, productos o servicios provistos externamente', matchedRule: 'supplier_external_priority_signal', decisionReason: 'keyword_rule', usedFields, sourceTextPreview };
   }
@@ -193,7 +214,8 @@ export function resolveRecordIsoWithCurrentRules(record = {}) {
     descripcionDetectada,
     actividadRealizada: actividadConAcciones,
     areaClasificada,
-    resultadoClasificado
+    resultadoClasificado,
+    isoCatalog: options.isoCatalog
   });
 
   const isoResolved = resolveIsoWithContextFallback({
@@ -243,12 +265,13 @@ export function resolveRecordIsoWithCurrentRules(record = {}) {
   if (!wideContext) return { iso: mergedIso, matchedRule: 'insufficient_wide_context', decisionReason: 'manual_insufficient_data', usedFields, sourceTextPreview };
 
   const wideIso = resolveIsoWithContextFallback({
-    iso22000: classifyIso22000FromDescription({
-      descripcionDetectada: wideContext,
-      actividadRealizada: wideContext,
-      areaClasificada,
-      resultadoClasificado
-    }),
+      iso22000: classifyIso22000FromDescription({
+        descripcionDetectada: wideContext,
+        actividadRealizada: wideContext,
+        areaClasificada,
+        resultadoClasificado,
+        isoCatalog: options.isoCatalog
+      }),
     hallazgoDetectado: wideContext,
     actividadRealizada: wideContext,
     areaClasificada,
@@ -280,7 +303,13 @@ export function resolveRecordIsoWithCurrentRules(record = {}) {
   }
 
   if (explicitIso && !isInvalidStoredIso(explicitIso)) {
-    return { iso: explicitIso, matchedRule: 'excel_iso_field', decisionReason: 'excel_field', usedFields, sourceTextPreview };
+    return {
+      iso: explicitIso,
+      matchedRule: 'excel_iso_field',
+      decisionReason: explicitIsoState.divergent ? 'canonical_iso_field_divergence_legacy_ignored' : 'excel_field',
+      usedFields,
+      sourceTextPreview
+    };
   }
 
   return { iso: normalizedWideIso, matchedRule: 'no_reliable_rule', decisionReason: 'manual_insufficient_data', usedFields, sourceTextPreview };
@@ -290,8 +319,7 @@ export function normalizeIsoManualCounters(summary = {}, records = []) {
   const safeSummary = summary && typeof summary === 'object' ? summary : {};
   const recordList = Array.isArray(records) ? records : [];
   const manualCount = recordList.reduce((acc, record) => {
-    const iso = normalizeCellValue(record?.relacionIso22000 || record?.iso22000).trim() || 'Revisar manualmente';
-    return acc + (isIsoManual(iso) ? 1 : 0);
+    return acc + (isIsoManualValue(readCanonicalIso(record)) ? 1 : 0);
   }, 0);
   return {
     ...safeSummary,
@@ -325,12 +353,13 @@ export function recalculateIsoForStoredResults(results = {}, options = {}) {
   const byIso22000 = {};
 
   const nextRecords = originalRecords.map((record, index) => {
-    const prevIso = normalizeCellValue(record?.relacionIso22000 || record?.iso22000).trim() || 'Revisar manualmente';
+    const previousIsoState = getIsoFieldState(record);
+    const prevIso = previousIsoState.value;
     if (isIsoManual(prevIso)) manualBefore += 1;
+    if (previousIsoState.divergent) changed = true;
 
-    const resolved = resolveRecordIsoWithCurrentRules(record) || {};
-    const nextIsoComputed = normalizeCellValue(resolved?.iso || '').trim() || 'Revisar manualmente';
-    const nextIso = normalizeCellValue(nextIsoComputed).trim() || 'Revisar manualmente';
+    const resolved = resolveRecordIsoWithCurrentRules(record, { isoCatalog: options.isoCatalog }) || {};
+    const nextIso = normalizeIsoValue(resolved?.iso);
     if (isIsoManual(nextIso)) manualAfter += 1;
     byIso22000[nextIso] = (byIso22000[nextIso] || 0) + 1;
 
@@ -366,6 +395,22 @@ export function recalculateIsoForStoredResults(results = {}, options = {}) {
         decisionReason: normalizeCellValue(resolved?.decisionReason).trim() || 'keyword_rule',
         matchedRule: normalizeCellValue(resolved?.matchedRule).trim() || 'unknown'
       });
+      if (previousIsoState.divergent) {
+        debugRecords[debugRecords.length - 1].isoFieldDivergence = {
+          canonical: previousIsoState.canonical,
+          legacy: previousIsoState.legacy,
+          used: previousIsoState.value
+        };
+      }
+      if (resolved?.matchedRule === 'supplier_fruit_iso') {
+        debugRecords[debugRecords.length - 1].supplierFruitIso = {
+          signals: Array.isArray(resolved.supplierFruitSignals) ? resolved.supplierFruitSignals : [],
+          preferredClause: resolved.preferredClause || null,
+          selectedClause: resolved.selectedClause || null,
+          fallbackUsed: Boolean(resolved.fallbackUsed),
+          fallbackReason: resolved.fallbackReason || null
+        };
+      }
     }
 
     const nextTraceability = record?.traceability && typeof record.traceability === 'object'
@@ -379,12 +424,10 @@ export function recalculateIsoForStoredResults(results = {}, options = {}) {
         }
       : record?.traceability;
 
-    return {
+    return writeCanonicalIso({
       ...record,
-      iso22000: nextIso,
-      relacionIso22000: nextIso,
       ...(nextTraceability ? { traceability: nextTraceability } : {})
-    };
+    }, nextIso);
   });
 
   const baseSummary = results?.summary && typeof results.summary === 'object' ? results.summary : {};

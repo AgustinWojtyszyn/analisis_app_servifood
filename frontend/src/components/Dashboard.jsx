@@ -7,6 +7,7 @@ import {
   Visibility as VisibilityIcon,
   TrendingUp as TrendingUpIcon
 } from '@mui/icons-material';
+import { isIsoManualValue, readCanonicalIso } from '../lib/isoFields';
 
 const metricVariants = {
   info: { icon: AnalyticsIcon, color: 'info.main', bg: 'rgba(2, 132, 199, 0.14)' },
@@ -79,8 +80,7 @@ function toTitleCaseLabel(value = '') {
 }
 
 function isManualIsoValue(value = '') {
-  const normalized = normalizeCompare(value);
-  return normalized.includes('revisar manualmente') || normalized.includes('revision manual');
+  return isIsoManualValue(value);
 }
 
 function resolveCategoryFromRecord(record = {}) {
@@ -136,8 +136,7 @@ function buildSummaryFromRecords(records = [], baseSummary = {}) {
     if (alcance === 'interno') totalInternos += 1;
     if (alcance === 'externo') totalExternos += 1;
 
-    const isoValue = String(record?.relacionIso22000 || record?.iso22000 || '').trim();
-    if (isManualIsoValue(isoValue || 'Revisar manualmente')) {
+    if (isManualIsoValue(readCanonicalIso(record))) {
       totalRevisionManual += 1;
     }
   });

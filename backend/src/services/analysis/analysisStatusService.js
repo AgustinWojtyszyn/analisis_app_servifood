@@ -4,16 +4,18 @@ import {
   resolveIsoWithContextFallback,
   mergeCompositeIsoLabels
 } from '../excel/analyzeExcel/classifiers/isoClassifier.js';
+import {
+  getIsoFieldState,
+  isIsoManualValue,
+  normalizeIsoValue,
+  readCanonicalIso,
+  writeCanonicalIso
+} from '../excel/analyzeExcel/isoFieldUtils.js';
 
 const ENABLE_REPROCESS_ISO_TRACE = process.env.REPROCESS_ISO_TRACE === '1';
 
 function isIsoManual(value = '') {
-  const normalized = normalizeCellValue(value)
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-  return normalized.includes('revisar manualmente') || normalized.includes('revision manual');
+  return isIsoManualValue(value);
 }
 
 function isInvalidStoredIso(value = '') {
@@ -62,7 +64,8 @@ function resolveRecordIsoWithCurrentRules(record = {}) {
   const sourceTextPreview = sourceText.slice(0, 240);
   const strongText = normalizeIncidentText(sourceText);
   if (!strongText || strongText.length < 8) return { iso: 'Revisar manualmente', matchedRule: 'insufficient_text', decisionReason: 'manual_insufficient_data', usedFields, sourceTextPreview };
-  const explicitIso = pickFirstText(record?.relacionIso22000, record?.iso22000, record?.iso, record?.normaISO);
+  const explicitIsoState = getIsoFieldState(record);
+  const explicitIso = pickFirstText(explicitIsoState.canonical, explicitIsoState.legacy, record?.iso, record?.normaISO);
   const hasAny = (terms = []) => terms.some((term) => strongText.includes(normalizeIncidentText(term)));
   const hasOperationalDelaySignal = hasAny(['salio tarde', 'salió tarde', 'tarde', 'demora', 'demoraron', 'refrigerio', 'entrega', 'transporte', 'retiro', 'logistica', 'logística', 'camion', 'camión', 'despacho', 'segunda movilidad', 'movilidad']);
   const hasDispatchFailureSignal = hasAny(['no se envio', 'no se envió', 'no se enviaron', 'faltante de menu', 'faltante de menú', 'faltaron postres', 'no se enviaron postres', 'error de envio', 'error de envío']);
@@ -83,8 +86,7 @@ function normalizeIsoManualCounters(summary = {}, records = []) {
   const safeSummary = summary && typeof summary === 'object' ? summary : {};
   const recordList = Array.isArray(records) ? records : [];
   const manualCount = recordList.reduce((acc, record) => {
-    const iso = normalizeCellValue(record?.relacionIso22000 || record?.iso22000).trim() || 'Revisar manualmente';
-    return acc + (isIsoManual(iso) ? 1 : 0);
+    return acc + (isIsoManual(readCanonicalIso(record)) ? 1 : 0);
   }, 0);
   return { ...safeSummary, totalRevisionManual: manualCount };
 }
@@ -101,10 +103,12 @@ function recalculateIsoForStoredResults(results = {}, options = {}) {
   let changed = false;
   const byIso22000 = {};
   const nextRecords = originalRecords.map((record, index) => {
-    const prevIso = normalizeCellValue(record?.relacionIso22000 || record?.iso22000).trim() || 'Revisar manualmente';
+    const previousIsoState = getIsoFieldState(record);
+    const prevIso = previousIsoState.value;
     if (isIsoManual(prevIso)) manualBefore += 1;
+    if (previousIsoState.divergent) changed = true;
     const resolved = resolveRecordIsoWithCurrentRules(record) || {};
-    const nextIso = normalizeCellValue(resolved?.iso || '').trim() || 'Revisar manualmente';
+    const nextIso = normalizeIsoValue(resolved?.iso);
     if (isIsoManual(nextIso)) manualAfter += 1;
     byIso22000[nextIso] = (byIso22000[nextIso] || 0) + 1;
     if (nextIso !== prevIso) changed = true;
@@ -112,7 +116,7 @@ function recalculateIsoForStoredResults(results = {}, options = {}) {
       debugRecords.push({ analysisId, recordIndex: index, prevIso, nextIso, changed: nextIso !== prevIso, fieldUpdated: 'relacionIso22000', sourceTextPreview: normalizeCellValue(resolved?.sourceTextPreview).trim() || null, usedFields: Array.isArray(resolved?.usedFields) ? resolved.usedFields : [], decisionReason: normalizeCellValue(resolved?.decisionReason).trim() || 'keyword_rule', matchedRule: normalizeCellValue(resolved?.matchedRule).trim() || 'unknown' });
     }
     const nextTraceability = record?.traceability && typeof record.traceability === 'object' ? { ...record.traceability, relacionIso22000: { ...(record.traceability.relacionIso22000 || {}), valor_final_usado: nextIso, fuente_del_valor: 'heuristica' } } : record?.traceability;
-    return { ...record, iso22000: nextIso, relacionIso22000: nextIso, ...(nextTraceability ? { traceability: nextTraceability } : {}) };
+    return writeCanonicalIso({ ...record, ...(nextTraceability ? { traceability: nextTraceability } : {}) }, nextIso);
   });
   const baseSummary = results?.summary && typeof results.summary === 'object' ? results.summary : {};
   const nextSummary = normalizeIsoManualCounters({ ...baseSummary, byIso22000 }, nextRecords);

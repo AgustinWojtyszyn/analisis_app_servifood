@@ -25,6 +25,7 @@ import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRound
 import CleaningServicesRoundedIcon from '@mui/icons-material/CleaningServicesRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
+import { readCanonicalIso } from '../../lib/isoFields.js';
 
 export function ResultsHeader({ filteredCount, totalCount, onReprocessExcel, onDeleteCurrent }) {
   return (
@@ -164,7 +165,7 @@ export function ResultsTable({
                   <TableCell>{normalizeCellValue(record.areaSector || record.areaClasificada) || '-'}</TableCell>
                   <TableCell><Chip size="small" label={clasificacion} sx={{ backgroundColor: (categoryColors[clasificacion] || categoryColors.Calidad).bg, color: (categoryColors[clasificacion] || categoryColors.Calidad).text }} /></TableCell>
                   <TableCell><Chip size="small" label={tipo} sx={{ backgroundColor: (typeColors[tipo] || typeColors.Interno).bg, color: (typeColors[tipo] || typeColors.Interno).text }} /></TableCell>
-                  <TableCell>{normalizeIsoForExport(record.relacionIso22000 || record.iso22000) || '-'}</TableCell>
+                  <TableCell>{normalizeIsoForExport(readCanonicalIso(record)) || '-'}</TableCell>
                   <TableCell><Chip size="small" label={estado} /></TableCell>
                   <TableCell>{normalizeCellValue(record.immediate_action || record.accionInmediata) || '-'}</TableCell>
                   <TableCell>{normalizeCellValue(record.corrective_action || record.accionCorrectiva) || '-'}</TableCell>

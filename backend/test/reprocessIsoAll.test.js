@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { reprocessIsoAll, __setSupabaseAdminForTests } from '../src/controllers/analysisController.js';
+import {
+  isRecordIsoManual,
+  readCanonicalIso
+} from '../src/services/excel/analyzeExcel/isoFieldUtils.js';
 
 function createMockRes() {
   return {
@@ -517,6 +521,81 @@ test('reprocessIsoAll summary totalRevisionManual usa mismo campo ISO que tabla'
   assert.equal(res.statusCode, 200);
   const summary = mock.state.records[0].results.summary;
   assert.equal(Number(summary.totalRevisionManual || 0), 1);
+});
+
+test('ISO canónico: ambos campos iguales', () => {
+  const record = {
+    relacionIso22000: '8.4 Control externo',
+    iso22000: '8.4 Control externo'
+  };
+  assert.equal(readCanonicalIso(record), '8.4 Control externo');
+});
+
+test('ISO canónico: solo relacionIso22000', () => {
+  assert.equal(readCanonicalIso({ relacionIso22000: '8.5.1 Control operacional' }), '8.5.1 Control operacional');
+});
+
+test('ISO canónico: solo iso22000 legado', () => {
+  assert.equal(readCanonicalIso({ iso22000: '8.2 PRP' }), '8.2 PRP');
+});
+
+test('ISO canónico: campos divergentes prevalece relacionIso22000', () => {
+  assert.equal(readCanonicalIso({ relacionIso22000: '8.4 Control externo', iso22000: '8.5.1 Control operacional' }), '8.4 Control externo');
+});
+
+test('Conteo manual usa helper canónico', () => {
+  assert.equal(isRecordIsoManual({ relacionIso22000: '8.4 Control externo', iso22000: 'Revisar manualmente' }), false);
+  assert.equal(isRecordIsoManual({ iso22000: 'Revisar manualmente' }), true);
+});
+
+test('reprocessIsoAll registra divergencia en debug y prioriza campo canónico', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'div-1',
+        userId: 'u1',
+        record: {
+          fecha: '2026-05-20',
+          hallazgoDetectado: 'Texto ambiguo sin reglas',
+          relacionIso22000: '8.4 Control externo',
+          iso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' }, query: { debug: '1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  const debugRecord = res.body?.analysesDebug?.[0]?.records?.[0];
+  assert.equal(debugRecord?.prevIso, '8.4 Control externo');
+  assert.equal(debugRecord?.isoFieldDivergence?.legacy, 'Revisar manualmente');
+});
+
+test('reprocessIsoAll escribe ambos campos ISO por compatibilidad', async () => {
+  const mock = createSupabaseMock({
+    records: [
+      buildCustomAnalysisRecord({
+        id: 'mirror-1',
+        userId: 'u1',
+        record: {
+          fecha: '2026-05-20',
+          hallazgoDetectado: 'Proveedor entrega manzanas verdes',
+          accionCorrectiva: 'Se reclama al proveedor',
+          relacionIso22000: 'Revisar manualmente'
+        }
+      })
+    ]
+  });
+  __setSupabaseAdminForTests(mock);
+  const req = { user: { id: 'u1' } };
+  const res = createMockRes();
+  await reprocessIsoAll(req, res);
+  assert.equal(res.statusCode, 200);
+  const record = mock.state.records[0].results.records[0];
+  assert.equal(record.relacionIso22000, record.iso22000);
+  assert.match(record.relacionIso22000, /^8\.(4|5\.1)\b/);
 });
 
 test('reprocessIsoAll caso real: postres toda la semana => 8.1 planificación', async () => {

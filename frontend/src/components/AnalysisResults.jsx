@@ -15,6 +15,7 @@ import {
   AdvancedSection,
   ResultsTable
 } from './analysisResults/AnalysisResultsSections.jsx';
+import { readCanonicalIso } from '../lib/isoFields.js';
 
 const typeColors = {
   Interno: { bg: 'rgba(2, 132, 199, 0.16)', text: '#075985' },
@@ -251,7 +252,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     const classification = normalizeClassification(record);
     const tipo = normalizeTipo(record);
     const estado = normalizeEstado(record).toLowerCase();
-    const isoNormalized = normalizeIsoForExport(record.relacionIso22000 || record.iso22000);
+    const isoNormalized = normalizeIsoForExport(readCanonicalIso(record));
 
     const textSearch = [
       record.fecha,
@@ -310,7 +311,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
       'Tipo de desvío': normalizeTipo(record),
       'Acción inmediata': normalizeCellValue(record.immediate_action || record.accionInmediata),
       'Acción correctiva': normalizeCellValue(record.corrective_action || record.accionCorrectiva),
-      'Relación ISO 22000': normalizeIsoForExport(record.relacionIso22000 || record.iso22000),
+      'Relación ISO 22000': normalizeIsoForExport(readCanonicalIso(record)),
       'Estado de acciones': normalizeEstado(record)
     }));
 
