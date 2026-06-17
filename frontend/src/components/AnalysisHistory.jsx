@@ -98,7 +98,15 @@ function getDebugAnalyses(response = {}) {
   return [];
 }
 
-export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onAfterReprocess = null }) {
+function buildBulkDeleteMessage(response = {}) {
+  const deleted = Number(response?.deletedCount || 0);
+  const notFound = Array.isArray(response?.nonexistentIds) ? response.nonexistentIds.length : 0;
+  const unauthorized = Number(response?.unauthorizedCount || 0);
+  const failed = Number(response?.failedCount || 0);
+  return `Eliminados: ${deleted}. No encontrados: ${notFound}. No autorizados: ${unauthorized}. Fallidos: ${failed}.`;
+}
+
+export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onAfterReprocess = null, onAfterDelete = null }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -124,24 +132,32 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   const [reprocessingIsoDebug, setReprocessingIsoDebug] = useState(false);
   const [debugResult, setDebugResult] = useState(null);
   const [debugDialogOpen, setDebugDialogOpen] = useState(false);
+  const [deletingBulk, setDeletingBulk] = useState(false);
 
   useEffect(() => {
     loadHistory();
   }, [filters]);
 
-  const loadHistory = async () => {
+  const loadHistory = async (options = {}) => {
     try {
       setLoading(true);
       setError('');
       const { data } = await getAnalysisHistory(filters);
-      setItems(data?.data || []);
+      const nextItems = data?.data || [];
+      setItems(nextItems);
       setMeta({
         page: data?.page || 1,
         limit: data?.limit || 10,
         total: data?.total || 0,
         totalPages: data?.totalPages || 1
       });
-      setSelectedIds([]);
+      const retainSelectedIds = Array.isArray(options.retainSelectedIds) ? options.retainSelectedIds : [];
+      if (retainSelectedIds.length > 0) {
+        const visibleIds = new Set(nextItems.map((item) => item.id));
+        setSelectedIds(retainSelectedIds.filter((id) => visibleIds.has(id)));
+      } else {
+        setSelectedIds([]);
+      }
     } catch (err) {
       setError(err.message || 'Error cargando historial');
     } finally {
@@ -171,17 +187,35 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
       return;
     }
     setSuccess('Análisis eliminado');
-    loadHistory();
+    if (typeof onAfterDelete === 'function') {
+      onAfterDelete([id]);
+    }
+    await loadHistory();
   };
 
   const handleDeleteBulk = async () => {
-    if (!selectedIds.length) return;
+    if (!selectedIds.length || deletingBulk) return;
+    const confirmed = window.confirm(`¿Eliminar ${selectedIds.length} análisis seleccionados?`);
+    if (!confirmed) return;
+
     try {
-      await deleteAnalysesBulk(selectedIds);
-      setSuccess('Análisis seleccionados eliminados');
-      loadHistory();
+      setDeletingBulk(true);
+      setError('');
+      const response = await deleteAnalysesBulk(selectedIds);
+      setSuccess(buildBulkDeleteMessage(response));
+      const deletedIds = Array.isArray(response?.deletedIds) ? response.deletedIds : [];
+      const failedIds = [
+        ...(Array.isArray(response?.failedIds) ? response.failedIds : []),
+        ...(Array.isArray(response?.unauthorizedIds) ? response.unauthorizedIds : [])
+      ];
+      if (typeof onAfterDelete === 'function') {
+        onAfterDelete(deletedIds);
+      }
+      await loadHistory({ retainSelectedIds: failedIds });
     } catch (err) {
       setError(err.message || 'No se pudieron eliminar los análisis seleccionados');
+    } finally {
+      setDeletingBulk(false);
     }
   };
 
@@ -402,7 +436,9 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
           </Button>
         )}
         <Button variant="outlined" onClick={() => handleExportBulk()} disabled={!selectedIds.length} sx={btnGhostSx}>Exportar seleccionados</Button>
-        <Button variant="outlined" color="error" onClick={handleDeleteBulk} disabled={!selectedIds.length} sx={btnSoftDangerSx}>Eliminar seleccionados</Button>
+        <Button variant="outlined" color="error" onClick={handleDeleteBulk} disabled={!selectedIds.length || deletingBulk} sx={btnSoftDangerSx}>
+          {deletingBulk ? 'Eliminando...' : 'Eliminar seleccionados'}
+        </Button>
         <Button variant="outlined" color="error" onClick={handleDeleteAll} sx={btnSoftDangerSx}>Eliminar todos los análisis</Button>
       </Box>
 

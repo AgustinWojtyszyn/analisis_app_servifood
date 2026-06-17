@@ -9,6 +9,32 @@ import {
 } from '../analysisController.utils.js';
 import { getSupabaseAdmin, STATUS_VALUES } from './context.js';
 
+const MAX_BULK_DELETE_IDS = 100;
+
+function normalizeBulkDeleteIds(rawIds = []) {
+  const input = Array.isArray(rawIds) ? rawIds : [];
+  const normalized = [];
+  const invalidIds = [];
+  const duplicateIds = [];
+  const seen = new Set();
+
+  input.forEach((value) => {
+    const id = typeof value === 'string' ? value.trim() : '';
+    if (!id) {
+      invalidIds.push(value);
+      return;
+    }
+    if (seen.has(id)) {
+      duplicateIds.push(id);
+      return;
+    }
+    seen.add(id);
+    normalized.push(id);
+  });
+
+  return { ids: normalized, invalidIds, duplicateIds, requestedCount: input.length };
+}
+
 export async function getAnalysis(req, res) {
   try {
     const supabaseAdmin = getSupabaseAdmin();
@@ -169,23 +195,71 @@ export async function deleteAnalysisBulk(req, res) {
     const supabaseAdmin = getSupabaseAdmin();
     if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
 
-    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const { ids, invalidIds, duplicateIds, requestedCount } = normalizeBulkDeleteIds(req.body?.ids);
     if (!ids.length) {
       return res.status(400).json({ error: 'Debes enviar ids para eliminar' });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('analysis_history')
-      .delete()
-      .select('id')
-      .eq('user_id', req.user.id)
-      .in('id', ids);
-
-    if (error) {
-      return returnSupabaseError(res, 'delete_analysis_bulk', error);
+    if (ids.length > MAX_BULK_DELETE_IDS) {
+      return res.status(400).json({ error: `No se pueden eliminar más de ${MAX_BULK_DELETE_IDS} análisis por lote` });
     }
 
-    return res.json({ success: true, deletedCount: Array.isArray(data) ? data.length : 0 });
+    const isAdmin = isAdminUser(req.user);
+    const requestedSet = new Set(ids);
+    const selectResult = await supabaseAdmin
+      .from('analysis_history')
+      .select('id, user_id')
+      .in('id', ids);
+
+    if (selectResult.error) {
+      return returnSupabaseError(res, 'delete_analysis_bulk_select', selectResult.error);
+    }
+
+    const foundRows = Array.isArray(selectResult.data) ? selectResult.data : [];
+    const foundIds = new Set(foundRows.map((row) => row.id).filter(Boolean));
+    const nonexistentIds = ids.filter((id) => !foundIds.has(id));
+    const unauthorizedRows = isAdmin
+      ? []
+      : foundRows.filter((row) => row.user_id !== req.user.id);
+    const authorizedIds = foundRows
+      .filter((row) => isAdmin || row.user_id === req.user.id)
+      .map((row) => row.id)
+      .filter((id) => requestedSet.has(id));
+
+    let deletedIds = [];
+    let failedIds = [];
+    if (authorizedIds.length > 0) {
+      const deleteQuery = supabaseAdmin
+        .from('analysis_history')
+        .delete()
+        .select('id')
+        .in('id', authorizedIds);
+
+      const { data, error } = await deleteQuery;
+
+      if (error) {
+        return returnSupabaseError(res, 'delete_analysis_bulk', error);
+      }
+
+      deletedIds = Array.isArray(data) ? data.map((row) => row.id).filter(Boolean) : [];
+      const deletedSet = new Set(deletedIds);
+      failedIds = authorizedIds.filter((id) => !deletedSet.has(id));
+    }
+
+    return res.json({
+      success: true,
+      requestedIds: ids,
+      requestedCount,
+      invalidIds,
+      duplicateIds,
+      deletedCount: deletedIds.length,
+      deletedIds,
+      nonexistentIds,
+      unauthorizedCount: unauthorizedRows.length,
+      unauthorizedIds: isAdmin ? [] : undefined,
+      failedCount: failedIds.length,
+      failedIds
+    });
   } catch (error) {
     console.error('Error eliminando análisis en lote:', error);
     return res.status(500).json({ error: 'Error eliminando análisis en lote' });

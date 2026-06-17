@@ -414,6 +414,11 @@ function MainApp({ user, onLogout }) {
           key={`history-${reloadHistoryKey}`}
           onSelectAnalysis={handleSelectAnalysis}
           isAdmin={isAdmin}
+          onAfterDelete={(deletedIds = []) => {
+            if (selectedAnalysis?.id && deletedIds.includes(selectedAnalysis.id)) {
+              setSelectedAnalysis(null);
+            }
+          }}
           onAfterReprocess={async () => {
             setReloadHistoryKey((prev) => prev + 1);
             if (selectedAnalysis?.id) {

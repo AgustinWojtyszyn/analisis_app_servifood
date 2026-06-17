@@ -87,6 +87,14 @@ function createSupabaseMock({ records = [] } = {}) {
 
     then(resolve, reject) {
       try {
+        if (this.operation === 'select') {
+          const rows = state.records.filter((row) => applyFilters(row, this.filters));
+          const data = this.selectColumns === 'id, user_id'
+            ? rows.map((r) => ({ id: r.id, user_id: r.user_id }))
+            : rows.map((r) => ({ ...r }));
+          resolve({ data, error: null });
+          return;
+        }
         if (this.operation === 'delete') {
           const toDelete = state.records.filter((row) => applyFilters(row, this.filters));
           state.records = state.records.filter((row) => !applyFilters(row, this.filters));
@@ -162,17 +170,15 @@ test('archiveAnalysis archiva solo análisis propio', async () => {
   assert.equal(res.body?.data?.status, 'archived');
 });
 
-test('deleteAnalysisBulk no cuenta ids inexistentes o ajenos', async () => {
+test('deleteAnalysisBulk admin elimina análisis propio', async () => {
   const supabase = createSupabaseMock({
     records: [
-      { id: 'a1', user_id: 'u1', status: 'active', results: {} },
-      { id: 'a2', user_id: 'u1', status: 'active', results: {} },
-      { id: 'b1', user_id: 'u2', status: 'active', results: {} }
+      { id: 'a1', user_id: 'admin-1', status: 'active', results: {} }
     ]
   });
   __setSupabaseAdminForTests(supabase);
 
-  const req = { body: { ids: ['a1', 'b1', 'missing'] }, user: { id: 'u1' } };
+  const req = { body: { ids: ['a1'] }, user: { id: 'admin-1', role: 'admin', isAdmin: true } };
   const res = createMockRes();
 
   await deleteAnalysisBulk(req, res);
@@ -180,9 +186,66 @@ test('deleteAnalysisBulk no cuenta ids inexistentes o ajenos', async () => {
   assert.equal(res.statusCode, 200);
   assert.equal(res.body?.success, true);
   assert.equal(res.body?.deletedCount, 1);
+  assert.deepEqual(res.body?.deletedIds, ['a1']);
 });
 
-test('deleteAnalysisBulk solo elimina análisis del usuario autenticado', async () => {
+test('deleteAnalysisBulk admin elimina análisis de otro usuario', async () => {
+  const supabase = createSupabaseMock({
+    records: [
+      { id: 'b1', user_id: 'owner-2', status: 'active', results: {} }
+    ]
+  });
+  __setSupabaseAdminForTests(supabase);
+
+  const req = { body: { ids: ['b1'] }, user: { id: 'admin-1', role: 'admin', isAdmin: true } };
+  const res = createMockRes();
+
+  await deleteAnalysisBulk(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body?.deletedCount, 1);
+  assert.deepEqual(res.body?.deletedIds, ['b1']);
+});
+
+test('deleteAnalysisBulk usuario común elimina análisis propio', async () => {
+  const supabase = createSupabaseMock({
+    records: [
+      { id: 'a1', user_id: 'u1', status: 'active', results: {} }
+    ]
+  });
+  __setSupabaseAdminForTests(supabase);
+
+  const req = { body: { ids: ['a1'] }, user: { id: 'u1', role: 'user', isAdmin: false } };
+  const res = createMockRes();
+
+  await deleteAnalysisBulk(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body?.deletedCount, 1);
+  assert.equal(res.body?.unauthorizedCount, 0);
+});
+
+test('deleteAnalysisBulk usuario común no elimina análisis ajeno', async () => {
+  const supabase = createSupabaseMock({
+    records: [
+      { id: 'b1', user_id: 'u2', status: 'active', results: {} }
+    ]
+  });
+  __setSupabaseAdminForTests(supabase);
+
+  const req = { body: { ids: ['b1'] }, user: { id: 'u1', role: 'user', isAdmin: false } };
+  const res = createMockRes();
+
+  await deleteAnalysisBulk(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body?.success, true);
+  assert.equal(res.body?.deletedCount, 0);
+  assert.equal(res.body?.unauthorizedCount, 1);
+  assert.equal(res.body?.unauthorizedIds, undefined);
+});
+
+test('deleteAnalysisBulk lote mixto de usuario común elimina propios y reporta ajenos', async () => {
   const supabase = createSupabaseMock({
     records: [
       { id: 'a1', user_id: 'u1', status: 'active', results: {} },
@@ -192,11 +255,86 @@ test('deleteAnalysisBulk solo elimina análisis del usuario autenticado', async 
   });
   __setSupabaseAdminForTests(supabase);
 
-  const req = { body: { ids: ['a1', 'a2', 'b1'] }, user: { id: 'u1' } };
+  const req = { body: { ids: ['a1', 'a2', 'b1'] }, user: { id: 'u1', role: 'user', isAdmin: false } };
   const res = createMockRes();
 
   await deleteAnalysisBulk(req, res);
 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body?.deletedCount, 2);
+  assert.equal(res.body?.unauthorizedCount, 1);
+  assert.deepEqual(res.body?.deletedIds.sort(), ['a1', 'a2']);
+});
+
+test('deleteAnalysisBulk reporta ids inexistentes', async () => {
+  const supabase = createSupabaseMock({
+    records: [
+      { id: 'a1', user_id: 'u1', status: 'active', results: {} }
+    ]
+  });
+  __setSupabaseAdminForTests(supabase);
+
+  const req = { body: { ids: ['a1', 'missing'] }, user: { id: 'u1', role: 'user', isAdmin: false } };
+  const res = createMockRes();
+
+  await deleteAnalysisBulk(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body?.deletedCount, 1);
+  assert.deepEqual(res.body?.nonexistentIds, ['missing']);
+});
+
+test('deleteAnalysisBulk rechaza lista vacía o payload inválido', async () => {
+  const supabase = createSupabaseMock({ records: [] });
+  __setSupabaseAdminForTests(supabase);
+
+  const invalidPayloads = [{ ids: [] }, { ids: null }, {}];
+  for (const body of invalidPayloads) {
+    const req = { body, user: { id: 'u1', role: 'admin', isAdmin: true } };
+    const res = createMockRes();
+    await deleteAnalysisBulk(req, res);
+    assert.equal(res.statusCode, 400);
+  }
+});
+
+test('deleteAnalysisBulk deduplica ids duplicados sin doble conteo', async () => {
+  const supabase = createSupabaseMock({
+    records: [
+      { id: 'a1', user_id: 'u1', status: 'active', results: {} }
+    ]
+  });
+  __setSupabaseAdminForTests(supabase);
+
+  const req = { body: { ids: ['a1', 'a1'] }, user: { id: 'u1', role: 'admin', isAdmin: true } };
+  const res = createMockRes();
+
+  await deleteAnalysisBulk(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body?.requestedCount, 2);
+  assert.deepEqual(res.body?.requestedIds, ['a1']);
+  assert.deepEqual(res.body?.duplicateIds, ['a1']);
+  assert.equal(res.body?.deletedCount, 1);
+});
+
+test('deleteAnalysisBulk mantiene contrato compatible para frontend', async () => {
+  const supabase = createSupabaseMock({
+    records: [
+      { id: 'a1', user_id: 'u1', status: 'active', results: {} }
+    ]
+  });
+  __setSupabaseAdminForTests(supabase);
+
+  const req = { body: { ids: ['a1'] }, user: { id: 'u1', role: 'admin', isAdmin: true } };
+  const res = createMockRes();
+
+  await deleteAnalysisBulk(req, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body?.success, true);
+  assert.equal(typeof res.body?.deletedCount, 'number');
+  assert.ok(Array.isArray(res.body?.requestedIds));
+  assert.ok(Array.isArray(res.body?.deletedIds));
+  assert.ok(Array.isArray(res.body?.nonexistentIds));
+  assert.ok(Array.isArray(res.body?.failedIds));
 });
