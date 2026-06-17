@@ -198,8 +198,9 @@ export async function getAnalysisById(id) {
   return await authorizedFetch(`/analysis/${id}`);
 }
 
-export async function reprocessIsoAllAnalyses() {
-  return await authorizedFetch('/analysis/reprocess-iso-all', {
+export async function reprocessIsoAllAnalyses(options = {}) {
+  const query = options.debug ? '?debug=1' : '';
+  return await authorizedFetch(`/analysis/reprocess-iso-all${query}`, {
     method: 'PATCH'
   });
 }

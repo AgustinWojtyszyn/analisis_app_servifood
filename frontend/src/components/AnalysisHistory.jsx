@@ -8,6 +8,9 @@ import {
   Button,
   Checkbox,
   Divider,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   InputAdornment,
   Paper,
   Table,
@@ -35,6 +38,65 @@ import {
 
 const limitOptions = [10, 25, 50];
 const toNumber = (value) => Number(value || 0);
+const EMPTY_LABEL = '—';
+
+function normalizeCompare(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function isManualIsoValue(value = '') {
+  const normalized = normalizeCompare(value);
+  return normalized.includes('revisar manualmente') || normalized.includes('revision manual');
+}
+
+function getShortId(id = '') {
+  const fullId = String(id || '').trim();
+  return fullId ? fullId.slice(0, 8) : EMPTY_LABEL;
+}
+
+function getRecordsCount(analysis = {}) {
+  const summaryTotal = Number(analysis?.summary?.totalRecords);
+  if (Number.isFinite(summaryTotal) && summaryTotal >= 0) return summaryTotal;
+  const topLevelTotal = Number(analysis?.totalRecords);
+  if (Number.isFinite(topLevelTotal) && topLevelTotal >= 0) return topLevelTotal;
+  return Array.isArray(analysis?.records) ? analysis.records.length : 0;
+}
+
+function getManualCount(analysis = {}) {
+  const summaryManual = Number(analysis?.summary?.totalRevisionManual);
+  if (Number.isFinite(summaryManual) && summaryManual >= 0) return summaryManual;
+  const records = Array.isArray(analysis?.records) ? analysis.records : [];
+  return records.reduce((count, record) => {
+    const iso = String(record?.relacionIso22000 || record?.iso22000 || '').trim() || 'Revisar manualmente';
+    return count + (isManualIsoValue(iso) ? 1 : 0);
+  }, 0);
+}
+
+function formatDateTime(value) {
+  if (!value) return EMPTY_LABEL;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return EMPTY_LABEL;
+  return date.toLocaleString('es-AR');
+}
+
+function countDebugErrors(response = {}) {
+  const analyses = Array.isArray(response?.analysesDebug)
+    ? response.analysesDebug
+    : Array.isArray(response?.debug)
+      ? response.debug
+      : [];
+  return analyses.reduce((count, item) => count + (item?.persistError || item?.error || item?.warning ? 1 : 0), 0);
+}
+
+function getDebugAnalyses(response = {}) {
+  if (Array.isArray(response?.analysesDebug)) return response.analysesDebug;
+  if (Array.isArray(response?.debug)) return response.debug;
+  return [];
+}
 
 export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onAfterReprocess = null }) {
   const [items, setItems] = useState([]);
@@ -59,6 +121,9 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [reprocessingIso, setReprocessingIso] = useState(false);
+  const [reprocessingIsoDebug, setReprocessingIsoDebug] = useState(false);
+  const [debugResult, setDebugResult] = useState(null);
+  const [debugDialogOpen, setDebugDialogOpen] = useState(false);
 
   useEffect(() => {
     loadHistory();
@@ -85,6 +150,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   };
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const isReprocessingIso = reprocessingIso || reprocessingIsoDebug;
 
   const toggleSelectAll = () => {
     if (selectedIds.length === items.length) {
@@ -160,6 +226,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   };
 
   const handleReprocessIsoAll = async () => {
+    if (isReprocessingIso) return;
     const confirmed = window.confirm('Esto recalculará la relación ISO 22000 de todos tus análisis guardados usando las reglas actuales. No modificará los datos originales del Excel. ¿Continuar?');
     if (!confirmed) return;
 
@@ -178,6 +245,33 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
       setError('No se pudo reprocesar la ISO. Intentalo nuevamente.');
     } finally {
       setReprocessingIso(false);
+    }
+  };
+
+  const handleReprocessIsoDebug = async () => {
+    if (!isAdmin || isReprocessingIso) return;
+    const confirmed = window.confirm('Esto recalculará la relación ISO 22000 con diagnóstico visible para administradores. ¿Continuar?');
+    if (!confirmed) return;
+
+    try {
+      setReprocessingIsoDebug(true);
+      setError('');
+      setDebugResult(null);
+      const response = await reprocessIsoAllAnalyses({ debug: true });
+      setDebugResult(response);
+      setDebugDialogOpen(true);
+      setSuccess(
+        `ISO reprocesada con diagnóstico. ${response?.analysesProcessed || 0} análisis procesados, ${response?.recordsProcessed || 0} registros procesados.`
+      );
+      await loadHistory();
+      if (typeof onAfterReprocess === 'function') {
+        await onAfterReprocess(response);
+      }
+    } catch (err) {
+      console.error('Error reprocesando ISO con diagnóstico:', err);
+      setError('No se pudo reprocesar la ISO con diagnóstico. Intentalo nuevamente.');
+    } finally {
+      setReprocessingIsoDebug(false);
     }
   };
 
@@ -286,7 +380,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
         <Button
           variant="contained"
           onClick={handleReprocessIsoAll}
-          disabled={reprocessingIso || loading}
+          disabled={isReprocessingIso || loading}
           sx={{
             borderRadius: 2,
             textTransform: 'none',
@@ -297,6 +391,16 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
         >
           {reprocessingIso ? 'Reprocesando ISO...' : 'Reprocesar ISO de todos'}
         </Button>
+        {isAdmin && (
+          <Button
+            variant="outlined"
+            onClick={handleReprocessIsoDebug}
+            disabled={isReprocessingIso || loading}
+            sx={btnGhostSx}
+          >
+            {reprocessingIsoDebug ? 'Generando diagnóstico...' : 'Reprocesar ISO con diagnóstico'}
+          </Button>
+        )}
         <Button variant="outlined" onClick={() => handleExportBulk()} disabled={!selectedIds.length} sx={btnGhostSx}>Exportar seleccionados</Button>
         <Button variant="outlined" color="error" onClick={handleDeleteBulk} disabled={!selectedIds.length} sx={btnSoftDangerSx}>Eliminar seleccionados</Button>
         <Button variant="outlined" color="error" onClick={handleDeleteAll} sx={btnSoftDangerSx}>Eliminar todos los análisis</Button>
@@ -304,6 +408,11 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
 
       {error && <Alert severity="error" sx={{ mb: 1.5 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 1.5 }}>{success}</Alert>}
+      <IsoDebugResultDialog
+        open={debugDialogOpen}
+        result={debugResult}
+        onClose={() => setDebugDialogOpen(false)}
+      />
 
       <TableContainer
         sx={{
@@ -338,6 +447,8 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
                 const totalDesvios = toNumber(summary.totalDesvios);
                 const totalInternos = toNumber(summary.totalInternos ?? summary.byAlcance?.Interno ?? summary.byAlcance?.interno);
                 const totalExternos = toNumber(summary.totalExternos ?? summary.byAlcance?.Externo ?? summary.byAlcance?.externo);
+                const recordsCount = getRecordsCount(analysis);
+                const manualCount = getManualCount(analysis);
                 return (
               <TableRow
                 key={analysis.id}
@@ -356,9 +467,20 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
                       {analysis.filename}
                     </Typography>
                   </Tooltip>
+                  {isAdmin && (
+                    <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', mt: 0.75 }}>
+                      <Tooltip title={analysis.id || EMPTY_LABEL} placement="top-start">
+                        <Typography component="span" sx={adminMetaPillSx}>ID {getShortId(analysis.id)}</Typography>
+                      </Tooltip>
+                      <Typography component="span" sx={adminMetaPillSx}>{analysis.status || EMPTY_LABEL}</Typography>
+                      <Typography component="span" sx={adminMetaPillSx}>{formatDateTime(analysis.uploadDate)}</Typography>
+                      <Typography component="span" sx={adminMetaPillSx}>{recordsCount} regs.</Typography>
+                      <Typography component="span" sx={adminMetaPillSx}>{manualCount} rev. manual</Typography>
+                    </Box>
+                  )}
                 </TableCell>
-                <TableCell>{new Date(analysis.uploadDate).toLocaleString('es-AR')}</TableCell>
-                <TableCell>{analysis.totalRecords || 0}</TableCell>
+                <TableCell>{formatDateTime(analysis.uploadDate)}</TableCell>
+                <TableCell>{recordsCount}</TableCell>
                 <TableCell>{totalDesvios}</TableCell>
                 <TableCell>{totalInternos}</TableCell>
                 <TableCell>{totalExternos}</TableCell>
@@ -410,6 +532,137 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   );
 }
 
+function IsoDebugResultDialog({ open, result, onClose }) {
+  const analyses = getDebugAnalyses(result);
+  const errorsCount = countDebugErrors(result);
+  const recordsProcessed = Number(result?.recordsProcessed ?? result?.recordsProcessedTotal ?? 0);
+  const updatedAnalyses = Number(result?.updatedAnalyses || 0);
+  const changedRecords = analyses.reduce((total, item) => total + Number(item?.updatedRecordsCount || 0), 0);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, alignItems: 'center' }}>
+        <Typography sx={{ fontWeight: 900, color: '#0f172a' }}>Diagnóstico de reproceso ISO</Typography>
+        <Button variant="outlined" size="small" onClick={onClose} sx={btnGhostSx}>Cerrar</Button>
+      </DialogTitle>
+      <DialogContent dividers>
+        {!result ? (
+          <Typography color="text.secondary">Sin diagnóstico disponible.</Typography>
+        ) : (
+          <>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(4, minmax(0,1fr))' }, gap: 1, mb: 1.5 }}>
+              <DebugMetric label="Análisis procesados" value={result?.analysesProcessed ?? analyses.length ?? 0} />
+              <DebugMetric label="Registros procesados" value={recordsProcessed} />
+              <DebugMetric label="Registros modificados" value={changedRecords} />
+              <DebugMetric label="Errores" value={errorsCount} />
+              {result?.duration != null && <DebugMetric label="Duración" value={result.duration} />}
+            </Box>
+            <Typography variant="body2" sx={{ color: '#475569', mb: 1 }}>
+              Actualizó {updatedAnalyses} análisis. Revisión manual: antes {Number(result?.manualBefore || 0)} / ahora {Number(result?.manualAfter || 0)}.
+            </Typography>
+            {analyses.length === 0 ? (
+              <Typography color="text.secondary">El backend no devolvió detalle por análisis.</Typography>
+            ) : analyses.map((analysis, index) => (
+              <DebugAnalysisAccordion key={analysis?.analysisId || index} analysis={analysis} />
+            ))}
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DebugMetric({ label, value }) {
+  return (
+    <Box sx={{ border: '1px solid rgba(148,163,184,0.28)', borderRadius: 1.5, p: 1, backgroundColor: '#f8fafc' }}>
+      <Typography sx={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>{label}</Typography>
+      <Typography sx={{ fontSize: 20, color: '#0f172a', fontWeight: 900 }}>{value ?? 0}</Typography>
+    </Box>
+  );
+}
+
+function DebugAnalysisAccordion({ analysis = {} }) {
+  const records = Array.isArray(analysis?.records) ? analysis.records : [];
+  const updatedRecords = Number(analysis?.updatedRecordsCount || 0);
+  const processedRecords = Number(analysis?.recordsProcessed ?? analysis?.recordsCount ?? 0);
+  const unchangedRecords = Math.max(0, processedRecords - updatedRecords);
+  const visibleRecords = records.slice(0, 20);
+
+  return (
+    <Accordion disableGutters elevation={0} sx={{ mb: 1, border: '1px solid rgba(148,163,184,0.28)', borderRadius: 1.5, '&:before': { display: 'none' } }}>
+      <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 800, color: '#0f172a' }}>
+            {analysis?.filename || 'Análisis sin nombre'} · ID {getShortId(analysis?.analysisId)}
+          </Typography>
+          <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>
+            Procesados {processedRecords} · modificados {updatedRecords} · sin cambios {unchangedRecords} · manual {Number(analysis?.manualAfter ?? 0)}
+          </Typography>
+        </Box>
+      </AccordionSummary>
+      <AccordionDetails sx={{ pt: 0 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0,1fr))' }, gap: 1, mb: 1 }}>
+          <DebugField label="Estado" value={analysis?.status} />
+          <DebugField label="Lectura" value={analysis?.recordsPathRead} />
+          <DebugField label="Escritura" value={analysis?.recordsPathWritten} />
+          <DebugField label="Persistido" value={analysis?.persisted == null ? EMPTY_LABEL : (analysis.persisted ? 'Sí' : 'No')} />
+          <DebugField label="Post-save" value={analysis?.postSaveMatchesExpected == null ? EMPTY_LABEL : (analysis.postSaveMatchesExpected ? 'OK' : 'Revisar')} />
+          <DebugField label="Valor verificado" value={analysis?.postSaveValue} />
+        </Box>
+        {(analysis?.persistError || analysis?.error || analysis?.warning) && (
+          <Alert severity="warning" sx={{ mb: 1 }}>
+            {String(analysis.persistError || analysis.error || analysis.warning)}
+          </Alert>
+        )}
+        {visibleRecords.length > 0 ? (
+          <Box sx={{ display: 'grid', gap: 0.75 }}>
+            {visibleRecords.map((record, index) => (
+              <Box key={`${record?.recordIndex ?? index}-${record?.nextIso ?? ''}`} sx={{ border: '1px solid rgba(226,232,240,0.9)', borderRadius: 1, p: 1 }}>
+                <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a' }}>
+                  Registro {record?.recordIndex ?? index} · {record?.changed ? 'modificado' : 'sin cambios'}
+                </Typography>
+                <Typography sx={{ fontSize: 12.5, color: '#475569' }}>
+                  ISO: {record?.prevIso || EMPTY_LABEL} → {record?.nextIso || EMPTY_LABEL}
+                </Typography>
+                <Typography sx={{ fontSize: 12.5, color: '#475569' }}>
+                  Regla: {record?.matchedRule || EMPTY_LABEL} · Motivo: {record?.decisionReason || EMPTY_LABEL}
+                </Typography>
+                {Array.isArray(record?.usedFields) && record.usedFields.length > 0 && (
+                  <Typography sx={{ fontSize: 12.5, color: '#475569' }}>
+                    Campos: {record.usedFields.join(', ')}
+                  </Typography>
+                )}
+                {record?.sourceTextPreview && (
+                  <Typography sx={{ fontSize: 12.5, color: '#64748b', mt: 0.25 }}>
+                    {String(record.sourceTextPreview)}
+                  </Typography>
+                )}
+              </Box>
+            ))}
+            {records.length > visibleRecords.length && (
+              <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>
+                Se muestran los primeros {visibleRecords.length} de {records.length} registros de diagnóstico.
+              </Typography>
+            )}
+          </Box>
+        ) : (
+          <Typography color="text.secondary">Sin registros de diagnóstico para este análisis.</Typography>
+        )}
+      </AccordionDetails>
+    </Accordion>
+  );
+}
+
+function DebugField({ label, value }) {
+  const safeValue = value == null || value === '' ? EMPTY_LABEL : String(value);
+  return (
+    <Box sx={{ border: '1px solid rgba(226,232,240,0.9)', borderRadius: 1, p: 0.85 }}>
+      <Typography sx={{ fontSize: 12, color: '#64748b', fontWeight: 700 }}>{label}</Typography>
+      <Typography sx={{ fontSize: 13, color: '#0f172a', fontWeight: 700, wordBreak: 'break-word' }}>{safeValue}</Typography>
+    </Box>
+  );
+}
+
 const fieldSx = {
   '& .MuiOutlinedInput-root': {
     borderRadius: 2,
@@ -429,6 +682,22 @@ const headCellSx = {
   fontSize: 13,
   backgroundColor: 'rgba(241,245,249,0.9)',
   borderBottom: '1px solid rgba(203,213,225,0.9)'
+};
+
+const adminMetaPillSx = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  maxWidth: '100%',
+  px: 0.75,
+  py: 0.25,
+  borderRadius: 1,
+  border: '1px solid rgba(148,163,184,0.35)',
+  backgroundColor: 'rgba(241,245,249,0.8)',
+  color: '#475569',
+  fontSize: 11.5,
+  fontWeight: 800,
+  lineHeight: 1.4,
+  whiteSpace: 'nowrap'
 };
 
 const btnGhostSx = {
