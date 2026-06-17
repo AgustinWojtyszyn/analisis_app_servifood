@@ -5,7 +5,6 @@ import {
   TablePagination,
   Typography
 } from '@mui/material';
-import * as XLSX from 'xlsx';
 import excelIcon from '../assets/excel.png';
 import whatsappIcon from '../assets/whatsappicon.png';
 import {
@@ -16,6 +15,7 @@ import {
   ResultsTable
 } from './analysisResults/AnalysisResultsSections.jsx';
 import { readCanonicalIso } from '../lib/isoFields.js';
+import { downloadAnalysisResultsWorkbook } from '../lib/analysisResultsExcel.js';
 
 const typeColors = {
   Interno: { bg: 'rgba(2, 132, 199, 0.16)', text: '#075985' },
@@ -315,10 +315,11 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
       'Estado de acciones': normalizeEstado(record)
     }));
 
-    const sheet = XLSX.utils.json_to_sheet(rows, { header: baseHeaders });
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, sheet, 'Resultados');
-    XLSX.writeFile(workbook, activeExportConfig.fileName);
+    await downloadAnalysisResultsWorkbook({
+      headers: baseHeaders,
+      rows,
+      fileName: activeExportConfig.fileName
+    });
 
     resetLocalState();
     await onExportSuccess?.(analysisId);

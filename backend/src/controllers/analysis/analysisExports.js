@@ -1,18 +1,10 @@
-import * as XLSX from 'xlsx';
-import { normalizeCellValue } from '../../services/analyzeExcel/normalizers.js';
-import {
-  normalizeStoredAnalysisResults,
-  normalizeExportClassification,
-  normalizeExportTipo,
-  normalizeExportEstado,
-  normalizeExportIso
-} from '../analysisController.mappers.js';
 import {
   returnSupabaseError,
   ensureSupabaseConfigured,
   isAdminUser
 } from '../analysisController.utils.js';
 import { getSupabaseAdmin } from './context.js';
+import { buildBulkExportWorkbookBuffer } from '../../services/analysis/bulkExportWorkbook.js';
 
 export async function exportBulkAnalyses(req, res) {
   try {
@@ -40,34 +32,7 @@ export async function exportBulkAnalyses(req, res) {
       return returnSupabaseError(res, 'export_bulk_fetch', error);
     }
 
-    const rows = [];
-    for (const item of data || []) {
-      const normalized = normalizeStoredAnalysisResults(item.results || {});
-      const records = Array.isArray(normalized?.records) ? normalized.records : [];
-      const processedAt = normalizeCellValue(normalized?.summary?.processedAt || item.created_at).trim();
-
-      for (const record of records) {
-        rows.push({
-          analysisId: item.id,
-          filename: item.filename || '',
-          processedAt,
-          Fecha: normalizeCellValue(record.fecha),
-          'Área/Sector': normalizeCellValue(record.areaSector || record.areaClasificada),
-          'Desvío detectado': normalizeCellValue(record.desvioDetectado || record.hallazgoDetectado),
-          'Clasificación del desvío': normalizeExportClassification(record),
-          'Tipo de desvío': normalizeExportTipo(record),
-          'Relación ISO 22000': normalizeExportIso(record),
-          'Estado de acciones': normalizeExportEstado(record),
-          'Acción inmediata': normalizeCellValue(record.immediate_action || record.accionInmediata),
-          'Acción correctiva': normalizeCellValue(record.corrective_action || record.accionCorrectiva)
-        });
-      }
-    }
-
-    const sheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, sheet, 'Analisis');
-    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await buildBulkExportWorkbookBuffer(data || []);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="analisis_bulk_${Date.now()}.xlsx"`);
