@@ -9,6 +9,7 @@ import { resolveAuthRedirectUrl } from '../lib/authRedirect';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 
 const inputClassName = 'w-full bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-lg px-4 py-3 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 [&:-webkit-autofill]:bg-slate-900 [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:shadow-[0_0_0px_1000px_#0f172a_inset]';
+const authDebugEnabled = import.meta.env.DEV || import.meta.env.VITE_AUTH_DEBUG === '1';
 
 function mapSupabaseUser(user) {
   if (!user) return null;
@@ -88,7 +89,9 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
 
   const handleRegister = async () => {
     const emailRedirectTo = resolveAuthRedirectUrl();
-    console.info('[auth] register_attempt', { email: email.trim(), emailRedirectTo });
+    if (authDebugEnabled) {
+      console.info('[auth] register_attempt', { email: email.trim(), emailRedirectTo });
+    }
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
@@ -103,10 +106,12 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
     });
 
     if (signUpError) {
-      console.warn('[auth] register_error', {
-        message: signUpError.message,
-        status: signUpError.status
-      });
+      if (authDebugEnabled) {
+        console.warn('[auth] register_error', {
+          message: signUpError.message,
+          status: signUpError.status
+        });
+      }
       throw signUpError;
     }
 
@@ -119,7 +124,9 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
   };
 
   const handleLogin = async () => {
-    console.info('[auth] login_attempt', { email: email.trim() });
+    if (authDebugEnabled) {
+      console.info('[auth] login_attempt', { email: email.trim() });
+    }
 
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -127,10 +134,12 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
     });
 
     if (signInError) {
-      console.warn('[auth] login_error', {
-        message: signInError.message,
-        status: signInError.status
-      });
+      if (authDebugEnabled) {
+        console.warn('[auth] login_error', {
+          message: signInError.message,
+          status: signInError.status
+        });
+      }
       throw signInError;
     }
 
@@ -152,7 +161,9 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
     try {
       setLoading(true);
       const emailRedirectTo = resolveAuthRedirectUrl();
-      console.info('[auth] resend_confirmation_attempt', { email: trimmedEmail, emailRedirectTo });
+      if (authDebugEnabled) {
+        console.info('[auth] resend_confirmation_attempt', { email: trimmedEmail, emailRedirectTo });
+      }
 
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
@@ -161,10 +172,12 @@ export default function LoginForm({ onLoginSuccess, initialMode = 'login', onSwi
       });
 
       if (resendError) {
-        console.warn('[auth] resend_confirmation_error', {
-          message: resendError.message,
-          status: resendError.status
-        });
+        if (authDebugEnabled) {
+          console.warn('[auth] resend_confirmation_error', {
+            message: resendError.message,
+            status: resendError.status
+          });
+        }
         throw resendError;
       }
 

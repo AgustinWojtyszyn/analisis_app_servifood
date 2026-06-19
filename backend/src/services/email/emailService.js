@@ -9,6 +9,8 @@ const CERTIFICATION_NOTIFICATION_ALLOWED_RECIPIENTS = [
 
 export const CERTIFICATION_TEST_EMAIL_RECIPIENT = 'agustinwojtyszyn99@gmail.com';
 
+const certificationEmailDebugEnabled = process.env.CERTIFICATIONS_EMAIL_DEBUG === '1' || process.env.NODE_ENV !== 'production';
+
 let transporter = null;
 let warnedMissingConfig = false;
 let createTransport = (options) => nodemailer.createTransport(options);
@@ -149,11 +151,12 @@ export async function sendCertificationExpirationTestEmail({ certification, trig
     certificationsUrl ? `\nVer certificaciones: ${certificationsUrl}` : ''
   ].join('\n');
 
-  console.info('[certifications-email] Intento envío prueba', {
-    certificationId: certification?.id || null,
-    triggerType: triggerInfo?.triggerType || null,
-    recipient
-  });
+  if (certificationEmailDebugEnabled) {
+    console.info('[certifications-email] Intento envío prueba', {
+      certificationId: certification?.id || null,
+      triggerType: triggerInfo?.triggerType || null
+    });
+  }
 
   const info = await transport.sendMail({
     from,
@@ -215,11 +218,12 @@ export async function sendCertificationExpirationPilotEmail({ certification, tri
     certificationsUrl ? `\nVer certificaciones: ${certificationsUrl}` : ''
   ].join('\n');
 
-  console.info('[certifications-email] Intento envío automático', {
-    certificationId: certification?.id || null,
-    triggerType: triggerInfo?.triggerType || null,
-    recipient
-  });
+  if (certificationEmailDebugEnabled) {
+    console.info('[certifications-email] Intento envío automático', {
+      certificationId: certification?.id || null,
+      triggerType: triggerInfo?.triggerType || null
+    });
+  }
 
   const info = await transport.sendMail({
     from,

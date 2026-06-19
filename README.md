@@ -42,6 +42,7 @@ FRONTEND_URL=
 CORS_ORIGIN=
 ALLOWED_ORIGINS=
 INTERNAL_CRON_SECRET=
+DOCUMENTS_NOTIFICATIONS_WORKER_TOKEN=
 SMTP_HOST=
 SMTP_PORT=
 SMTP_USER=
@@ -56,6 +57,7 @@ Notas:
 - `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` son obligatorias para endpoints protegidos del backend.
 - `DATABASE_URL` se mantiene porque el proyecto aun genera Prisma Client para compatibilidad de partes legacy.
 - `FRONTEND_URL`, `CORS_ORIGIN` o `ALLOWED_ORIGINS` deben configurarse en produccion para CORS.
+- `DOCUMENTS_NOTIFICATIONS_WORKER_TOKEN` protege el worker interno de notificaciones de Documentos SGC.
 - Variables SMTP y destinatarios son necesarias solo para notificaciones por email.
 
 ### Frontend (`frontend/.env.local`)
@@ -64,6 +66,8 @@ Notas:
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 VITE_API_URL=
+VITE_PUBLIC_SITE_URL=
+VITE_CUSTOM_DOMAIN_URL=
 ```
 
 Notas:

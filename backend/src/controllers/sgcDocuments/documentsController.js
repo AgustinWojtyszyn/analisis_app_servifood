@@ -10,6 +10,8 @@ import {
 import { processPendingDocumentNotifications } from '../../routes/nutritionModules/notificationWorker.js';
 import { resolveUserRole, supabaseAdmin } from './context.js';
 
+const documentNotificationDebugEnabled = process.env.DOCUMENTS_NOTIFICATIONS_DEBUG === '1' || process.env.NODE_ENV !== 'production';
+
 async function validateFolderId(folderId) {
   if (!folderId) return null;
   const { data, error } = await supabaseAdmin
@@ -193,12 +195,13 @@ export async function createDocument(req, res) {
       return res.status(500).json({ error: error?.message || 'Error creando módulo nutricional' });
     }
 
-    console.info('[nutrition-modules-email] Documento creado', {
-      documentId: data.id,
-      title: data.title,
-      moduleType: data.module_type,
-      createdAt: data.created_at
-    });
+    if (documentNotificationDebugEnabled) {
+      console.info('[nutrition-modules-email] Documento creado', {
+        documentId: data.id,
+        moduleType: data.module_type,
+        createdAt: data.created_at
+      });
+    }
 
     const { data: queuedNotification, error: queueError } = await supabaseAdmin
       .from('document_email_notifications')
@@ -212,20 +215,24 @@ export async function createDocument(req, res) {
         error: queueError.message || queueError
       });
     } else {
-      console.info('[nutrition-modules-email] Notificación encolada', {
-        documentId: data.id,
-        notificationId: queuedNotification?.id || null,
-        status: queuedNotification?.status || null,
-        recipientsCount: Array.isArray(queuedNotification?.recipients) ? queuedNotification.recipients.length : 0
-      });
+      if (documentNotificationDebugEnabled) {
+        console.info('[nutrition-modules-email] Notificación encolada', {
+          documentId: data.id,
+          notificationId: queuedNotification?.id || null,
+          status: queuedNotification?.status || null,
+          recipientsCount: Array.isArray(queuedNotification?.recipients) ? queuedNotification.recipients.length : 0
+        });
+      }
     }
 
     processPendingDocumentNotifications({ supabaseAdmin, batchSize: 10, source: 'post-create' })
       .then((result) => {
-        console.info('[nutrition-modules-email] Worker post-create resultado', {
-          documentId: data.id,
-          ...result
-        });
+        if (documentNotificationDebugEnabled) {
+          console.info('[nutrition-modules-email] Worker post-create resultado', {
+            documentId: data.id,
+            ...result
+          });
+        }
       })
       .catch((workerError) => {
         console.error('[nutrition-modules-email] Worker post-create falló', {

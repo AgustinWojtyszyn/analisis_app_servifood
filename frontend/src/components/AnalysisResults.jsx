@@ -33,6 +33,17 @@ const categoryColors = {
   'Revisar manualmente': { bg: 'rgba(100, 116, 139, 0.16)', text: '#334155' }
 };
 
+const categories = [
+  { key: 'todos', short: 'Todos' },
+  { key: 'Legales', short: 'Legales' },
+  { key: 'Logística', short: 'Logística' },
+  { key: 'Calidad', short: 'Calidad' },
+  { key: 'Mantenimiento', short: 'Mantenimiento' },
+  { key: 'Inocuidad', short: 'Inocuidad' },
+  { key: 'Recursos Humanos', short: 'RRHH' },
+  { key: 'Revisar manualmente', short: 'Manual' }
+];
+
 function normalizeCellValue(value) {
   if (value == null) return '';
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
@@ -173,6 +184,7 @@ function splitAreas(areaClasificada) {
 }
 
 export default function AnalysisResults({ records, analysisId, onExportSuccess, onReprocessExcel, onDeleteCurrent }) {
+  const safeRecords = useMemo(() => (Array.isArray(records) ? records : []), [records]);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
@@ -189,17 +201,6 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
   const [scrollContentWidth, setScrollContentWidth] = useState(1600);
   const classificationTraceEnabled = import.meta.env.VITE_CLASSIFICATION_FLOW_TRACE === '1';
 
-  const categories = [
-    { key: 'todos', short: 'Todos' },
-    { key: 'Legales', short: 'Legales' },
-    { key: 'Logística', short: 'Logística' },
-    { key: 'Calidad', short: 'Calidad' },
-    { key: 'Mantenimiento', short: 'Mantenimiento' },
-    { key: 'Inocuidad', short: 'Inocuidad' },
-    { key: 'Recursos Humanos', short: 'RRHH' },
-    { key: 'Revisar manualmente', short: 'Manual' }
-  ];
-
   const resetLocalState = () => {
     setPage(0);
     setRowsPerPage(10);
@@ -212,29 +213,20 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     setExpandedRows({});
   };
 
-  if (!records || records.length === 0) {
-    return (
-      <Paper sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>No hay análisis aún</Typography>
-        <Typography color="text.secondary">Cargá un archivo desde la sección “Cargar Archivo” para ver resultados.</Typography>
-      </Paper>
-    );
-  }
-
-  const availableAreas = [...new Set(records.flatMap((record) => splitAreas(record.areaSector || record.areaClasificada)).filter(Boolean))];
+  const availableAreas = [...new Set(safeRecords.flatMap((record) => splitAreas(record.areaSector || record.areaClasificada)).filter(Boolean))];
 
   const countsByCategory = useMemo(() => {
-    const base = { todos: records.length };
+    const base = { todos: safeRecords.length };
     categories.forEach((category) => {
       if (category.key === 'todos') return;
-      base[category.key] = records.filter((r) => normalizeClassification(r) === category.key).length;
+      base[category.key] = safeRecords.filter((r) => normalizeClassification(r) === category.key).length;
     });
     return base;
-  }, [records]);
+  }, [safeRecords]);
 
   useEffect(() => {
     if (!classificationTraceEnabled) return;
-    const sample = (records || []).slice(0, 15).map((record) => ({
+    const sample = safeRecords.slice(0, 15).map((record) => ({
       rawRowNumber: record?.rawRowNumber ?? null,
       usedByUI: normalizeClassification(record),
       clasificacionDesvio: record?.clasificacionDesvio ?? null,
@@ -245,12 +237,12 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     }));
     console.log('[FRONTEND CLASSIFICATION RENDER]', {
       analysisId,
-      totalRecords: (records || []).length,
+      totalRecords: safeRecords.length,
       sample
     });
-  }, [analysisId, records, classificationTraceEnabled]);
+  }, [analysisId, safeRecords, classificationTraceEnabled]);
 
-  const filteredRecords = records.filter((record) => {
+  const filteredRecords = safeRecords.filter((record) => {
     const areaDisplay = normalizeCellValue(record.areaSector || record.areaClasificada);
     const classification = normalizeClassification(record);
     const tipo = normalizeTipo(record);
@@ -280,7 +272,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
 
   const displayedRecords = filteredRecords.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  const recordsForExport = exportMode === 'filtered' ? displayedRecords : records;
+  const recordsForExport = exportMode === 'filtered' ? displayedRecords : safeRecords;
 
   const exportConfigByFilter = {
     todos: { label: 'Exportar todos', fileName: 'analisis_todos.xlsx' },
@@ -393,11 +385,20 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     };
   }, [filteredRecords.length, rowsPerPage, page]);
 
+  if (safeRecords.length === 0) {
+    return (
+      <Paper sx={{ p: 4, textAlign: 'center' }}>
+        <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>No hay análisis aún</Typography>
+        <Typography color="text.secondary">Cargá un archivo desde la sección “Cargar Archivo” para ver resultados.</Typography>
+      </Paper>
+    );
+  }
+
   return (
     <Paper sx={{ p: { xs: 1.25, md: 1.75 }, boxShadow: '0 2px 12px rgba(15,23,42,0.05)', overflowX: 'auto' }}>
       <ResultsHeader
         filteredCount={filteredRecords.length}
-        totalCount={records.length}
+        totalCount={safeRecords.length}
         onReprocessExcel={onReprocessExcel}
         onDeleteCurrent={onDeleteCurrent}
       />

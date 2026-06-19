@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: analisis-app-servifood
+    env: node
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: INTERNAL_CRON_SECRET
+        sync: false
+      - key: DOCUMENTS_NOTIFICATIONS_WORKER_TOKEN
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: DOCUMENT_NOTIFICATION_RECIPIENTS
+        sync: false
+      - key: CERTIFICATION_NOTIFICATION_RECIPIENTS
+        sync: false

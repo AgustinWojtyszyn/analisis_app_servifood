@@ -1,7 +1,13 @@
 import { sendDocumentCreatedEmailNotification, sanitizeErrorMessage } from '../../services/nutritionModulesNotifications.js';
 
+const documentNotificationDebugEnabled = process.env.DOCUMENTS_NOTIFICATIONS_DEBUG === '1' || process.env.NODE_ENV !== 'production';
+
 function resolveWorkerToken() {
   return String(process.env.DOCUMENTS_NOTIFICATIONS_WORKER_TOKEN || '').trim();
+}
+
+export function isWorkerTokenConfigured() {
+  return Boolean(resolveWorkerToken());
 }
 
 export function isWorkerAuthorized(req) {
@@ -15,7 +21,9 @@ export function isWorkerAuthorized(req) {
 
 export async function processPendingDocumentNotifications({ supabaseAdmin, batchSize = 20, source = 'unknown' } = {}) {
   const limitedBatch = Math.max(1, Math.min(100, Number(batchSize || 20)));
-  console.info('[nutrition-modules-email] Worker start', { source, batchSize: limitedBatch, provider: 'smtp-nodemailer' });
+  if (documentNotificationDebugEnabled) {
+    console.info('[nutrition-modules-email] Worker start', { source, batchSize: limitedBatch, provider: 'smtp-nodemailer' });
+  }
 
   const { data: claimedRows, error: claimError } = await supabaseAdmin
     .rpc('claim_document_email_notifications', { max_rows: limitedBatch });
@@ -58,12 +66,14 @@ export async function processPendingDocumentNotifications({ supabaseAdmin, batch
       }
 
       sent += 1;
-      console.info('[nutrition-modules-email] Notificación enviada', {
-        source,
-        notificationId: row.id,
-        documentId: row.document_id,
-        provider: sendResult?.provider || 'smtp-nodemailer'
-      });
+      if (documentNotificationDebugEnabled) {
+        console.info('[nutrition-modules-email] Notificación enviada', {
+          source,
+          notificationId: row.id,
+          documentId: row.document_id,
+          provider: sendResult?.provider || 'smtp-nodemailer'
+        });
+      }
     } catch (mailError) {
       failed += 1;
       const message = mailError?.message ? String(mailError.message) : 'Error desconocido de envío';
@@ -95,6 +105,8 @@ export async function processPendingDocumentNotifications({ supabaseAdmin, batch
     }
   }
 
-  console.info('[nutrition-modules-email] Worker end', { source, claimed: rows.length, sent, failed });
+  if (documentNotificationDebugEnabled) {
+    console.info('[nutrition-modules-email] Worker end', { source, claimed: rows.length, sent, failed });
+  }
   return { claimed: rows.length, sent, failed };
 }

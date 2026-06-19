@@ -1,17 +1,27 @@
 import { supabaseAdmin } from './context.js';
 import {
   isWorkerAuthorized,
+  isWorkerTokenConfigured,
   processPendingDocumentNotifications
 } from '../../routes/nutritionModules/notificationWorker.js';
 
+const documentNotificationDebugEnabled = process.env.DOCUMENTS_NOTIFICATIONS_DEBUG === '1' || process.env.NODE_ENV !== 'production';
+
 export async function processDocumentNotifications(req, res) {
   try {
-    console.info('[nutrition-modules-email] Internal worker endpoint hit');
+    if (documentNotificationDebugEnabled) {
+      console.info('[nutrition-modules-email] Internal worker endpoint hit');
+    }
     if (!supabaseAdmin) {
       return res.status(500).json({ error: 'Supabase no está configurado en el backend' });
     }
+    if (!isWorkerTokenConfigured()) {
+      return res.status(500).json({ error: 'DOCUMENTS_NOTIFICATIONS_WORKER_TOKEN no está configurado' });
+    }
     const authorized = isWorkerAuthorized(req);
-    console.info('[nutrition-modules-email] Internal worker auth check', { authorized });
+    if (documentNotificationDebugEnabled) {
+      console.info('[nutrition-modules-email] Internal worker auth check', { authorized });
+    }
     if (!authorized) {
       return res.status(401).json({ error: 'No autorizado para procesar notificaciones' });
     }

@@ -15,6 +15,7 @@ const EXPECTED_SMTP_HOST = 'smtp.resend.com';
 const EXPECTED_SMTP_PORT = 587;
 const EXPECTED_SMTP_USER = 'resend';
 const EXPECTED_SMTP_FROM = 'soporte@servifoodapp.site';
+const documentNotificationDebugEnabled = process.env.DOCUMENTS_NOTIFICATIONS_DEBUG === '1' || process.env.NODE_ENV !== 'production';
 
 function sanitizeErrorMessage(error) {
   const raw = String(error?.message || error || 'unknown_error');
@@ -39,9 +40,11 @@ export function assertFixedRecipientsOrThrow(recipients) {
     throw new Error(`Lista de destinatarios inválida. Esperados: ${expected.join(', ')}. Recibidos: ${actual.join(', ')}`);
   }
 
-  console.info('[nutrition-modules-email] Destinatarios validados (whitelist fija)', {
-    recipientsCount: actual.length
-  });
+  if (documentNotificationDebugEnabled) {
+    console.info('[nutrition-modules-email] Destinatarios validados (whitelist fija)', {
+      recipientsCount: actual.length
+    });
+  }
 }
 
 function toBoolean(value, defaultValue = false) {
@@ -167,11 +170,13 @@ export async function sendDocumentCreatedEmailNotification(notification) {
 
   validateSmtpConfigurationOrThrow({ host, port, user, from });
 
-  console.info('[nutrition-modules-email] SMTP send start', {
-    type: 'document_created',
-    provider,
-    recipientsCount: recipients.length
-  });
+  if (documentNotificationDebugEnabled) {
+    console.info('[nutrition-modules-email] SMTP send start', {
+      type: 'document_created',
+      provider,
+      recipientsCount: recipients.length
+    });
+  }
 
   const subject = 'Nuevo documento cargado en Documentos SGC';
   const platformUrl = 'https://analisis.servifoodapp.site/modulos-nutricionales';
@@ -197,10 +202,12 @@ export async function sendDocumentCreatedEmailNotification(notification) {
   });
 
   await transporter.verify();
-  console.info('[nutrition-modules-email] SMTP verify ok', {
-    type: 'document_created',
-    provider
-  });
+  if (documentNotificationDebugEnabled) {
+    console.info('[nutrition-modules-email] SMTP verify ok', {
+      type: 'document_created',
+      provider
+    });
+  }
 
   const info = await transporter.sendMail({
     from,
@@ -220,14 +227,16 @@ export async function sendDocumentCreatedEmailNotification(notification) {
   const response = info?.response ? String(info.response) : '';
   const envelope = info?.envelope || null;
 
-  console.info('[nutrition-modules-email] SMTP send result', {
-    type: 'document_created',
-    provider,
-    recipientsCount: recipients.length,
-    acceptedCount: accepted.length,
-    rejectedCount: rejected.length,
-    messageId: messageId || null
-  });
+  if (documentNotificationDebugEnabled) {
+    console.info('[nutrition-modules-email] SMTP send result', {
+      type: 'document_created',
+      provider,
+      recipientsCount: recipients.length,
+      acceptedCount: accepted.length,
+      rejectedCount: rejected.length,
+      messageId: messageId || null
+    });
+  }
 
   if (!accepted.length) {
     throw new Error('SMTP sin destinatarios aceptados (accepted vacío)');
