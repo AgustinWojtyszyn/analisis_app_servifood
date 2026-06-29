@@ -4,6 +4,7 @@ import {
   Award,
   BarChart3,
   ClipboardCheck,
+  ClipboardList,
   FileSpreadsheet,
   HeartPulse,
   History,
@@ -48,6 +49,13 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
               description="Visualizá patrones por categoría, área, estado e impacto operativo."
               tone="blue"
               onClick={() => onNavigate?.('charts')}
+            />
+            <PortalActionCard
+              icon={ClipboardList}
+              title="NC Clientes"
+              description="Cargá reclamos de clientes, normalizá datos y analizá KPIs por mes, peligro y sector."
+              tone="green"
+              onClick={() => onNavigate?.('customerNonconformities')}
             />
             <PortalActionCard
               icon={History}

@@ -26,6 +26,7 @@ const AdminUsersPage = lazy(() => import('./components/AdminUsersPage'));
 const AnalysisHistory = lazy(() => import('./components/AnalysisHistory'));
 const CertificationsPage = lazy(() => import('./pages/CertificationsPage'));
 const ChartsPage = lazy(() => import('./components/ChartsPage'));
+const CustomerNonconformitiesPage = lazy(() => import('./components/CustomerNonconformitiesPage'));
 const FileUpload = lazy(() => import('./components/FileUpload'));
 const HealthDeclarationHistoryPage = lazy(() => import('./components/HealthDeclarationHistoryPage'));
 const HealthDeclarationPage = lazy(() => import('./components/HealthDeclarationPage'));
@@ -51,6 +52,7 @@ const sectionPathMap = {
   history: '/historial',
   rules: '/reglas',
   charts: '/graficos',
+  customerNonconformities: '/no-conformidades-clientes',
   profile: '/perfil',
   tutorial: '/tutorial',
   adminUsers: '/admin-usuarios',
@@ -149,6 +151,7 @@ function MainApp({ user, onLogout }) {
       { id: 'upload', label: 'Cargar archivos' },
       { id: 'history', label: 'Historial' },
       { id: 'charts', label: 'Gráficos' },
+      { id: 'customerNonconformities', label: 'NC Clientes' },
       { id: 'profile', label: 'Mi Perfil' },
       { id: 'tutorial', label: 'Ver Tutorial' },
       { id: 'rules', label: 'Configurar Reglas' },
@@ -454,6 +457,11 @@ function MainApp({ user, onLogout }) {
           analysisTotalRecords={selectedAnalysis?.totalRecords || 0}
         />
       );
+    }
+
+    if (currentSection === 'customerNonconformities') {
+      if (!isAdmin) return null;
+      return <CustomerNonconformitiesPage />;
     }
 
     if (currentSection === 'profile') {

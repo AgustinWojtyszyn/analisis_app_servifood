@@ -26,6 +26,7 @@ const BASE_SECTIONS_BY_ROLE = {
     'upload',
     'history',
     'charts',
+    'customerNonconformities',
     'profile',
     'tutorial',
     'rules',

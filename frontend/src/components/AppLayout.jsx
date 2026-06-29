@@ -25,6 +25,7 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import HealthAndSafetyRoundedIcon from '@mui/icons-material/HealthAndSafetyRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import AssignmentLateRoundedIcon from '@mui/icons-material/AssignmentLateRounded';
 import RestaurantMenuRoundedIcon from '@mui/icons-material/RestaurantMenuRounded';
 import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
@@ -41,6 +42,7 @@ const sectionIcons = {
   results: <InsightsRoundedIcon />,
   rules: <RuleRoundedIcon />,
   charts: <PieChartRoundedIcon />,
+  customerNonconformities: <AssignmentLateRoundedIcon />,
   profile: <PersonRoundedIcon />,
   tutorial: <SchoolRoundedIcon />,
   adminUsers: <AdminPanelSettingsRoundedIcon />,
@@ -79,6 +81,10 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     charts: {
       title: 'Gráficos',
       subtitle: 'Visualiza patrones por area, tipo de desvio e ISO 22000'
+    },
+    customerNonconformities: {
+      title: 'No conformidades de clientes',
+      subtitle: 'Carga y análisis de reclamos de clientes desde Excel'
     },
     profile: {
       title: 'Mi Perfil',
