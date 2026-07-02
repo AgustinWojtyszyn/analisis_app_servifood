@@ -13,6 +13,7 @@ import {
   normalizeToTriadClassification,
   mapTipoFromCategoria
 } from './classifiers/categoryClassifier.js';
+import { normalizeCategory } from './categoryNormalization.js';
 
 function ensureSingleArea(areaClasificada = '') {
   const normalized = normalizeCellValue(areaClasificada).split('/').map((part) => part.trim()).filter(Boolean);
@@ -21,16 +22,7 @@ function ensureSingleArea(areaClasificada = '') {
 }
 
 function normalizeCategoriaPermitida(categoria = '') {
-  const value = normalizeIncidentText(categoria);
-  if (!value) return 'Revisión manual';
-  if (value.includes('legal')) return 'Legales';
-  if (value.includes('logistica')) return 'Logística';
-  if (value.includes('inocuidad')) return 'Inocuidad';
-  if (value.includes('mantenimiento')) return 'Mantenimiento';
-  if (value.includes('rrhh') || value.includes('recursos humanos') || value.includes('personal')) return 'Recursos Humanos';
-  if (value.includes('calidad')) return 'Calidad';
-  if (value.includes('revisar manualmente') || value.includes('revision manual')) return 'Revisión manual';
-  return 'Revisión manual';
+  return normalizeCategory(categoria);
 }
 
 function normalizeTipoPermitido(tipo = '', alcance = '', hallazgo = '') {

@@ -7,6 +7,7 @@ import {
 } from '../recordProcessor.utils.js';
 import { getIsoFieldState } from '../isoFieldUtils.js';
 import { hasExplicitOriginalValue } from './helpers.js';
+import { normalizeCategory } from '../categoryNormalization.js';
 
 function applyFinalRecordOverrides({
   finalRecord,
@@ -71,11 +72,12 @@ function applyFinalRecordOverrides({
   }
   if (hasOriginalClassification) {
     const classificationOriginal = normalizeCellValue(classificationOriginalRaw).trim();
-    finalRecord.categoriaDesvio = classificationOriginal;
-    finalRecord.clasificacionDesvio = classificationOriginal;
+    const classificationNormalized = normalizeCategory(classificationOriginal);
+    finalRecord.categoriaDesvio = classificationNormalized;
+    finalRecord.clasificacionDesvio = classificationNormalized;
     finalRecord.classification = classificationOriginal;
     finalRecord.classification_original = classificationOriginal;
-    finalRecord.classification_normalized = classificationOriginal;
+    finalRecord.classification_normalized = classificationNormalized;
     finalRecord.preserveOriginalClassification = true;
   }
   const isoFieldState = getIsoFieldState(finalRecord);

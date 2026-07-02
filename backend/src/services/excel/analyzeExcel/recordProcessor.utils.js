@@ -8,6 +8,7 @@ import {
   normalizeIncidentText
 } from '../../analyzeExcel/normalizers.js';
 import { esTextoAccion } from './actions.js';
+import { normalizeCategory } from './categoryNormalization.js';
 
 function splitHallazgos(textoBase) {
   const source = normalizeCellValue(textoBase).trim();
@@ -279,13 +280,7 @@ function buildAnalysisText(record) {
 }
 
 function normalizeClassificationForStats(value = '') {
-  const normalized = normalizeIncidentText(value);
-  if (!normalized) return '';
-  if (normalized.includes('inocuidad')) return 'Desvío de Inocuidad';
-  if (normalized.includes('logistica')) return 'Desvío de Logística';
-  if (normalized.includes('calidad')) return 'Desvío de Calidad';
-  if (normalized.includes('legal')) return 'Desvío Legal';
-  return normalizeCellValue(value).trim();
+  return normalizeCategory(value);
 }
 
 function normalizeScopeForStats(value = '') {
@@ -411,10 +406,11 @@ function applyOriginalClassificationOverride(finalRecord, { hasOriginalClassific
   if (!hasOriginalClassification) return finalRecord;
 
   const originalNorm = normalizeIncidentText(tipoDesvioOriginalRaw);
-  finalRecord.categoriaDesvio = tipoDesvioOriginalRaw;
-  finalRecord.clasificacionDesvio = tipoDesvioOriginalRaw;
+  const normalizedOriginalClassification = normalizeCategory(tipoDesvioOriginalRaw);
+  finalRecord.categoriaDesvio = normalizedOriginalClassification;
+  finalRecord.clasificacionDesvio = normalizedOriginalClassification;
   finalRecord.classification = tipoDesvioOriginalRaw;
-  finalRecord.classification_normalized = normalizeClassificationForStats(tipoDesvioOriginalRaw);
+  finalRecord.classification_normalized = normalizedOriginalClassification;
   finalRecord.tipoDesvio = tipoOriginal === 'NC' ? 'NC' : (tipoOriginal === 'OM' ? 'OM' : (tipoOriginal === 'OBS' ? 'OBS' : finalRecord.tipoDesvio));
   if (originalNorm === 'no conforme') {
     finalRecord.resultadoClasificado = 'No conforme';

@@ -83,6 +83,20 @@ function isManualIsoValue(value = '') {
   return isIsoManualValue(value);
 }
 
+function normalizeCategoryKey(value = '') {
+  const normalized = normalizeCompare(value);
+  if (!normalized) return 'Revisar manualmente';
+  if (normalized.includes('legal')) return 'Legales';
+  if (normalized.includes('logistica')) return 'Logística';
+  if (normalized.includes('inocuidad')) return 'Inocuidad';
+  if (normalized.includes('mantenimiento')) return 'Mantenimiento';
+  if (normalized.includes('rrhh') || normalized.includes('recursos humanos') || normalized.includes('personal')) return 'Recursos Humanos';
+  if (normalized.includes('incumplimiento de procedimiento') || normalized.includes('incumplimientos de procedimiento') || normalized === 'procedimiento' || normalized.includes('procedimiento')) return 'Incumplimientos de procedimiento';
+  if (normalized.includes('medio ambiente') || normalized.includes('medioambiente') || normalized.includes('ambiental')) return 'Medio ambiente';
+  if (normalized.includes('calidad')) return 'Calidad';
+  return 'Revisar manualmente';
+}
+
 function resolveCategoryFromRecord(record = {}) {
   const originalColumns = (record?.columnasOriginales && typeof record.columnasOriginales === 'object' && !Array.isArray(record.columnasOriginales))
     ? record.columnasOriginales
@@ -106,12 +120,12 @@ function resolveCategoryFromRecord(record = {}) {
     ])
     || ''
   ).trim();
-  if (excelClassification) return excelClassification;
+  if (excelClassification) return normalizeCategoryKey(excelClassification);
 
   if (record?.preserveOriginalClassification && String(record?.classification_original || '').trim()) {
-    return String(record.classification_original).trim();
+    return normalizeCategoryKey(record.classification_original);
   }
-  return String(record?.clasificacionDesvio || record?.classification_normalized || record?.categoriaDesvio || '').trim();
+  return normalizeCategoryKey(record?.clasificacionDesvio || record?.classification_normalized || record?.categoriaDesvio || '');
 }
 
 function buildSummaryFromRecords(records = [], baseSummary = {}) {
@@ -153,6 +167,8 @@ function buildSummaryFromRecords(records = [], baseSummary = {}) {
     totalLogistica: sumBy((name) => isExact(name, 'Logística') || isExact(name, 'Desvío de Logística')),
     totalCalidad: sumBy((name) => isExact(name, 'Calidad') || isExact(name, 'Desvío de Calidad')),
     totalLegal: sumBy((name) => isExact(name, 'Legales') || isExact(name, 'Legal') || isExact(name, 'Desvío Legal')),
+    totalProcedimiento: sumBy((name) => isExact(name, 'Incumplimientos de procedimiento')),
+    totalMedioAmbiente: sumBy((name) => isExact(name, 'Medio ambiente')),
     totalRevisionManual,
     totalInternos,
     totalExternos

@@ -167,6 +167,8 @@ export async function analyzeExcel(fileBuffer, _businessRules, progressCallback 
       detectedHeaderRow: parsingDiagnostics?.detectedHeaderRow ?? headerRowIndex,
       detectedHeaders: parsingDiagnostics?.detectedHeaders || headerIndexes,
       deviationColumnIndex: parsingDiagnostics?.deviationColumnIndex ?? null,
+      classificationColumnIndex: parsingDiagnostics?.classificationColumnIndex ?? null,
+      classificationColumnHeader: parsingDiagnostics?.classificationColumnHeader ?? null,
       rowsWithDeviationText: 0,
       discardedRowsCount: 0,
       discardedSamples: [],

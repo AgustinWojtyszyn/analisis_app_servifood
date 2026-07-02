@@ -7,6 +7,8 @@ const CANONICAL = {
   LEGALES: 'Legales',
   MANTENIMIENTO: 'Mantenimiento',
   RRHH: 'Recursos Humanos',
+  PROCEDIMIENTO: 'Incumplimientos de procedimiento',
+  MEDIO_AMBIENTE: 'Medio ambiente',
   MANUAL: 'Revisar manualmente'
 };
 
@@ -20,6 +22,8 @@ function normalizeCategory(category = '') {
   if (raw.includes('legal')) return CANONICAL.LEGALES;
   if (raw.includes('mantenimiento')) return CANONICAL.MANTENIMIENTO;
   if (raw.includes('recursos humanos') || raw.includes('rrhh') || raw.includes('personal')) return CANONICAL.RRHH;
+  if (raw.includes('incumplimiento de procedimiento') || raw.includes('incumplimientos de procedimiento') || raw === 'procedimiento' || raw.includes('procedimiento')) return CANONICAL.PROCEDIMIENTO;
+  if (raw.includes('medio ambiente') || raw.includes('medioambiente') || raw.includes('ambiental')) return CANONICAL.MEDIO_AMBIENTE;
   if (raw.includes('revisar manualmente') || raw.includes('revision manual') || raw.includes('revisión manual')) return CANONICAL.MANUAL;
 
   return CANONICAL.MANUAL;

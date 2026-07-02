@@ -1,5 +1,5 @@
 export const palette = ['#1d4ed8', '#2563eb', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626', '#334155', '#16a34a'];
-export const PIE_COLORS = ['#1d4ed8', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626'];
+export const PIE_COLORS = ['#1d4ed8', '#0f766e', '#ea580c', '#7c3aed', '#0284c7', '#dc2626', '#4d7c0f', '#be123c'];
 export const TEXT_PRIMARY = '#0f172a';
 export const TEXT_SECONDARY = '#334155';
 export const TEXT_MUTED = '#475569';
@@ -7,7 +7,7 @@ export const TEXT_MUTED = '#475569';
 const AREA_FALLBACK = 'Área no identificada';
 const ISO_REQUIREMENT_FALLBACK_LABEL = 'Requisito no identificado';
 
-function normalizeCategoryKey(value) {
+export function normalizeCategoryKey(value) {
   const raw = String(value || '').trim().toLowerCase();
   const normalized = raw
     .normalize('NFD')
@@ -18,6 +18,8 @@ function normalizeCategoryKey(value) {
   if (normalized.includes('inocuidad')) return 'Inocuidad';
   if (normalized.includes('mantenimiento')) return 'Mantenimiento';
   if (normalized.includes('rrhh') || normalized.includes('recursos humanos') || normalized.includes('personal')) return 'Recursos Humanos';
+  if (normalized.includes('incumplimiento de procedimiento') || normalized.includes('incumplimientos de procedimiento') || normalized === 'procedimiento' || normalized.includes('procedimiento')) return 'Incumplimientos de procedimiento';
+  if (normalized.includes('medio ambiente') || normalized.includes('medioambiente') || normalized.includes('ambiental')) return 'Medio ambiente';
   if (normalized.includes('calidad')) return 'Calidad';
   return 'Revisar manualmente';
 }
@@ -349,7 +351,9 @@ export function hasChartsAnalysisData({ records = [], summary = null, analysisTo
     Number(summary?.totalCalidad ?? 0) +
     Number(summary?.totalLegal ?? 0) +
     Number(summary?.totalMantenimiento ?? 0) +
-    Number(summary?.totalRRHH ?? 0)
+    Number(summary?.totalRRHH ?? 0) +
+    Number(summary?.totalProcedimiento ?? 0) +
+    Number(summary?.totalMedioAmbiente ?? 0)
   );
   return (
     (Array.isArray(records) && records.length > 0) ||
@@ -445,7 +449,9 @@ export function buildChartsData({ records = [], summary = null } = {}) {
     Calidad: Number(categoriaRaw.Calidad ?? categoriaRaw['Desvío de Calidad'] ?? safeSummary.totalCalidad ?? 0),
     Mantenimiento: Number(categoriaRaw.Mantenimiento ?? categoriaRaw['Desvío de Mantenimiento'] ?? 0),
     Inocuidad: Number(categoriaRaw.Inocuidad ?? categoriaRaw['Desvío de Inocuidad'] ?? safeSummary.totalInocuidad ?? 0),
-    'Recursos Humanos': Number(categoriaRaw['Recursos Humanos'] ?? categoriaRaw['Desvío de Recursos Humanos'] ?? 0)
+    'Recursos Humanos': Number(categoriaRaw['Recursos Humanos'] ?? categoriaRaw['Desvío de Recursos Humanos'] ?? 0),
+    'Incumplimientos de procedimiento': Number(categoriaRaw['Incumplimientos de procedimiento'] ?? categoriaRaw['Incumplimiento de procedimiento'] ?? categoriaRaw.Procedimiento ?? safeSummary.totalProcedimiento ?? 0),
+    'Medio ambiente': Number(categoriaRaw['Medio ambiente'] ?? categoriaRaw.Medioambiente ?? categoriaRaw.Ambiental ?? safeSummary.totalMedioAmbiente ?? 0)
   };
   const desviosPorCategoria = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
   const desviosPorCategoriaCompleta = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
@@ -467,6 +473,8 @@ export function buildChartsData({ records = [], summary = null } = {}) {
     { name: 'Logística', value: Number(safeSummary.totalLogistica || 0) },
     { name: 'Calidad', value: Number(safeSummary.totalCalidad || 0) },
     { name: 'Legal', value: Number(safeSummary.totalLegal || 0) },
+    { name: 'Procedimiento', value: Number(safeSummary.totalProcedimiento || 0) },
+    { name: 'Medio ambiente', value: Number(safeSummary.totalMedioAmbiente || 0) },
     { name: 'Rev. manual', value: Number(safeSummary.totalRevisionManual || 0) }
   ];
 

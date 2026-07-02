@@ -282,7 +282,11 @@ async function loadExcelParsingContext(fileBuffer) {
       worksheetRanking: sheetSelection?.ranking || [],
       detectedHeaderRow: headerRowIndex,
       detectedHeaders: headerIndexes,
-      deviationColumnIndex: headerIndexes.hallazgoDetectado ?? null
+      deviationColumnIndex: headerIndexes.hallazgoDetectado ?? null,
+      classificationColumnIndex: headerIndexes.classificationOriginal ?? null,
+      classificationColumnHeader: Number.isInteger(headerIndexes.classificationOriginal)
+        ? normalizeCellValue(headerValues[headerIndexes.classificationOriginal]).trim()
+        : null
     }
   };
 }

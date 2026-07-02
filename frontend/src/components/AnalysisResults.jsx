@@ -30,6 +30,8 @@ const categoryColors = {
   Mantenimiento: { bg: 'rgba(51, 65, 85, 0.16)', text: '#334155' },
   Inocuidad: { bg: 'rgba(220, 38, 38, 0.12)', text: '#991b1b' },
   'Recursos Humanos': { bg: 'rgba(22, 163, 74, 0.14)', text: '#166534' },
+  'Incumplimientos de procedimiento': { bg: 'rgba(77, 124, 15, 0.14)', text: '#3f6212' },
+  'Medio ambiente': { bg: 'rgba(15, 118, 110, 0.14)', text: '#115e59' },
   'Revisar manualmente': { bg: 'rgba(100, 116, 139, 0.16)', text: '#334155' }
 };
 
@@ -41,6 +43,8 @@ const categories = [
   { key: 'Mantenimiento', short: 'Mantenimiento' },
   { key: 'Inocuidad', short: 'Inocuidad' },
   { key: 'Recursos Humanos', short: 'RRHH' },
+  { key: 'Incumplimientos de procedimiento', short: 'Procedimiento' },
+  { key: 'Medio ambiente', short: 'Ambiente' },
   { key: 'Revisar manualmente', short: 'Manual' }
 ];
 
@@ -106,6 +110,8 @@ function normalizeClassification(record = {}) {
   if (normalized.includes('inocuidad')) return 'Inocuidad';
   if (normalized.includes('mantenimiento')) return 'Mantenimiento';
   if (normalized.includes('rrhh') || normalized.includes('recursos humanos') || normalized.includes('personal')) return 'Recursos Humanos';
+  if (normalized.includes('incumplimiento de procedimiento') || normalized.includes('incumplimientos de procedimiento') || normalized === 'procedimiento' || normalized.includes('procedimiento')) return 'Incumplimientos de procedimiento';
+  if (normalized.includes('medio ambiente') || normalized.includes('medioambiente') || normalized.includes('ambiental')) return 'Medio ambiente';
   if (normalized.includes('calidad')) return 'Calidad';
   return 'Revisar manualmente';
 }
@@ -281,7 +287,9 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
     Calidad: { label: 'Exportar Calidad', fileName: 'analisis_desvio_calidad.xlsx' },
     Mantenimiento: { label: 'Exportar Mantenimiento', fileName: 'analisis_desvio_mantenimiento.xlsx' },
     Inocuidad: { label: 'Exportar Inocuidad', fileName: 'analisis_desvio_inocuidad.xlsx' },
-    'Recursos Humanos': { label: 'Exportar RRHH', fileName: 'analisis_desvio_rrhh.xlsx' }
+    'Recursos Humanos': { label: 'Exportar RRHH', fileName: 'analisis_desvio_rrhh.xlsx' },
+    'Incumplimientos de procedimiento': { label: 'Exportar Procedimiento', fileName: 'analisis_desvio_procedimiento.xlsx' },
+    'Medio ambiente': { label: 'Exportar Medio ambiente', fileName: 'analisis_desvio_medio_ambiente.xlsx' }
   };
   const activeExportConfig = exportConfigByFilter[activeCategory] || exportConfigByFilter.todos;
 

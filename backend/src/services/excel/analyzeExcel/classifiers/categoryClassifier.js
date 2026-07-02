@@ -2,6 +2,7 @@ import { normalizeCellValue, normalizeIncidentText, containsAny } from '../../..
 import { isExplicitNoFindingText } from './outcomeClassifier.js';
 import { hasAnyIsoTerm, mergeCompositeIsoLabels } from './isoClassifier.js';
 import { classifyDeviation } from './deviationClassifier.js';
+import { CANONICAL, normalizeCategory } from '../categoryNormalization.js';
 
 const CATEGORY = {
   INOCUIDAD: 'Desvío de Inocuidad',
@@ -10,6 +11,8 @@ const CATEGORY = {
   LOGISTICA: 'Desvío de Logística',
   LEGAL: 'Desvío Legal',
   CALIDAD: 'Desvío de Calidad',
+  PROCEDIMIENTO: CANONICAL.PROCEDIMIENTO,
+  MEDIO_AMBIENTE: CANONICAL.MEDIO_AMBIENTE,
   MANUAL: 'Revisar manualmente'
 };
 
@@ -109,12 +112,15 @@ function classifyCategoriaDesvio({
 
 function normalizeToTriadClassification({ categoriaDesvio = '', resultadoClasificado = '', tipoDesvio = '' }) {
   const categoria = normalizeCellValue(categoriaDesvio).trim();
+  const normalizedCategory = normalizeCategory(categoria);
   if (categoria === CATEGORY.LEGAL) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.LEGAL };
   if (categoria === CATEGORY.LOGISTICA) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.LOGISTICA };
   if (categoria === CATEGORY.INOCUIDAD) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.INOCUIDAD };
   if (categoria === CATEGORY.CALIDAD) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.CALIDAD };
   if (categoria === CATEGORY.MANTENIMIENTO) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.MANTENIMIENTO };
   if (categoria === CATEGORY.RRHH) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CATEGORY.RRHH };
+  if (normalizedCategory === CANONICAL.PROCEDIMIENTO) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CANONICAL.PROCEDIMIENTO };
+  if (normalizedCategory === CANONICAL.MEDIO_AMBIENTE) return { resultadoClasificado, tipoDesvio: tipoDesvio || 'NC', categoriaDesvio: CANONICAL.MEDIO_AMBIENTE };
 
   const tipo = normalizeCellValue(tipoDesvio).trim();
   if (['NC', 'OBS', 'OM'].includes(tipo)) return { resultadoClasificado, tipoDesvio: tipo, categoriaDesvio: CATEGORY.MANUAL };
@@ -131,6 +137,8 @@ function mapTipoFromCategoria(categoriaDesvio = '', fallbackTipo = '') {
   if (categoria === CATEGORY.CALIDAD) return 'CAL';
   if (categoria === CATEGORY.MANTENIMIENTO) return 'MNT';
   if (categoria === CATEGORY.RRHH) return 'RRHH';
+  const normalizedCategory = normalizeCategory(categoria);
+  if (normalizedCategory === CANONICAL.PROCEDIMIENTO || normalizedCategory === CANONICAL.MEDIO_AMBIENTE) return 'NC';
   return normalizeCellValue(fallbackTipo).trim();
 }
 

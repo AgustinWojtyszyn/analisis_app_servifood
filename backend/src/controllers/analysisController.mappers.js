@@ -34,10 +34,7 @@ function hasExcelClassificationSource(record = {}) {
 }
 
 function resolveSummaryCategoryKey(record = {}) {
-  if (hasExcelClassificationSource(record)) {
-    return normalizeCellValue(record.classification_original).trim();
-  }
-  return normalizeModernCategory(record?.clasificacionDesvio || record?.classification_normalized || record?.categoriaDesvio);
+  return normalizeModernCategory(record?.clasificacionDesvio || record?.classification_normalized || record?.categoriaDesvio || record?.classification_original);
 }
 
 function normalizeExportClassification(record = {}) {
@@ -196,6 +193,8 @@ function normalizeStoredAnalysisResults(results = {}) {
   const totalLegal = sumBy((name) => isExact(name, CANONICAL.LEGALES) || isExact(name, 'Legal') || isExact(name, 'Desvío Legal'));
   const totalMantenimiento = sumBy((name) => isExact(name, CANONICAL.MANTENIMIENTO) || isExact(name, 'Desvío de Mantenimiento'));
   const totalRRHH = sumBy((name) => isExact(name, CANONICAL.RRHH) || isExact(name, 'Desvío de Recursos Humanos'));
+  const totalProcedimiento = sumBy((name) => isExact(name, CANONICAL.PROCEDIMIENTO));
+  const totalMedioAmbiente = sumBy((name) => isExact(name, CANONICAL.MEDIO_AMBIENTE));
   const totalRevisionManual = normalizedRecords.reduce((acc, record) => {
     const iso = readCanonicalIso(record);
     return acc + (isManualIsoValue(iso) ? 1 : 0);
@@ -216,6 +215,8 @@ function normalizeStoredAnalysisResults(results = {}) {
     totalLegal,
     totalMantenimiento,
     totalRRHH,
+    totalProcedimiento,
+    totalMedioAmbiente,
     totalRevisionManual,
     byCategoria: {
       ...byCategoria

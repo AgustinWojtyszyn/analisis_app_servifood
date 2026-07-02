@@ -21,6 +21,8 @@ function createSummary() {
     totalCalidad: 0,
     totalLogistica: 0,
     totalLegal: 0,
+    totalProcedimiento: 0,
+    totalMedioAmbiente: 0,
     totalRevisionManual: 0,
     totalInternos: 0,
     totalExternos: 0,
@@ -111,8 +113,7 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
       || finalRecord.classification_normalized
       || finalRecord.classification_original
   ).trim();
-  const hasExcelClassificationSource = Boolean(finalRecord.preserveOriginalClassification && normalizeCellValue(finalRecord.classification_original).trim());
-  const finalCategoria = hasExcelClassificationSource ? finalCategoriaOriginal : normalizeCategory(finalCategoriaOriginal);
+  const finalCategoria = normalizeCategory(finalCategoriaOriginal);
   const finalEstadoAccion = normalizeCellValue(finalRecord.estadoAccion).trim();
   const finalAlcance = normalizeCellValue(finalRecord.scope_normalized || finalRecord.alcanceDesvio).trim();
   const isConforme = finalResultado === 'Conforme';
@@ -157,6 +158,8 @@ function registerFinalRecordInSummary(summary, finalRecord = {}) {
   if (finalCategoria === CANONICAL.CALIDAD) summary.totalCalidad += 1;
   if (finalCategoria === CANONICAL.LOGISTICA) summary.totalLogistica += 1;
   if (finalCategoria === CANONICAL.LEGALES) summary.totalLegal += 1;
+  if (finalCategoria === CANONICAL.PROCEDIMIENTO) summary.totalProcedimiento += 1;
+  if (finalCategoria === CANONICAL.MEDIO_AMBIENTE) summary.totalMedioAmbiente += 1;
   if (finalAlcance === 'Interno') summary.totalInternos += 1;
   if (finalAlcance === 'Externo') summary.totalExternos += 1;
   if (finalAlcance) summary.byAlcance[finalAlcance] = (summary.byAlcance[finalAlcance] || 0) + 1;

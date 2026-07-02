@@ -65,3 +65,47 @@ test('Pipeline reads all valid deviation rows with fill-down and ignores invalid
     'Acción inmediata y acción correctiva no deben ser idénticas'
   );
 });
+
+async function buildWorkbookBufferWithCategories(categoryValues = []) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Registro');
+
+  ws.addRow(['Fecha', 'Área / Sector', 'Desvío detectado', 'Clasificación del desvío', 'Estado']);
+  categoryValues.forEach((category, index) => {
+    ws.addRow([
+      '10/01/2026',
+      'Calidad',
+      `Hallazgo de prueba ${index + 1}`,
+      category,
+      'Abierto'
+    ]);
+  });
+
+  return wb.xlsx.writeBuffer();
+}
+
+test('Pipeline preserves Incumplimientos de procedimiento from Excel classification column', async () => {
+  const buffer = await buildWorkbookBufferWithCategories(['  INCUMPLIMIENTO de PROCEDIMIENTO  ']);
+  const result = await analyzeExcel(buffer, {});
+
+  assert.equal(result.success, true);
+  assert.equal(result.records.length, 1);
+  assert.equal(result.records[0].clasificacionDesvio, 'Incumplimientos de procedimiento');
+  assert.equal(result.records[0].categoriaDesvio, 'Incumplimientos de procedimiento');
+  assert.equal(result.records[0].classification_normalized, 'Incumplimientos de procedimiento');
+  assert.equal(result.summary.byCategoria['Incumplimientos de procedimiento'], 1);
+  assert.equal(result.summary.totalProcedimiento, 1);
+});
+
+test('Pipeline preserves Medio ambiente from Excel classification column', async () => {
+  const buffer = await buildWorkbookBufferWithCategories(['  medioambiente  ']);
+  const result = await analyzeExcel(buffer, {});
+
+  assert.equal(result.success, true);
+  assert.equal(result.records.length, 1);
+  assert.equal(result.records[0].clasificacionDesvio, 'Medio ambiente');
+  assert.equal(result.records[0].categoriaDesvio, 'Medio ambiente');
+  assert.equal(result.records[0].classification_normalized, 'Medio ambiente');
+  assert.equal(result.summary.byCategoria['Medio ambiente'], 1);
+  assert.equal(result.summary.totalMedioAmbiente, 1);
+});
