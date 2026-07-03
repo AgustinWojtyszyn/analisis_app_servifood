@@ -127,6 +127,18 @@ La base operativa actual esta en Supabase. Los scripts SQL versionados viven en 
 
 El directorio `backend/prisma` describe una estructura SQLite legacy y no representa por si solo todo el esquema productivo actual. No usarlo como fuente unica de verdad para Supabase.
 
+### Análisis anual de desvíos
+
+Antes de usar el módulo, aplicar en Supabase el script `backend/sql/20260703_annual_deviation_analysis.sql`.
+
+Uso:
+
+1. Ingresar con un usuario `admin` o `nutricionista`.
+2. Abrir la sección `Análisis anual`.
+3. Cargar un archivo `.xlsx` anual con hojas de desvíos anuales, calidad y logística. El sistema detecta nombres similares, por ejemplo `Desvíos anuales`, `Calidad` o `Desvios de logistica`.
+4. Consultar las pestañas `Resumen anual`, `Desvíos de calidad`, `Desvíos de logística`, `Tabla completa` y `Cargar Excel anual`.
+5. Usar los filtros por año, mes, área/sector, clasificación y tipo. El resumen completo o la tabla filtrada se pueden exportar a Excel.
+
 ## Referencias legacy
 
 Referencias antiguas a SQLite local, autenticacion JWT/bcrypt propia y credenciales `admin@example.com / admin123` pertenecen a versiones previas del proyecto. La autenticacion vigente es Supabase Auth y los usuarios/roles se administran por Supabase y la tabla `profiles`.

@@ -26,6 +26,7 @@ import HealthAndSafetyRoundedIcon from '@mui/icons-material/HealthAndSafetyRound
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import AssignmentLateRoundedIcon from '@mui/icons-material/AssignmentLateRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import RestaurantMenuRoundedIcon from '@mui/icons-material/RestaurantMenuRounded';
 import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
@@ -42,6 +43,7 @@ const sectionIcons = {
   results: <InsightsRoundedIcon />,
   rules: <RuleRoundedIcon />,
   charts: <PieChartRoundedIcon />,
+  annualAnalysis: <CalendarMonthRoundedIcon />,
   customerNonconformities: <AssignmentLateRoundedIcon />,
   profile: <PersonRoundedIcon />,
   tutorial: <SchoolRoundedIcon />,
@@ -81,6 +83,10 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     charts: {
       title: 'Gráficos',
       subtitle: 'Visualiza patrones por area, tipo de desvio e ISO 22000'
+    },
+    annualAnalysis: {
+      title: 'Análisis anual',
+      subtitle: 'Resumen, calidad, logística y tabla completa de desvíos anuales'
     },
     customerNonconformities: {
       title: 'No conformidades de clientes',

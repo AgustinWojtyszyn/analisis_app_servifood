@@ -23,6 +23,7 @@ import {
 import { deleteAnalysis, getAnalysisById, updateAnalysisStatus } from './services/analysis';
 
 const AdminUsersPage = lazy(() => import('./components/AdminUsersPage'));
+const AnnualDeviationAnalysisPage = lazy(() => import('./components/AnnualDeviationAnalysisPage'));
 const AnalysisHistory = lazy(() => import('./components/AnalysisHistory'));
 const CertificationsPage = lazy(() => import('./pages/CertificationsPage'));
 const ChartsPage = lazy(() => import('./components/ChartsPage'));
@@ -52,6 +53,7 @@ const sectionPathMap = {
   history: '/historial',
   rules: '/reglas',
   charts: '/graficos',
+  annualAnalysis: '/analisis-anual',
   customerNonconformities: '/no-conformidades-clientes',
   profile: '/perfil',
   tutorial: '/tutorial',
@@ -134,6 +136,7 @@ function MainApp({ user, onLogout }) {
         { id: 'declaration', label: 'Declaración de Salud' },
         { id: 'policies', label: 'Políticas de Seguridad' },
         { id: 'nutritionModules', label: 'Documentos SGC' },
+        { id: 'annualAnalysis', label: 'Análisis anual' },
         { id: 'certifications', label: 'Certificaciones' }
       ];
     }
@@ -151,6 +154,7 @@ function MainApp({ user, onLogout }) {
       { id: 'upload', label: 'Cargar archivos' },
       { id: 'history', label: 'Historial' },
       { id: 'charts', label: 'Gráficos' },
+      { id: 'annualAnalysis', label: 'Análisis anual' },
       { id: 'customerNonconformities', label: 'NC Clientes' },
       { id: 'profile', label: 'Mi Perfil' },
       { id: 'tutorial', label: 'Ver Tutorial' },
@@ -457,6 +461,11 @@ function MainApp({ user, onLogout }) {
           analysisTotalRecords={selectedAnalysis?.totalRecords || 0}
         />
       );
+    }
+
+    if (currentSection === 'annualAnalysis') {
+      if (!isAdmin && !isNutritionist) return null;
+      return <AnnualDeviationAnalysisPage />;
     }
 
     if (currentSection === 'customerNonconformities') {

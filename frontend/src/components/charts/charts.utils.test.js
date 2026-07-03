@@ -28,4 +28,21 @@ describe('charts category normalization', () => {
     expect(values['Logística']).toBe(1);
     expect(values.Calidad).toBe(1);
   });
+
+  it('keeps unknown categories from summary data after known categories', () => {
+    const data = buildChartsData({
+      records: [],
+      summary: {
+        byCategoria: {
+          Inocuidad: 2,
+          'Categoría futura': 3
+        }
+      }
+    });
+
+    expect(data.desviosPorCategoria).toEqual([
+      { name: 'Inocuidad', value: 2 },
+      { name: 'Categoría futura', value: 3 }
+    ]);
+  });
 });

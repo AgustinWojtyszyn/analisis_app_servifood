@@ -33,8 +33,28 @@ function hasExcelClassificationSource(record = {}) {
   );
 }
 
+function resolveStoredClassification(record = {}) {
+  const sources = [
+    record?.classification_normalized,
+    record?.categoriaDesvio,
+    record?.clasificacionDesvio,
+    record?.classification_original
+  ];
+
+  for (const source of sources) {
+    const raw = normalizeCellValue(source).trim();
+    if (!raw) continue;
+    const normalized = normalizeCategory(raw);
+    if (normalized !== CANONICAL.MANUAL || normalizeCompare(raw) === normalizeCompare(CANONICAL.MANUAL)) {
+      return normalized;
+    }
+  }
+
+  return '';
+}
+
 function resolveSummaryCategoryKey(record = {}) {
-  return normalizeModernCategory(record?.clasificacionDesvio || record?.classification_normalized || record?.categoriaDesvio || record?.classification_original);
+  return resolveStoredClassification(record) || normalizeModernCategory(record?.clasificacionDesvio || record?.classification_normalized || record?.categoriaDesvio || record?.classification_original);
 }
 
 function normalizeExportClassification(record = {}) {
@@ -117,7 +137,15 @@ function normalizeExportIso(record = {}) {
 function reclassifyStoredRecord(record = {}) {
   if (isManualCategoryOverride(record)) return record;
   if (hasExcelClassificationSource(record)) return record;
-  if (normalizeCellValue(record?.classification_original).trim() && normalizeCellValue(record?.clasificacionDesvio).trim()) return record;
+  const storedClassification = resolveStoredClassification(record);
+  if (storedClassification) {
+    return {
+      ...record,
+      categoriaDesvio: storedClassification,
+      classification_normalized: storedClassification,
+      clasificacionDesvio: storedClassification
+    };
+  }
 
   const baseText = [
     record.hallazgoDetectado,
@@ -268,6 +296,7 @@ function mapAnalysisRowToApi(row) {
 export {
   mapAnalysisRowToApi,
   normalizeStoredAnalysisResults,
+  resolveStoredClassification,
   normalizeExportClassification,
   normalizeExportTipo,
   normalizeExportEstado,

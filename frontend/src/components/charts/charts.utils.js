@@ -13,6 +13,7 @@ export function normalizeCategoryKey(value) {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
   if (!normalized) return 'Revisar manualmente';
+  if (normalized.includes('seguridad') || normalized.includes('operacion') || normalized.includes('operacional')) return 'Seguridad / Operación';
   if (normalized.includes('legal')) return 'Legales';
   if (normalized.includes('logistica')) return 'Logística';
   if (normalized.includes('inocuidad')) return 'Inocuidad';
@@ -22,6 +23,21 @@ export function normalizeCategoryKey(value) {
   if (normalized.includes('medio ambiente') || normalized.includes('medioambiente') || normalized.includes('ambiental')) return 'Medio ambiente';
   if (normalized.includes('calidad')) return 'Calidad';
   return 'Revisar manualmente';
+}
+
+function normalizeCategoryForChart(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 'Revisar manualmente';
+  const canonical = normalizeCategoryKey(raw);
+  if (canonical !== 'Revisar manualmente') return canonical;
+  const normalizedRaw = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (normalizedRaw.includes('revisar manualmente') || normalizedRaw.includes('revision manual')) {
+    return 'Revisar manualmente';
+  }
+  return raw;
 }
 
 function normalizeArea(value) {
@@ -268,6 +284,11 @@ function objectToChartData(mapObject = {}) {
     .sort((a, b) => b.value - a.value);
 }
 
+function categoriesToChartData(mapObject = {}) {
+  return Object.entries(mapObject)
+    .map(([name, value]) => ({ name, value }));
+}
+
 function splitAreas(areaClasificada) {
   return String(areaClasificada || '')
     .split(/[\/,]/)
@@ -380,7 +401,7 @@ export function buildChartsData({ records = [], summary = null } = {}) {
     );
     const estadoAccion = normalizeEstadoAccionFromRecord(record);
     if (categoria) {
-      const canonical = normalizeCategoryKey(categoria);
+      const canonical = normalizeCategoryForChart(categoria);
       fallbackByCategoria[canonical] = (fallbackByCategoria[canonical] || 0) + 1;
     }
 
@@ -443,18 +464,35 @@ export function buildChartsData({ records = [], summary = null } = {}) {
   const areaMerged = Object.values(areaMapSource).sort((a, b) => Number(b.value || 0) - Number(a.value || 0));
   const desviosPorArea = areaMerged;
   const categoriaRaw = hasRecords ? fallbackByCategoria : (summaryByCategoria || fallbackByCategoria);
-  const categoriasCompletas = {
-    Legales: Number(categoriaRaw.Legales ?? categoriaRaw['Desvío Legal'] ?? safeSummary.totalLegal ?? 0),
-    'Logística': Number(categoriaRaw['Logística'] ?? categoriaRaw['Desvío de Logística'] ?? safeSummary.totalLogistica ?? 0),
-    Calidad: Number(categoriaRaw.Calidad ?? categoriaRaw['Desvío de Calidad'] ?? safeSummary.totalCalidad ?? 0),
-    Mantenimiento: Number(categoriaRaw.Mantenimiento ?? categoriaRaw['Desvío de Mantenimiento'] ?? 0),
-    Inocuidad: Number(categoriaRaw.Inocuidad ?? categoriaRaw['Desvío de Inocuidad'] ?? safeSummary.totalInocuidad ?? 0),
-    'Recursos Humanos': Number(categoriaRaw['Recursos Humanos'] ?? categoriaRaw['Desvío de Recursos Humanos'] ?? 0),
-    'Incumplimientos de procedimiento': Number(categoriaRaw['Incumplimientos de procedimiento'] ?? categoriaRaw['Incumplimiento de procedimiento'] ?? categoriaRaw.Procedimiento ?? safeSummary.totalProcedimiento ?? 0),
-    'Medio ambiente': Number(categoriaRaw['Medio ambiente'] ?? categoriaRaw.Medioambiente ?? categoriaRaw.Ambiental ?? safeSummary.totalMedioAmbiente ?? 0)
+  const categoriasCompletas = {};
+  const addCategory = (name, value) => {
+    const qty = Number(value || 0);
+    if (!qty) return;
+    categoriasCompletas[name] = (categoriasCompletas[name] || 0) + qty;
   };
-  const desviosPorCategoria = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
-  const desviosPorCategoriaCompleta = objectToChartData(categoriasCompletas).filter((item) => item.value > 0);
+  const addKnownCategory = (name, aliases = [], fallback = 0) => {
+    const aliasValue = aliases.reduce((acc, alias) => acc + Number(categoriaRaw[alias] || 0), 0);
+    addCategory(name, aliasValue || fallback);
+  };
+
+  addKnownCategory('Inocuidad', ['Inocuidad', 'Desvío de Inocuidad'], safeSummary.totalInocuidad);
+  addKnownCategory('Calidad', ['Calidad', 'Desvío de Calidad'], safeSummary.totalCalidad);
+  addKnownCategory('Seguridad / Operación', ['Seguridad / Operación', 'Seguridad', 'Operación', 'Operacion', 'Operacional'], safeSummary.totalSeguridadOperacion);
+  addKnownCategory('Logística', ['Logística', 'Desvío de Logística'], safeSummary.totalLogistica);
+  addKnownCategory('Legales', ['Legales', 'Legal', 'Desvío Legal'], safeSummary.totalLegal);
+  addKnownCategory('Mantenimiento', ['Mantenimiento', 'Desvío de Mantenimiento'], safeSummary.totalMantenimiento);
+  addKnownCategory('Recursos Humanos', ['Recursos Humanos', 'Desvío de Recursos Humanos'], safeSummary.totalRRHH);
+  addKnownCategory('Incumplimientos de procedimiento', ['Incumplimientos de procedimiento', 'Incumplimiento de procedimiento', 'Procedimiento'], safeSummary.totalProcedimiento);
+  addKnownCategory('Medio ambiente', ['Medio ambiente', 'Medioambiente', 'Ambiental'], safeSummary.totalMedioAmbiente);
+  addKnownCategory('Revisar manualmente', ['Revisar manualmente', 'Revision manual', 'Revisión manual'], safeSummary.totalRevisionManual);
+
+  Object.entries(categoriaRaw).forEach(([rawName, value]) => {
+    const category = normalizeCategoryForChart(rawName);
+    if (!category || categoriasCompletas[category]) return;
+    addCategory(category, value);
+  });
+  const desviosPorCategoria = categoriesToChartData(categoriasCompletas).filter((item) => item.value > 0);
+  const desviosPorCategoriaCompleta = categoriesToChartData(categoriasCompletas).filter((item) => item.value > 0);
   const isoRaw = hasRecords ? fallbackByIso : (summaryByIso || fallbackByIso);
   const isoGrouped = Object.entries(isoRaw).reduce((acc, [key, value]) => {
     const canonicalIso = normalizeIsoKey(key);

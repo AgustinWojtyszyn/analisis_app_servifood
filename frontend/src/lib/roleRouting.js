@@ -20,12 +20,13 @@ const INITIAL_PATH_BY_ROLE = {
 
 const BASE_SECTIONS_BY_ROLE = {
   [ROLES.USER]: new Set(['collaboratorPortal', 'declaration', 'policies']),
-  [ROLES.NUTRITIONIST]: new Set(['internalManagement', 'declaration', 'policies', 'nutritionModules', 'certifications']),
+  [ROLES.NUTRITIONIST]: new Set(['internalManagement', 'declaration', 'policies', 'nutritionModules', 'annualAnalysis', 'certifications']),
   [ROLES.ADMIN]: new Set([
     'internalManagement',
     'upload',
     'history',
     'charts',
+    'annualAnalysis',
     'customerNonconformities',
     'profile',
     'tutorial',
