@@ -1,0 +1,201 @@
+IMPLEMENTACION: ANALISIS ANUAL DE DESVIOS
+
+Fecha: 2026-07-03
+
+Objetivo
+Se implemento un nuevo modulo llamado "Analisis anual" para cargar y consultar el archivo Excel anual de desvios, preservando la estructura de hojas anual, calidad y logistica, y agregando resumenes, filtros, graficos, historial y exportacion.
+
+Backend
+1. Se agrego el parser anual en:
+   backend/src/services/annualDeviation/annualDeviationService.js
+
+   Funcionalidad incluida:
+   - Lectura de archivos .xlsx con ExcelJS.
+   - Deteccion flexible de hojas:
+     - Desvios anuales / Desvíos anuales / variantes con "anual".
+     - Calidad / Desvios de calidad.
+     - Logistica / Logística / Desvios de logistica.
+   - Deteccion de encabezados aunque la tabla no empiece en la primera fila.
+   - Conservacion de la fila original en JSON.
+   - Normalizacion de textos para evitar duplicados por acentos, mayusculas y espacios.
+   - Presentacion prolija de nombres como Deposito -> Depósito, logistica -> Logística, calidad -> Calidad.
+   - Deteccion de meses, incluso cuando vienen agrupados.
+   - Resumen anual:
+     - Total de desvios.
+     - Desvios por mes.
+     - Desvios por area / sector.
+     - Desvios por clasificacion.
+     - Internos vs externos si existe el dato.
+     - Top 10 areas / sectores.
+     - Top 10 desvios.
+   - Resumen especifico para calidad.
+   - Resumen especifico para logistica.
+
+2. Se agrego el controlador anual en:
+   backend/src/controllers/analysis/annualDeviationController.js
+
+   Endpoints implementados:
+   - POST /api/analysis/annual/upload-excel
+     Carga el Excel anual, lo procesa y guarda resultados en Supabase.
+
+   - GET /api/analysis/annual/uploads
+     Lista el historial de cargas anuales.
+
+   - GET /api/analysis/annual/:id
+     Devuelve una carga anual con sus filas procesadas.
+
+   - GET /api/analysis/annual/:id/export/excel
+     Exporta resumen anual y tabla completa a Excel.
+
+3. Se conectaron las rutas en:
+   backend/src/routes/analysis.js
+
+   Permisos:
+   - Admin puede usar el modulo.
+   - Nutricionista puede usar el modulo.
+   - Usuarios comunes no tienen acceso.
+
+Base de datos
+Se agrego el SQL requerido en:
+backend/sql/20260703_annual_deviation_analysis.sql
+
+Tablas creadas:
+1. annual_deviation_uploads
+   Guarda historial de cargas anuales, nombre de archivo, usuario, fecha, año, resumen y metadata.
+
+2. annual_deviation_rows
+   Guarda cada fila procesada con columnas normalizadas para filtrar y graficar, mas row_data JSONB para preservar la estructura original.
+
+3. annual_quality_summary
+   Guarda resumen agregado de desvios de calidad por carga.
+
+4. annual_logistics_summary
+   Guarda resumen agregado de desvios de logistica por carga.
+
+Tambien se agregaron indices para historial, filtros y busquedas por claves normalizadas, y policies RLS para uso desde backend con service_role.
+
+Frontend
+1. Se agrego el servicio API en:
+   frontend/src/services/annualDeviation.js
+
+   Funciones incluidas:
+   - uploadAnnualDeviationExcel
+   - getAnnualDeviationUploads
+   - getAnnualDeviationUpload
+   - exportAnnualDeviationExcel
+
+2. Se agrego la pantalla principal en:
+   frontend/src/components/AnnualDeviationAnalysisPage.jsx
+
+   Vistas internas:
+   - Resumen anual
+   - Desvios de calidad
+   - Desvios de logistica
+   - Tabla completa
+   - Cargar Excel anual
+
+   Funcionalidad incluida:
+   - Carga de archivo .xlsx.
+   - Estados de carga, exito y error.
+   - Historial de cargas anuales.
+   - Selector de carga anual.
+   - Filtros por año, mes, area / sector, clasificacion y tipo.
+   - Cards de metricas.
+   - Graficos con Recharts:
+     - Desvios por mes.
+     - Desvios por clasificacion.
+     - Desvios por area / sector.
+     - Internos vs externos.
+     - Frecuencia de desvios de calidad.
+     - Frecuencia de desvios de logistica.
+     - Dona/torta de porcentajes.
+   - Tabla navegable con columnas solicitadas:
+     - Fecha / mes.
+     - Area / sector.
+     - Desvio detectado.
+     - Clasificacion.
+     - Interno / externo.
+     - Accion inmediata.
+     - Accion correctiva.
+     - Estado.
+     - Observaciones.
+   - Exportacion de tabla filtrada a Excel.
+   - Exportacion del resumen anual desde backend.
+
+3. Se agrego la seccion al menu/sidebar en:
+   frontend/src/App.jsx
+   frontend/src/components/AppLayout.jsx
+   frontend/src/lib/roleRouting.js
+
+   Nueva seccion:
+   - Analisis anual
+
+   Ruta frontend:
+   - /analisis-anual
+
+Documentacion
+Se actualizo:
+README.md
+
+Se documento:
+ - SQL requerido.
+ - Roles habilitados.
+ - Como cargar el Excel anual.
+ - Como usar las pestañas, filtros y exportaciones.
+
+Tests
+Se agrego:
+backend/test/annualDeviationService.test.js
+
+Cobertura del test:
+ - Deteccion flexible de hojas.
+ - Normalizacion de textos con y sin acentos.
+ - Resumen anual.
+ - Resumen de calidad.
+ - Resumen de logistica.
+
+Verificacion ejecutada
+Backend:
+ - npm test
+   Resultado: 228 tests OK.
+
+ - npm run build
+   Resultado: OK.
+
+ - npm run lint
+   Resultado: sin errores. Quedan warnings preexistentes del proyecto.
+
+Frontend:
+ - npm run test:run
+   Resultado: 24 tests OK.
+
+ - npm run build
+   Resultado: OK.
+
+ - npm run lint
+   Resultado: sin errores. Quedan warnings preexistentes del proyecto.
+
+Notas operativas
+1. Antes de usar el modulo en Supabase hay que ejecutar:
+   backend/sql/20260703_annual_deviation_analysis.sql
+
+2. El modulo anual no modifica el flujo mensual existente de analisis de desvios.
+
+3. La persistencia anual esta separada de analysis_history para no romper compatibilidad con los analisis mensuales.
+
+4. El Excel original se preserva parcialmente mediante row_data JSONB por fila, y al mismo tiempo se guardan columnas normalizadas para graficos, filtros y exportaciones.
+
+Archivos principales agregados
+ - backend/sql/20260703_annual_deviation_analysis.sql
+ - backend/src/controllers/analysis/annualDeviationController.js
+ - backend/src/services/annualDeviation/annualDeviationService.js
+ - backend/test/annualDeviationService.test.js
+ - frontend/src/components/AnnualDeviationAnalysisPage.jsx
+ - frontend/src/services/annualDeviation.js
+
+Archivos principales modificados
+ - README.md
+ - backend/src/routes/analysis.js
+ - frontend/src/App.jsx
+ - frontend/src/components/AppLayout.jsx
+ - frontend/src/lib/roleRouting.js

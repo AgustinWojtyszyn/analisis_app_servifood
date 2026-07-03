@@ -79,6 +79,17 @@ function applyFilters(records, filters) {
   ));
 }
 
+function isClassification(row, key) {
+  return String(row?.classificationKey || row?.classification || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() === key;
+}
+
+function effectiveRowsForType(records, type) {
+  const key = type === 'quality' ? 'calidad' : 'logistica';
+  const sheetRows = records.filter((row) => row.sheetType === type);
+  const annualClassifiedRows = records.filter((row) => row.sheetType === 'annual' && isClassification(row, key));
+  return annualClassifiedRows.length > sheetRows.length ? annualClassifiedRows : sheetRows;
+}
+
 function KpiCard({ label, value, helper }) {
   return (
     <Grid item xs={12} sm={6} md={3}>
@@ -270,8 +281,8 @@ export default function AnnualDeviationAnalysisPage() {
 
   const rows = useMemo(() => selectedUpload?.rows || [], [selectedUpload]);
   const filteredRows = useMemo(() => applyFilters(rows, filters), [rows, filters]);
-  const qualityRows = useMemo(() => filteredRows.filter((row) => row.sheetType === 'quality'), [filteredRows]);
-  const logisticsRows = useMemo(() => filteredRows.filter((row) => row.sheetType === 'logistics'), [filteredRows]);
+  const qualityRows = useMemo(() => applyFilters(effectiveRowsForType(rows, 'quality'), { ...filters, sheetType: '' }), [filters, rows]);
+  const logisticsRows = useMemo(() => applyFilters(effectiveRowsForType(rows, 'logistics'), { ...filters, sheetType: '' }), [filters, rows]);
 
   const options = useMemo(() => ({
     years: uniqueValues(rows, 'year'),

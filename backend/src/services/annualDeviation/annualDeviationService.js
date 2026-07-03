@@ -43,6 +43,17 @@ const FIELD_ALIASES = {
   observations: ['observacion', 'observación', 'observaciones', 'comentarios', 'comentario']
 };
 
+const SUMMARY_HEADER_KEYS = new Set([
+  'cantidad',
+  'cant',
+  'count',
+  'porcentaje',
+  'porcentual',
+  '%',
+  'total',
+  'totales'
+]);
+
 function stripAccents(value = '') {
   return String(value)
     .normalize('NFD')
@@ -115,17 +126,41 @@ function resolveSheetType(sheetName = '') {
 function scoreHeader(values = []) {
   const normalized = values.map(normalizeKey);
   let score = 0;
-  Object.values(FIELD_ALIASES).flat().forEach((alias) => {
-    if (normalized.includes(normalizeKey(alias))) score += 1;
+
+  Object.entries(FIELD_ALIASES).forEach(([field, aliases]) => {
+    const weight = field === 'deviation' ? 4 : 2;
+    const aliasKeys = aliases.map(normalizeKey);
+    if (normalized.some((header) => aliasKeys.includes(header))) score += weight;
   });
+
   if (normalized.some((value) => value.includes('desvio'))) score += 2;
   if (normalized.some((value) => value.includes('area') || value.includes('sector'))) score += 1;
+  if (normalized.some((value) => value.includes('fecha') || value === 'mes')) score += 1;
+  if (normalized.some((value) => value.includes('clasificacion') || value.includes('categoria'))) score += 1;
+  if (normalized.some((value) => value.includes('accion') || value.includes('estado') || value.includes('observacion'))) score += 1;
+
+  const hasDeviation = normalized.some((value) => value.includes('desvio') || value.includes('hallazgo') || value.includes('descripcion'));
+  const hasDetailContext = normalized.some((value) => (
+    value.includes('area') ||
+    value.includes('sector') ||
+    value.includes('fecha') ||
+    value === 'mes' ||
+    value.includes('clasificacion') ||
+    value.includes('categoria') ||
+    value.includes('accion') ||
+    value.includes('estado') ||
+    value.includes('observacion')
+  ));
+  const summaryHeaders = normalized.filter((value) => SUMMARY_HEADER_KEYS.has(value) || value.includes('porcentaje'));
+  if (hasDeviation && summaryHeaders.length && !hasDetailContext) score -= 8;
+  if (summaryHeaders.length >= 2) score -= 4;
+
   return score;
 }
 
 function findHeaderRow(rows = []) {
   let best = { index: -1, score: 0 };
-  rows.slice(0, 30).forEach((row, index) => {
+  rows.forEach((row, index) => {
     const score = scoreHeader(row.values);
     if (score > best.score) best = { index, score };
   });
@@ -265,9 +300,37 @@ function summarizeSheet(rows = []) {
   };
 }
 
+function isClassification(row, expectedKey) {
+  return normalizeKey(row?.classification || row?.sheetType || '') === expectedKey;
+}
+
+function getEffectiveRowsForType(allRows = [], sheetType) {
+  const expectedKey = sheetType === SHEET_TYPES.QUALITY ? 'calidad' : 'logistica';
+  const sheetRows = allRows.filter((row) => row.sheetType === sheetType);
+  const annualClassifiedRows = allRows.filter((row) => (
+    row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, expectedKey)
+  ));
+
+  if (annualClassifiedRows.length > sheetRows.length) {
+    return annualClassifiedRows.map((row) => ({
+      ...row,
+      effectiveSheetType: sheetType,
+      effectiveSource: 'annual_classification'
+    }));
+  }
+
+  return sheetRows.map((row) => ({
+    ...row,
+    effectiveSheetType: sheetType,
+    effectiveSource: 'specific_sheet'
+  }));
+}
+
 function buildSummary(allRows = []) {
   const annualRows = allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL);
   const baseRows = annualRows.length ? annualRows : allRows;
+  const effectiveQualityRows = getEffectiveRowsForType(allRows, SHEET_TYPES.QUALITY);
+  const effectiveLogisticsRows = getEffectiveRowsForType(allRows, SHEET_TYPES.LOGISTICS);
   const byMonth = countBy(baseRows, 'month')
     .map((item) => ({ ...item, monthNumber: baseRows.find((row) => normalizeKey(row.month) === item.key)?.monthNumber || 99 }))
     .sort((a, b) => a.monthNumber - b.monthNumber);
@@ -280,8 +343,18 @@ function buildSummary(allRows = []) {
     bySourceType: countBy(baseRows, 'sourceType').filter((item) => item.key !== 'sin especificar'),
     topAreas: countBy(baseRows, 'areaSector', 10),
     topDeviations: countBy(baseRows, 'deviation', 10),
-    quality: summarizeSheet(allRows.filter((row) => row.sheetType === SHEET_TYPES.QUALITY)),
-    logistics: summarizeSheet(allRows.filter((row) => row.sheetType === SHEET_TYPES.LOGISTICS))
+    quality: {
+      ...summarizeSheet(effectiveQualityRows),
+      source: effectiveQualityRows[0]?.effectiveSource || 'specific_sheet',
+      specificSheetTotal: allRows.filter((row) => row.sheetType === SHEET_TYPES.QUALITY).length,
+      annualClassificationTotal: allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'calidad')).length
+    },
+    logistics: {
+      ...summarizeSheet(effectiveLogisticsRows),
+      source: effectiveLogisticsRows[0]?.effectiveSource || 'specific_sheet',
+      specificSheetTotal: allRows.filter((row) => row.sheetType === SHEET_TYPES.LOGISTICS).length,
+      annualClassificationTotal: allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'logistica')).length
+    }
   };
 }
 
@@ -339,4 +412,4 @@ export async function parseAnnualDeviationWorkbook(fileBuffer) {
   };
 }
 
-export { SHEET_TYPES, normalizeKey, cleanDisplayText, buildSummary };
+export { SHEET_TYPES, normalizeKey, cleanDisplayText, buildSummary, getEffectiveRowsForType };
