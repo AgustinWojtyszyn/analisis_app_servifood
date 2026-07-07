@@ -109,3 +109,33 @@ test('Pipeline preserves Medio ambiente from Excel classification column', async
   assert.equal(result.summary.byCategoria['Medio ambiente'], 1);
   assert.equal(result.summary.totalMedioAmbiente, 1);
 });
+
+test('Pipeline reads deviation rows from multiple valid worksheets', async () => {
+  const wb = new ExcelJS.Workbook();
+  const annual = wb.addWorksheet('Desvíos anuales');
+  annual.addRow(['Fecha', 'Área / Sector', 'Desvío detectado', 'Clasificación del desvío']);
+  annual.addRow(['05/03/2026', 'Calidad', 'Vianda con gramaje incorrecto', 'Calidad']);
+
+  const quality = wb.addWorksheet('Calidad');
+  quality.addRow(['Fecha', 'Área / Sector', 'Desvío detectado', 'Clasificación del desvío']);
+  quality.addRow(['06/03/2026', 'Área fría', 'Banana oxidada en refrigerio', 'Calidad']);
+
+  const logistics = wb.addWorksheet('Logística');
+  logistics.addRow(['Fecha', 'Área / Sector', 'Desvío detectado', 'Clasificación del desvío']);
+  logistics.addRow(['07/03/2026', 'Logística', 'No se enviaron postres al cliente', 'Logística']);
+
+  const summary = wb.addWorksheet('Resumen');
+  summary.addRow(['Desvío', 'Cantidad', 'Porcentaje']);
+  summary.addRow(['Calidad', '2', '66%']);
+
+  const result = await analyzeExcel(Buffer.from(await wb.xlsx.writeBuffer()), {});
+
+  assert.equal(result.success, true);
+  assert.equal(result.records.length, 3);
+  const findings = result.records.map((record) => record.hallazgoDetectado);
+  assert.ok(findings.includes('Vianda con gramaje incorrecto'));
+  assert.ok(findings.includes('Banana oxidada en refrigerio'));
+  assert.ok(findings.includes('No se enviaron postres al cliente'));
+  assert.equal(result.summary.totalCalidad, 2);
+  assert.equal(result.summary.totalLogistica, 1);
+});

@@ -211,8 +211,36 @@ function parseWorksheet(worksheet, sheetType) {
   const headerIndex = findHeaderRow(rows);
   const headerRow = rows[headerIndex];
   const { headers, canonicalIndexes } = buildHeaderMap(headerRow.values);
+  const normalizedHeaders = headers.map(normalizeKey);
+  const summaryHeaders = normalizedHeaders.filter((value) => SUMMARY_HEADER_KEYS.has(value) || value.includes('porcentaje'));
+  const hasDetailContext = normalizedHeaders.some((value) => (
+    value.includes('area') ||
+    value.includes('sector') ||
+    value.includes('fecha') ||
+    value === 'mes' ||
+    value.includes('clasificacion') ||
+    value.includes('categoria') ||
+    value.includes('accion') ||
+    value.includes('estado') ||
+    value.includes('observacion')
+  ));
   const warnings = [];
   if (canonicalIndexes.deviation == null) warnings.push(`No se detectó una columna clara de desvío en la hoja "${worksheet.name}".`);
+  if (canonicalIndexes.deviation != null && summaryHeaders.length >= 2 && !hasDetailContext) {
+    return {
+      rows: [],
+      columns: headers,
+      warnings: [`La hoja "${worksheet.name}" parece contener solo resumen agrupado; no se usa para filas de detalle.`],
+      diagnostics: {
+        sheetName: worksheet.name,
+        sheetType,
+        headerRow: headerRow.rowNumber,
+        parsedRows: 0,
+        ignored: true,
+        ignoredReason: 'resumen_agrupado_sin_detalle'
+      }
+    };
+  }
 
   let currentMonth = null;
   const parsedRows = [];
@@ -267,7 +295,18 @@ function parseWorksheet(worksheet, sheetType) {
     });
   });
 
-  return { rows: parsedRows, columns: headers, warnings };
+  return {
+    rows: parsedRows,
+    columns: headers,
+    warnings,
+    diagnostics: {
+      sheetName: worksheet.name,
+      sheetType,
+      headerRow: headerRow.rowNumber,
+      parsedRows: parsedRows.length,
+      ignored: false
+    }
+  };
 }
 
 function countBy(rows = [], key, limit = null) {
@@ -304,6 +343,42 @@ function isClassification(row, expectedKey) {
   return normalizeKey(row?.classification || row?.sheetType || '') === expectedKey;
 }
 
+function buildDeviationDedupKey(row = {}, effectiveSheetType = '') {
+  return [
+    effectiveSheetType || row.sheetType || '',
+    row.year || '',
+    row.monthNumber || normalizeKey(row.month || row.dateMonth || ''),
+    normalizeKey(row.areaSector || ''),
+    normalizeKey(row.deviation || ''),
+    normalizeKey(row.classification || row.sheetType || ''),
+    normalizeKey(row.sourceType || '')
+  ].join('|');
+}
+
+function mergeAndDeduplicateEffectiveRows(sources = []) {
+  const rows = [];
+  const seen = new Set();
+  const duplicates = [];
+
+  sources.forEach(({ source, rows: sourceRows = [], sheetType }) => {
+    sourceRows.forEach((row) => {
+      const key = buildDeviationDedupKey(row, sheetType);
+      if (!normalizeKey(row.deviation || '') || seen.has(key)) {
+        if (seen.has(key)) duplicates.push({ source, sheetName: row.sheetName, rowIndex: row.rowIndex, key });
+        return;
+      }
+      seen.add(key);
+      rows.push({
+        ...row,
+        effectiveSheetType: sheetType,
+        effectiveSource: source
+      });
+    });
+  });
+
+  return { rows, duplicates };
+}
+
 function getEffectiveRowsForType(allRows = [], sheetType) {
   const expectedKey = sheetType === SHEET_TYPES.QUALITY ? 'calidad' : 'logistica';
   const sheetRows = allRows.filter((row) => row.sheetType === sheetType);
@@ -311,19 +386,10 @@ function getEffectiveRowsForType(allRows = [], sheetType) {
     row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, expectedKey)
   ));
 
-  if (annualClassifiedRows.length > sheetRows.length) {
-    return annualClassifiedRows.map((row) => ({
-      ...row,
-      effectiveSheetType: sheetType,
-      effectiveSource: 'annual_classification'
-    }));
-  }
-
-  return sheetRows.map((row) => ({
-    ...row,
-    effectiveSheetType: sheetType,
-    effectiveSource: 'specific_sheet'
-  }));
+  return mergeAndDeduplicateEffectiveRows([
+    { source: 'annual_classification', rows: annualClassifiedRows, sheetType },
+    { source: 'specific_sheet', rows: sheetRows, sheetType }
+  ]).rows;
 }
 
 function buildSummary(allRows = []) {
@@ -375,10 +441,13 @@ export async function parseAnnualDeviationWorkbook(fileBuffer) {
   const selectedSheets = {};
   workbook.worksheets.forEach((worksheet) => {
     const type = resolveSheetType(worksheet.name);
-    if (type && !selectedSheets[type]) selectedSheets[type] = worksheet;
+    if (type) {
+      if (!selectedSheets[type]) selectedSheets[type] = [];
+      selectedSheets[type].push(worksheet);
+    }
   });
 
-  const missing = Object.values(SHEET_TYPES).filter((type) => !selectedSheets[type]);
+  const missing = Object.values(SHEET_TYPES).filter((type) => !selectedSheets[type]?.length);
   if (missing.length) {
     const error = new Error('El Excel anual no tiene las 3 hojas esperadas: anual, calidad y logística.');
     error.status = 400;
@@ -389,26 +458,46 @@ export async function parseAnnualDeviationWorkbook(fileBuffer) {
   const sheets = {};
   const allRows = [];
   const warnings = [];
+  const sheetDiagnostics = [];
 
-  Object.entries(selectedSheets).forEach(([type, worksheet]) => {
-    const parsed = parseWorksheet(worksheet, type);
+  Object.entries(selectedSheets).forEach(([type, worksheets]) => {
+    const parsedSheets = worksheets.map((worksheet) => parseWorksheet(worksheet, type));
     sheets[type] = {
-      name: worksheet.name,
-      columns: parsed.columns,
-      rows: parsed.rows
+      name: worksheets.length === 1 ? worksheets[0].name : worksheets.map((sheet) => sheet.name),
+      columns: parsedSheets[0]?.columns || [],
+      rows: parsedSheets.flatMap((parsed) => parsed.rows)
     };
-    allRows.push(...parsed.rows);
-    warnings.push(...parsed.warnings);
+    parsedSheets.forEach((parsed) => {
+      allRows.push(...parsed.rows);
+      warnings.push(...parsed.warnings);
+      sheetDiagnostics.push(parsed.diagnostics);
+    });
   });
 
   const summary = buildSummary(allRows);
+  const effectiveQuality = mergeAndDeduplicateEffectiveRows([
+    { source: 'annual_classification', rows: allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'calidad')), sheetType: SHEET_TYPES.QUALITY },
+    { source: 'specific_sheet', rows: allRows.filter((row) => row.sheetType === SHEET_TYPES.QUALITY), sheetType: SHEET_TYPES.QUALITY }
+  ]);
+  const effectiveLogistics = mergeAndDeduplicateEffectiveRows([
+    { source: 'annual_classification', rows: allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'logistica')), sheetType: SHEET_TYPES.LOGISTICS },
+    { source: 'specific_sheet', rows: allRows.filter((row) => row.sheetType === SHEET_TYPES.LOGISTICS), sheetType: SHEET_TYPES.LOGISTICS }
+  ]);
+  const duplicateWarnings = [
+    ...effectiveQuality.duplicates.map((item) => `Fila duplicada omitida en resumen de calidad: ${item.sheetName || item.source} fila ${item.rowIndex}.`),
+    ...effectiveLogistics.duplicates.map((item) => `Fila duplicada omitida en resumen de logística: ${item.sheetName || item.source} fila ${item.rowIndex}.`)
+  ];
   return {
     year: detectWorkbookYear(allRows),
-    sheetNames: Object.fromEntries(Object.entries(selectedSheets).map(([type, sheet]) => [type, sheet.name])),
+    sheetNames: Object.fromEntries(Object.entries(selectedSheets).map(([type, worksheets]) => [
+      type,
+      worksheets.length === 1 ? worksheets[0].name : worksheets.map((sheet) => sheet.name)
+    ])),
     sheets,
     rows: allRows,
     summary,
-    warnings: warnings.filter(Boolean)
+    diagnostics: { sheets: sheetDiagnostics },
+    warnings: [...warnings, ...duplicateWarnings].filter(Boolean)
   };
 }
 

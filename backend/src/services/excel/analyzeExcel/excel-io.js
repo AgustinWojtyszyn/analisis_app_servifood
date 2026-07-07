@@ -102,24 +102,6 @@ function detectHeaderRowIndex(sheet) {
 function selectBestWorksheet(workbook) {
   const sheets = workbook.worksheets || [];
   if (sheets.length === 0) return { chosen: null, ranking: [] };
-  if (sheets.length === 1) {
-    const only = sheets[0];
-    return {
-      chosen: only,
-      ranking: [
-        {
-          rank: 1,
-          sheetName: only?.name || '',
-          rowsAfterHeader: Math.max(0, (only?.rowCount || 0) - 1),
-          detectedHeaderRow: 1,
-          headerMatchCount: 0,
-          deviationHeaderCount: 0,
-          longTextCells: 0,
-          totalScore: 0
-        }
-      ]
-    };
-  }
 
   const headerSignalRegex = /(descripcion|desvio|desviacion|observacion|hallazgo|detalle|comentario|nota|accion|resultado|tipo|sector|fecha)/i;
 
@@ -158,9 +140,7 @@ function selectBestWorksheet(workbook) {
       return b.score.totalTextLength - a.score.totalTextLength;
     });
 
-  return {
-    chosen: ranked[0]?.sheet || sheets[0],
-    ranking: ranked.map((item, idx) => ({
+  const ranking = ranked.map((item, idx) => ({
       rank: idx + 1,
       sheetName: item.sheet?.name || '',
       rowsAfterHeader: item.rowsAfterHeader,
@@ -169,7 +149,16 @@ function selectBestWorksheet(workbook) {
       deviationHeaderCount: item.deviationHeaderCount,
       longTextCells: item.score.longTextCells,
       totalScore: item.totalScore
-    }))
+  }));
+  const selected = ranked.filter((item) => (
+    item.deviationHeaderCount > 0
+    && item.rowsAfterHeader > 0
+  ));
+
+  return {
+    chosen: ranked[0]?.sheet || sheets[0],
+    selected: selected.length ? selected : ranked.slice(0, 1),
+    ranking
   };
 }
 
@@ -236,25 +225,51 @@ async function loadExcelParsingContext(fileBuffer) {
   }
 
   const sheetSelection = selectBestWorksheet(workbook);
-  const sheet = sheetSelection?.chosen;
-  if (!sheet) {
+  const selectedSheetItems = sheetSelection?.selected || [];
+  if (!selectedSheetItems.length) {
     throw new Error('No se pudo seleccionar una hoja valida para analizar');
   }
 
-  const headerRowIndex = detectHeaderRowIndex(sheet);
-  const headerValues = sheet.getRow(headerRowIndex).values || [];
+  const unifiedHeaderValues = [];
+  const unifiedHeaderKeys = new Map();
+  const sheetContexts = selectedSheetItems.map((item) => {
+    const sheet = item.sheet;
+    const headerRowIndex = item.headerRowIndex ?? detectHeaderRowIndex(sheet);
+    const headerValues = sheet.getRow(headerRowIndex).values || [];
+    const columnMap = new Map();
+
+    for (let i = 1; i < headerValues.length; i += 1) {
+      const headerValue = headerValues[i];
+      const key = normalizeHeaderKey(headerValue);
+      if (!key) continue;
+      if (!unifiedHeaderKeys.has(key)) {
+        unifiedHeaderValues.push(headerValue);
+        unifiedHeaderKeys.set(key, unifiedHeaderValues.length);
+      }
+      columnMap.set(i, unifiedHeaderKeys.get(key));
+    }
+
+    return { sheet, headerRowIndex, headerValues, columnMap, ranking: item };
+  });
+
+  const headerRowIndex = sheetContexts[0]?.headerRowIndex || 1;
+  const headerValues = [undefined, ...unifiedHeaderValues];
   const rows = [];
   const headerIndexes = detectHeaders(headerValues);
 
-  const maxCols = Math.max(1, headerValues.length - 1);
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber <= headerRowIndex) return;
-    const resolvedValues = [];
-    for (let c = 1; c <= maxCols; c += 1) {
-      const cell = sheet.getCell(rowNumber, c);
-      resolvedValues[c] = normalizeCellValue(cell?.value);
-    }
-    rows.push(resolvedValues);
+  sheetContexts.forEach(({ sheet, headerRowIndex: sheetHeaderRowIndex, headerValues: sheetHeaderValues, columnMap }) => {
+    const maxCols = Math.max(1, sheetHeaderValues.length - 1);
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber <= sheetHeaderRowIndex) return;
+      const resolvedValues = [];
+      for (let c = 1; c <= maxCols; c += 1) {
+        const targetIndex = columnMap.get(c);
+        if (!Number.isInteger(targetIndex)) continue;
+        const cell = sheet.getCell(rowNumber, c);
+        resolvedValues[targetIndex] = normalizeCellValue(cell?.value);
+      }
+      rows.push(resolvedValues);
+    });
   });
 
   if (rows.length === 0) {
@@ -262,7 +277,7 @@ async function loadExcelParsingContext(fileBuffer) {
   }
 
   return {
-    sheet,
+    sheet: sheetContexts[0]?.sheet || null,
     headerRowIndex,
     headerValues,
     headerIndexes,
@@ -278,8 +293,17 @@ async function loadExcelParsingContext(fileBuffer) {
         creator: workbook?.creator || '',
         lastModifiedBy: workbook?.lastModifiedBy || ''
       },
-      worksheetSelected: sheet.name,
+      worksheetSelected: sheetContexts.length === 1
+        ? sheetContexts[0].sheet.name
+        : sheetContexts.map((ctx) => ctx.sheet.name),
       worksheetRanking: sheetSelection?.ranking || [],
+      worksheetProcessing: (sheetSelection?.ranking || []).map((item) => ({
+        ...item,
+        processed: sheetContexts.some((ctx) => ctx.sheet.name === item.sheetName),
+        ignoredReason: sheetContexts.some((ctx) => ctx.sheet.name === item.sheetName)
+          ? null
+          : (item.deviationHeaderCount <= 0 ? 'sin_encabezado_desvio' : 'menor_puntaje')
+      })),
       detectedHeaderRow: headerRowIndex,
       detectedHeaders: headerIndexes,
       deviationColumnIndex: headerIndexes.hallazgoDetectado ?? null,
