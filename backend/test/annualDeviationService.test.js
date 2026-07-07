@@ -40,8 +40,7 @@ test('parseAnnualDeviationWorkbook detects sheets, normalizes keys and builds su
 
   assert.equal(parsed.summary.quality.total, 2);
   assert.equal(parsed.summary.quality.topDeviations[0].value, 2);
-  assert.equal(parsed.summary.logistics.total, 2);
-  assert.ok(parsed.warnings.some((warning) => warning.includes('duplicada')));
+  assert.equal(parsed.summary.logistics.total, 1);
 });
 
 function addSummaryThenDetailSheet(workbook, name, classification, totalRows, summaryRows) {
@@ -82,8 +81,8 @@ test('parseAnnualDeviationWorkbook counts all Bruno-like quality and logistics d
 
   assert.equal(parsed.sheets.quality.rows.length, 39);
   assert.equal(parsed.sheets.logistics.rows.length, 46);
-  assert.equal(parsed.summary.quality.total, 78);
-  assert.equal(parsed.summary.logistics.total, 92);
+  assert.equal(parsed.summary.quality.total, 39);
+  assert.equal(parsed.summary.logistics.total, 46);
 });
 
 test('parseAnnualDeviationWorkbook uses annual classified rows when specific sheets only contain grouped summaries', async () => {
@@ -116,7 +115,7 @@ test('parseAnnualDeviationWorkbook uses annual classified rows when specific she
   assert.ok(parsed.warnings.some((warning) => warning.includes('resumen agrupado')));
 });
 
-test('parseAnnualDeviationWorkbook merges annual and complementary quality rows without double counting duplicates', async () => {
+test('parseAnnualDeviationWorkbook uses specific quality sheet for KPIs when it has detail rows', async () => {
   const workbook = new ExcelJS.Workbook();
   const annual = workbook.addWorksheet('Desvíos anuales');
   annual.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion']);
@@ -134,15 +133,14 @@ test('parseAnnualDeviationWorkbook merges annual and complementary quality rows 
 
   const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()));
 
-  assert.equal(parsed.summary.quality.total, 3);
+  assert.equal(parsed.summary.quality.total, 2);
   assert.deepEqual(
     parsed.summary.quality.byDeviation.map((item) => item.name).sort(),
-    ['Banana pasada', 'Manzana oxidada', 'Postre mal rotulado'].sort()
+    ['Banana pasada', 'Manzana oxidada'].sort()
   );
-  assert.ok(parsed.warnings.some((warning) => warning.includes('calidad')));
 });
 
-test('parseAnnualDeviationWorkbook merges annual and complementary logistics rows', async () => {
+test('parseAnnualDeviationWorkbook uses specific logistics sheet for KPIs when it has detail rows', async () => {
   const workbook = new ExcelJS.Workbook();
   const annual = workbook.addWorksheet('Desvíos anuales');
   annual.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion']);
@@ -159,7 +157,7 @@ test('parseAnnualDeviationWorkbook merges annual and complementary logistics row
 
   const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()));
 
-  assert.equal(parsed.summary.logistics.total, 3);
+  assert.equal(parsed.summary.logistics.total, 2);
   assert.deepEqual(
     parsed.summary.logistics.byDeviation.map((item) => item.name).sort(),
     ['Falta pan en recorrido', 'No sale postre'].sort()
@@ -193,6 +191,149 @@ test('parseAnnualDeviationWorkbook processes multiple sheets of the same type', 
   assert.equal(parsed.sheets.quality.rows.length, 2);
   assert.equal(parsed.sheets.logistics.rows.length, 2);
   assert.deepEqual(parsed.sheetNames.quality, ['Calidad enero', 'Calidad febrero']);
-  assert.equal(parsed.summary.quality.total, 3);
+  assert.equal(parsed.summary.quality.total, 2);
   assert.equal(parsed.summary.logistics.total, 2);
+});
+
+function addRequiredSheets(workbook) {
+  const quality = workbook.addWorksheet('Calidad');
+  quality.addRow(['Mes', 'Área', 'Desvío', 'Clasificación']);
+  quality.addRow(['Enero', 'Depósito', 'Control calidad', 'Calidad']);
+
+  const logistics = workbook.addWorksheet('Logística');
+  logistics.addRow(['Mes', 'Área', 'Desvío', 'Clasificación']);
+  logistics.addRow(['Enero', 'Logística', 'Control logística', 'Logística']);
+}
+
+test('parseAnnualDeviationWorkbook omits rows after expected period from main KPIs', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const annual = workbook.addWorksheet('Desvíos anuales');
+  annual.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion']);
+  annual.addRow(['Junio', 'Depósito', 'Registro válido', 'Calidad']);
+  annual.addRow(['Julio', 'Depósito', 'Registro fuera de período', 'Calidad']);
+  addRequiredSheets(workbook);
+
+  const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()), {
+    referenceDate: new Date('2026-07-07T12:00:00Z')
+  });
+
+  assert.equal(parsed.validThroughMonth, 6);
+  assert.equal(parsed.summary.total, 1);
+  assert.equal(parsed.rows.filter((row) => row.sheetType === 'annual').length, 1);
+  assert.ok(parsed.warnings.some((warning) => warning.includes('fuera del período esperado') && warning.includes('Julio')));
+  assert.deepEqual(
+    parsed.diagnostics.kpi.omittedRows.map((row) => [row.sheetName, row.rowIndex, row.month, row.reason]),
+    [['Desvíos anuales', 3, 'Julio', 'fuera_del_periodo_esperado']]
+  );
+});
+
+test('parseAnnualDeviationWorkbook sends rows without month to diagnostics instead of main KPIs', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const annual = workbook.addWorksheet('Desvíos anuales');
+  annual.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion']);
+  annual.addRow(['Junio', 'Depósito', 'Registro válido', 'Calidad']);
+  annual.addRow(['', 'Recursos humanos', 'Registro sin mes', 'Recursos humanos']);
+  addRequiredSheets(workbook);
+
+  const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()), {
+    referenceDate: new Date('2026-07-07T12:00:00Z')
+  });
+
+  assert.equal(parsed.summary.total, 1);
+  assert.equal(parsed.rows.filter((row) => row.sheetType === 'annual').length, 1);
+  assert.ok(parsed.warnings.some((warning) => warning.includes('no tener mes detectable')));
+  assert.deepEqual(
+    parsed.diagnostics.kpi.omittedRows.map((row) => [row.sheetName, row.rowIndex, row.dateMonth, row.reason]),
+    [['Desvíos anuales', 3, '', 'sin_mes']]
+  );
+});
+
+function monthForHalfYear(index) {
+  return ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio'][(index - 1) % 6];
+}
+
+async function buildHalfYearWorkbookWithOutOfPeriodRows() {
+  const workbook = new ExcelJS.Workbook();
+  const annual = workbook.addWorksheet('Desvios anuales');
+  annual.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion']);
+  for (let i = 1; i <= 39; i += 1) {
+    annual.addRow([monthForHalfYear(i), 'Depósito', `Calidad anual ${i}`, 'Calidad']);
+  }
+  for (let i = 1; i <= 46; i += 1) {
+    annual.addRow([monthForHalfYear(i), 'Logística', `Logística anual ${i}`, 'Logística']);
+  }
+  for (let i = 1; i <= 29; i += 1) {
+    annual.addRow([monthForHalfYear(i), 'Mantenimiento', `Otro desvío ${i}`, 'Mantenimiento']);
+  }
+  annual.addRow(['Julio', 'Depósito', 'Calidad anual fuera de período', 'Calidad']);
+  annual.addRow(['', 'Recursos humanos', 'Registro anual sin mes', 'Recursos humanos']);
+
+  const quality = workbook.addWorksheet('Desvios de calidad');
+  quality.addRow(['Mes', 'Área', 'Desvío', 'Clasificación']);
+  for (let i = 1; i <= 39; i += 1) {
+    quality.addRow([monthForHalfYear(i), 'Depósito', `Calidad detalle ${i}`, 'Calidad']);
+  }
+  quality.addRow(['Julio', 'Depósito', 'Calidad detalle fuera de período', 'Calidad']);
+
+  const logistics = workbook.addWorksheet('Desvios de logistica');
+  logistics.addRow(['Mes', 'Área', 'Desvío', 'Clasificación']);
+  for (let i = 1; i <= 46; i += 1) {
+    logistics.addRow([monthForHalfYear(i), 'Logística', `Logística detalle ${i}`, 'Logística']);
+  }
+
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+test('parseAnnualDeviationWorkbook keeps expected annual quality and logistics KPI counts for half-year fixture', async () => {
+  const parsed = await parseAnnualDeviationWorkbook(await buildHalfYearWorkbookWithOutOfPeriodRows(), {
+    referenceDate: new Date('2026-07-07T12:00:00Z')
+  });
+
+  assert.equal(parsed.summary.total, 114);
+  assert.equal(parsed.summary.quality.total, 39);
+  assert.equal(parsed.summary.quality.specificSheetTotal, 39);
+  assert.equal(parsed.summary.logistics.total, 46);
+  assert.equal(parsed.summary.logistics.specificSheetTotal, 46);
+  assert.equal(parsed.diagnostics.kpi.rawParsedRows, 202);
+  assert.equal(parsed.diagnostics.kpi.processedRows, 199);
+});
+
+test('parseAnnualDeviationWorkbook reports all omitted KPI rows with sheet row month and reason', async () => {
+  const parsed = await parseAnnualDeviationWorkbook(await buildHalfYearWorkbookWithOutOfPeriodRows(), {
+    referenceDate: new Date('2026-07-07T12:00:00Z')
+  });
+
+  assert.deepEqual(
+    parsed.diagnostics.kpi.omittedRows.map((row) => ({
+      sheetName: row.sheetName,
+      rowIndex: row.rowIndex,
+      month: row.month,
+      dateMonth: row.dateMonth,
+      reason: row.reason
+    })),
+    [
+      {
+        sheetName: 'Desvios anuales',
+        rowIndex: 116,
+        month: 'Julio',
+        dateMonth: 'Julio',
+        reason: 'fuera_del_periodo_esperado'
+      },
+      {
+        sheetName: 'Desvios anuales',
+        rowIndex: 117,
+        month: '',
+        dateMonth: '',
+        reason: 'sin_mes'
+      },
+      {
+        sheetName: 'Desvios de calidad',
+        rowIndex: 41,
+        month: 'Julio',
+        dateMonth: 'Julio',
+        reason: 'fuera_del_periodo_esperado'
+      }
+    ]
+  );
+  assert.equal(parsed.warnings.filter((warning) => warning.includes('omitida de KPIs principales')).length, 3);
 });

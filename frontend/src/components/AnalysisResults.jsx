@@ -278,7 +278,7 @@ export default function AnalysisResults({ records, analysisId, onExportSuccess, 
 
   const displayedRecords = filteredRecords.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  const recordsForExport = exportMode === 'filtered' ? displayedRecords : safeRecords;
+  const recordsForExport = exportMode === 'filtered' ? filteredRecords : safeRecords;
 
   const exportConfigByFilter = {
     todos: { label: 'Exportar todos', fileName: 'analisis_todos.xlsx' },

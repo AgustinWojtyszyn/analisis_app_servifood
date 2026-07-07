@@ -107,10 +107,13 @@ function detectMonth(value = '') {
 
 function detectYear(values = []) {
   for (const value of values) {
+    if (value instanceof Date && value.getFullYear() >= 2000) return value.getFullYear();
     const match = String(value || '').match(/\b(20\d{2}|19\d{2})\b/);
     if (match) return Number(match[1]);
-    const date = new Date(value);
-    if (!Number.isNaN(date.getTime()) && date.getFullYear() >= 2000) return date.getFullYear();
+    if (typeof value === 'string' && /[/-]/.test(value)) {
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime()) && date.getFullYear() >= 2000) return date.getFullYear();
+    }
   }
   return null;
 }
@@ -343,60 +346,104 @@ function isClassification(row, expectedKey) {
   return normalizeKey(row?.classification || row?.sheetType || '') === expectedKey;
 }
 
-function buildDeviationDedupKey(row = {}, effectiveSheetType = '') {
-  return [
-    effectiveSheetType || row.sheetType || '',
-    row.year || '',
-    row.monthNumber || normalizeKey(row.month || row.dateMonth || ''),
-    normalizeKey(row.areaSector || ''),
-    normalizeKey(row.deviation || ''),
-    normalizeKey(row.classification || row.sheetType || ''),
-    normalizeKey(row.sourceType || '')
-  ].join('|');
-}
-
-function mergeAndDeduplicateEffectiveRows(sources = []) {
-  const rows = [];
-  const seen = new Set();
-  const duplicates = [];
-
-  sources.forEach(({ source, rows: sourceRows = [], sheetType }) => {
-    sourceRows.forEach((row) => {
-      const key = buildDeviationDedupKey(row, sheetType);
-      if (!normalizeKey(row.deviation || '') || seen.has(key)) {
-        if (seen.has(key)) duplicates.push({ source, sheetName: row.sheetName, rowIndex: row.rowIndex, key });
-        return;
-      }
-      seen.add(key);
-      rows.push({
-        ...row,
-        effectiveSheetType: sheetType,
-        effectiveSource: source
-      });
-    });
-  });
-
-  return { rows, duplicates };
-}
-
 function getEffectiveRowsForType(allRows = [], sheetType) {
   const expectedKey = sheetType === SHEET_TYPES.QUALITY ? 'calidad' : 'logistica';
   const sheetRows = allRows.filter((row) => row.sheetType === sheetType);
+  if (sheetRows.length) return sheetRows;
+
   const annualClassifiedRows = allRows.filter((row) => (
     row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, expectedKey)
   ));
 
-  return mergeAndDeduplicateEffectiveRows([
-    { source: 'annual_classification', rows: annualClassifiedRows, sheetType },
-    { source: 'specific_sheet', rows: sheetRows, sheetType }
-  ]).rows;
+  return annualClassifiedRows.map((row) => ({
+    ...row,
+    effectiveSheetType: sheetType,
+    effectiveSource: 'annual_classification'
+  }));
 }
 
-function buildSummary(allRows = []) {
+function getMonthLabel(monthNumber) {
+  const month = MONTHS.find(([, number]) => number === monthNumber)?.[0] || '';
+  return month ? cleanDisplayText(month) : '';
+}
+
+function normalizeReferenceDate(referenceDate) {
+  const date = referenceDate instanceof Date ? referenceDate : new Date(referenceDate || Date.now());
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function determineExpectedPeriodEndMonth(rows = [], options = {}) {
+  if (Number.isInteger(options.expectedPeriodEndMonth)) {
+    return options.expectedPeriodEndMonth >= 1 && options.expectedPeriodEndMonth <= 12
+      ? options.expectedPeriodEndMonth
+      : null;
+  }
+  if (options.expectedPeriodEndMonth === null) return null;
+
+  const referenceDate = normalizeReferenceDate(options.referenceDate);
+  const workbookYear = detectWorkbookYear(rows, referenceDate);
+  const referenceYear = referenceDate.getFullYear();
+  const lastCompletedMonth = referenceDate.getMonth();
+
+  if (workbookYear === referenceYear && lastCompletedMonth >= 1 && lastCompletedMonth <= 11) {
+    return lastCompletedMonth;
+  }
+  return null;
+}
+
+function buildKpiRows(allRows = [], validThroughMonth = null) {
+  const rows = [];
+  const omittedRows = [];
+
+  allRows.forEach((row) => {
+    if (!row.monthNumber) {
+      omittedRows.push({
+        sheetName: row.sheetName,
+        sheetType: row.sheetType,
+        rowIndex: row.rowIndex,
+        month: row.month || '',
+        dateMonth: row.dateMonth || '',
+        reason: 'sin_mes'
+      });
+      return;
+    }
+    if (validThroughMonth && row.monthNumber > validThroughMonth) {
+      omittedRows.push({
+        sheetName: row.sheetName,
+        sheetType: row.sheetType,
+        rowIndex: row.rowIndex,
+        month: row.month || '',
+        dateMonth: row.dateMonth || '',
+        reason: 'fuera_del_periodo_esperado',
+        validThroughMonth,
+        validThroughMonthLabel: getMonthLabel(validThroughMonth)
+      });
+      return;
+    }
+    rows.push(row);
+  });
+
+  return { rows, omittedRows };
+}
+
+function buildOmittedRowWarnings(omittedRows = []) {
+  return omittedRows.map((row) => {
+    const location = `${row.sheetName || row.sheetType || 'Hoja'} fila ${row.rowIndex}`;
+    const month = row.month || row.dateMonth || 'sin mes';
+    if (row.reason === 'fuera_del_periodo_esperado') {
+      return `Fila omitida de KPIs principales por estar fuera del período esperado hasta ${row.validThroughMonthLabel}: ${location}, mes ${month}.`;
+    }
+    return `Fila omitida de KPIs principales por no tener mes detectable: ${location}, fecha/mes ${month}.`;
+  });
+}
+
+function buildSummary(allRows = [], options = {}) {
+  const kpiRows = options.kpiRows || allRows;
   const annualRows = allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL);
-  const baseRows = annualRows.length ? annualRows : allRows;
-  const effectiveQualityRows = getEffectiveRowsForType(allRows, SHEET_TYPES.QUALITY);
-  const effectiveLogisticsRows = getEffectiveRowsForType(allRows, SHEET_TYPES.LOGISTICS);
+  const kpiAnnualRows = kpiRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL);
+  const baseRows = annualRows.length ? kpiAnnualRows : kpiRows;
+  const effectiveQualityRows = getEffectiveRowsForType(kpiRows, SHEET_TYPES.QUALITY);
+  const effectiveLogisticsRows = getEffectiveRowsForType(kpiRows, SHEET_TYPES.LOGISTICS);
   const byMonth = countBy(baseRows, 'month')
     .map((item) => ({ ...item, monthNumber: baseRows.find((row) => normalizeKey(row.month) === item.key)?.monthNumber || 99 }))
     .sort((a, b) => a.monthNumber - b.monthNumber);
@@ -412,14 +459,14 @@ function buildSummary(allRows = []) {
     quality: {
       ...summarizeSheet(effectiveQualityRows),
       source: effectiveQualityRows[0]?.effectiveSource || 'specific_sheet',
-      specificSheetTotal: allRows.filter((row) => row.sheetType === SHEET_TYPES.QUALITY).length,
-      annualClassificationTotal: allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'calidad')).length
+      specificSheetTotal: kpiRows.filter((row) => row.sheetType === SHEET_TYPES.QUALITY).length,
+      annualClassificationTotal: kpiRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'calidad')).length
     },
     logistics: {
       ...summarizeSheet(effectiveLogisticsRows),
       source: effectiveLogisticsRows[0]?.effectiveSource || 'specific_sheet',
-      specificSheetTotal: allRows.filter((row) => row.sheetType === SHEET_TYPES.LOGISTICS).length,
-      annualClassificationTotal: allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'logistica')).length
+      specificSheetTotal: kpiRows.filter((row) => row.sheetType === SHEET_TYPES.LOGISTICS).length,
+      annualClassificationTotal: kpiRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'logistica')).length
     }
   };
 }
@@ -434,7 +481,7 @@ function detectWorkbookYear(rows = [], fallbackDate = new Date()) {
   return fallbackDate.getFullYear();
 }
 
-export async function parseAnnualDeviationWorkbook(fileBuffer) {
+export async function parseAnnualDeviationWorkbook(fileBuffer, options = {}) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(fileBuffer);
 
@@ -474,30 +521,32 @@ export async function parseAnnualDeviationWorkbook(fileBuffer) {
     });
   });
 
-  const summary = buildSummary(allRows);
-  const effectiveQuality = mergeAndDeduplicateEffectiveRows([
-    { source: 'annual_classification', rows: allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'calidad')), sheetType: SHEET_TYPES.QUALITY },
-    { source: 'specific_sheet', rows: allRows.filter((row) => row.sheetType === SHEET_TYPES.QUALITY), sheetType: SHEET_TYPES.QUALITY }
-  ]);
-  const effectiveLogistics = mergeAndDeduplicateEffectiveRows([
-    { source: 'annual_classification', rows: allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'logistica')), sheetType: SHEET_TYPES.LOGISTICS },
-    { source: 'specific_sheet', rows: allRows.filter((row) => row.sheetType === SHEET_TYPES.LOGISTICS), sheetType: SHEET_TYPES.LOGISTICS }
-  ]);
-  const duplicateWarnings = [
-    ...effectiveQuality.duplicates.map((item) => `Fila duplicada omitida en resumen de calidad: ${item.sheetName || item.source} fila ${item.rowIndex}.`),
-    ...effectiveLogistics.duplicates.map((item) => `Fila duplicada omitida en resumen de logística: ${item.sheetName || item.source} fila ${item.rowIndex}.`)
-  ];
+  const validThroughMonth = determineExpectedPeriodEndMonth(allRows, options);
+  const { rows: kpiRows, omittedRows } = buildKpiRows(allRows, validThroughMonth);
+  const summary = buildSummary(allRows, { kpiRows });
+  const omittedRowWarnings = buildOmittedRowWarnings(omittedRows);
   return {
     year: detectWorkbookYear(allRows),
+    validThroughMonth,
     sheetNames: Object.fromEntries(Object.entries(selectedSheets).map(([type, worksheets]) => [
       type,
       worksheets.length === 1 ? worksheets[0].name : worksheets.map((sheet) => sheet.name)
     ])),
     sheets,
-    rows: allRows,
+    rows: kpiRows,
+    kpiRows,
     summary,
-    diagnostics: { sheets: sheetDiagnostics },
-    warnings: [...warnings, ...duplicateWarnings].filter(Boolean)
+    diagnostics: {
+      sheets: sheetDiagnostics,
+      kpi: {
+        validThroughMonth,
+        validThroughMonthLabel: getMonthLabel(validThroughMonth),
+        rawParsedRows: allRows.length,
+        processedRows: kpiRows.length,
+        omittedRows
+      }
+    },
+    warnings: [...warnings, ...omittedRowWarnings].filter(Boolean)
   };
 }
 

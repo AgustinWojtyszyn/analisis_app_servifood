@@ -138,6 +138,8 @@ export async function uploadAnnualDeviationExcel(req, res) {
       sheet_names: parsed.sheetNames,
       metadata: {
         warnings: parsed.warnings,
+        diagnostics: parsed.diagnostics,
+        validThroughMonth: parsed.validThroughMonth,
         originalSize: req.file.size,
         processedRows: parsed.rows.length
       }
