@@ -1,0 +1,86 @@
+1. Fecha y hora
+2026-07-08 09:30:18 -03
+
+2. Objetivo del cambio
+Auditar y corregir el parser/conteo del modulo anual de desvios para que Calidad y Logistica contemplen todos los registros reales, sin hardcodear valores y sin afectar el analisis principal.
+
+3. Causa raiz
+La funcion getEffectiveRowsForType usaba siempre la hoja especifica cuando existia al menos una fila valida. Por eso, si las hojas especificas de Calidad y Logistica contenian menos filas validas que la hoja anual filtrada por clasificacion, el resumen anual tomaba esos subconjuntos parciales. El caso observado era Calidad 12/39 y Logistica 11/46: las hojas especificas tenian 12 y 11 filas validas, mientras que la hoja anual clasificada tenia 39 y 46.
+
+4. Archivos modificados reales
+- backend/src/services/annualDeviation/annualDeviationService.js
+- backend/test/annualDeviationService.test.js
+- CAMBIOS_FIX_ANALISIS_ANUAL.txt
+
+5. Que cambio en annualDeviationService.js
+Se ajusto getEffectiveRowsForType para calcular dos fuentes candidatas:
+- filas de la hoja especifica del tipo solicitado.
+- filas de la hoja anual filtradas por clasificacion normalizada.
+
+La fuente efectiva ahora se elige por cantidad de filas validas:
+- si la hoja especifica tiene mas filas que la anual clasificada, se usa la hoja especifica.
+- si la hoja anual clasificada tiene igual o mas filas, se usa la hoja anual filtrada.
+
+La funcion sigue marcando effectiveSheetType y effectiveSource para mantener trazabilidad de la fuente efectiva usada.
+
+6. Que test se agrego/modifico en annualDeviationService.test.js
+Se agrego el test:
+parseAnnualDeviationWorkbook uses annual classified rows when specific sheets have fewer valid details
+
+Ese test reproduce el caso de regresion:
+- hoja anual con 39 registros de Calidad y 46 de Logistica.
+- hoja especifica de Calidad con 12 registros validos.
+- hoja especifica de Logistica con 11 registros validos.
+
+El test verifica que el resumen use la hoja anual clasificada como fuente efectiva y conserve los totales reales 39 y 46.
+
+Tambien se ajusto el test:
+parseAnnualDeviationWorkbook uses specific quality sheet for KPIs when it has detail rows
+
+El ajuste mantiene cubierta la regla inversa: cuando la hoja especifica tiene mas filas validas que la anual filtrada, se usa la hoja especifica.
+
+7. Antes vs despues de conteos
+Calidad:
+- Antes: 12
+- Despues: 39
+
+Logistica:
+- Antes: 11
+- Despues: 46
+
+Fuente efectiva usada:
+- Antes: specific_sheet para Calidad y Logistica.
+- Despues: annual_classification para Calidad y Logistica en el fixture parcial 12/39 y 11/46.
+
+8. Verificaciones ejecutadas
+npm test:
+- Ejecutado en backend con npm test.
+- Resultado: 239 tests passed.
+
+npm run lint:
+- Ejecutado desde la raiz.
+- Resultado: OK con warnings existentes, sin errores.
+- Warnings observados: hooks/deps de frontend, react-refresh y variables/argumentos no usados existentes en backend.
+
+npm run build:
+- Ejecutado desde la raiz.
+- Resultado: OK.
+- Build frontend genero warnings habituales de chunks grandes y auditoria npm.
+- Build backend ejecuto prisma generate correctamente.
+
+9. Riesgos o efectos colaterales posibles
+- En empates entre hoja especifica y hoja anual clasificada, ahora se usa la anual clasificada. Esto sigue la regla conservadora de no perder filas validas cuando la anual tiene igual cobertura.
+- Si una hoja especifica contiene filas distintas pero no mas numerosas que la anual, el summary de esa categoria priorizara la anual clasificada. La trazabilidad queda indicada con effectiveSource.
+- No se modifico la logica de parseo de celdas, deteccion de encabezados, normalizacion ni KPIs principales; el cambio esta acotado a la seleccion de fuente efectiva para summary de Calidad y Logistica.
+
+10. Confirmaciones explicitas
+- No se toco produccion.
+- No se toco SQL.
+- No se toco RLS.
+- No se modificaron crons.
+- No se modifico food-order-app.
+
+11. Estado de frontend/dist/index.html
+frontend/dist/index.html esta modificado en el working tree.
+No se incluye como cambio funcional del fix.
+Es un artefacto de build generado por npm run build.
