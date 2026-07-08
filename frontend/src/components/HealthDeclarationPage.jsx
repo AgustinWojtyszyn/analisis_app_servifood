@@ -1,3 +1,4 @@
+import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -103,7 +104,7 @@ function buildHealthEvaluation({ hasSymptoms = false, hasFever = false, recentCo
 }
 
 export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete }) {
-  const SERVIFOOD_LOGO_URL = 'https://analisis.servifoodapp.site/assets/servifood_logo_white_text_HQ-2783eac4.png';
+  const SERVIFOOD_LOGO_URL = servifoodLogo;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
