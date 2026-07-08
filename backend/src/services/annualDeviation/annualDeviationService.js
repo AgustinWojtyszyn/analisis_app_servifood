@@ -349,16 +349,17 @@ function isClassification(row, expectedKey) {
 function getEffectiveRowsForType(allRows = [], sheetType) {
   const expectedKey = sheetType === SHEET_TYPES.QUALITY ? 'calidad' : 'logistica';
   const sheetRows = allRows.filter((row) => row.sheetType === sheetType);
-  if (sheetRows.length) return sheetRows;
-
   const annualClassifiedRows = allRows.filter((row) => (
     row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, expectedKey)
   ));
 
-  return annualClassifiedRows.map((row) => ({
+  const sourceRows = sheetRows.length > annualClassifiedRows.length ? sheetRows : annualClassifiedRows;
+  const effectiveSource = sourceRows === sheetRows ? 'specific_sheet' : 'annual_classification';
+
+  return sourceRows.map((row) => ({
     ...row,
     effectiveSheetType: sheetType,
-    effectiveSource: 'annual_classification'
+    effectiveSource
   }));
 }
 

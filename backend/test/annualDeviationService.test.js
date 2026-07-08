@@ -115,6 +115,43 @@ test('parseAnnualDeviationWorkbook uses annual classified rows when specific she
   assert.ok(parsed.warnings.some((warning) => warning.includes('resumen agrupado')));
 });
 
+test('parseAnnualDeviationWorkbook uses annual classified rows when specific sheets have fewer valid details', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const annual = workbook.addWorksheet('Desvios anuales');
+  annual.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion']);
+  for (let i = 1; i <= 39; i += 1) {
+    annual.addRow(['Enero', 'Deposito', `Calidad anual ${i}`, i % 2 ? 'calidad' : 'CALIDAD']);
+  }
+  for (let i = 1; i <= 46; i += 1) {
+    annual.addRow(['Febrero', 'Logistica', `Logística anual ${i}`, i % 2 ? 'Logistica' : 'Logística']);
+  }
+
+  const quality = workbook.addWorksheet('Desvios de calidad');
+  quality.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion']);
+  for (let i = 1; i <= 12; i += 1) {
+    quality.addRow(['Enero', 'Deposito', `Calidad detalle ${i}`, 'Calidad']);
+  }
+
+  const logistics = workbook.addWorksheet('Desvios de logistica');
+  logistics.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion']);
+  for (let i = 1; i <= 11; i += 1) {
+    logistics.addRow(['Febrero', 'Logistica', `Logística detalle ${i}`, 'Logística']);
+  }
+
+  const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()));
+
+  assert.equal(parsed.sheets.quality.rows.length, 12);
+  assert.equal(parsed.summary.quality.specificSheetTotal, 12);
+  assert.equal(parsed.summary.quality.annualClassificationTotal, 39);
+  assert.equal(parsed.summary.quality.total, 39);
+  assert.equal(parsed.summary.quality.source, 'annual_classification');
+  assert.equal(parsed.sheets.logistics.rows.length, 11);
+  assert.equal(parsed.summary.logistics.specificSheetTotal, 11);
+  assert.equal(parsed.summary.logistics.annualClassificationTotal, 46);
+  assert.equal(parsed.summary.logistics.total, 46);
+  assert.equal(parsed.summary.logistics.source, 'annual_classification');
+});
+
 test('parseAnnualDeviationWorkbook uses specific quality sheet for KPIs when it has detail rows', async () => {
   const workbook = new ExcelJS.Workbook();
   const annual = workbook.addWorksheet('Desvíos anuales');
@@ -126,6 +163,7 @@ test('parseAnnualDeviationWorkbook uses specific quality sheet for KPIs when it 
   quality.addRow(['Mes', 'Área', 'Desvío', 'Clasificación']);
   quality.addRow(['Enero', 'Depósito', 'Manzana oxidada', 'Calidad']);
   quality.addRow(['Enero', 'Cámara 1', 'Banana pasada', 'Calidad']);
+  quality.addRow(['Enero', 'Área fría', 'Postre mal rotulado', 'Calidad']);
 
   const logistics = workbook.addWorksheet('Logística');
   logistics.addRow(['Mes', 'Área', 'Desvío', 'Clasificación']);
@@ -133,10 +171,10 @@ test('parseAnnualDeviationWorkbook uses specific quality sheet for KPIs when it 
 
   const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()));
 
-  assert.equal(parsed.summary.quality.total, 2);
+  assert.equal(parsed.summary.quality.total, 3);
   assert.deepEqual(
     parsed.summary.quality.byDeviation.map((item) => item.name).sort(),
-    ['Banana pasada', 'Manzana oxidada'].sort()
+    ['Banana pasada', 'Manzana oxidada', 'Postre mal rotulado'].sort()
   );
 });
 
