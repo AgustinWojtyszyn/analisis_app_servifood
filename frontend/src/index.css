@@ -11,3 +11,55 @@ body,
 body {
   margin: 0;
 }
+
+.declaration-success-confetti {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 2147483647;
+  pointer-events: none;
+  overflow: hidden;
+  transform: translateZ(0);
+}
+
+.declaration-success-confetti__piece {
+  position: absolute;
+  width: var(--confetti-size, 7px);
+  height: calc(var(--confetti-size, 7px) * 1.65);
+  border-radius: 2px;
+  background: #74acdf;
+  animation: declaration-success-confetti-fall var(--confetti-duration, 1300ms) ease-out forwards;
+}
+
+.declaration-success-confetti__piece:nth-child(2n) {
+  background: #ffffff;
+  border: 1px solid rgb(116 172 223 / 0.42);
+}
+
+.declaration-success-confetti__piece:nth-child(4n) {
+  background: #9dd9f3;
+}
+
+@keyframes declaration-success-confetti-fall {
+  0% {
+    transform: translate3d(0, -24px, 0) rotate(0deg);
+    opacity: 0;
+  }
+
+  12% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate3d(var(--confetti-drift), 105vh, 0) rotate(var(--confetti-rotate));
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .declaration-success-confetti__piece {
+    animation: none;
+  }
+}

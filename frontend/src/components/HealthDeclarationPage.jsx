@@ -27,6 +27,7 @@ import {
   useMediaQuery
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import DeclarationSuccessConfetti from './DeclarationSuccessConfetti';
 import {
   deleteMyHealthDeclaration,
   getMyHealthDeclarations,
@@ -130,6 +131,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
   const [completedToday, setCompletedToday] = useState(false);
   const [todayDeclaration, setTodayDeclaration] = useState(null);
   const [history, setHistory] = useState([]);
+  const [confettiRunId, setConfettiRunId] = useState(0);
   const submitInFlightRef = useRef(false);
 
   const [form, setForm] = useState({
@@ -229,11 +231,15 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
       setError('');
       setSuccess('');
       setWarning('');
-      const response = editingId ? await updateMyHealthDeclaration(editingId, check.payload) : await submitHealthDeclaration(check.payload);
+      const isCreating = !editingId;
+      const response = isCreating ? await submitHealthDeclaration(check.payload) : await updateMyHealthDeclaration(editingId, check.payload);
       setCompletedToday(true);
       setTodayDeclaration(response?.declaration || null);
       setShowForm(false);
       setSuccess(editingId ? 'Declaración actualizada correctamente.' : 'Declaración completada correctamente.');
+      if (isCreating && response?.declaration?.id) {
+        setConfettiRunId((prev) => prev + 1);
+      }
       if (check.payload.hasSymptoms || check.payload.hasFever || check.payload.recentContact) {
         setWarning('Declaración con indicadores de riesgo. Notificá al responsable inmediatamente.');
       }
@@ -307,6 +313,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
 
   return (
     <Box sx={{ display: 'grid', gap: 2, maxWidth: 1180, mx: 'auto', width: '100%', px: { xs: 1, sm: 2 } }}>
+      <DeclarationSuccessConfetti runId={confettiRunId} />
       {error && <Alert severity="error">{error}</Alert>}
       {success && <Alert severity="success">{success}</Alert>}
       {warning && <Alert severity="warning">{warning}</Alert>}
