@@ -28,7 +28,9 @@ const CANONICAL_LABELS = new Map([
   ['logistica', 'Logística'],
   ['calidad', 'Calidad'],
   ['interno', 'Interno'],
-  ['externo', 'Externo']
+  ['internos', 'Interno'],
+  ['externo', 'Externo'],
+  ['externos', 'Externo']
 ]);
 
 const FIELD_ALIASES = {
@@ -74,6 +76,15 @@ function cleanDisplayText(value = '') {
   const key = normalizeKey(text);
   if (CANONICAL_LABELS.has(key)) return CANONICAL_LABELS.get(key);
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function normalizeSourceType(value = '') {
+  const key = normalizeKey(value);
+  if (!key) return '';
+  if (/^\d+([,.]\d+)?%?$/.test(key)) return '';
+  if (key === 'interno' || key === 'internos') return 'Interno';
+  if (key === 'externo' || key === 'externos') return 'Externo';
+  return '';
 }
 
 function normalizeCellValue(value) {
@@ -269,7 +280,7 @@ function parseWorksheet(worksheet, sheetType) {
     const deviation = cleanDisplayText(getValueByIndex(row.values, canonicalIndexes.deviation));
     const areaSector = cleanDisplayText(getValueByIndex(row.values, canonicalIndexes.areaSector));
     const classification = cleanDisplayText(getValueByIndex(row.values, canonicalIndexes.classification));
-    const sourceType = cleanDisplayText(getValueByIndex(row.values, canonicalIndexes.sourceType));
+    const sourceType = normalizeSourceType(getValueByIndex(row.values, canonicalIndexes.sourceType));
 
     const hasMeaningfulData = deviation || areaSector || classification || sourceType || compact.length >= 3;
     if (!hasMeaningfulData) return;
@@ -340,6 +351,15 @@ function summarizeSheet(rows = []) {
       percentage: total ? Number(((item.value * 100) / total).toFixed(2)) : 0
     }))
   };
+}
+
+function countBySourceType(rows = []) {
+  return countBy(
+    rows
+      .map((row) => ({ ...row, sourceType: normalizeSourceType(row.sourceType) }))
+      .filter((row) => row.sourceType),
+    'sourceType'
+  );
 }
 
 function isClassification(row, expectedKey) {
@@ -454,7 +474,7 @@ function buildSummary(allRows = [], options = {}) {
     byMonth,
     byArea: countBy(baseRows, 'areaSector'),
     byClassification: countBy(baseRows, 'classification'),
-    bySourceType: countBy(baseRows, 'sourceType').filter((item) => item.key !== 'sin especificar'),
+    bySourceType: countBySourceType(baseRows),
     topAreas: countBy(baseRows, 'areaSector', 10),
     topDeviations: countBy(baseRows, 'deviation', 10),
     quality: {
@@ -551,4 +571,4 @@ export async function parseAnnualDeviationWorkbook(fileBuffer, options = {}) {
   };
 }
 
-export { SHEET_TYPES, normalizeKey, cleanDisplayText, buildSummary, getEffectiveRowsForType };
+export { SHEET_TYPES, normalizeKey, cleanDisplayText, normalizeSourceType, buildSummary, getEffectiveRowsForType };

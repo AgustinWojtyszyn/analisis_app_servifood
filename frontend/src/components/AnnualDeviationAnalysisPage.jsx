@@ -65,6 +65,29 @@ function countBy(records, field, limit = null) {
   return limit ? result.slice(0, limit) : result;
 }
 
+function normalizeSourceType(value = '') {
+  const key = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+  if (!key || /^\d+([,.]\d+)?%?$/.test(key)) return '';
+  if (key === 'interno' || key === 'internos') return 'Interno';
+  if (key === 'externo' || key === 'externos') return 'Externo';
+  return '';
+}
+
+function countBySourceType(records) {
+  return countBy(
+    records
+      .map((record) => ({ ...record, sourceType: normalizeSourceType(record.sourceType) }))
+      .filter((record) => record.sourceType),
+    'sourceType'
+  );
+}
+
 function uniqueValues(records, field) {
   return [...new Set(records.map((record) => record[field]).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'es'));
 }
@@ -95,7 +118,7 @@ function KpiCard({ label, value, helper }) {
     <Grid item xs={12} sm={6} md={3}>
       <Paper sx={{ p: 2, height: '100%', border: '1px solid #dde7f6', boxShadow: 'none' }}>
         <Typography sx={{ color: '#52627e', fontWeight: 800, fontSize: 13 }}>{label}</Typography>
-        <Typography sx={{ color: '#0b1f4d', fontWeight: 900, fontSize: 26, mt: 0.5 }}>{value}</Typography>
+        <Typography sx={{ color: '#0b1f4d', fontWeight: 900, fontSize: 26, mt: 0.5, overflowWrap: 'anywhere' }}>{value}</Typography>
         {helper && <Typography sx={{ color: '#64748b', fontWeight: 650, fontSize: 12.5 }}>{helper}</Typography>}
       </Paper>
     </Grid>
@@ -299,7 +322,7 @@ export default function AnnualDeviationAnalysisPage() {
     }),
     byClassification: countBy(filteredRows, 'classification'),
     byArea: countBy(filteredRows, 'areaSector', 12),
-    bySourceType: countBy(filteredRows.filter((row) => row.sourceType), 'sourceType'),
+    bySourceType: countBySourceType(filteredRows),
     topAreas: countBy(filteredRows, 'areaSector', 10),
     topDeviations: countBy(filteredRows, 'deviation', 10),
     quality: countBy(qualityRows, 'deviation', 10),

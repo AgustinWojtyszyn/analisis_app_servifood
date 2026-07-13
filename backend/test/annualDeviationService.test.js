@@ -375,3 +375,66 @@ test('parseAnnualDeviationWorkbook reports all omitted KPI rows with sheet row m
   );
   assert.equal(parsed.warnings.filter((warning) => warning.includes('omitida de KPIs principales')).length, 3);
 });
+
+test('parseAnnualDeviationWorkbook groups annual source type only as Interno and Externo', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const annual = workbook.addWorksheet('Desvíos anuales');
+  annual.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion', 'Interno / externo']);
+  annual.addRow(['Enero', 'Depósito', 'Registro interno', 'Calidad', 'interno']);
+  annual.addRow(['Enero', 'Logística', 'Registro externo', 'Logística', 'externo']);
+  annual.addRow(['Febrero', 'Depósito', 'Otro interno', 'Calidad', 'Interno']);
+  addRequiredSheets(workbook);
+
+  const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()));
+
+  assert.deepEqual(
+    parsed.summary.bySourceType.map((item) => [item.name, item.value]),
+    [['Interno', 2], ['Externo', 1]]
+  );
+});
+
+test('parseAnnualDeviationWorkbook excludes numbers, areas and classifications from source type', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const annual = workbook.addWorksheet('Desvíos anuales');
+  annual.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion', 'Tipo']);
+  annual.addRow(['Enero', 'Depósito', 'Número en tipo', 'Calidad', '12.5']);
+  annual.addRow(['Enero', 'Área fría', 'Área en tipo', 'Logística', 'Área fría']);
+  annual.addRow(['Febrero', 'Logística', 'Clasificación en tipo', 'Calidad', 'Calidad']);
+  annual.addRow(['Febrero', 'Depósito', 'Porcentaje en tipo', 'Calidad', '44%']);
+  addRequiredSheets(workbook);
+
+  const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()));
+
+  assert.deepEqual(parsed.summary.bySourceType, []);
+  assert.deepEqual(parsed.rows.filter((row) => row.sheetType === 'annual').map((row) => row.sourceType), ['', '', '', '']);
+});
+
+test('parseAnnualDeviationWorkbook normalizes source type spaces and capitalization', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const annual = workbook.addWorksheet('Desvíos anuales');
+  annual.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion', 'Origen']);
+  annual.addRow(['Enero', 'Depósito', 'Registro interno', 'Calidad', '  INTERNO  ']);
+  annual.addRow(['Enero', 'Logística', 'Registro externo', 'Logística', ' externo ']);
+  addRequiredSheets(workbook);
+
+  const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()));
+
+  assert.deepEqual(
+    parsed.summary.bySourceType.map((item) => [item.name, item.value]),
+    [['Externo', 1], ['Interno', 1]]
+  );
+});
+
+test('parseAnnualDeviationWorkbook keeps source type summary empty when no valid source data exists', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const annual = workbook.addWorksheet('Desvíos anuales');
+  annual.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion', 'Interno / externo']);
+  annual.addRow(['Enero', 'Depósito', 'Registro sin origen', 'Calidad', '']);
+  annual.addRow(['Febrero', 'Logística', 'Registro con origen inválido', 'Logística', 'Depósito']);
+  addRequiredSheets(workbook);
+
+  const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()));
+
+  assert.equal(parsed.summary.total, 2);
+  assert.deepEqual(parsed.summary.bySourceType, []);
+});
