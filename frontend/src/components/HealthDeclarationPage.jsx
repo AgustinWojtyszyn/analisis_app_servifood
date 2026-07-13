@@ -435,29 +435,24 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
             <Card sx={{ height: '100%', bgcolor: surfaceMain, color: textPrimary, border: `1px solid ${borderSoft}`, borderRadius: 4, boxShadow: '0 14px 28px rgba(7, 14, 27, 0.26)' }}>
               <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                  <Stack spacing={0.75} alignItems="flex-start">
-                    <Chip label="Declaración diaria" size="small" sx={{ bgcolor: '#1d4ed8', color: '#fff', fontWeight: 700 }} />
+                  <Chip label="Declaración diaria" size="small" sx={{ bgcolor: '#1d4ed8', color: '#fff', fontWeight: 700 }} />
+                  <Stack direction="row" alignItems="flex-start" spacing={1}>
                     <Box
+                      aria-hidden="true"
                       sx={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        maxWidth: '100%',
-                        px: 1.1,
-                        py: 0.35,
-                        borderRadius: 999,
-                        border: '1px solid rgba(116, 172, 223, 0.58)',
-                        bgcolor: 'rgba(116, 172, 223, 0.12)',
-                        color: '#d9f1ff',
-                        fontSize: 12,
-                        fontWeight: 700,
-                        lineHeight: 1.2,
-                        whiteSpace: 'nowrap'
+                        width: 22,
+                        height: 14,
+                        mt: 0.35,
+                        borderRadius: 0.75,
+                        border: '1px solid rgba(217, 241, 255, 0.42)',
+                        opacity: 0.78,
+                        boxShadow: '0 4px 10px rgba(7, 14, 27, 0.18)',
+                        background: 'linear-gradient(to bottom, #74acdf 0 33%, #ffffff 33% 66%, #74acdf 66% 100%)',
+                        flex: '0 0 auto'
                       }}
-                    >
-                      Vamos Argentina&nbsp;<Box component="span" aria-hidden="true">🇦🇷</Box>
-                    </Box>
+                    />
+                    <Box component="img" src={SERVIFOOD_LOGO_URL} alt="ServiFood" sx={{ width: { xs: 84, sm: 108, md: 118 }, maxWidth: { xs: 100, md: 130 }, height: 'auto', objectFit: 'contain' }} />
                   </Stack>
-                  <Box component="img" src={SERVIFOOD_LOGO_URL} alt="ServiFood" sx={{ width: { xs: 84, sm: 108, md: 118 }, maxWidth: { xs: 100, md: 130 }, height: 'auto', objectFit: 'contain' }} />
                 </Stack>
                 <Typography variant="h4" sx={{ fontWeight: 800, mb: 1.2, fontSize: { xs: '1.6rem', md: '2rem' } }}>Completá tu declaración de salud</Typography>
                 <Typography sx={{ color: textSecondary, mb: 0.8 }}>Registrá tu estado sanitario antes de comenzar la jornada.</Typography>
