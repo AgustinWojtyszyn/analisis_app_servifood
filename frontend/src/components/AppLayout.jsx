@@ -156,23 +156,6 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         }}
       >
         <Box
-          aria-hidden="true"
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 0.75,
-            mb: 1,
-            color: '#f6c45a',
-            fontSize: 13,
-            lineHeight: 1
-          }}
-        >
-          <Box component="span">★</Box>
-          <Box component="span">★</Box>
-          <Box component="span">★</Box>
-        </Box>
-        <Box
           component="img"
           src={servifoodLogo}
           alt="ServiFood Logo"
@@ -185,6 +168,23 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
             mx: 'auto'
           }}
         />
+        <Box
+          aria-hidden="true"
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 0.75,
+            mt: 1,
+            color: '#f6c45a',
+            fontSize: 13,
+            lineHeight: 1
+          }}
+        >
+          <Box component="span">★</Box>
+          <Box component="span">★</Box>
+          <Box component="span">★</Box>
+        </Box>
         <Typography sx={{ mt: 1.25, color: 'rgba(255,255,255,0.88)', fontSize: 12, textAlign: 'center', fontWeight: 600 }}>
           Plataforma de análisis de desvíos
         </Typography>
