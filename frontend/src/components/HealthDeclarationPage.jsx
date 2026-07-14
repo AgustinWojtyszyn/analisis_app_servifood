@@ -151,6 +151,47 @@ function buildHealthEvaluation({ hasSymptoms = false, hasFever = false, recentCo
   return { healthStatus: 'Apto', trafficLight: 'Verde', suggestedAction: 'Puede ingresar. Mantener higiene de manos.' };
 }
 
+function playHealthDeclarationSuccessSound() {
+  if (typeof window === 'undefined') return;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+
+  const context = new AudioContextClass();
+  const play = () => {
+    const now = context.currentTime;
+    const masterGain = context.createGain();
+    masterGain.gain.setValueAtTime(0.001, now);
+    masterGain.gain.exponentialRampToValueAtTime(0.12, now + 0.025);
+    masterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
+    masterGain.connect(context.destination);
+
+    [
+      { frequency: 523.25, start: 0, duration: 0.14 },
+      { frequency: 659.25, start: 0.09, duration: 0.18 }
+    ].forEach(({ frequency, start, duration }) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, now + start);
+      gain.gain.setValueAtTime(0.001, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.08, now + start + 0.018);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + start + duration);
+      oscillator.connect(gain);
+      gain.connect(masterGain);
+      oscillator.start(now + start);
+      oscillator.stop(now + start + duration + 0.02);
+    });
+
+    window.setTimeout(() => context.close().catch(() => {}), 450);
+  };
+
+  if (context.state === 'suspended') {
+    context.resume().then(play).catch(() => context.close().catch(() => {}));
+    return;
+  }
+  play();
+}
+
 export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete }) {
   const SERVIFOOD_LOGO_URL = servifoodLogo;
   const theme = useTheme();
@@ -180,6 +221,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
   const [history, setHistory] = useState([]);
   const [confettiRunId, setConfettiRunId] = useState(0);
   const submitInFlightRef = useRef(false);
+  const successSoundDeclarationIdsRef = useRef(new Set());
 
   const [form, setForm] = useState({
     hasSymptoms: '',
@@ -285,6 +327,10 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
       setShowForm(false);
       setSuccess(editingId ? 'Declaración actualizada correctamente.' : 'Declaración completada correctamente.');
       if (isCreating && response?.declaration?.id) {
+        if (!successSoundDeclarationIdsRef.current.has(response.declaration.id)) {
+          successSoundDeclarationIdsRef.current.add(response.declaration.id);
+          playHealthDeclarationSuccessSound();
+        }
         setConfettiRunId((prev) => prev + 1);
       }
       if (check.payload.hasSymptoms || check.payload.hasFever || check.payload.recentContact) {
