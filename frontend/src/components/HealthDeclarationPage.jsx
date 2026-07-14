@@ -101,28 +101,13 @@ function ArgentinaFlagBand() {
         maxWidth: 440,
         height: 42,
         borderRadius: 999,
-        border: '1px solid rgba(188, 220, 247, 0.18)',
+        border: '1px solid rgba(255, 255, 255, 0.28)',
         overflow: 'hidden',
-        opacity: 0.82,
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 10px 24px rgba(7, 14, 27, 0.18)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: [
-          'linear-gradient(90deg, rgba(26,38,56,0.38), rgba(26,38,56,0.02) 34%, rgba(26,38,56,0.02) 66%, rgba(26,38,56,0.38))',
-          'linear-gradient(to bottom, rgba(116,172,223,0.34) 0 33%, rgba(255,255,255,0.2) 33% 66%, rgba(116,172,223,0.34) 66% 100%)'
-        ].join(', ')
+        opacity: 0.72,
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.34), 0 8px 18px rgba(7, 14, 27, 0.16)',
+        background: 'linear-gradient(to bottom, #75AADB 0 33.333%, #FFFFFF 33.333% 66.666%, #75AADB 66.666% 100%)'
       }}
-    >
-      <Box
-        sx={{
-          width: 18,
-          height: 18,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(252, 211, 77, 0.36) 0 34%, rgba(252, 211, 77, 0.16) 35% 58%, rgba(252, 211, 77, 0) 59%)'
-        }}
-      />
-    </Box>
+    />
   );
 }
 
@@ -478,9 +463,9 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
                       fontWeight: 700
                     }}
                   />
-                  <Stack alignItems="center" sx={{ mt: 2 }}>
+                  <Stack alignItems="center" spacing={1.5} sx={{ mt: 2 }}>
+                    <Box component="img" src={SERVIFOOD_LOGO_URL} alt="ServiFood" sx={{ display: 'block', width: { xs: 72, sm: 90 }, height: 'auto', objectFit: 'contain' }} />
                     <ArgentinaFlagBand />
-                    <Box component="img" src={SERVIFOOD_LOGO_URL} alt="ServiFood" sx={{ display: 'block', width: { xs: 72, sm: 90 }, height: 'auto', objectFit: 'contain', mt: 1.5 }} />
                   </Stack>
                 </Box>
                 <Typography variant="h4" sx={{ fontWeight: 800, mb: 1.2, fontSize: { xs: '1.6rem', md: '2rem' } }}>Completá tu declaración de salud</Typography>
