@@ -1,0 +1,14 @@
+Resumen acotado de cambios - desvíos anuales
+
+- Backend: la detección de año ahora se toma solo desde fechas válidas en la columna Fecha/Mes. Se evita capturar años sueltos dentro de descripciones, observaciones u otros textos.
+- Backend: el parseo de fechas admite Date de Excel, formato ISO yyyy-mm-dd, formato dd/mm/yyyy o dd-mm-yyyy y seriales numéricos válidos de Excel.
+- Frontend: el filtro de año solo queda preseleccionado cuando ese año existe realmente en las filas cargadas. Si no hay un único año claro, muestra todos los registros.
+- Tests: se agregaron regresiones para validar fechas reales y para confirmar que textos como "plan 2024" no contaminan el año del análisis.
+
+Validaciones ejecutadas:
+- node --test test/annualDeviationService.test.js
+- npm test en backend
+- npm run lint en backend y frontend
+- npm run build en frontend
+
+Resultado: todas las validaciones pasaron. Lint y build solo mostraron warnings preexistentes/no bloqueantes.

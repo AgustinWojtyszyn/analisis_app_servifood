@@ -92,6 +92,13 @@ function uniqueValues(records, field) {
   return [...new Set(records.map((record) => record[field]).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'es'));
 }
 
+function yearFilterFromRows(records = [], fallbackYear = '') {
+  const years = uniqueValues(records, 'year');
+  const fallback = String(fallbackYear || '');
+  if (fallback && years.map(String).includes(fallback)) return fallback;
+  return years.length === 1 ? years[0] : '';
+}
+
 function applyFilters(records, filters) {
   return records.filter((record) => (
     (!filters.year || String(record.year || '') === String(filters.year)) &&
@@ -294,7 +301,7 @@ export default function AnnualDeviationAnalysisPage() {
       .then((payload) => {
         if (active) {
           setSelectedUpload(payload);
-          setFilters((prev) => ({ ...prev, year: payload.year || '' }));
+          setFilters((prev) => ({ ...prev, year: yearFilterFromRows(payload.rows || [], payload.year) }));
         }
       })
       .catch((err) => active && setError(err.message || 'No se pudo abrir la carga anual'))
@@ -347,7 +354,7 @@ export default function AnnualDeviationAnalysisPage() {
       setUploads((prev) => [payload.upload, ...prev.filter((item) => item.id !== payload.upload.id)]);
       setSelectedUpload(payload.upload);
       setSelectedUploadId(payload.upload.id);
-      setFilters({ ...emptyFilters, year: payload.upload.year || '' });
+      setFilters({ ...emptyFilters, year: yearFilterFromRows(payload.upload.rows || [], payload.upload.year) });
       setActiveTab('summary');
     } catch (err) {
       setError(err.message || 'No se pudo procesar el Excel anual. Revisá que tenga hojas anual, calidad y logística.');
@@ -357,7 +364,7 @@ export default function AnnualDeviationAnalysisPage() {
     }
   };
 
-  const resetFilters = () => setFilters({ ...emptyFilters, year: selectedUpload?.year || '' });
+  const resetFilters = () => setFilters({ ...emptyFilters, year: yearFilterFromRows(rows, selectedUpload?.year) });
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>

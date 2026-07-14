@@ -99,6 +99,46 @@ function normalizeCellValue(value) {
   return String(value).trim();
 }
 
+function isValidDateParts(year, month, day) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+  if (year < 2000 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function parseValidDate(value) {
+  if (value instanceof Date) {
+    const year = value.getUTCFullYear();
+    const month = value.getUTCMonth() + 1;
+    const day = value.getUTCDate();
+    return isValidDateParts(year, month, day) ? new Date(Date.UTC(year, month - 1, day)) : null;
+  }
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+
+  const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:\b|T)/);
+  if (iso) {
+    const [, y, m, d] = iso.map(Number);
+    return isValidDateParts(y, m, d) ? new Date(Date.UTC(y, m - 1, d)) : null;
+  }
+
+  const dmy = text.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (dmy) {
+    const [, d, m, y] = dmy.map(Number);
+    return isValidDateParts(y, m, d) ? new Date(Date.UTC(y, m - 1, d)) : null;
+  }
+
+  if (/^\d+(\.\d+)?$/.test(text)) {
+    const serial = Number(text);
+    if (serial >= 25569 && serial <= 73050) {
+      const date = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+      return isValidDateParts(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate()) ? date : null;
+    }
+  }
+
+  return null;
+}
+
 function detectMonth(value = '') {
   const normalized = normalizeKey(value);
   if (!normalized) return null;
@@ -107,26 +147,18 @@ function detectMonth(value = '') {
       return { name: cleanDisplayText(name), number };
     }
   }
-  const date = new Date(value);
-  if (!Number.isNaN(date.getTime())) {
-    const number = date.getMonth() + 1;
+  const date = parseValidDate(value);
+  if (date) {
+    const number = date.getUTCMonth() + 1;
     const monthName = MONTHS.find(([, n]) => n === number)?.[0] || '';
     return { name: cleanDisplayText(monthName), number };
   }
   return null;
 }
 
-function detectYear(values = []) {
-  for (const value of values) {
-    if (value instanceof Date && value.getFullYear() >= 2000) return value.getFullYear();
-    const match = String(value || '').match(/\b(20\d{2}|19\d{2})\b/);
-    if (match) return Number(match[1]);
-    if (typeof value === 'string' && /[/-]/.test(value)) {
-      const date = new Date(value);
-      if (!Number.isNaN(date.getTime()) && date.getFullYear() >= 2000) return date.getFullYear();
-    }
-  }
-  return null;
+function detectYear(value = '') {
+  const date = parseValidDate(value);
+  return date ? date.getUTCFullYear() : null;
 }
 
 function resolveSheetType(sheetName = '') {
@@ -276,7 +308,7 @@ function parseWorksheet(worksheet, sheetType) {
 
     const dateMonthValue = getValueByIndex(row.values, canonicalIndexes.dateMonth);
     const detectedMonth = detectMonth(dateMonthValue) || currentMonth;
-    const year = detectYear([dateMonthValue, ...row.values]);
+    const year = detectYear(dateMonthValue);
     const deviation = cleanDisplayText(getValueByIndex(row.values, canonicalIndexes.deviation));
     const areaSector = cleanDisplayText(getValueByIndex(row.values, canonicalIndexes.areaSector));
     const classification = cleanDisplayText(getValueByIndex(row.values, canonicalIndexes.classification));

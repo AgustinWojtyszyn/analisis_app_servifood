@@ -43,6 +43,55 @@ test('parseAnnualDeviationWorkbook detects sheets, normalizes keys and builds su
   assert.equal(parsed.summary.logistics.total, 1);
 });
 
+test('parseAnnualDeviationWorkbook detects year and month only from valid date cells', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const annual = workbook.addWorksheet('Desvíos anuales');
+  annual.addRow(['Fecha', 'Area / sector', 'Desvio detectado', 'Clasificacion']);
+  annual.addRow(['2025-03-15', 'Depósito', 'Registro con fecha ISO', 'Calidad']);
+  annual.addRow(['30/04/2025', 'Logística', 'Registro con fecha local', 'Logística']);
+
+  const quality = workbook.addWorksheet('Calidad');
+  quality.addRow(['Fecha', 'Área', 'Desvío', 'Clasificación']);
+  quality.addRow([new Date(Date.UTC(2025, 2, 20)), 'Depósito', 'Fecha real de Excel', 'Calidad']);
+
+  const logistics = workbook.addWorksheet('Logística');
+  logistics.addRow(['Fecha', 'Área', 'Desvío', 'Clasificación']);
+  logistics.addRow(['2025-04-01', 'Logística', 'Entrega con fecha', 'Logística']);
+
+  const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()), {
+    referenceDate: new Date('2026-07-07T12:00:00Z')
+  });
+
+  assert.deepEqual(
+    parsed.sheets.annual.rows.map((row) => [row.year, row.month, row.monthNumber]),
+    [
+      [2025, 'Marzo', 3],
+      [2025, 'Abril', 4]
+    ]
+  );
+  assert.equal(parsed.year, 2025);
+  assert.equal(parsed.validThroughMonth, null);
+});
+
+test('parseAnnualDeviationWorkbook ignores standalone years outside the date column', async () => {
+  const workbook = new ExcelJS.Workbook();
+  const annual = workbook.addWorksheet('Desvíos anuales');
+  annual.addRow(['Mes', 'Area / sector', 'Desvio detectado', 'Clasificacion', 'Observaciones']);
+  annual.addRow(['Enero', 'Depósito', 'Revisión pendiente del plan 2024', 'Calidad', 'No es fecha']);
+
+  addRequiredSheets(workbook);
+
+  const parsed = await parseAnnualDeviationWorkbook(Buffer.from(await workbook.xlsx.writeBuffer()), {
+    referenceDate: new Date('2026-07-07T12:00:00Z')
+  });
+  const annualRow = parsed.sheets.annual.rows[0];
+
+  assert.equal(annualRow.year, null);
+  assert.equal(annualRow.month, 'Enero');
+  assert.equal(parsed.year, 2026);
+  assert.equal(parsed.validThroughMonth, 6);
+});
+
 function addSummaryThenDetailSheet(workbook, name, classification, totalRows, summaryRows) {
   const sheet = workbook.addWorksheet(name);
   sheet.addRow([`${classification} - resumen`]);
