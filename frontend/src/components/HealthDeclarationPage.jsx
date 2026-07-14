@@ -151,45 +151,52 @@ function buildHealthEvaluation({ hasSymptoms = false, hasFever = false, recentCo
   return { healthStatus: 'Apto', trafficLight: 'Verde', suggestedAction: 'Puede ingresar. Mantener higiene de manos.' };
 }
 
-function playHealthDeclarationSuccessSound() {
+async function prepareHealthDeclarationSuccessAudio(audioContextRef) {
   if (typeof window === 'undefined') return;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) return;
 
-  const context = new AudioContextClass();
-  const play = () => {
-    const now = context.currentTime;
-    const masterGain = context.createGain();
-    masterGain.gain.setValueAtTime(0.001, now);
-    masterGain.gain.exponentialRampToValueAtTime(0.12, now + 0.025);
-    masterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.34);
-    masterGain.connect(context.destination);
-
-    [
-      { frequency: 523.25, start: 0, duration: 0.14 },
-      { frequency: 659.25, start: 0.09, duration: 0.18 }
-    ].forEach(({ frequency, start, duration }) => {
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(frequency, now + start);
-      gain.gain.setValueAtTime(0.001, now + start);
-      gain.gain.exponentialRampToValueAtTime(0.08, now + start + 0.018);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + start + duration);
-      oscillator.connect(gain);
-      gain.connect(masterGain);
-      oscillator.start(now + start);
-      oscillator.stop(now + start + duration + 0.02);
-    });
-
-    window.setTimeout(() => context.close().catch(() => {}), 450);
-  };
+  const existingContext = audioContextRef.current;
+  const context = existingContext && existingContext.state !== 'closed'
+    ? existingContext
+    : new AudioContextClass();
+  audioContextRef.current = context;
 
   if (context.state === 'suspended') {
-    context.resume().then(play).catch(() => context.close().catch(() => {}));
-    return;
+    await context.resume();
   }
-  play();
+  return context;
+}
+
+function playHealthDeclarationSuccessSound(context) {
+  if (!context || context.state !== 'running') return false;
+
+  const now = context.currentTime;
+  const masterGain = context.createGain();
+  masterGain.gain.setValueAtTime(0.001, now);
+  masterGain.gain.exponentialRampToValueAtTime(0.24, now + 0.02);
+  masterGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+  masterGain.connect(context.destination);
+
+  [
+    { frequency: 523.25, start: 0, duration: 0.16 },
+    { frequency: 659.25, start: 0.1, duration: 0.2 },
+    { frequency: 783.99, start: 0.2, duration: 0.16 }
+  ].forEach(({ frequency, start, duration }) => {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(frequency, now + start);
+    gain.gain.setValueAtTime(0.001, now + start);
+    gain.gain.exponentialRampToValueAtTime(0.16, now + start + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + start + duration);
+    oscillator.connect(gain);
+    gain.connect(masterGain);
+    oscillator.start(now + start);
+    oscillator.stop(now + start + duration + 0.02);
+  });
+
+  return true;
 }
 
 export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete }) {
@@ -221,6 +228,7 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
   const [history, setHistory] = useState([]);
   const [confettiRunId, setConfettiRunId] = useState(0);
   const submitInFlightRef = useRef(false);
+  const successAudioContextRef = useRef(null);
   const successSoundDeclarationIdsRef = useRef(new Set());
 
   const [form, setForm] = useState({
@@ -321,15 +329,19 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
       setSuccess('');
       setWarning('');
       const isCreating = !editingId;
+      const successAudioContext = isCreating
+        ? await prepareHealthDeclarationSuccessAudio(successAudioContextRef).catch(() => null)
+        : null;
       const response = isCreating ? await submitHealthDeclaration(check.payload) : await updateMyHealthDeclaration(editingId, check.payload);
       setCompletedToday(true);
       setTodayDeclaration(response?.declaration || null);
       setShowForm(false);
       setSuccess(editingId ? 'Declaración actualizada correctamente.' : 'Declaración completada correctamente.');
-      if (isCreating && response?.declaration?.id) {
-        if (!successSoundDeclarationIdsRef.current.has(response.declaration.id)) {
-          successSoundDeclarationIdsRef.current.add(response.declaration.id);
-          playHealthDeclarationSuccessSound();
+      const createdDeclarationId = response?.success && response?.declaration?.id ? response.declaration.id : null;
+      if (isCreating && createdDeclarationId) {
+        if (!successSoundDeclarationIdsRef.current.has(createdDeclarationId)) {
+          successSoundDeclarationIdsRef.current.add(createdDeclarationId);
+          playHealthDeclarationSuccessSound(successAudioContext);
         }
         setConfettiRunId((prev) => prev + 1);
       }
