@@ -93,6 +93,20 @@ function getTrafficLightStyles(trafficLight) {
 }
 
 function ArgentinaFlagBand() {
+  const rays = Array.from({ length: 32 }, (_, index) => {
+    const isStraight = index % 2 === 0;
+    const rotation = index * 11.25;
+    return (
+      <g key={rotation} transform={`rotate(${rotation} 50 50)`}>
+        {isStraight ? (
+          <polygon points="50,7 47.9,28.6 52.1,28.6" fill="#D6A53A" />
+        ) : (
+          <path d="M50 8 C53 14 47 20 50 28.8 C46 21 52 15 50 8Z" fill="#D6A53A" />
+        )}
+      </g>
+    );
+  });
+
   return (
     <Box
       aria-hidden="true"
@@ -105,9 +119,23 @@ function ArgentinaFlagBand() {
         overflow: 'hidden',
         opacity: 0.72,
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.34), 0 8px 18px rgba(7, 14, 27, 0.16)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         background: 'linear-gradient(to bottom, #75AADB 0 33.333%, #FFFFFF 33.333% 66.666%, #75AADB 66.666% 100%)'
       }}
-    />
+    >
+      <Box
+        component="svg"
+        viewBox="0 0 100 100"
+        focusable="false"
+        sx={{ width: 30, height: 30, display: 'block' }}
+      >
+        {rays}
+        <circle cx="50" cy="50" r="17" fill="#D6A53A" />
+        <circle cx="50" cy="50" r="12.5" fill="#E7BE57" opacity="0.62" />
+      </Box>
+    </Box>
   );
 }
 
