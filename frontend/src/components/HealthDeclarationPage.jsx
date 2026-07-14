@@ -97,42 +97,32 @@ function ArgentinaFlagBand() {
     <Box
       aria-hidden="true"
       sx={{
-        position: 'absolute',
-        top: { xs: 18, sm: 20 },
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: { xs: '86%', sm: '78%', md: '72%' },
-        maxWidth: 500,
-        height: { xs: 42, sm: 46 },
+        width: '100%',
+        maxWidth: 440,
+        height: 42,
         borderRadius: 999,
         border: '1px solid rgba(188, 220, 247, 0.18)',
         overflow: 'hidden',
-        opacity: 0.88,
+        opacity: 0.82,
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.22), 0 10px 24px rgba(7, 14, 27, 0.18)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         background: [
-          'linear-gradient(to bottom, rgba(116,172,223,0.34) 0 33%, rgba(255,255,255,0.18) 33% 66%, rgba(116,172,223,0.34) 66% 100%)',
-          'linear-gradient(90deg, rgba(116,172,223,0) 0%, rgba(116,172,223,0.16) 16%, rgba(255,255,255,0.2) 50%, rgba(116,172,223,0.16) 84%, rgba(116,172,223,0) 100%)'
-        ].join(', '),
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(90deg, rgba(26,38,56,0.42), rgba(26,38,56,0.04) 35%, rgba(26,38,56,0.04) 65%, rgba(26,38,56,0.42))'
-        },
-        '&::after': {
-          content: '""',
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          width: { xs: 18, sm: 21 },
-          height: { xs: 18, sm: 21 },
-          borderRadius: '50%',
-          transform: 'translate(-50%, -50%)',
-          background: 'radial-gradient(circle, rgba(252, 211, 77, 0.42) 0 32%, rgba(252, 211, 77, 0.2) 33% 55%, rgba(252, 211, 77, 0) 56%)',
-          filter: 'blur(0.1px)'
-        }
+          'linear-gradient(90deg, rgba(26,38,56,0.38), rgba(26,38,56,0.02) 34%, rgba(26,38,56,0.02) 66%, rgba(26,38,56,0.38))',
+          'linear-gradient(to bottom, rgba(116,172,223,0.34) 0 33%, rgba(255,255,255,0.2) 33% 66%, rgba(116,172,223,0.34) 66% 100%)'
+        ].join(', ')
       }}
-    />
+    >
+      <Box
+        sx={{
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(252, 211, 77, 0.36) 0 34%, rgba(252, 211, 77, 0.16) 35% 58%, rgba(252, 211, 77, 0) 59%)'
+        }}
+      />
+    </Box>
   );
 }
 
@@ -478,45 +468,20 @@ export default function HealthDeclarationPage({ onOpenPolicies, onAfterDelete })
           <Grid item xs={12} md={7}>
             <Card sx={{ height: '100%', bgcolor: surfaceMain, color: textPrimary, border: `1px solid ${borderSoft}`, borderRadius: 4, boxShadow: '0 14px 28px rgba(7, 14, 27, 0.26)' }}>
               <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Box sx={{ position: 'relative', minHeight: { xs: 112, sm: 122 }, mb: { xs: 1.6, sm: 1.9 } }}>
-                  <ArgentinaFlagBand />
+                <Box sx={{ mb: 3 }}>
                   <Chip
                     label="Declaración diaria"
                     size="small"
                     sx={{
-                      position: 'relative',
-                      zIndex: 2,
                       bgcolor: '#1d4ed8',
                       color: '#fff',
                       fontWeight: 700
                     }}
                   />
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      zIndex: 3,
-                      top: { xs: 42, sm: 45 },
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: '100%',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      pointerEvents: 'none'
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        px: { xs: 1.6, sm: 2 },
-                        py: { xs: 0.8, sm: 0.9 },
-                        borderRadius: 999,
-                        background: 'linear-gradient(180deg, rgba(26,38,56,0.92), rgba(22,32,48,0.82))',
-                        border: '1px solid rgba(215, 228, 247, 0.14)',
-                        boxShadow: '0 12px 24px rgba(7, 14, 27, 0.26), inset 0 1px 0 rgba(255,255,255,0.08)'
-                      }}
-                    >
-                      <Box component="img" src={SERVIFOOD_LOGO_URL} alt="ServiFood" sx={{ display: 'block', width: { xs: 126, sm: 148, md: 158 }, maxWidth: '44vw', height: 'auto', objectFit: 'contain' }} />
-                    </Box>
-                  </Box>
+                  <Stack alignItems="center" sx={{ mt: 2 }}>
+                    <ArgentinaFlagBand />
+                    <Box component="img" src={SERVIFOOD_LOGO_URL} alt="ServiFood" sx={{ display: 'block', width: { xs: 72, sm: 90 }, height: 'auto', objectFit: 'contain', mt: 1.5 }} />
+                  </Stack>
                 </Box>
                 <Typography variant="h4" sx={{ fontWeight: 800, mb: 1.2, fontSize: { xs: '1.6rem', md: '2rem' } }}>Completá tu declaración de salud</Typography>
                 <Typography sx={{ color: textSecondary, mb: 0.8 }}>Registrá tu estado sanitario antes de comenzar la jornada.</Typography>
