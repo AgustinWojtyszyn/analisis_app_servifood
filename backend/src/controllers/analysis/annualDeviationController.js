@@ -1,7 +1,12 @@
 import ExcelJS from 'exceljs';
 import { getSupabaseAdmin } from './context.js';
 import { ensureSupabaseConfigured, returnSupabaseError } from '../analysisController.utils.js';
-import { parseAnnualDeviationWorkbook, SHEET_TYPES } from '../../services/annualDeviation/annualDeviationService.js';
+import {
+  buildSummary,
+  getCanonicalAnnualDeviationRows,
+  parseAnnualDeviationWorkbook,
+  SHEET_TYPES
+} from '../../services/annualDeviation/annualDeviationService.js';
 import { safeExcelCell } from '../../utils/safeExcelCell.js';
 
 const SUMMARY_TABLE_BY_TYPE = {
@@ -118,9 +123,18 @@ async function fetchUploadWithRows(supabaseAdmin, id) {
 
   if (rowsRes.error) throw rowsRes.error;
 
+  const rows = (rowsRes.data || []).map(mapDeviationRow);
+  const effectiveSummary = buildSummary(rows, { kpiRows: rows });
+
   return {
     ...mapUpload(uploadRes.data),
-    rows: (rowsRes.data || []).map(mapDeviationRow)
+    summary: {
+      ...(uploadRes.data.summary || {}),
+      source: effectiveSummary.source,
+      quality: effectiveSummary.quality,
+      logistics: effectiveSummary.logistics
+    },
+    rows
   };
 }
 
@@ -241,7 +255,7 @@ export async function exportAnnualDeviationExcel(req, res) {
     const headers = ['Hoja', 'Fila', 'Fecha / mes', 'Mes', 'Área / sector', 'Desvío detectado', 'Clasificación', 'Interno / externo', 'Acción inmediata', 'Acción correctiva', 'Estado', 'Observaciones'];
     const tableSheet = workbook.addWorksheet('Tabla completa');
     tableSheet.addRow(headers.map(safeExcelCell));
-    upload.rows.forEach((row) => {
+    getCanonicalAnnualDeviationRows(upload.rows).forEach((row) => {
       tableSheet.addRow([
         row.sheetType,
         row.rowIndex,

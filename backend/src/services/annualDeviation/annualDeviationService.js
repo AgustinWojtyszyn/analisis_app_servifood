@@ -398,21 +398,38 @@ function isClassification(row, expectedKey) {
   return normalizeKey(row?.classification || row?.sheetType || '') === expectedKey;
 }
 
-function getEffectiveRowsForType(allRows = [], sheetType) {
+function selectRowsForType(allRows = [], sheetType) {
   const expectedKey = sheetType === SHEET_TYPES.QUALITY ? 'calidad' : 'logistica';
   const sheetRows = allRows.filter((row) => row.sheetType === sheetType);
   const annualClassifiedRows = allRows.filter((row) => (
     row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, expectedKey)
   ));
 
-  const sourceRows = sheetRows.length > annualClassifiedRows.length ? sheetRows : annualClassifiedRows;
-  const effectiveSource = sourceRows === sheetRows ? 'specific_sheet' : 'annual_classification';
+  const useAnnualRows = annualClassifiedRows.length > 0;
+  const sourceRows = useAnnualRows ? annualClassifiedRows : sheetRows;
+  const effectiveSource = useAnnualRows ? 'annual_classification' : 'specific_sheet';
 
-  return sourceRows.map((row) => ({
+  return {
+    rows: sourceRows,
+    source: effectiveSource,
+    specificSheetTotal: sheetRows.length,
+    annualClassificationTotal: annualClassifiedRows.length
+  };
+}
+
+function getEffectiveRowsForType(allRows = [], sheetType) {
+  const selected = selectRowsForType(allRows, sheetType);
+
+  return selected.rows.map((row) => ({
     ...row,
     effectiveSheetType: sheetType,
-    effectiveSource
+    effectiveSource: selected.source
   }));
+}
+
+function getCanonicalAnnualDeviationRows(allRows = []) {
+  const annualRows = allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL);
+  return annualRows.length ? annualRows : allRows;
 }
 
 function getMonthLabel(monthNumber) {
@@ -492,9 +509,10 @@ function buildOmittedRowWarnings(omittedRows = []) {
 
 function buildSummary(allRows = [], options = {}) {
   const kpiRows = options.kpiRows || allRows;
-  const annualRows = allRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL);
-  const kpiAnnualRows = kpiRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL);
-  const baseRows = annualRows.length ? kpiAnnualRows : kpiRows;
+  const baseRows = getCanonicalAnnualDeviationRows(kpiRows);
+  const baseSource = baseRows.some((row) => row.sheetType === SHEET_TYPES.ANNUAL) ? 'annual_sheet' : 'specific_sheet';
+  const qualitySelection = selectRowsForType(kpiRows, SHEET_TYPES.QUALITY);
+  const logisticsSelection = selectRowsForType(kpiRows, SHEET_TYPES.LOGISTICS);
   const effectiveQualityRows = getEffectiveRowsForType(kpiRows, SHEET_TYPES.QUALITY);
   const effectiveLogisticsRows = getEffectiveRowsForType(kpiRows, SHEET_TYPES.LOGISTICS);
   const byMonth = countBy(baseRows, 'month')
@@ -503,6 +521,7 @@ function buildSummary(allRows = [], options = {}) {
 
   return {
     total: baseRows.length,
+    source: baseSource,
     byMonth,
     byArea: countBy(baseRows, 'areaSector'),
     byClassification: countBy(baseRows, 'classification'),
@@ -511,15 +530,15 @@ function buildSummary(allRows = [], options = {}) {
     topDeviations: countBy(baseRows, 'deviation', 10),
     quality: {
       ...summarizeSheet(effectiveQualityRows),
-      source: effectiveQualityRows[0]?.effectiveSource || 'specific_sheet',
-      specificSheetTotal: kpiRows.filter((row) => row.sheetType === SHEET_TYPES.QUALITY).length,
-      annualClassificationTotal: kpiRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'calidad')).length
+      source: qualitySelection.source,
+      specificSheetTotal: qualitySelection.specificSheetTotal,
+      annualClassificationTotal: qualitySelection.annualClassificationTotal
     },
     logistics: {
       ...summarizeSheet(effectiveLogisticsRows),
-      source: effectiveLogisticsRows[0]?.effectiveSource || 'specific_sheet',
-      specificSheetTotal: kpiRows.filter((row) => row.sheetType === SHEET_TYPES.LOGISTICS).length,
-      annualClassificationTotal: kpiRows.filter((row) => row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, 'logistica')).length
+      source: logisticsSelection.source,
+      specificSheetTotal: logisticsSelection.specificSheetTotal,
+      annualClassificationTotal: logisticsSelection.annualClassificationTotal
     }
   };
 }
@@ -603,4 +622,4 @@ export async function parseAnnualDeviationWorkbook(fileBuffer, options = {}) {
   };
 }
 
-export { SHEET_TYPES, normalizeKey, cleanDisplayText, normalizeSourceType, buildSummary, getEffectiveRowsForType };
+export { SHEET_TYPES, normalizeKey, cleanDisplayText, normalizeSourceType, buildSummary, getEffectiveRowsForType, getCanonicalAnnualDeviationRows };

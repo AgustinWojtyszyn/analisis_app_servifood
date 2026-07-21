@@ -114,11 +114,30 @@ function isClassification(row, key) {
   return String(row?.classificationKey || row?.classification || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim() === key;
 }
 
-function effectiveRowsForType(records, type) {
+function selectRowsForType(records, type) {
   const key = type === 'quality' ? 'calidad' : 'logistica';
   const sheetRows = records.filter((row) => row.sheetType === type);
   const annualClassifiedRows = records.filter((row) => row.sheetType === 'annual' && isClassification(row, key));
-  return annualClassifiedRows.length > sheetRows.length ? annualClassifiedRows : sheetRows;
+  const useAnnualRows = annualClassifiedRows.length > 0;
+  return {
+    rows: useAnnualRows ? annualClassifiedRows : sheetRows,
+    source: useAnnualRows ? 'annual_classification' : 'specific_sheet',
+    specificSheetTotal: sheetRows.length,
+    annualClassificationTotal: annualClassifiedRows.length
+  };
+}
+
+function canonicalAnnualRows(records) {
+  const annualRows = records.filter((row) => row.sheetType === 'annual');
+  return annualRows.length ? annualRows : records;
+}
+
+function sourceLabel(source) {
+  return source === 'annual_classification' ? 'Hoja Anual' : 'Hoja específica';
+}
+
+function canonicalSourceLabel(records) {
+  return records.some((row) => row.sheetType === 'annual') ? 'Hoja Anual' : 'Hoja específica';
 }
 
 function KpiCard({ label, value, helper }) {
@@ -338,21 +357,24 @@ export default function AnnualDeviationAnalysisPage() {
   }, [selectedUploadId]);
 
   const rows = useMemo(() => selectedUpload?.rows || [], [selectedUpload]);
-  const filteredRows = useMemo(() => applyFilters(rows, filters), [rows, filters]);
-  const qualityRows = useMemo(() => applyFilters(effectiveRowsForType(rows, 'quality'), { ...filters, sheetType: '' }), [filters, rows]);
-  const logisticsRows = useMemo(() => applyFilters(effectiveRowsForType(rows, 'logistics'), { ...filters, sheetType: '' }), [filters, rows]);
+  const canonicalRows = useMemo(() => canonicalAnnualRows(rows), [rows]);
+  const qualitySource = useMemo(() => selectRowsForType(rows, 'quality'), [rows]);
+  const logisticsSource = useMemo(() => selectRowsForType(rows, 'logistics'), [rows]);
+  const filteredRows = useMemo(() => applyFilters(canonicalRows, filters), [canonicalRows, filters]);
+  const qualityRows = useMemo(() => applyFilters(qualitySource.rows, { ...filters, sheetType: '' }), [filters, qualitySource]);
+  const logisticsRows = useMemo(() => applyFilters(logisticsSource.rows, { ...filters, sheetType: '' }), [filters, logisticsSource]);
 
   const options = useMemo(() => ({
-    years: uniqueValues(rows, 'year'),
-    months: uniqueValues(rows, 'month'),
-    areas: uniqueValues(rows, 'areaSector'),
-    classifications: uniqueValues(rows, 'classification')
-  }), [rows]);
+    years: uniqueValues(canonicalRows, 'year'),
+    months: uniqueValues(canonicalRows, 'month'),
+    areas: uniqueValues(canonicalRows, 'areaSector'),
+    classifications: uniqueValues(canonicalRows, 'classification')
+  }), [canonicalRows]);
 
   const chartData = useMemo(() => ({
     byMonth: countBy(filteredRows, 'month').sort((a, b) => {
-      const monthA = rows.find((row) => row.month === a.name)?.monthNumber || 99;
-      const monthB = rows.find((row) => row.month === b.name)?.monthNumber || 99;
+      const monthA = canonicalRows.find((row) => row.month === a.name)?.monthNumber || 99;
+      const monthB = canonicalRows.find((row) => row.month === b.name)?.monthNumber || 99;
       return monthA - monthB;
     }),
     byClassification: countBy(filteredRows, 'classification'),
@@ -362,7 +384,7 @@ export default function AnnualDeviationAnalysisPage() {
     topDeviations: countBy(filteredRows, 'deviation', 10),
     quality: countBy(qualityRows, 'deviation', 10),
     logistics: countBy(logisticsRows, 'deviation', 10)
-  }), [filteredRows, logisticsRows, qualityRows, rows]);
+  }), [canonicalRows, filteredRows, logisticsRows, qualityRows]);
 
   const uploadFile = async (event) => {
     const file = event.target.files?.[0];
@@ -522,7 +544,7 @@ export default function AnnualDeviationAnalysisPage() {
       {activeTab === 'quality' && selectedUpload && (
         <>
           <Grid container spacing={1.5}>
-            <KpiCard label="Total calidad" value={qualityRows.length} />
+            <KpiCard label="Total calidad" value={qualityRows.length} helper={sourceLabel(qualitySource.source)} />
             <KpiCard label="Desvío más frecuente" value={chartData.quality[0]?.name || '-'} helper={chartData.quality[0] ? `${chartData.quality[0].value} casos` : ''} />
           </Grid>
           <Grid container spacing={2}>
@@ -537,7 +559,7 @@ export default function AnnualDeviationAnalysisPage() {
       {activeTab === 'logistics' && selectedUpload && (
         <>
           <Grid container spacing={1.5}>
-            <KpiCard label="Total logística" value={logisticsRows.length} />
+            <KpiCard label="Total logística" value={logisticsRows.length} helper={sourceLabel(logisticsSource.source)} />
             <KpiCard label="Desvío más frecuente" value={chartData.logistics[0]?.name || '-'} helper={chartData.logistics[0] ? `${chartData.logistics[0].value} casos` : ''} />
           </Grid>
           <Grid container spacing={2}>
@@ -552,7 +574,7 @@ export default function AnnualDeviationAnalysisPage() {
       {activeTab === 'table' && selectedUpload && (
         <>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
-            <Typography sx={{ color: '#0b1f4d', fontWeight: 900 }}>Tabla completa filtrada: {filteredRows.length} filas</Typography>
+            <Typography sx={{ color: '#0b1f4d', fontWeight: 900 }}>Tabla completa filtrada: {filteredRows.length} filas · {canonicalSourceLabel(canonicalRows)}</Typography>
             <Button variant="outlined" startIcon={<DownloadRoundedIcon />} onClick={exportFilteredRows} disabled={exportingFiltered}>
               {exportingFiltered ? 'Exportando...' : 'Exportar tabla filtrada'}
             </Button>
