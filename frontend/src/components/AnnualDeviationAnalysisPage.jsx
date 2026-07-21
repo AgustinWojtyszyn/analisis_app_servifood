@@ -36,7 +36,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {
   exportAnnualDeviationExcel,
   getAnnualDeviationUpload,
@@ -240,7 +240,7 @@ function SummaryList({ title, data, showPercentage = false }) {
   );
 }
 
-function exportRowsToExcel(rows, fileName) {
+async function exportRowsToExcel(rows, fileName) {
   const data = rows.map((row) => ({
     Hoja: SHEET_LABELS[row.sheetType] || row.sheetType,
     'Fecha / mes': row.dateMonth,
@@ -254,9 +254,35 @@ function exportRowsToExcel(rows, fileName) {
     Estado: row.status,
     Observaciones: row.observations
   }));
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(data), 'Tabla filtrada');
-  XLSX.writeFile(workbook, fileName);
+  const headers = Object.keys(data[0] || {
+    Hoja: '',
+    'Fecha / mes': '',
+    Mes: '',
+    'Área / sector': '',
+    'Desvío detectado': '',
+    Clasificación: '',
+    'Interno / externo': '',
+    'Acción inmediata': '',
+    'Acción correctiva': '',
+    Estado: '',
+    Observaciones: ''
+  });
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Tabla filtrada');
+  worksheet.addRow(headers);
+  data.forEach((row) => {
+    worksheet.addRow(headers.map((header) => row[header] ?? ''));
+  });
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
 }
 
 export default function AnnualDeviationAnalysisPage() {

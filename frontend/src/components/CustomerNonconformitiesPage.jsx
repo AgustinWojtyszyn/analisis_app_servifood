@@ -59,7 +59,7 @@ const emptyFilters = {
 
 function isExcelFile(file) {
   const name = String(file?.name || '').toLowerCase();
-  return name.endsWith('.xlsx') || name.endsWith('.xls');
+  return name.endsWith('.xlsx');
 }
 
 function KpiCard({ label, value, helper }) {
@@ -205,7 +205,7 @@ export default function CustomerNonconformitiesPage() {
   const processFile = async (file) => {
     if (!file) return;
     if (!isExcelFile(file)) {
-      setError('Formato inválido. Seleccioná un archivo Excel .xlsx o .xls.');
+      setError('Formato inválido. Seleccioná un archivo Excel .xlsx.');
       return;
     }
 
@@ -282,9 +282,9 @@ export default function CustomerNonconformitiesPage() {
               {loading ? 'Procesando archivo...' : 'Arrastrá o seleccioná un Excel de reclamos'}
             </Typography>
             <Typography sx={{ color: '#64748b', fontWeight: 650, fontSize: 13.5, mt: 0.5 }}>
-              Se aceptan archivos .xlsx y .xls. La tabla puede empezar debajo de encabezados administrativos.
+              Se aceptan archivos .xlsx. La tabla puede empezar debajo de encabezados administrativos.
             </Typography>
-            <input id={inputId} type="file" hidden accept=".xlsx,.xls" onChange={handleFileChange} />
+            <input id={inputId} type="file" hidden accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handleFileChange} />
           </Paper>
 
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mt: 1.5 }}>

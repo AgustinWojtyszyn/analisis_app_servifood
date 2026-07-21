@@ -45,6 +45,16 @@ const MONTH_LABELS = {
 };
 
 export const MINIMUM_CUSTOMER_NC_COLUMNS = 'Mes, Reclamo, Tipo de peligro y Area';
+export const MAX_CUSTOMER_NC_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+export const MAX_CUSTOMER_NC_FILE_SIZE_MB = MAX_CUSTOMER_NC_FILE_SIZE_BYTES / (1024 * 1024);
+export const MAX_CUSTOMER_NC_SHEETS = 20;
+export const MAX_CUSTOMER_NC_ROWS = 10000;
+export const MAX_CUSTOMER_NC_CELLS = 200000;
+
+const CUSTOMER_NC_ALLOWED_MIME_TYPES = new Set([
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/octet-stream'
+]);
 
 export function normalizeKey(value) {
   return String(value ?? '')
@@ -240,18 +250,89 @@ export function getCustomerNcWarnings(columns) {
   return warnings;
 }
 
+function isCustomerNcExcelFilename(fileName = '') {
+  return String(fileName || '').toLowerCase().endsWith('.xlsx');
+}
+
+function isCustomerNcExcelMime(mimeType = '') {
+  const mime = String(mimeType || '').toLowerCase().trim();
+  return !mime || CUSTOMER_NC_ALLOWED_MIME_TYPES.has(mime);
+}
+
+function validateCustomerNcFile(file) {
+  const name = String(file?.name || '').trim();
+  const size = Number(file?.size || 0);
+
+  if (!file) {
+    throw new Error('Seleccioná un archivo Excel .xlsx.');
+  }
+  if (!isCustomerNcExcelFilename(name)) {
+    throw new Error('Formato inválido. Seleccioná un archivo Excel .xlsx.');
+  }
+  if (!isCustomerNcExcelMime(file.type)) {
+    throw new Error('Tipo de archivo inválido. Seleccioná un Excel .xlsx válido.');
+  }
+  if (size <= 0) {
+    throw new Error('El archivo Excel está vacío.');
+  }
+  if (size > MAX_CUSTOMER_NC_FILE_SIZE_BYTES) {
+    throw new Error(`El archivo supera el máximo permitido de ${MAX_CUSTOMER_NC_FILE_SIZE_MB} MB.`);
+  }
+}
+
+async function loadExcelJs() {
+  const module = await import('exceljs');
+  return module.default || module;
+}
+
+function worksheetToRows(worksheet) {
+  const rowCount = Number(worksheet?.rowCount || 0);
+  const columnCount = Number(worksheet?.columnCount || 0);
+  if (rowCount > MAX_CUSTOMER_NC_ROWS) {
+    throw new Error(`El archivo supera el máximo permitido de ${MAX_CUSTOMER_NC_ROWS} filas en la hoja procesada.`);
+  }
+  if (rowCount * columnCount > MAX_CUSTOMER_NC_CELLS) {
+    throw new Error(`El archivo supera el máximo permitido de ${MAX_CUSTOMER_NC_CELLS} celdas en la hoja procesada.`);
+  }
+
+  const rows = [];
+  for (let rowNumber = 1; rowNumber <= rowCount; rowNumber += 1) {
+    const row = worksheet.getRow(rowNumber);
+    const values = [];
+    for (let columnNumber = 1; columnNumber <= columnCount; columnNumber += 1) {
+      values.push(cellValueToPlain(row.getCell(columnNumber).value));
+    }
+    rows.push(values);
+  }
+  return rows;
+}
+
 export async function parseCustomerNonconformitiesWorkbook(file) {
-  const XLSX = await import('xlsx');
-  const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
-  const sheetName = workbook.SheetNames.includes('KPI 1 - Reclamos Mes')
+  validateCustomerNcFile(file);
+  const ExcelJS = await loadExcelJs();
+  const workbook = new ExcelJS.Workbook();
+  const buffer = await file.arrayBuffer();
+  try {
+    await workbook.xlsx.load(buffer);
+  } catch {
+    throw new Error('El archivo Excel está dañado o no puede procesarse.');
+  }
+
+  const worksheets = workbook.worksheets || [];
+  if (worksheets.length > MAX_CUSTOMER_NC_SHEETS) {
+    throw new Error(`El archivo supera el máximo permitido de ${MAX_CUSTOMER_NC_SHEETS} hojas.`);
+  }
+
+  const sheetNames = worksheets.map((worksheet) => worksheet.name);
+  const sheetName = sheetNames.includes('KPI 1 - Reclamos Mes')
     ? 'KPI 1 - Reclamos Mes'
-    : workbook.SheetNames[0];
-  const worksheet = workbook.Sheets[sheetName];
+    : sheetNames[0];
+  const worksheet = workbook.getWorksheet(sheetName);
   if (!worksheet) {
     throw new Error(`No se encontraron hojas para analizar. El archivo debe incluir al menos: ${MINIMUM_CUSTOMER_NC_COLUMNS}.`);
   }
 
-  const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: true });
+  const rows = worksheetToRows(worksheet);
   const detected = detectCustomerNcHeaderRowFromRows(rows);
   if (!detected) {
     throw new Error(`No se encontraron las columnas necesarias para analizar no conformidades de clientes. El archivo debe incluir al menos: ${MINIMUM_CUSTOMER_NC_COLUMNS}.`);
