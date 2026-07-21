@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import { getSupabaseAdmin } from './context.js';
 import { ensureSupabaseConfigured, returnSupabaseError } from '../analysisController.utils.js';
 import { parseAnnualDeviationWorkbook, SHEET_TYPES } from '../../services/annualDeviation/annualDeviationService.js';
+import { safeExcelCell } from '../../utils/safeExcelCell.js';
 
 const SUMMARY_TABLE_BY_TYPE = {
   [SHEET_TYPES.QUALITY]: 'annual_quality_summary',
@@ -235,11 +236,11 @@ export async function exportAnnualDeviationExcel(req, res) {
       [],
       ['Clasificación', 'Cantidad'],
       ...(upload.summary?.byClassification || []).map((item) => [item.name, item.value])
-    ]);
+    ].map((row) => row.map(safeExcelCell)));
 
     const headers = ['Hoja', 'Fila', 'Fecha / mes', 'Mes', 'Área / sector', 'Desvío detectado', 'Clasificación', 'Interno / externo', 'Acción inmediata', 'Acción correctiva', 'Estado', 'Observaciones'];
     const tableSheet = workbook.addWorksheet('Tabla completa');
-    tableSheet.addRow(headers);
+    tableSheet.addRow(headers.map(safeExcelCell));
     upload.rows.forEach((row) => {
       tableSheet.addRow([
         row.sheetType,
@@ -254,7 +255,7 @@ export async function exportAnnualDeviationExcel(req, res) {
         row.correctiveAction,
         row.status,
         row.observations
-      ]);
+      ].map(safeExcelCell));
     });
     tableSheet.getRow(1).font = { bold: true };
 

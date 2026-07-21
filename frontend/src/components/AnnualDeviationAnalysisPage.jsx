@@ -43,6 +43,7 @@ import {
   getAnnualDeviationUploads,
   uploadAnnualDeviationExcel
 } from '../services/annualDeviation';
+import { safeExcelCell } from '../lib/safeExcelCell';
 
 const COLORS = ['#1d4ed8', '#0f766e', '#d97706', '#7c3aed', '#dc2626', '#0891b2', '#4d7c0f', '#be123c'];
 const emptyFilters = { year: '', month: '', areaSector: '', classification: '', sheetType: '' };
@@ -269,9 +270,9 @@ async function exportRowsToExcel(rows, fileName) {
   });
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Tabla filtrada');
-  worksheet.addRow(headers);
+  worksheet.addRow(headers.map(safeExcelCell));
   data.forEach((row) => {
-    worksheet.addRow(headers.map((header) => row[header] ?? ''));
+    worksheet.addRow(headers.map((header) => safeExcelCell(row[header] ?? '')));
   });
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -293,6 +294,7 @@ export default function AnnualDeviationAnalysisPage() {
   const [filters, setFilters] = useState(emptyFilters);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [exportingFiltered, setExportingFiltered] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -387,6 +389,18 @@ export default function AnnualDeviationAnalysisPage() {
     } finally {
       setUploading(false);
       setProgress(0);
+    }
+  };
+
+  const exportFilteredRows = async () => {
+    setExportingFiltered(true);
+    setError('');
+    try {
+      await exportRowsToExcel(filteredRows, `tabla_anual_filtrada_${Date.now()}.xlsx`);
+    } catch (err) {
+      setError(err.message || 'No se pudo exportar la tabla anual filtrada.');
+    } finally {
+      setExportingFiltered(false);
     }
   };
 
@@ -539,8 +553,8 @@ export default function AnnualDeviationAnalysisPage() {
         <>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} justifyContent="space-between">
             <Typography sx={{ color: '#0b1f4d', fontWeight: 900 }}>Tabla completa filtrada: {filteredRows.length} filas</Typography>
-            <Button variant="outlined" startIcon={<DownloadRoundedIcon />} onClick={() => exportRowsToExcel(filteredRows, `tabla_anual_filtrada_${Date.now()}.xlsx`)}>
-              Exportar tabla filtrada
+            <Button variant="outlined" startIcon={<DownloadRoundedIcon />} onClick={exportFilteredRows} disabled={exportingFiltered}>
+              {exportingFiltered ? 'Exportando...' : 'Exportar tabla filtrada'}
             </Button>
           </Stack>
           <DeviationTable rows={filteredRows} />

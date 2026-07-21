@@ -1,3 +1,5 @@
+import { safeExcelCell } from './safeExcelCell.js';
+
 const ANALYSIS_RESULTS_EXCEL_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const ANALYSIS_RESULTS_SHEET_NAME = 'Resultados';
 
@@ -10,9 +12,9 @@ async function buildAnalysisResultsWorkbookBuffer({ headers = [], rows = [] } = 
   const ExcelJS = await loadExcelJs();
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(ANALYSIS_RESULTS_SHEET_NAME);
-  sheet.addRow(headers);
+  sheet.addRow(headers.map(safeExcelCell));
   rows.forEach((row) => {
-    sheet.addRow(headers.map((header) => row[header] ?? ''));
+    sheet.addRow(headers.map((header) => safeExcelCell(row[header] ?? '')));
   });
   return workbook.xlsx.writeBuffer();
 }

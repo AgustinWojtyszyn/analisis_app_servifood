@@ -10,6 +10,7 @@ import {
   toPolicyValue,
   toYesNo
 } from './helpers.js';
+import { safeExcelCell } from '../../utils/safeExcelCell.js';
 
 export async function exportHealthDeclarationsHandler(req, res) {
   try {
@@ -64,7 +65,7 @@ export async function exportHealthDeclarationsHandler(req, res) {
         toPolicyValue(row.policy_accepted === true),
         normalizeStatus(row.health_status || evalRow.healthStatus),
         normalizeTrafficLight(row.traffic_light || evalRow.trafficLight)
-      ]);
+      ].map(safeExcelCell));
     }
 
     sheet.addTable({

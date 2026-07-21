@@ -7,6 +7,7 @@ import {
   normalizeExportIso
 } from '../../controllers/analysisController.mappers.js';
 import { normalizeCellValue } from '../analyzeExcel/normalizers.js';
+import { safeExcelCell } from '../../utils/safeExcelCell.js';
 
 const BULK_EXPORT_SHEET_NAME = 'Analisis';
 const BULK_EXPORT_HEADERS = [
@@ -52,9 +53,9 @@ function buildBulkExportRows(data = []) {
 
 function appendJsonRowsToWorksheet(worksheet, rows = [], headers = BULK_EXPORT_HEADERS) {
   if (!rows.length) return;
-  worksheet.addRow(headers);
+  worksheet.addRow(headers.map(safeExcelCell));
   for (const row of rows) {
-    worksheet.addRow(headers.map((header) => row[header] ?? ''));
+    worksheet.addRow(headers.map((header) => safeExcelCell(row[header] ?? '')));
   }
 }
 

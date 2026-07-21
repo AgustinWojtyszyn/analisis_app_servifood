@@ -9,6 +9,7 @@ import {
 } from '../../routes/nutritionModules/helpers.js';
 import { processPendingDocumentNotifications } from '../../routes/nutritionModules/notificationWorker.js';
 import { resolveUserRole, supabaseAdmin } from './context.js';
+import { safeExcelCell } from '../../utils/safeExcelCell.js';
 
 const documentNotificationDebugEnabled = process.env.DOCUMENTS_NOTIFICATIONS_DEBUG === '1' || process.env.NODE_ENV !== 'production';
 
@@ -459,12 +460,12 @@ export async function exportDocumentExcel(req, res) {
     ];
 
     sheet.addRow({
-      titulo: data.title || '',
-      descripcion: data.description || '',
-      contenido: data.content || '',
-      createdAt: formatDateTime(data.created_at),
-      updatedAt: formatDateTime(data.updated_at),
-      publishedAt: formatDateTime(data.published_at)
+      titulo: safeExcelCell(data.title || ''),
+      descripcion: safeExcelCell(data.description || ''),
+      contenido: safeExcelCell(data.content || ''),
+      createdAt: safeExcelCell(formatDateTime(data.created_at)),
+      updatedAt: safeExcelCell(formatDateTime(data.updated_at)),
+      publishedAt: safeExcelCell(formatDateTime(data.published_at))
     });
 
     const headerRow = sheet.getRow(1);
