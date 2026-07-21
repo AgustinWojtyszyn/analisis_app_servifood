@@ -130,7 +130,7 @@ export async function listFolders(req, res) {
       .order('name', { ascending: true })
       .order('id', { ascending: true });
 
-    if (req.query?.includeArchived !== 'true') {
+    if (!canManageByRole(role) || req.query?.includeArchived !== 'true') {
       query = query.neq('status', 'archivado');
     }
 

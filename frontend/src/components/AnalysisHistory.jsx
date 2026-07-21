@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Accordion,
   AccordionDetails,
@@ -129,11 +129,7 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   const [deletingBulk, setDeletingBulk] = useState(false);
   const [deletingProcessed, setDeletingProcessed] = useState(false);
 
-  useEffect(() => {
-    loadHistory();
-  }, [filters]);
-
-  const loadHistory = async (options = {}) => {
+  const loadHistory = useCallback(async (options = {}) => {
     try {
       setLoading(true);
       setError('');
@@ -158,7 +154,11 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const isReprocessingIso = reprocessingIso || reprocessingIsoDebug;

@@ -1,6 +1,8 @@
 import './config/env.js';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
@@ -20,6 +22,63 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isProduction = process.env.NODE_ENV === 'production';
 const enableStartupDiagnostics = !isProduction || process.env.DEBUG_STARTUP === '1';
+
+function resolveTrustProxy() {
+  const raw = String(process.env.TRUST_PROXY || '').trim().toLowerCase();
+  if (!raw) return isProduction ? 1 : false;
+  if (raw === 'true') return 1;
+  if (raw === 'false') return false;
+  const numeric = Number(raw);
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : 1;
+}
+
+app.set('trust proxy', resolveTrustProxy());
+
+function buildRateLimitHandler(message) {
+  return (_req, res) => res.status(429).json({ error: message });
+}
+
+function buildRateLimiter({ windowMs, max, message }) {
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    keyGenerator: (req) => ipKeyGenerator(req.ip),
+    skip: (req) => req.method === 'OPTIONS' || req.path === '/health',
+    handler: buildRateLimitHandler(message)
+  });
+}
+
+const apiLimiter = buildRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 600,
+  message: 'Demasiadas solicitudes. Intentá nuevamente en unos minutos.'
+});
+
+const authLimiter = buildRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: 'Demasiados intentos de autenticación. Intentá nuevamente en unos minutos.'
+});
+
+const exportLimiter = buildRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: 'Demasiadas solicitudes de exportación. Intentá nuevamente en unos minutos.'
+});
+
+const adminLimiter = buildRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: 'Demasiadas operaciones administrativas. Intentá nuevamente en unos minutos.'
+});
+
+const expensiveLimiter = buildRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  message: 'Demasiadas operaciones costosas. Intentá nuevamente más tarde.'
+});
 
 function normalizeOrigin(origin = '') {
   return String(origin).trim().replace(/\/+$/, '');
@@ -115,8 +174,10 @@ function buildCorsOptions(req, callback) {
 }
 
 // Middlewares
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ limit: '1mb', extended: true }));
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false
+}));
 app.use('/api', cors(buildCorsOptions));
 
 // Health check
@@ -127,6 +188,37 @@ app.get('/api/health', (req, res) => {
     environment: process.env.NODE_ENV || 'development'
   });
 });
+
+app.use('/api', apiLimiter);
+app.use(['/api/auth/login', '/api/auth/register', '/api/login', '/api/register'], authLimiter);
+app.use([
+  '/api/analysis/export',
+  '/api/analysis/annual',
+  '/api/health-declarations/export',
+  '/api/nutrition-modules/:id/export/excel',
+  '/api/nutrition-modules/:id/download',
+  '/api/nutrition-modules/files/:fileId/download'
+], exportLimiter);
+app.use([
+  '/api/admin',
+  '/api/rules',
+  '/api/certifications/run-notification-job',
+  '/api/certifications/:id/send-test-notification'
+], adminLimiter);
+app.use([
+  '/api/upload-excel',
+  '/api/analysis/upload',
+  '/api/analysis/upload-excel',
+  '/api/analysis/upload-multiple',
+  '/api/analysis/reprocess-history',
+  '/api/analysis/reprocess-iso-all',
+  '/api/analysis/bulk',
+  '/api/analysis/all',
+  '/api/nutrition-modules/import/zip'
+], expensiveLimiter);
+
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 
 // Alias compatible con frontend: POST /api/upload-excel
 app.post('/api/upload-excel', authenticateToken, requireAdmin, upload.single('excel'), uploadAndAnalyze);
@@ -162,7 +254,7 @@ app.use((req, res) => {
 });
 
 // Error handler global
-app.use((err, req, res, next) => {
+app.use((err, req, res) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({

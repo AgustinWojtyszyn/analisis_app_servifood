@@ -5,7 +5,6 @@ import { IsoYAxisTick } from './charts/IsoYAxisTick.jsx';
 import {
   abbreviateAreaLabel,
   buildChartsData,
-  buildISOChartData,
   hasChartsAnalysisData,
   palette,
   PIE_COLORS,
@@ -14,8 +13,6 @@ import {
   TEXT_SECONDARY,
   tooltipStyle
 } from './charts/charts.utils.js';
-
-export { buildISOChartData };
 
 export default function ChartsPage({ records = [], summary = null, analysisTotalRecords = 0 }) {
   const hasAnalysisData = useMemo(() => (

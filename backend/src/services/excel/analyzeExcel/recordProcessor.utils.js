@@ -237,7 +237,6 @@ function buildClassificationText({ areaProceso, actividadRealizada, hallazgoDete
 }
 
 function buildClassificationExplanation({
-  areaClasificada,
   resultadoClasificado,
   iso22000,
   areaEvidence,

@@ -37,7 +37,7 @@ function normalizeTipoPermitido(tipo = '', alcance = '', hallazgo = '') {
   return 'Interno';
 }
 
-function normalizeEstadoPermitido(estado = '', fecha = '', estadoOriginal = '') {
+function normalizeEstadoPermitido(estadoOriginal = '') {
   const explicitOriginal = normalizeCellValue(estadoOriginal).trim();
   if (!explicitOriginal) return 'No informado';
 
@@ -183,7 +183,7 @@ function validateFinalRecord(record = {}) {
   validated.clasificacionDesvio = normalizeCategoriaPermitida(validated.categoriaDesvio || validated.classification_original);
   validated.tipoDesvioOrigen = normalizeTipoPermitido(validated.tipoDesvio, validated.alcanceDesvio || validated.scope_normalized, validated.hallazgoDetectado);
   validated.relacionIso22000 = normalizeCellValue(validated.iso22000).trim();
-  validated.estadoAcciones = normalizeEstadoPermitido(validated.estadoAccion, validated.fecha, validated.estadoAccionRaw);
+  validated.estadoAcciones = normalizeEstadoPermitido(validated.estadoAccionRaw);
 
   // Mantener compatibilidad con consumidores actuales sin alterar métricas legacy.
   validated.estadoAccion = validated.estadoAcciones;

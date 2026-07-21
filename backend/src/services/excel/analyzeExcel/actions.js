@@ -379,10 +379,7 @@ function classifyActionStatusFromRow({
   accion,
   numeroAccion,
   notaTecnica,
-  resultadoClasificado,
   accionDetectada,
-  accionInmediata,
-  accionCorrectiva,
   fechaRegistro,
   estadoExplicito = ''
 }) {

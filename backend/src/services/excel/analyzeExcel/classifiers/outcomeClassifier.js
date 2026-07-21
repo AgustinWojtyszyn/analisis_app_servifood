@@ -353,7 +353,7 @@ function normalizeToTriadClassification({ categoriaDesvio = '', resultadoClasifi
   return { resultadoClasificado, tipoDesvio, categoriaDesvio };
 }
 
-function normalizeFinalOutcomeAndType({ resultadoClasificado = '', tipoDesvio = '' }) {
+function normalizeFinalOutcomeAndType({ tipoDesvio = '' }) {
   const tipo = normalizeCellValue(tipoDesvio).trim().toUpperCase();
   const allowedTipo = new Set(['IN', 'LE', 'LGT', 'NC', 'OBS', 'OM', '-']);
   const normalizedTipo = allowedTipo.has(tipo) ? tipo : '-';
@@ -386,7 +386,7 @@ function countMatchedKeywords(text, keywords = []) {
   return { score, matches };
 }
 
-function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, tipoActividad, context = {} }) {
+function classifyOutcomeFromRow({ resultado, desvio, descripcionDetectada, context = {} }) {
   const resultadoNorm = normalizeIncidentText(resultado);
   const resultadoEsConforme = isConformeLike(resultado);
   const resultadoEsNoConforme = isNoConformeLike(resultado);

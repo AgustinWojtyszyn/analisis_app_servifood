@@ -99,7 +99,6 @@ function recalculateIsoForStoredResults(results = {}, options = {}) {
     return { nextResults: { ...results, reprocessedWithCurrentIsoRules: true, isoReprocessedAt: new Date().toISOString() }, recordsProcessed: 0, manualBefore: 0, manualAfter: 0, changed: false, debugRecords };
   }
   let manualBefore = 0;
-  let manualAfter = 0;
   let changed = false;
   const byIso22000 = {};
   const nextRecords = originalRecords.map((record, index) => {
@@ -109,7 +108,6 @@ function recalculateIsoForStoredResults(results = {}, options = {}) {
     if (previousIsoState.divergent) changed = true;
     const resolved = resolveRecordIsoWithCurrentRules(record) || {};
     const nextIso = normalizeIsoValue(resolved?.iso);
-    if (isIsoManual(nextIso)) manualAfter += 1;
     byIso22000[nextIso] = (byIso22000[nextIso] || 0) + 1;
     if (nextIso !== prevIso) changed = true;
     if (collectDebug || ENABLE_REPROCESS_ISO_TRACE) {

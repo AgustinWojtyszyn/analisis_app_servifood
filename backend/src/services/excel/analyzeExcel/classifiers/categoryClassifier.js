@@ -25,8 +25,7 @@ function classifyDeviationAreaDetailed({
   hallazgoDetectado = '',
   actividadRealizada = '',
   resultadoClasificado = '',
-  tipoDesvio = '',
-  iso22000 = ''
+  tipoDesvio = ''
 } = {}) {
   const text = normalizeIncidentText([
     textoCompleto,
@@ -46,7 +45,6 @@ function classifyDeviationAreaDetailed({
     'riesgo sanitario', 'riesgo para el consumidor'
   ];
   const resultado = normalizeCellValue(resultadoClasificado).trim();
-  const iso = normalizeIncidentText(iso22000 || '');
   const tipo = normalizeCellValue(tipoDesvio).trim();
 
   if (!text || isExplicitNoFindingText(text) || resultado === 'Conforme') {
@@ -93,8 +91,7 @@ function classifyCategoriaDesvio({
   hallazgoDetectado = '',
   actividadRealizada = '',
   resultadoClasificado = '',
-  tipoDesvio = '',
-  iso22000 = ''
+  tipoDesvio = ''
 } = {}) {
   return classifyDeviationAreaDetailed({
     textoCompleto,
@@ -105,8 +102,7 @@ function classifyCategoriaDesvio({
     hallazgoDetectado,
     actividadRealizada,
     resultadoClasificado,
-    tipoDesvio,
-    iso22000
+    tipoDesvio
   }).area;
 }
 

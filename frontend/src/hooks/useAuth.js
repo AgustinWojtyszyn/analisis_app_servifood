@@ -24,6 +24,7 @@ export function useAuth() {
 
   useEffect(() => {
     let mounted = true;
+    let authRequestId = 0;
 
     async function ensureProfileFromAuthUser(authUser) {
       if (!authUser?.id) return null;
@@ -71,20 +72,21 @@ export function useAuth() {
       return existingProfile;
     }
 
-    async function bootstrap() {
-      const { data } = await supabase.auth.getSession();
-      const authUser = data?.session?.user || null;
+    async function applySession(session) {
+      const requestId = ++authRequestId;
+      const authUser = session?.user || null;
       const profile = authUser ? await ensureProfileFromAuthUser(authUser) : null;
       const currentUser = mapSupabaseUser(authUser, profile);
 
-      if (!mounted) return;
+      if (!mounted || requestId !== authRequestId) return;
 
       setUser(currentUser);
-      if (data?.session?.access_token) {
-        localStorage.setItem('supabase_access_token', data.session.access_token);
-      } else {
-        localStorage.removeItem('supabase_access_token');
-      }
+    }
+
+    async function bootstrap() {
+      const { data } = await supabase.auth.getSession();
+      await applySession(data?.session || null);
+      if (!mounted) return;
       setLoading(false);
     }
 
@@ -92,19 +94,7 @@ export function useAuth() {
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setIsPasswordRecovery(event === 'PASSWORD_RECOVERY');
-      const authUser = session?.user || null;
-
-      void (async () => {
-        const profile = authUser ? await ensureProfileFromAuthUser(authUser) : null;
-        const nextUser = mapSupabaseUser(authUser, profile);
-        setUser(nextUser);
-      })();
-
-      if (session?.access_token) {
-        localStorage.setItem('supabase_access_token', session.access_token);
-      } else {
-        localStorage.removeItem('supabase_access_token');
-      }
+      void applySession(session || null);
     });
 
     return () => {
@@ -121,7 +111,6 @@ export function useAuth() {
     await supabase.auth.signOut();
     setUser(null);
     setIsPasswordRecovery(false);
-    localStorage.removeItem('supabase_access_token');
   };
 
   return { user, login, logout, loading, isPasswordRecovery };

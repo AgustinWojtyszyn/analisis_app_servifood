@@ -82,7 +82,6 @@ function processRow({
     accionDetectada,
     areaProcesoRaw,
     accionRaw,
-    numeroAccionRaw,
     notaTecnicaRaw,
     fechaRaw,
     responsableOriginalRaw,

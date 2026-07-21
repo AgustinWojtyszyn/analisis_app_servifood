@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ThemeProvider, CssBaseline, Box, Typography, Paper } from '@mui/material';
 import { appTheme } from './styles/theme';
 import LoginForm from './components/LoginForm';
@@ -172,6 +172,32 @@ function MainApp({ user, onLogout }) {
     return getAllowedSectionsForRole(normalizedRole);
   }, [normalizedRole]);
 
+  const loadAnalysis = useCallback(async (analysisId) => {
+    try {
+      const response = await getAnalysisById(analysisId);
+      setSelectedAnalysis(response);
+    } catch {
+      setSelectedAnalysis(null);
+    }
+  }, []);
+
+  const navigateToSection = useCallback((nextSection, options = {}) => {
+    const resolvedSection = allowedSections.has(nextSection) ? nextSection : fallbackSection;
+    const nextPath = sectionPathMap[resolvedSection] || fallbackPath;
+    if (window.location.pathname !== nextPath) {
+      if (options.replace) {
+        window.history.replaceState({}, '', nextPath);
+      } else {
+        window.history.pushState({}, '', nextPath);
+      }
+    }
+    setCurrentSection(resolvedSection);
+  }, [allowedSections, fallbackPath, fallbackSection]);
+
+  const handleProfileUpdated = useCallback((patch) => {
+    setCurrentUserProfile((prev) => ({ ...(prev || {}), ...patch }));
+  }, []);
+
   useEffect(() => {
     const handlePopState = () => {
       const normalizedPath = normalizeProtectedPath(window.location.pathname);
@@ -187,7 +213,7 @@ function MainApp({ user, onLogout }) {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [loadAnalysis]);
 
   useEffect(() => {
     let mounted = true;
@@ -225,7 +251,7 @@ function MainApp({ user, onLogout }) {
     return () => {
       mounted = false;
     };
-  }, [user?.id]);
+  }, [user?.email, user?.id, user?.name]);
 
   useEffect(() => {
     if (loadingProfile) return;
@@ -249,23 +275,7 @@ function MainApp({ user, onLogout }) {
       const id = window.location.pathname.replace('/analisis/', '');
       if (id) loadAnalysis(id);
     }
-  }, [allowedSections, fallbackSection, isAdmin, loadingProfile]);
-
-  const navigateToSection = (nextSection, options = {}) => {
-    if (!allowedSections.has(nextSection)) {
-      nextSection = fallbackSection;
-    }
-
-    const nextPath = sectionPathMap[nextSection] || fallbackPath;
-    if (window.location.pathname !== nextPath) {
-      if (options.replace) {
-        window.history.replaceState({}, '', nextPath);
-      } else {
-        window.history.pushState({}, '', nextPath);
-      }
-    }
-    setCurrentSection(nextSection);
-  };
+  }, [allowedSections, fallbackSection, isAdmin, loadAnalysis, loadingProfile, navigateToSection]);
 
   useEffect(() => {
     if (loadingProfile) return;
@@ -276,7 +286,7 @@ function MainApp({ user, onLogout }) {
     if (authOnlyPublicPaths.has(window.location.pathname) || window.location.pathname === '/inicio') {
       navigateToSection(getInitialSectionForRole(normalizedRole), { replace: true });
     }
-  }, [loadingProfile, normalizedRole, user?.id]);
+  }, [loadingProfile, navigateToSection, normalizedRole, user?.id]);
 
   const navigateToAnalysis = (analysisId) => {
     if (!isAdmin) {
@@ -289,15 +299,6 @@ function MainApp({ user, onLogout }) {
       window.history.pushState({}, '', nextPath);
     }
     setCurrentSection('history');
-  };
-
-  const loadAnalysis = async (analysisId) => {
-    try {
-      const response = await getAnalysisById(analysisId);
-      setSelectedAnalysis(response);
-    } catch {
-      setSelectedAnalysis(null);
-    }
   };
 
   const handleUploadSuccess = async () => {
@@ -474,7 +475,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'profile') {
-      return <ProfilePage user={layoutUser} onProfileUpdated={(patch) => setCurrentUserProfile((prev) => ({ ...(prev || {}), ...patch }))} />;
+      return <ProfilePage user={layoutUser} onProfileUpdated={handleProfileUpdated} />;
     }
 
     if (currentSection === 'tutorial') {
@@ -482,7 +483,7 @@ function MainApp({ user, onLogout }) {
     }
 
     if (currentSection === 'adminUsers') {
-      return <AdminUsersPage currentUserId={user?.id} onCurrentUserUpdated={(patch) => setCurrentUserProfile((prev) => ({ ...(prev || {}), ...patch }))} />;
+      return <AdminUsersPage currentUserId={user?.id} onCurrentUserUpdated={handleProfileUpdated} />;
     }
 
     return null;

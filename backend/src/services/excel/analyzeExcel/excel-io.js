@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { normalizeCellValue, normalizeForMatch } from '../../analyzeExcel/normalizers.js';
+import { normalizeCellValue } from '../../analyzeExcel/normalizers.js';
 
 const DEVIATION_HEADER_ALIASES = [
   'desvio detectado',

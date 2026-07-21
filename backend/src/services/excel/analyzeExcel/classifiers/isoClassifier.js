@@ -418,7 +418,7 @@ function mergeCompositeIsoLabels(
   return result.join(' / ');
 }
 
-function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadRealizada, areaClasificada, resultadoClasificado }) {
+function resolveIsoWithContextFallback({ iso22000, hallazgoDetectado, actividadRealizada, areaClasificada }) {
   const text = normalizeIncidentText([hallazgoDetectado, actividadRealizada, areaClasificada].join(' | '));
   if (containsAny(text, HACCP_SAFETY_TERMS)) return '8.5 HACCP';
   if (normalizeCellValue(iso22000).trim() === '-') return '-';

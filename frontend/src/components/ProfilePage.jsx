@@ -91,7 +91,7 @@ export default function ProfilePage({ user, onProfileUpdated }) {
     return () => {
       mounted = false;
     };
-  }, [userId]);
+  }, [onProfileUpdated, userEmail, userId, userName, userRole]);
 
   const handleSave = async () => {
     if (!userId) return;
