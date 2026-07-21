@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   Box,
   Button,
+  Collapse,
   Divider,
   Drawer,
   IconButton,
@@ -31,6 +32,7 @@ import RestaurantMenuRoundedIcon from '@mui/icons-material/RestaurantMenuRounded
 import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
 
 const drawerWidth = 260;
@@ -56,10 +58,48 @@ const sectionIcons = {
   certifications: <WorkspacePremiumRoundedIcon />
 };
 
+const menuGroups = [
+  {
+    key: 'main',
+    ids: ['collaboratorPortal', 'internalManagement', 'upload', 'history', 'charts', 'annualAnalysis', 'customerNonconformities']
+  },
+  {
+    key: 'internal',
+    label: 'Gestión interna',
+    ids: ['declaration', 'adminHealthDeclarations', 'policies', 'nutritionModules', 'certifications']
+  },
+  {
+    key: 'admin',
+    label: 'Administración',
+    ids: ['rules', 'adminUsers']
+  },
+  {
+    key: 'bottom',
+    ids: ['profile', 'tutorial']
+  }
+];
+
+const collapsibleGroupKeys = ['internal', 'admin'];
+const menuStorageKey = 'servifood.sidebar.openGroups';
+
+const menuLabelOverrides = {
+  declaration: 'Mi Declaración Salud'
+};
+
+function readOpenGroupsFromSession() {
+  if (typeof window === 'undefined') return {};
+  try {
+    return JSON.parse(window.sessionStorage.getItem(menuStorageKey) || '{}') || {};
+  } catch {
+    return {};
+  }
+}
+
 export default function AppLayout({ user, onLogout, sections, currentSection, onSelectSection, children }) {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState(() => readOpenGroupsFromSession());
 
   const initials = useMemo(() => {
     const source = user?.name || user?.email || 'U';
@@ -139,6 +179,34 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     subtitle: 'Control y clasificación de desvíos de inocuidad, logística y legal'
   };
 
+  const sectionById = useMemo(() => new Map(sections.map((section) => [section.id, section])), [sections]);
+  const groupedSections = useMemo(() => {
+    return menuGroups.map((group) => ({
+      ...group,
+      items: group.ids.map((id) => sectionById.get(id)).filter(Boolean)
+    }));
+  }, [sectionById]);
+
+  const currentGroupKey = useMemo(() => {
+    return menuGroups.find((group) => group.ids.includes(currentSection))?.key || null;
+  }, [currentSection]);
+
+  const isGroupOpen = (groupKey) => {
+    return currentGroupKey === groupKey || Boolean(openGroups[groupKey]);
+  };
+
+  const toggleGroup = (groupKey) => {
+    setOpenGroups((prev) => {
+      const next = { ...prev, [groupKey]: !prev[groupKey] };
+      try {
+        window.sessionStorage.setItem(menuStorageKey, JSON.stringify(next));
+      } catch {
+        // Session state is optional.
+      }
+      return next;
+    });
+  };
+
   const handleSelect = (id) => {
     onSelectSection(id);
     if (!isDesktop) {
@@ -146,13 +214,100 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     }
   };
 
+  const renderMenuItem = (section) => {
+    const selected = currentSection === section.id;
+    return (
+      <ListItemButton
+        key={section.id}
+        selected={selected}
+        onClick={() => handleSelect(section.id)}
+        disabled={section.disabled}
+        sx={{
+          mb: 0.35,
+          px: 1.2,
+          py: 0.72,
+          minHeight: 40,
+          borderRadius: 1.7,
+          '&.Mui-selected': {
+            backgroundColor: 'rgba(255, 255, 255, 0.16)',
+            color: '#ffffff',
+            '& .MuiListItemIcon-root': { color: '#ffffff' },
+            '& .MuiListItemText-primary': { fontWeight: 700 }
+          },
+          '&:hover': {
+            backgroundColor: 'rgba(255, 255, 255, 0.11)'
+          }
+        }}
+      >
+        <ListItemIcon sx={{ minWidth: 32, color: selected ? '#ffffff' : 'rgba(255,255,255,0.74)' }}>
+          {sectionIcons[section.id]}
+        </ListItemIcon>
+        <ListItemText
+          primary={menuLabelOverrides[section.id] || section.label}
+          primaryTypographyProps={{ fontWeight: selected ? 700 : 600, fontSize: 13.5, color: selected ? '#ffffff' : 'rgba(255,255,255,0.86)' }}
+        />
+      </ListItemButton>
+    );
+  };
+
+  const renderGroup = (group) => {
+    if (!group.items.length) return null;
+    if (!collapsibleGroupKeys.includes(group.key)) {
+      return group.items.map(renderMenuItem);
+    }
+
+    const open = isGroupOpen(group.key);
+    const selected = group.ids.includes(currentSection);
+    return (
+      <Box key={group.key} sx={{ mb: 0.45 }}>
+        <ListItemButton
+          onClick={() => toggleGroup(group.key)}
+          selected={selected}
+          sx={{
+            mb: 0.35,
+            px: 1.2,
+            py: 0.72,
+            minHeight: 40,
+            borderRadius: 1.7,
+            '&.Mui-selected': {
+              backgroundColor: 'rgba(255, 255, 255, 0.12)',
+              color: '#ffffff',
+              '& .MuiListItemText-primary': { fontWeight: 700 }
+            },
+            '&:hover': {
+              backgroundColor: 'rgba(255, 255, 255, 0.11)'
+            }
+          }}
+        >
+          <ListItemText
+            primary={group.label}
+            primaryTypographyProps={{ fontWeight: selected ? 700 : 650, fontSize: 13.2, color: selected ? '#ffffff' : 'rgba(255,255,255,0.86)' }}
+          />
+          <KeyboardArrowDownRoundedIcon
+            sx={{
+              fontSize: 19,
+              color: 'rgba(255,255,255,0.72)',
+              transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+              transition: 'transform 160ms ease'
+            }}
+          />
+        </ListItemButton>
+        <Collapse in={open} timeout="auto" unmountOnExit>
+          <Box sx={{ pl: 0.5 }}>
+            {group.items.map(renderMenuItem)}
+          </Box>
+        </Collapse>
+      </Box>
+    );
+  };
+
   const drawerContent = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box
         sx={{
-          px: 2.25,
-          pt: 2.5,
-          pb: 2
+          px: 2,
+          pt: 1.6,
+          pb: 1.25
         }}
       >
         <Box
@@ -161,8 +316,8 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
           alt="ServiFood Logo"
           sx={{
             width: '100%',
-            maxWidth: 180,
-            height: 92,
+            maxWidth: 150,
+            height: 68,
             objectFit: 'contain',
             display: 'block',
             mx: 'auto'
@@ -175,9 +330,9 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
             justifyContent: 'center',
             alignItems: 'center',
             gap: 0.75,
-            mt: 1,
+            mt: 0.65,
             color: '#f6c45a',
-            fontSize: 13,
+            fontSize: 12,
             lineHeight: 1
           }}
         >
@@ -185,51 +340,26 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
           <Box component="span">★</Box>
           <Box component="span">★</Box>
         </Box>
-        <Typography sx={{ mt: 1.25, color: 'rgba(255,255,255,0.88)', fontSize: 12, textAlign: 'center', fontWeight: 600 }}>
+        <Typography sx={{ mt: 0.85, color: 'rgba(255,255,255,0.88)', fontSize: 11.5, textAlign: 'center', fontWeight: 600 }}>
           Plataforma de análisis de desvíos
         </Typography>
       </Box>
 
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.14)' }} />
 
-      <List sx={{ px: 1.5, py: 2.25, flex: 1 }}>
-        {sections.map((section) => {
-          const selected = currentSection === section.id;
-          return (
-            <ListItemButton
-              key={section.id}
-              selected={selected}
-              onClick={() => handleSelect(section.id)}
-              disabled={section.disabled}
-              sx={{
-                mb: 0.6,
-                px: 1.4,
-                py: 1,
-                borderRadius: 2,
-                '&.Mui-selected': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.16)',
-                  color: '#ffffff',
-                  '& .MuiListItemIcon-root': { color: '#ffffff' },
-                  '& .MuiListItemText-primary': { fontWeight: 700 }
-                },
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.11)'
-                }
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 36, color: selected ? '#ffffff' : 'rgba(255,255,255,0.74)' }}>
-                {sectionIcons[section.id]}
-              </ListItemIcon>
-              <ListItemText
-                primary={section.label}
-                primaryTypographyProps={{ fontWeight: selected ? 700 : 600, fontSize: 14, color: selected ? '#ffffff' : 'rgba(255,255,255,0.86)' }}
-              />
-            </ListItemButton>
-          );
-        })}
-      </List>
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+        <List sx={{ px: 1.25, py: 1.25 }}>
+          {groupedSections.find((group) => group.key === 'main')?.items.map(renderMenuItem)}
+          {groupedSections
+            .filter((group) => collapsibleGroupKeys.includes(group.key))
+            .map(renderGroup)}
+          <Box sx={{ mt: 0.7, pt: 0.7, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
+            {groupedSections.find((group) => group.key === 'bottom')?.items.map(renderMenuItem)}
+          </Box>
+        </List>
+      </Box>
 
-      <Box sx={{ px: 1.75, pb: 2.25 }}>
+      <Box sx={{ px: 1.75, pt: 1.1, pb: 1.5 }}>
         <Box
           sx={{
             borderRadius: 2,
