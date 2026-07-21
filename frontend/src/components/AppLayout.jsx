@@ -82,10 +82,6 @@ const menuGroups = [
 const collapsibleGroupKeys = ['internal', 'admin'];
 const menuStorageKey = 'servifood.sidebar.openGroups';
 
-const menuLabelOverrides = {
-  declaration: 'Mi Declaración Salud'
-};
-
 function readOpenGroupsFromSession() {
   if (typeof window === 'undefined') return {};
   try {
@@ -180,16 +176,24 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
   };
 
   const sectionById = useMemo(() => new Map(sections.map((section) => [section.id, section])), [sections]);
+  const isCollaboratorMenu = sectionById.has('collaboratorPortal')
+    && !sectionById.has('internalManagement')
+    && !sectionById.has('upload');
+  const effectiveMenuGroups = useMemo(() => (
+    isCollaboratorMenu
+      ? [{ key: 'main', ids: ['collaboratorPortal', 'declaration', 'policies'] }]
+      : menuGroups
+  ), [isCollaboratorMenu]);
   const groupedSections = useMemo(() => {
-    return menuGroups.map((group) => ({
+    return effectiveMenuGroups.map((group) => ({
       ...group,
       items: group.ids.map((id) => sectionById.get(id)).filter(Boolean)
     }));
-  }, [sectionById]);
+  }, [effectiveMenuGroups, sectionById]);
 
   const currentGroupKey = useMemo(() => {
-    return menuGroups.find((group) => group.ids.includes(currentSection))?.key || null;
-  }, [currentSection]);
+    return effectiveMenuGroups.find((group) => group.ids.includes(currentSection))?.key || null;
+  }, [currentSection, effectiveMenuGroups]);
 
   const isGroupOpen = (groupKey) => {
     return currentGroupKey === groupKey || Boolean(openGroups[groupKey]);
@@ -243,7 +247,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
           {sectionIcons[section.id]}
         </ListItemIcon>
         <ListItemText
-          primary={menuLabelOverrides[section.id] || section.label}
+          primary={section.id === 'declaration' && !isCollaboratorMenu ? 'Mi Declaración Salud' : section.label}
           primaryTypographyProps={{ fontWeight: selected ? 700 : 600, fontSize: 13.5, color: selected ? '#ffffff' : 'rgba(255,255,255,0.86)' }}
         />
       </ListItemButton>
