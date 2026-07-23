@@ -47,6 +47,7 @@ import {
   deleteNutritionModule,
   downloadNutritionModule,
   exportNutritionModuleExcel,
+  getNutritionModuleById,
   getNutritionModuleFiles,
   getNutritionModuleFolders,
   getNutritionModules,
@@ -89,11 +90,39 @@ function formatDate(value) {
   return date.toLocaleDateString('es-AR');
 }
 
+function formatDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('es-AR');
+}
+
 function filesLabel(value) {
   const count = Number(value || 0);
   if (count <= 0) return 'Sin adjuntos';
   if (count === 1) return '1 adjunto';
   return `${count} adjuntos`;
+}
+
+function formatModuleTypeLabel(value = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'procedimiento') return 'Procedimiento';
+  if (normalized === 'registro') return 'Registro';
+  if (normalized === 'estrategias') return 'Estrategias';
+  return '';
+}
+
+function getFolderPathLabel(folderId, folderById) {
+  if (!folderId || !folderById?.has(folderId)) return '';
+  const chain = [];
+  const visited = new Set();
+  let cursor = folderById.get(folderId);
+  while (cursor && !visited.has(cursor.id)) {
+    chain.unshift(cursor.name);
+    visited.add(cursor.id);
+    cursor = cursor.parentId ? folderById.get(cursor.parentId) : null;
+  }
+  return chain.filter(Boolean).join(' / ');
 }
 
 function compareBySortOrderThenName(a, b, nameKey) {
@@ -212,6 +241,92 @@ function MoveDocumentDialog({ open, row, folders, onClose, onSubmit, saving }) {
         <Button variant="contained" onClick={() => onSubmit(folderId || null)} disabled={saving}>
           {saving ? 'Moviendo...' : 'Mover'}
         </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+function DetailField({ label, children }) {
+  if (!children) return null;
+  return (
+    <Box>
+      <Typography sx={{ fontWeight: 800, fontSize: 13, color: 'text.secondary', mb: 0.25 }}>{label}</Typography>
+      <Typography sx={{ whiteSpace: 'pre-wrap' }}>{children}</Typography>
+    </Box>
+  );
+}
+
+function DocumentDetailDialog({
+  open,
+  document,
+  files,
+  loading,
+  error,
+  locationLabel,
+  onClose,
+  onDownloadFile
+}) {
+  const moduleTypeLabel = formatModuleTypeLabel(document?.moduleType);
+  const hasContent = Boolean(String(document?.content || '').trim());
+  const buildFileMeta = (file) => [
+    file?.fileType,
+    Number(file?.fileSize || 0) > 0 ? formatBytes(file.fileSize) : '',
+    formatDateTime(file?.createdAt)
+  ].filter(Boolean).join(' · ');
+
+  return (
+    <Dialog open={open} onClose={loading ? undefined : onClose} fullWidth maxWidth="md">
+      <DialogTitle>{document?.title || 'Documento SGC'}</DialogTitle>
+      <DialogContent>
+        {loading && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
+            <CircularProgress size={20} />
+            <Typography variant="body2" color="text.secondary">Cargando documento...</Typography>
+          </Box>
+        )}
+        {!loading && error && <Alert severity="error">{error}</Alert>}
+        {!loading && !error && document && (
+          <Box sx={{ mt: 0.5, display: 'grid', gap: 1.4 }}>
+            <DetailField label="Título">{document.title || 'Documento sin título'}</DetailField>
+            <DetailField label="Apartado">{moduleTypeLabel}</DetailField>
+            <DetailField label="Ubicación">{locationLabel}</DetailField>
+            <DetailField label="Descripción">{String(document.description || '').trim() || 'Sin descripción cargada.'}</DetailField>
+            <Box>
+              <Typography sx={{ fontWeight: 800, fontSize: 13, color: 'text.secondary', mb: 0.25 }}>Contenido</Typography>
+              {hasContent ? (
+                <Typography sx={{ whiteSpace: 'pre-wrap' }}>{document.content}</Typography>
+              ) : (
+                <Typography color="text.secondary">Este documento no tiene contenido cargado.</Typography>
+              )}
+            </Box>
+            <Divider />
+            <Box>
+              <Typography sx={{ fontWeight: 800, mb: 0.75 }}>Adjuntos</Typography>
+              {!files.length && (
+                <Typography color="text.secondary">Este documento no tiene archivos adjuntos.</Typography>
+              )}
+              {files.map((file, index) => (
+                <Box key={file.id || `${file.fileName}-${index}`}>
+                  {index > 0 && <Divider />}
+                  <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', justifyContent: 'space-between', py: 0.8, flexWrap: 'wrap' }}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 600 }}>{file.fileName || 'Archivo adjunto'}</Typography>
+                      {buildFileMeta(file) && (
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{buildFileMeta(file)}</Typography>
+                      )}
+                    </Box>
+                    <Button size="small" startIcon={<CloudDownloadRoundedIcon />} variant="outlined" onClick={() => onDownloadFile(file)}>
+                      Descargar
+                    </Button>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={loading}>Cerrar</Button>
       </DialogActions>
     </Dialog>
   );
@@ -455,6 +570,11 @@ export default function NutritionModulesPage({ user }) {
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState(null);
   const [moveDocumentRow, setMoveDocumentRow] = useState(null);
+  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
+  const [documentDetail, setDocumentDetail] = useState(null);
+  const [documentDetailFiles, setDocumentDetailFiles] = useState([]);
+  const [documentDetailLoading, setDocumentDetailLoading] = useState(false);
+  const [documentDetailError, setDocumentDetailError] = useState('');
   const [filesDialogOpen, setFilesDialogOpen] = useState(false);
   const [filesDialogRow, setFilesDialogRow] = useState(null);
   const [filesDialogFiles, setFilesDialogFiles] = useState([]);
@@ -505,6 +625,7 @@ export default function NutritionModulesPage({ user }) {
   const currentParentId = currentFolderId ? (folderById.get(currentFolderId)?.parentId || null) : null;
   const hasRestrictedOrderView = Boolean(search) || selectedSection !== 'todos';
   const canReorderCurrentView = canManage && !hasRestrictedOrderView && !orderLocked;
+  const documentLocationLabel = getFolderPathLabel(documentDetail?.folderId, folderById);
 
   useEffect(() => {
     void loadLibrary();
@@ -830,6 +951,37 @@ export default function NutritionModulesPage({ user }) {
     }
   };
 
+  const handleViewDocument = async (row) => {
+    if (!row?.id) return;
+    setDocumentDialogOpen(true);
+    setDocumentDetail(row);
+    setDocumentDetailFiles([]);
+    setDocumentDetailError('');
+    setDocumentDetailLoading(true);
+    try {
+      const [documentData, files] = await Promise.all([
+        getNutritionModuleById(row.id),
+        getNutritionModuleFiles(row.id)
+      ]);
+      setDocumentDetail(documentData || row);
+      setDocumentDetailFiles(Array.isArray(files) ? files : []);
+    } catch {
+      setDocumentDetail(row);
+      setDocumentDetailFiles([]);
+      setDocumentDetailError('No se pudo cargar el detalle del documento.');
+    } finally {
+      setDocumentDetailLoading(false);
+    }
+  };
+
+  const handleCloseDocumentDetail = () => {
+    if (documentDetailLoading) return;
+    setDocumentDialogOpen(false);
+    setDocumentDetail(null);
+    setDocumentDetailFiles([]);
+    setDocumentDetailError('');
+  };
+
   const handleViewFiles = async (row) => {
     try {
       setError('');
@@ -851,6 +1003,7 @@ export default function NutritionModulesPage({ user }) {
       await deleteNutritionModuleFile(file.id);
       setEditingFiles((prev) => prev.filter((item) => item.id !== file.id));
       setFilesDialogFiles((prev) => prev.filter((item) => item.id !== file.id));
+      setDocumentDetailFiles((prev) => prev.filter((item) => item.id !== file.id));
       await loadLibrary();
     } catch (err) {
       setError(err.message || 'No se pudo borrar archivo adjunto');
@@ -1160,7 +1313,7 @@ export default function NutritionModulesPage({ user }) {
                   icon={<ArticleRoundedIcon color="info" />}
                   title={row.title}
                   meta={`${row.description || 'Sin descripción'} · ${filesLabel(row.filesCount)} · ${formatDate(row.updatedAt || row.createdAt)}`}
-                  onOpen={() => handleViewFiles(row)}
+                  onOpen={() => handleViewDocument(row)}
                   orderControls={renderOrderControls('document', index, currentRows.length)}
                   draggable={canReorderCurrentView}
                   dragging={dragState?.type === 'document' && dragState?.id === row.id}
@@ -1248,6 +1401,17 @@ export default function NutritionModulesPage({ user }) {
         onClose={() => { if (!saving) setMoveDocumentRow(null); }}
         onSubmit={handleMoveDocument}
         saving={saving}
+      />
+
+      <DocumentDetailDialog
+        open={documentDialogOpen}
+        document={documentDetail}
+        files={documentDetailFiles}
+        loading={documentDetailLoading}
+        error={documentDetailError}
+        locationLabel={documentLocationLabel}
+        onClose={handleCloseDocumentDetail}
+        onDownloadFile={handleDownloadFile}
       />
 
       <ZipImportDialog
