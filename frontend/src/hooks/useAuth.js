@@ -1,6 +1,40 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
+const PROFILE_STATUS = {
+  IDLE: 'idle',
+  LOADING: 'loading',
+  EXISTING: 'existing',
+  CREATED: 'created',
+  INACTIVE: 'inactive',
+  MISSING: 'missing',
+  ERROR: 'error'
+};
+
+const PROFILE_ERROR_MESSAGES = {
+  load: 'No pudimos cargar tu perfil. Revisá tu conexión e intentá nuevamente.',
+  create: 'Tu cuenta existe, pero no pudimos preparar tu perfil. Intentá cerrar sesión e ingresar nuevamente.',
+  missing: 'Tu cuenta existe, pero no encontramos un perfil habilitado para usar la aplicación.',
+  inactive: 'Tu usuario está inactivo. Contactá a un administrador para recuperar el acceso.'
+};
+
+function createProfileError(reason, error = null) {
+  const profileError = new Error(PROFILE_ERROR_MESSAGES[reason] || PROFILE_ERROR_MESSAGES.load);
+  profileError.reason = reason;
+  profileError.publicMessage = profileError.message;
+  profileError.code = error?.code || null;
+  profileError.status = error?.status || null;
+  return profileError;
+}
+
+function logProfileError(event, error) {
+  console.warn(`[auth] ${event}`, {
+    reason: error?.reason || 'unknown',
+    code: error?.code || null,
+    status: error?.status || null
+  });
+}
+
 function mapSupabaseUser(user, profile = null) {
   if (!user) return null;
 
@@ -13,7 +47,7 @@ function mapSupabaseUser(user, profile = null) {
     id: user.id,
     email: user.email,
     name: profileName || metadataName || user.email,
-    role: profile?.role || appMetadata.role || 'user'
+    role: profile?.role || appMetadata.role || null
   };
 }
 
@@ -21,6 +55,8 @@ export function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const [profileStatus, setProfileStatus] = useState(PROFILE_STATUS.IDLE);
+  const [profileError, setProfileError] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -34,12 +70,12 @@ export function useAuth() {
 
       const { data: existingProfile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, email, full_name, role')
+        .select('id, email, full_name, role, is_active')
         .eq('id', authUser.id)
         .maybeSingle();
 
       if (profileError) {
-        return null;
+        throw createProfileError('load', profileError);
       }
 
       if (!existingProfile) {
@@ -50,37 +86,84 @@ export function useAuth() {
           role: 'user',
           is_active: true
         };
-        const { data: insertedProfile } = await supabase
+        const { data: insertedProfile, error: insertError } = await supabase
           .from('profiles')
           .insert(insertPayload)
-          .select('id, email, full_name, role')
+          .select('id, email, full_name, role, is_active')
           .maybeSingle();
-        return insertedProfile || null;
+
+        if (insertError) {
+          throw createProfileError('create', insertError);
+        }
+
+        if (!insertedProfile) {
+          throw createProfileError('missing');
+        }
+
+        return { profile: insertedProfile, status: PROFILE_STATUS.CREATED };
+      }
+
+      if (existingProfile.is_active === false) {
+        return { profile: existingProfile, status: PROFILE_STATUS.INACTIVE };
       }
 
       const profileName = String(existingProfile.full_name || '').trim();
       if (!profileName && metadataName) {
-        const { data: updatedProfile } = await supabase
+        const { data: updatedProfile, error: updateError } = await supabase
           .from('profiles')
           .update({ full_name: metadataName })
           .eq('id', authUser.id)
-          .select('id, email, full_name, role')
+          .select('id, email, full_name, role, is_active')
           .maybeSingle();
-        return updatedProfile || existingProfile;
+
+        if (updateError) {
+          logProfileError('profile_name_update_failed', createProfileError('load', updateError));
+          return { profile: existingProfile, status: PROFILE_STATUS.EXISTING };
+        }
+
+        return { profile: updatedProfile || existingProfile, status: PROFILE_STATUS.EXISTING };
       }
 
-      return existingProfile;
+      return { profile: existingProfile, status: PROFILE_STATUS.EXISTING };
     }
 
     async function applySession(session) {
       const requestId = ++authRequestId;
       const authUser = session?.user || null;
-      const profile = authUser ? await ensureProfileFromAuthUser(authUser) : null;
-      const currentUser = mapSupabaseUser(authUser, profile);
 
-      if (!mounted || requestId !== authRequestId) return;
+      if (!authUser) {
+        if (!mounted || requestId !== authRequestId) return;
+        setUser(null);
+        setProfileStatus(PROFILE_STATUS.IDLE);
+        setProfileError(null);
+        return;
+      }
 
-      setUser(currentUser);
+      if (mounted && requestId === authRequestId) {
+        setProfileStatus(PROFILE_STATUS.LOADING);
+        setProfileError(null);
+      }
+
+      try {
+        const { profile, status } = await ensureProfileFromAuthUser(authUser);
+        const currentUser = mapSupabaseUser(authUser, profile);
+
+        if (!mounted || requestId !== authRequestId) return;
+
+        setUser(currentUser);
+        setProfileStatus(status);
+        setProfileError(status === PROFILE_STATUS.INACTIVE ? PROFILE_ERROR_MESSAGES.inactive : null);
+      } catch (error) {
+        const controlledError = error?.publicMessage ? error : createProfileError('load', error);
+
+        if (!mounted || requestId !== authRequestId) return;
+
+        logProfileError('profile_load_failed', controlledError);
+
+        setUser(mapSupabaseUser(authUser, null));
+        setProfileStatus(controlledError.reason === 'missing' ? PROFILE_STATUS.MISSING : PROFILE_STATUS.ERROR);
+        setProfileError(controlledError.publicMessage);
+      }
     }
 
     async function bootstrap() {
@@ -105,15 +188,19 @@ export function useAuth() {
 
   const login = (userData) => {
     setUser(userData);
+    setProfileStatus(PROFILE_STATUS.LOADING);
+    setProfileError(null);
   };
 
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setProfileStatus(PROFILE_STATUS.IDLE);
+    setProfileError(null);
     setIsPasswordRecovery(false);
   };
 
-  return { user, login, logout, loading, isPasswordRecovery };
+  return { user, login, logout, loading, isPasswordRecovery, profileStatus, profileError };
 }
 
 export function useLocalStorage(key, initialValue) {

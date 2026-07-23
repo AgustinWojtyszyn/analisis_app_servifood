@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ThemeProvider, CssBaseline, Box, Typography, Paper } from '@mui/material';
+import { ThemeProvider, CssBaseline, Box, Button, Typography, Paper } from '@mui/material';
 import { appTheme } from './styles/theme';
 import LoginForm from './components/LoginForm';
 import ForgotPasswordPage from './components/ForgotPasswordPage';
@@ -42,6 +42,31 @@ function SectionFallback() {
   return (
     <Box sx={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <Typography sx={{ color: '#e2e8f0', fontWeight: 700 }}>Cargando...</Typography>
+    </Box>
+  );
+}
+
+function ProfileAccessState({ title, message, onLogout }) {
+  return (
+    <Box sx={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#020617',
+      px: 2
+    }}>
+      <Paper sx={{ p: 4, maxWidth: 520, width: '100%', textAlign: 'center' }}>
+        <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+          {title}
+        </Typography>
+        <Typography color="text.secondary" sx={{ mb: 3 }}>
+          {message}
+        </Typography>
+        <Button variant="contained" onClick={onLogout}>
+          Cerrar sesión
+        </Button>
+      </Paper>
     </Box>
   );
 }
@@ -111,6 +136,10 @@ function MainApp({ user, onLogout }) {
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profileLoadState, setProfileLoadState] = useState({
+    status: 'loading',
+    message: null
+  });
   const [reloadHistoryKey, setReloadHistoryKey] = useState(0);
   const postLoginRedirectUserIdRef = useRef(null);
 
@@ -220,11 +249,17 @@ function MainApp({ user, onLogout }) {
 
     async function loadCurrentProfile() {
       if (!user?.id) {
+        setCurrentUserProfile(null);
+        setProfileLoadState({
+          status: 'missing',
+          message: 'No encontramos una sesión válida para cargar tu perfil.'
+        });
         setLoadingProfile(false);
         return;
       }
 
       setLoadingProfile(true);
+      setProfileLoadState({ status: 'loading', message: null });
 
       const { data, error } = await supabase
         .from('profiles')
@@ -234,14 +269,25 @@ function MainApp({ user, onLogout }) {
 
       if (!mounted) return;
       if (!error && data) {
+        if (data.is_active === false) {
+          setCurrentUserProfile(null);
+          setProfileLoadState({
+            status: 'inactive',
+            message: 'Tu usuario está inactivo. Contactá a un administrador para recuperar el acceso.'
+          });
+          setLoadingProfile(false);
+          return;
+        }
+
         setCurrentUserProfile(data);
+        setProfileLoadState({ status: 'loaded', message: null });
       } else {
-        setCurrentUserProfile({
-          id: user.id,
-          email: user.email || null,
-          full_name: user.name || null,
-          role: ROLES.USER,
-          is_active: true
+        setCurrentUserProfile(null);
+        setProfileLoadState({
+          status: error ? 'error' : 'missing',
+          message: error
+            ? 'No pudimos cargar tu perfil. Revisá tu conexión e intentá nuevamente.'
+            : 'Tu cuenta existe, pero no encontramos un perfil habilitado para usar la aplicación.'
         });
       }
       setLoadingProfile(false);
@@ -255,6 +301,7 @@ function MainApp({ user, onLogout }) {
 
   useEffect(() => {
     if (loadingProfile) return;
+    if (profileLoadState.status !== 'loaded') return;
 
     const normalizedPath = normalizeProtectedPath(window.location.pathname);
     const sectionFromPath = getSectionFromPath(normalizedPath);
@@ -275,10 +322,11 @@ function MainApp({ user, onLogout }) {
       const id = window.location.pathname.replace('/analisis/', '');
       if (id) loadAnalysis(id);
     }
-  }, [allowedSections, fallbackSection, isAdmin, loadAnalysis, loadingProfile, navigateToSection]);
+  }, [allowedSections, fallbackSection, isAdmin, loadAnalysis, loadingProfile, navigateToSection, profileLoadState.status]);
 
   useEffect(() => {
     if (loadingProfile) return;
+    if (profileLoadState.status !== 'loaded') return;
     if (!user?.id) return;
     if (postLoginRedirectUserIdRef.current === user.id) return;
 
@@ -286,7 +334,7 @@ function MainApp({ user, onLogout }) {
     if (authOnlyPublicPaths.has(window.location.pathname) || window.location.pathname === '/inicio') {
       navigateToSection(getInitialSectionForRole(normalizedRole), { replace: true });
     }
-  }, [loadingProfile, navigateToSection, normalizedRole, user?.id]);
+  }, [loadingProfile, navigateToSection, normalizedRole, profileLoadState.status, user?.id]);
 
   const navigateToAnalysis = (analysisId) => {
     if (!isAdmin) {
@@ -494,6 +542,12 @@ function MainApp({ user, onLogout }) {
       <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#020617' }}>
         <Typography sx={{ color: '#e2e8f0', fontWeight: 700 }}>Cargando perfil...</Typography>
       </Box>
+    ) : profileLoadState.status !== 'loaded' ? (
+      <ProfileAccessState
+        title={profileLoadState.status === 'inactive' ? 'Usuario inactivo' : 'No pudimos habilitar tu acceso'}
+        message={profileLoadState.message || 'Intentá cerrar sesión e ingresar nuevamente.'}
+        onLogout={onLogout}
+      />
     ) : (
     <AppLayout
       user={layoutUser}
@@ -599,7 +653,7 @@ function PublicApp({ onLoginSuccess }) {
 }
 
 export default function App() {
-  const { user, login, logout, loading, isPasswordRecovery } = useAuth();
+  const { user, login, logout, loading, isPasswordRecovery, profileStatus, profileError } = useAuth();
   const isResetPasswordRoute = window.location.pathname === '/reset-password';
   const handleLoginSuccess = (nextUser) => {
     login(nextUser);
@@ -621,6 +675,19 @@ export default function App() {
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
           <Typography>Cargando...</Typography>
         </Box>
+      </ThemeProvider>
+    );
+  }
+
+  if (user && ['error', 'missing', 'inactive'].includes(profileStatus)) {
+    return (
+      <ThemeProvider theme={appTheme}>
+        <CssBaseline />
+        <ProfileAccessState
+          title={profileStatus === 'inactive' ? 'Usuario inactivo' : 'No pudimos habilitar tu acceso'}
+          message={profileError || 'Intentá cerrar sesión e ingresar nuevamente.'}
+          onLogout={handleLogout}
+        />
       </ThemeProvider>
     );
   }
