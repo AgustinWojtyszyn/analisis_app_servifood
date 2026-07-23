@@ -23,6 +23,14 @@ function MetricCard({ label, value }) {
   );
 }
 
+function normalizeSearchText(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 export default function CertificationsPage() {
   const initialCertificationSearch = (() => {
     const raw = new URLSearchParams(window.location.search).get('certificationId');
@@ -88,19 +96,27 @@ export default function CertificationsPage() {
   }, [items]);
 
   const filteredItems = useMemo(() => {
-    const search = String(searchTerm || '').trim().toLowerCase();
+    const search = normalizeSearchText(searchTerm);
     const descriptionKeywords = String(descriptionSearchTerm || '')
       .trim()
       .toLowerCase()
       .split(/\s+/)
       .filter(Boolean);
     return items.filter((item) => {
-      const name = String(item?.name || '').toLowerCase();
-      const id = String(item?.id || '').toLowerCase();
+      const searchableText = [
+        item?.name,
+        item?.id,
+        item?.description,
+        item?.responsiblePerson,
+        item?.responsibleArea,
+        item?.type,
+        item?.module,
+        item?.url
+      ].map((value) => normalizeSearchText(value)).filter(Boolean).join(' ');
       const description = String(item?.description || '').toLowerCase();
       const moduleName = String(item?.module || '');
       const status = String(item?.status || '');
-      const matchesSearch = !search || name.includes(search) || id.includes(search);
+      const matchesSearch = !search || searchableText.includes(search);
       const matchesDescription = !descriptionKeywords.length || descriptionKeywords.every((keyword) => description.includes(keyword));
       const matchesStatus = statusFilter === 'all' || status === statusFilter;
       const matchesModule = moduleFilter === 'all' || moduleName === moduleFilter;
@@ -236,8 +252,8 @@ export default function CertificationsPage() {
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(210px, 1fr) minmax(230px, 1.2fr) 190px 220px' }, gap: 1 }}>
               <TextField
                 size="small"
-                label="Buscar por nombre..."
-                placeholder="Buscar por nombre..."
+                label="Buscar certificación..."
+                placeholder="Buscar por nombre, responsable, área, tipo o módulo..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
