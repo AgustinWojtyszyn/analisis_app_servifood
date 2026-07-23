@@ -44,11 +44,11 @@ async function processCertificationAutomaticNotificationForRecipient({
   const equivalentTypes = getEquivalentTriggerTypes(triggerInfo.triggerType);
   const { data: existingLogs, error: existingLogsError } = await supabaseAdmin
     .from('certification_notification_logs')
-    .select('id')
+    .select('id, trigger_type, status')
     .eq('certification_id', certification.id)
     .eq('recipient', normalizedRecipient)
     .in('trigger_type', equivalentTypes)
-    .limit(1);
+    .order('created_at', { ascending: false });
 
   if (existingLogsError) {
     return {
@@ -61,7 +61,9 @@ async function processCertificationAutomaticNotificationForRecipient({
     };
   }
 
-  if (Array.isArray(existingLogs) && existingLogs.length > 0) {
+  const logs = Array.isArray(existingLogs) ? existingLogs : [];
+  const blockingLog = logs.find((log) => ['sent', 'processing', 'pending'].includes(String(log?.status || '').toLowerCase()));
+  if (blockingLog) {
     return {
       certificationId: certification?.id || null,
       recipient: normalizedRecipient,
@@ -71,15 +73,22 @@ async function processCertificationAutomaticNotificationForRecipient({
     };
   }
 
-  const reserveRes = await supabaseAdmin
-    .from('certification_notification_logs')
-    .insert(reservePayload)
-    .select('id')
-    .single();
+  const failedLog = logs.find((log) => String(log?.status || '').toLowerCase() === 'failed');
+  let logId = failedLog?.id || null;
 
-  if (reserveRes.error) {
-    const code = String(reserveRes.error.code || '');
-    if (code === '23505') {
+  if (logId) {
+    const retryReserveRes = await supabaseAdmin
+      .from('certification_notification_logs')
+      .update({
+        status: 'processing',
+        error_message: null
+      })
+      .eq('id', logId)
+      .eq('status', 'failed')
+      .select('id')
+      .maybeSingle();
+
+    if (retryReserveRes.error || !retryReserveRes.data?.id) {
       return {
         certificationId: certification?.id || null,
         recipient: normalizedRecipient,
@@ -89,17 +98,41 @@ async function processCertificationAutomaticNotificationForRecipient({
       };
     }
 
-    return {
-      certificationId: certification?.id || null,
-      recipient: normalizedRecipient,
-      status: 'failed',
-      triggerType: triggerInfo.triggerType,
-      daysUntilExpiration: triggerInfo.daysUntilExpiration,
-      error: reserveRes.error.message || 'No se pudo reservar log de notificación'
-    };
+    logId = retryReserveRes.data.id;
   }
 
-  const logId = reserveRes.data?.id;
+  if (!logId) {
+    const reserveRes = await supabaseAdmin
+      .from('certification_notification_logs')
+      .insert(reservePayload)
+      .select('id')
+      .single();
+
+    if (reserveRes.error) {
+      const code = String(reserveRes.error.code || '');
+      if (code === '23505') {
+        return {
+          certificationId: certification?.id || null,
+          recipient: normalizedRecipient,
+          status: 'skipped_already_sent',
+          triggerType: triggerInfo.triggerType,
+          daysUntilExpiration: triggerInfo.daysUntilExpiration
+        };
+      }
+
+      return {
+        certificationId: certification?.id || null,
+        recipient: normalizedRecipient,
+        status: 'failed',
+        triggerType: triggerInfo.triggerType,
+        daysUntilExpiration: triggerInfo.daysUntilExpiration,
+        error: reserveRes.error.message || 'No se pudo reservar log de notificación'
+      };
+    }
+
+    logId = reserveRes.data?.id;
+  }
+
   try {
     await sendCertificationExpirationPilotEmail({
       certification,
