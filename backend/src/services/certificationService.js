@@ -90,12 +90,13 @@ export async function listCertifications() {
   if (ids.length) {
     const { data: logRows } = await supabaseAdmin
       .from('certification_notification_logs')
-      .select('certification_id, trigger_type, status')
+      .select('certification_id, trigger_type, recipient, status')
       .in('recipient', recipients)
       .in('certification_id', ids);
 
     for (const log of (logRows || [])) {
-      const key = `${log?.certification_id || ''}::${log?.trigger_type || ''}::${log?.recipient || ''}`;
+      const recipient = String(log?.recipient || '').trim().toLowerCase();
+      const key = `${log?.certification_id || ''}::${log?.trigger_type || ''}::${recipient}`;
       if (key !== '::') byCertificationTrigger.set(key, String(log?.status || '').toLowerCase());
     }
   }
@@ -114,7 +115,8 @@ export async function listCertifications() {
     let hasFailed = false;
     for (const type of equivalentTypes) {
       for (const recipient of recipients) {
-        const key = `${item.id}::${type}::${recipient}`;
+        const normalizedRecipient = String(recipient || '').trim().toLowerCase();
+        const key = `${item.id}::${type}::${normalizedRecipient}`;
         const status = byCertificationTrigger.get(`${key}`) || '';
         if (status === 'sent') sentCount += 1;
         if (status === 'processing') hasProcessing = true;
