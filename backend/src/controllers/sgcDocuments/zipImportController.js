@@ -104,10 +104,20 @@ function hasStrategySignal(value = '') {
   return hasAnyToken(importSignalTokens(value), ['ESTRATEGIA', 'ESTRATEGIAS']);
 }
 
+function isExplicitStrategyPathSegment(value = '') {
+  const tokens = importSignalTokens(value);
+  return tokens.length === 1 && (tokens[0] === 'ESTRATEGIA' || tokens[0] === 'ESTRATEGIAS');
+}
+
 function inferImportedModuleType({ fileName = '', title = '', folderSegments = [] } = {}) {
   const nameText = [title, fileName].filter(Boolean).join(' ');
   const nameTokens = importSignalTokens(nameText);
   const compactName = nameTokens.join('');
+
+  // Priority: explicit Estrategias path segment, then existing name/type signals.
+  if (folderSegments.some((segment) => isExplicitStrategyPathSegment(segment))) {
+    return normalizeModuleType('estrategias') || DEFAULT_IMPORTED_MODULE_TYPE;
+  }
 
   if (
     nameTokens.includes('RSG')
