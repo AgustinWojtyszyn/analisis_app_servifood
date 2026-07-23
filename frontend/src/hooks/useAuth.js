@@ -35,6 +35,10 @@ function logProfileError(event, error) {
   });
 }
 
+function resolveExistingProfileStatus(profile) {
+  return profile?.is_active === false ? PROFILE_STATUS.INACTIVE : PROFILE_STATUS.EXISTING;
+}
+
 function mapSupabaseUser(user, profile = null) {
   if (!user) return null;
 
@@ -93,6 +97,19 @@ export function useAuth() {
           .maybeSingle();
 
         if (insertError) {
+          const { data: recoveredProfile } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, role, is_active')
+            .eq('id', authUser.id)
+            .maybeSingle();
+
+          if (recoveredProfile) {
+            return {
+              profile: recoveredProfile,
+              status: resolveExistingProfileStatus(recoveredProfile)
+            };
+          }
+
           throw createProfileError('create', insertError);
         }
 
@@ -103,7 +120,7 @@ export function useAuth() {
         return { profile: insertedProfile, status: PROFILE_STATUS.CREATED };
       }
 
-      if (existingProfile.is_active === false) {
+      if (resolveExistingProfileStatus(existingProfile) === PROFILE_STATUS.INACTIVE) {
         return { profile: existingProfile, status: PROFILE_STATUS.INACTIVE };
       }
 

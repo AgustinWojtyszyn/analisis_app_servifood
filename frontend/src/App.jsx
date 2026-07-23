@@ -99,6 +99,7 @@ const publicAuthPathMap = {
 
 const publicPaths = new Set(['/', '/login', '/register', '/forgot-password', '/reset-password']);
 const authOnlyPublicPaths = new Set(['/', '/login', '/register']);
+const confirmedProfileStatuses = new Set(['existing', 'created']);
 const protectedPathAliases = {
   '/politicas': '/politicas-seguridad'
 };
@@ -131,7 +132,7 @@ function getSectionFromPath(pathname) {
   return match?.[0] || null;
 }
 
-function MainApp({ user, onLogout }) {
+function MainApp({ user, profileStatus, onLogout }) {
   const [currentSection, setCurrentSection] = useState(() => getSectionFromPath(window.location.pathname));
   const [selectedAnalysis, setSelectedAnalysis] = useState(null);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
@@ -258,6 +259,13 @@ function MainApp({ user, onLogout }) {
         return;
       }
 
+      if (!confirmedProfileStatuses.has(profileStatus)) {
+        setCurrentUserProfile(null);
+        setProfileLoadState({ status: 'loading', message: null });
+        setLoadingProfile(true);
+        return;
+      }
+
       setLoadingProfile(true);
       setProfileLoadState({ status: 'loading', message: null });
 
@@ -297,7 +305,7 @@ function MainApp({ user, onLogout }) {
     return () => {
       mounted = false;
     };
-  }, [user?.email, user?.id, user?.name]);
+  }, [profileStatus, user?.email, user?.id, user?.name]);
 
   useEffect(() => {
     if (loadingProfile) return;
@@ -700,6 +708,7 @@ export default function App() {
         : (
           <MainApp
             user={user}
+            profileStatus={profileStatus}
             onLogout={handleLogout}
           />
         )}
