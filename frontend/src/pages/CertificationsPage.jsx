@@ -251,7 +251,7 @@ export default function CertificationsPage() {
               <TextField size="small" select label="Estado" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <MenuItem value="all">Todos</MenuItem>
                 <MenuItem value="active">Vigente</MenuItem>
-                <MenuItem value="near_expiration">Próxima a vencer</MenuItem>
+                <MenuItem value="upcoming_expiration">Próxima a vencer</MenuItem>
                 <MenuItem value="expires_tomorrow">Vence mañana</MenuItem>
                 <MenuItem value="expires_today">Vence hoy</MenuItem>
                 <MenuItem value="expired">Vencida</MenuItem>

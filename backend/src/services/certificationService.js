@@ -146,7 +146,7 @@ export async function listCertifications() {
   const summary = {
     total: decoratedItems.length,
     active: decoratedItems.filter((i) => i.status === 'active').length,
-    nearExpiration: decoratedItems.filter((i) => i.status === 'near_expiration' || i.status === 'expires_tomorrow' || i.status === 'expires_today').length,
+    nearExpiration: decoratedItems.filter((i) => i.status === 'upcoming_expiration' || i.status === 'expires_tomorrow' || i.status === 'expires_today').length,
     expired: decoratedItems.filter((i) => i.status === 'expired').length,
     triggersDetected: decoratedItems.filter((i) => i.shouldNotify).length
   };
