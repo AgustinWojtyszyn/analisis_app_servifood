@@ -426,12 +426,20 @@ function buildImportReport(result) {
     `Importados: ${result.imported || 0}`,
     `Omitidos: ${result.skipped || 0}`,
     `Duplicados: ${result.duplicates || 0}`,
-    `Fallidos: ${result.failed || 0}`,
-    '',
-    'Detalle:'
+    `Fallidos: ${result.failed || 0}`
   ];
+  if (result.moduleTypeCounts) {
+    lines.push(
+      '',
+      'Importados por tipo:',
+      `Registros: ${result.moduleTypeCounts.registro || 0}`,
+      `Procedimientos: ${result.moduleTypeCounts.procedimiento || 0}`,
+      `Estrategias: ${result.moduleTypeCounts.estrategias || 0}`
+    );
+  }
+  lines.push('', 'Detalle:');
   (result.rows || []).forEach((row) => {
-    lines.push(`${row.status || '-'};${row.path || '-'};${row.message || row.documentId || ''}`);
+    lines.push(`${row.status || '-'};${row.path || '-'};${row.moduleType || ''};${row.message || row.documentId || ''}`);
   });
   if (result.warnings?.length) {
     lines.push('', 'Advertencias:');
@@ -542,11 +550,19 @@ function ZipImportDialog({ open, onClose, onAnalyze, onConfirm, analyzing, impor
               <Typography>Omitidos: <strong>{result.skipped || 0}</strong></Typography>
               <Typography>Duplicados: <strong>{result.duplicates || 0}</strong></Typography>
               <Typography>Fallidos: <strong>{result.failed || 0}</strong></Typography>
+              {result.moduleTypeCounts && (
+                <Box sx={{ mt: 1 }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: 13 }}>Importados por tipo</Typography>
+                  <Typography>Registros: <strong>{result.moduleTypeCounts.registro || 0}</strong></Typography>
+                  <Typography>Procedimientos: <strong>{result.moduleTypeCounts.procedimiento || 0}</strong></Typography>
+                  <Typography>Estrategias: <strong>{result.moduleTypeCounts.estrategias || 0}</strong></Typography>
+                </Box>
+              )}
               {!!result.rows?.length && (
                 <Box sx={{ mt: 1, maxHeight: 220, overflow: 'auto' }}>
                   {result.rows.slice(0, 80).map((row, index) => (
                     <Typography key={`${row.path}-${index}`} variant="body2" color="text.secondary">
-                      {row.status}: {row.path}{row.message ? ` - ${row.message}` : ''}
+                      {row.status}: {row.path}{row.moduleType ? ` (${row.moduleType})` : ''}{row.message ? ` - ${row.message}` : ''}
                     </Typography>
                   ))}
                   {result.rows.length > 80 && (

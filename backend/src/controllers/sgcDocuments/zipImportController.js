@@ -14,6 +14,7 @@ import {
   canManageByRole,
   ensureStorageBucketExists,
   getExtension,
+  normalizeModuleType,
   sanitizeStorageFileName
 } from '../../routes/nutritionModules/helpers.js';
 import { resolveUserRole, supabaseAdmin } from './context.js';
@@ -31,6 +32,126 @@ function normalizeComparableName(value = '') {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
+}
+
+function normalizeImportSignal(value = '') {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/Ñ/g, 'N');
+}
+
+function importSignalTokens(value = '') {
+  return normalizeImportSignal(value)
+    .split(/[^A-Z0-9]+/)
+    .filter(Boolean);
+}
+
+function hasAnyToken(tokens, values) {
+  return values.some((value) => tokens.includes(value));
+}
+
+function hasRegisterCodeSegment(tokens) {
+  return tokens.some((token, index) => {
+    if (token !== 'R') return false;
+    const previous = tokens[index - 1] || '';
+    const next = tokens[index + 1] || '';
+    return Boolean(next.match(/^\d+$/) || previous.match(/^(P|PPR|PR|PGC|PSG|PH|POE|SGIA|SF|\d+)$/));
+  });
+}
+
+function hasCompactRegisterCode(value = '') {
+  return /(?:P|PPR|PR|PGC|PSG|PH|POE|SGIA|SF)\d*R\d+/.test(value);
+}
+
+function hasMainPCode(tokens) {
+  return tokens.some((token, index) => (
+    token === 'P'
+    && /^\d{1,2}$/.test(tokens[index + 1] || '')
+  ));
+}
+
+function hasMainPprCode(tokens) {
+  return tokens.some((token, index) => (
+    token === 'PPR'
+    && /^\d{1,2}$/.test(tokens[index + 1] || '')
+  ));
+}
+
+function hasPhNumericCode(tokens) {
+  return tokens.some((token, index) => (
+    token === 'PH'
+    && /^\d+$/.test(tokens[index + 1] || '')
+  ));
+}
+
+function hasPoePrefix(tokens) {
+  return tokens.some((token) => token === 'POE' || token === 'POES');
+}
+
+function hasCompactProcedureCode(value = '') {
+  return /^PGC\d*/.test(value)
+    || /^PSG\d*/.test(value)
+    || /^PH\d+/.test(value)
+    || /^P\d{1,2}(?!R)/.test(value)
+    || /^PPR\d{1,2}(?!R)/.test(value)
+    || /^POES?\d*/.test(value);
+}
+
+function hasStrategySignal(value = '') {
+  return hasAnyToken(importSignalTokens(value), ['ESTRATEGIA', 'ESTRATEGIAS']);
+}
+
+function inferImportedModuleType({ fileName = '', title = '', folderSegments = [] } = {}) {
+  const nameText = [title, fileName].filter(Boolean).join(' ');
+  const nameTokens = importSignalTokens(nameText);
+  const compactName = nameTokens.join('');
+
+  if (
+    nameTokens.includes('RSG')
+    || compactName.includes('RSG')
+    || hasRegisterCodeSegment(nameTokens)
+    || hasCompactRegisterCode(compactName)
+    || hasAnyToken(nameTokens, [
+      'REGISTRO',
+      'REGISTROS',
+      'MATRIZ',
+      'MATRICES',
+      'PLANILLA',
+      'PLANILLAS',
+      'FORMULARIO',
+      'FORMULARIOS',
+      'LISTADO',
+      'LISTADOS',
+      'ANEXO',
+      'ANEXOS'
+    ])
+  ) {
+    return normalizeModuleType('registro') || DEFAULT_IMPORTED_MODULE_TYPE;
+  }
+
+  if (hasStrategySignal(nameText) || folderSegments.some((segment) => hasStrategySignal(segment))) {
+    return normalizeModuleType('estrategias') || DEFAULT_IMPORTED_MODULE_TYPE;
+  }
+
+  if (
+    hasAnyToken(nameTokens, ['PROCEDIMIENTO', 'PROCEDIMIENTOS'])
+    || nameTokens.includes('PGC')
+    || compactName.startsWith('PGC')
+    || nameTokens.includes('PSG')
+    || compactName.startsWith('PSG')
+    || hasPhNumericCode(nameTokens)
+    || hasMainPCode(nameTokens)
+    || hasMainPprCode(nameTokens)
+    || hasPoePrefix(nameTokens)
+    || hasCompactProcedureCode(compactName)
+  ) {
+    return normalizeModuleType('procedimiento') || DEFAULT_IMPORTED_MODULE_TYPE;
+  }
+
+  return DEFAULT_IMPORTED_MODULE_TYPE;
 }
 
 function stripExtension(fileName = '') {
@@ -559,6 +680,11 @@ async function importAnalyzedZip(manifest, userId) {
     skipped: 0,
     duplicates: 0,
     failed: 0,
+    moduleTypeCounts: {
+      registro: 0,
+      procedimiento: 0,
+      estrategias: 0
+    },
     warnings: [...freshAnalysis.summary.warnings],
     rows: []
   };
@@ -585,6 +711,7 @@ async function importAnalyzedZip(manifest, userId) {
       }
 
       const nowIso = new Date().toISOString();
+      const moduleType = inferImportedModuleType(file);
       const { data: documentRow, error: documentError } = await supabaseAdmin
         .from('nutrition_modules')
         .insert({
@@ -592,7 +719,7 @@ async function importAnalyzedZip(manifest, userId) {
           description: `Importado desde ZIP: ${file.path}`,
           content: '',
           status: 'aprobado',
-          module_type: DEFAULT_IMPORTED_MODULE_TYPE,
+          module_type: moduleType,
           folder_id: folderId,
           sort_order: await getNextDocumentSortOrder(folderId),
           created_by: userId,
@@ -635,7 +762,8 @@ async function importAnalyzedZip(manifest, userId) {
 
       existingFileKeys.add(duplicateKey);
       result.imported += 1;
-      result.rows.push({ path: file.path, status: 'importado', documentId });
+      result.moduleTypeCounts[moduleType] = (result.moduleTypeCounts[moduleType] || 0) + 1;
+      result.rows.push({ path: file.path, status: 'importado', documentId, moduleType });
     } catch (error) {
       result.failed += 1;
       result.rows.push({ path: file.path, status: 'fallido', message: error.message || 'Error importando archivo' });
