@@ -125,6 +125,28 @@ function getFolderPathLabel(folderId, folderById) {
   return chain.filter(Boolean).join(' / ');
 }
 
+function getDocumentLocationLabel(folderId, folderById) {
+  if (!folderId) return 'Documentos SGC';
+  const folderPath = getFolderPathLabel(folderId, folderById);
+  return folderPath ? `Documentos SGC / ${folderPath}` : '';
+}
+
+function getFolderLocationLabel(folder, folderById) {
+  if (!folder?.parentId) return 'Documentos SGC';
+  const parentPath = getFolderPathLabel(folder.parentId, folderById);
+  return parentPath ? `Documentos SGC / ${parentPath}` : '';
+}
+
+function getDocumentSearchText(row) {
+  return normalizeSearchValue([
+    row?.title,
+    row?.description,
+    row?.content,
+    row?.moduleType,
+    formatModuleTypeLabel(row?.moduleType)
+  ].filter(Boolean).join(' '));
+}
+
 function compareBySortOrderThenName(a, b, nameKey) {
   const orderA = Number(a?.sortOrder ?? a?.sort_order ?? 0);
   const orderB = Number(b?.sortOrder ?? b?.sort_order ?? 0);
@@ -618,7 +640,7 @@ export default function NutritionModulesPage({ user }) {
   const currentRows = rows.filter((row) => {
     const moduleType = String(row?.moduleType || row?.module_type || '').toLowerCase();
     const matchesLocation = search ? true : (row.folderId || null) === (currentFolderId || null);
-    const matchesSearch = !search || normalizeSearchValue(row?.title || '').includes(search);
+    const matchesSearch = !search || getDocumentSearchText(row).includes(search);
     const matchesSection = selectedSection === 'todos' || moduleType === selectedSection;
     return matchesLocation && matchesSearch && matchesSection;
   }).sort((a, b) => compareBySortOrderThenName(a, b, 'title'));
@@ -626,6 +648,31 @@ export default function NutritionModulesPage({ user }) {
   const hasRestrictedOrderView = Boolean(search) || selectedSection !== 'todos';
   const canReorderCurrentView = canManage && !hasRestrictedOrderView && !orderLocked;
   const documentLocationLabel = getFolderPathLabel(documentDetail?.folderId, folderById);
+
+  const buildFolderMeta = (folder) => {
+    const location = search ? getFolderLocationLabel(folder, folderById) : '';
+    const updatedDate = formatDate(folder.updatedAt || folder.createdAt);
+    const parts = [
+      search && location ? `Ubicación: ${location}` : '',
+      folder.description,
+      !folder.description && updatedDate !== '-' ? `Actualizada ${updatedDate}` : ''
+    ].filter(Boolean);
+    return parts.join(' · ');
+  };
+
+  const buildDocumentMeta = (row) => {
+    const location = search ? getDocumentLocationLabel(row.folderId, folderById) : '';
+    const moduleTypeLabel = formatModuleTypeLabel(row.moduleType);
+    const updatedDate = formatDate(row.updatedAt || row.createdAt);
+    const parts = [
+      search && location ? `Ubicación: ${location}` : '',
+      moduleTypeLabel,
+      row.description || 'Sin descripción',
+      filesLabel(row.filesCount),
+      updatedDate !== '-' ? updatedDate : ''
+    ].filter(Boolean);
+    return parts.join(' · ');
+  };
 
   useEffect(() => {
     void loadLibrary();
@@ -1284,7 +1331,7 @@ export default function NutritionModulesPage({ user }) {
                   key={folder.id}
                   icon={<FolderRoundedIcon color="primary" />}
                   title={folder.name}
-                  meta={folder.description || `Actualizada ${formatDate(folder.updatedAt || folder.createdAt)}`}
+                  meta={buildFolderMeta(folder)}
                   onOpen={() => setCurrentFolderId(folder.id)}
                   orderControls={renderOrderControls('folder', index, currentFolders.length)}
                   draggable={canReorderCurrentView}
@@ -1312,7 +1359,7 @@ export default function NutritionModulesPage({ user }) {
                   key={row.id}
                   icon={<ArticleRoundedIcon color="info" />}
                   title={row.title}
-                  meta={`${row.description || 'Sin descripción'} · ${filesLabel(row.filesCount)} · ${formatDate(row.updatedAt || row.createdAt)}`}
+                  meta={buildDocumentMeta(row)}
                   onOpen={() => handleViewDocument(row)}
                   orderControls={renderOrderControls('document', index, currentRows.length)}
                   draggable={canReorderCurrentView}
@@ -1357,8 +1404,15 @@ export default function NutritionModulesPage({ user }) {
                     {searchTerm ? 'No se encontraron carpetas ni documentos.' : 'Esta carpeta todavía no contiene elementos.'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {canManage ? 'Podés crear una carpeta o documento desde las acciones superiores.' : 'Cuando haya documentos disponibles van a aparecer en este listado.'}
+                    {searchTerm
+                      ? 'Probá con otro título, descripción, contenido, apartado o nombre de carpeta.'
+                      : canManage ? 'Podés crear una carpeta o documento desde las acciones superiores.' : 'Cuando haya documentos disponibles van a aparecer en este listado.'}
                   </Typography>
+                  {searchTerm && (
+                    <Button size="small" variant="outlined" sx={{ mt: 1 }} onClick={() => setSearchTerm('')}>
+                      Limpiar búsqueda
+                    </Button>
+                  )}
                 </Box>
               )}
             </Box>
