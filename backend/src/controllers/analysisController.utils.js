@@ -1,3 +1,5 @@
+import { getArgentinaDayEndIso, getArgentinaDayStartIso } from '../utils/argentinaDateUtils.js';
+
 function buildBatchUploadResponse(results = []) {
   const normalized = Array.isArray(results) ? results : [];
   const successful = normalized.filter((r) => r.success);
@@ -62,21 +64,11 @@ function parseNonNegativeInt(value) {
 }
 
 function parseDateStart(value) {
-  const raw = String(value ?? '').trim();
-  if (!raw) return null;
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return null;
-  date.setHours(0, 0, 0, 0);
-  return date.toISOString();
+  return getArgentinaDayStartIso(String(value ?? '').trim());
 }
 
 function parseDateEnd(value) {
-  const raw = String(value ?? '').trim();
-  if (!raw) return null;
-  const date = new Date(raw);
-  if (Number.isNaN(date.getTime())) return null;
-  date.setHours(23, 59, 59, 999);
-  return date.toISOString();
+  return getArgentinaDayEndIso(String(value ?? '').trim());
 }
 
 function escapeIlike(value) {
