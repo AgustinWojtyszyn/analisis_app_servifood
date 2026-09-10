@@ -5,7 +5,6 @@ import helmet from 'helmet';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import multer from 'multer';
 import analysisRoutes from './routes/analysis.js';
 import rulesRoutes from './routes/rules.js';
 import healthDeclarationsRoutes from './routes/healthDeclarations.js';
@@ -14,7 +13,8 @@ import adminUsersRoutes from './routes/adminUsers.js';
 import certificationRoutes from './routes/certificationRoutes.js';
 import { authenticateToken, requireAdmin } from './middlewares/auth.js';
 import { uploadAndAnalyze } from './controllers/analysisController.js';
-import { upload, MAX_EXCEL_FILE_SIZE_MB } from './middlewares/upload.js';
+import { upload } from './middlewares/upload.js';
+import { globalErrorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -253,31 +253,8 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
-// Error handler global
-app.use((err, req, res) => {
-  if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(413).json({
-        error: `Cada archivo no puede superar el tamaño máximo permitido de ${MAX_EXCEL_FILE_SIZE_MB} MB`
-      });
-    }
-
-    if (err.code === 'LIMIT_FILE_COUNT') {
-      return res.status(400).json({ error: 'Se permite un máximo de 10 archivos por solicitud' });
-    }
-
-    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-      return res.status(400).json({ error: 'Campo de archivo inesperado o exceso de archivos para este endpoint' });
-    }
-
-    return res.status(400).json({ error: `Error de carga de archivo: ${err.message}` });
-  }
-
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    error: err.message || 'Error interno del servidor'
-  });
-});
+// Error handler global: debe conservar cuatro argumentos para que Express lo reconozca.
+app.use(globalErrorHandler);
 
 app.listen(PORT, () => {
   if (enableStartupDiagnostics) {
