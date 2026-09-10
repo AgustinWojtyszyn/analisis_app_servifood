@@ -95,7 +95,7 @@ export async function getHistory(req, res) {
 
     let query = supabaseAdmin
       .from('analysis_history')
-      .select(HISTORY_SELECT_COLUMNS, { count: 'exact' });
+      .select(HISTORY_SELECT_COLUMNS);
 
     if (!isAdmin) {
       query = query.eq('user_id', req.user.id);
@@ -139,25 +139,33 @@ export async function getHistory(req, res) {
       query = query.filter('results->summary->totalConformes', 'gte', String(minConformes));
     }
 
+    // Pedimos una fila extra para detectar si existe una página siguiente.
+    // Evita COUNT(*) exacto sobre todo el conjunto filtrado en cada request.
+    const probeRangeTo = rangeTo + 1;
     query = query
       .order(sortConfig.column, { ascending: sortConfig.ascending, nullsFirst: false })
-      .range(rangeFrom, rangeTo);
+      .range(rangeFrom, probeRangeTo);
 
-    const { data, error, count } = await query;
+    const { data, error } = await query;
 
     if (error) {
       return returnSupabaseError(res, 'get_history', error);
     }
 
-    const total = Number(count || 0);
-    const mapped = (data || []).map(mapHistoryRowToApi);
+    const rows = Array.isArray(data) ? data : [];
+    const hasNextPage = rows.length > limit;
+    const visibleRows = hasNextPage ? rows.slice(0, limit) : rows;
+    const mapped = visibleRows.map(mapHistoryRowToApi);
 
     return res.json({
       data: mapped,
       page,
       limit,
-      total,
-      totalPages: Math.ceil(total / limit) || 1
+      returnedCount: mapped.length,
+      hasPreviousPage: page > 1,
+      hasNextPage,
+      total: null,
+      totalPages: null
     });
   } catch (error) {
     console.error('Error obteniendo historial:', error);
