@@ -9,7 +9,6 @@ export {
 
 export {
   getAnalysis,
-  getHistory,
   deleteAnalysis,
   deleteAnalysisBulk,
   deleteAllAnalyses,
@@ -18,6 +17,10 @@ export {
   updateAnalysisStatus,
   archiveAnalysis
 } from './analysis/analysisQueries.js';
+
+export {
+  getHistory
+} from './analysis/analysisHistory.js';
 
 export {
   compareAnalysisPeriods
