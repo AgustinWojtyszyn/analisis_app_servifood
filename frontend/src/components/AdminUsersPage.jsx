@@ -22,7 +22,6 @@ import {
   Tooltip,
   Typography
 } from '@mui/material';
-import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import PersonOffRoundedIcon from '@mui/icons-material/PersonOffRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
@@ -73,7 +72,7 @@ function StatCard({ icon: Icon, label, value, helper }) {
   return (
     <Paper variant="outlined" sx={{ p: 2.25, borderRadius: 2.5, height: '100%' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-        <Box sx={{ width: 42, height: 42, borderRadius: 2, bgcolor: 'primary.50', color: 'primary.main', display: 'grid', placeItems: 'center' }}>
+        <Box sx={{ width: 42, height: 42, borderRadius: 2, bgcolor: 'rgba(29,78,216,0.08)', color: 'primary.main', display: 'grid', placeItems: 'center' }}>
           <Icon fontSize="small" />
         </Box>
         <Box>
