@@ -45,8 +45,8 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
             />
             <PortalActionCard
               icon={BarChart3}
-              title="Dashboard e indicadores"
-              description="Visualizá patrones por categoría, área, estado e impacto operativo."
+              title="Indicadores y comparador"
+              description="Analizá gráficos del análisis actual o compará períodos históricos para detectar mejoras y desvíos."
               tone="blue"
               onClick={() => onNavigate?.('charts')}
             />
