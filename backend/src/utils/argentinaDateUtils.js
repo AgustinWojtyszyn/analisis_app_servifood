@@ -1,4 +1,5 @@
 const ARG_TZ = 'America/Argentina/Buenos_Aires';
+const ARG_UTC_OFFSET = '-03:00';
 
 function formatParts(date = new Date()) {
   const formatter = new Intl.DateTimeFormat('en-CA', {
@@ -33,6 +34,24 @@ export function toUtcDayNumber(parts) {
   return Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day) / 86400000);
 }
 
+function formatDateInput(parts) {
+  const mm = String(parts.month).padStart(2, '0');
+  const dd = String(parts.day).padStart(2, '0');
+  return `${parts.year}-${mm}-${dd}`;
+}
+
+export function getArgentinaDayStartIso(rawValue = '') {
+  const parts = parseDateInputToParts(rawValue);
+  if (!parts) return null;
+  return new Date(`${formatDateInput(parts)}T00:00:00.000${ARG_UTC_OFFSET}`).toISOString();
+}
+
+export function getArgentinaDayEndIso(rawValue = '') {
+  const parts = parseDateInputToParts(rawValue);
+  if (!parts) return null;
+  return new Date(`${formatDateInput(parts)}T23:59:59.999${ARG_UTC_OFFSET}`).toISOString();
+}
+
 export function getArgentinaDateISO(now = new Date()) {
   const { year, month, day } = getArgentinaTodayDateParts(now);
   const mm = String(month).padStart(2, '0');
@@ -40,4 +59,4 @@ export function getArgentinaDateISO(now = new Date()) {
   return `${year}-${mm}-${dd}`;
 }
 
-export { ARG_TZ };
+export { ARG_TZ, ARG_UTC_OFFSET };
