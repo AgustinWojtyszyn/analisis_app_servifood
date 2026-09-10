@@ -22,7 +22,7 @@ function createMockRes() {
   };
 }
 
-function createHistorySupabaseMock(row) {
+function createHistorySupabaseMock(row, count = 1) {
   const state = {
     selectColumns: null,
     selectOptions: null,
@@ -49,7 +49,7 @@ function createHistorySupabaseMock(row) {
     }
 
     then(resolve) {
-      resolve({ data: [row], error: null, count: 1 });
+      resolve({ data: [row], error: null, count });
     }
   }
 
@@ -120,7 +120,7 @@ test('mapHistoryRowToApi no expone records, cases ni diagnostics', () => {
   assert.equal('records' in mapped.summary, false);
 });
 
-test('getHistory usa proyección liviana y conserva paginación', async () => {
+test('getHistory usa proyección liviana y count estimado para paginar', async () => {
   const mock = createHistorySupabaseMock({
     id: 'analysis-1',
     filename: 'septiembre.xlsx',
@@ -129,7 +129,7 @@ test('getHistory usa proyección liviana y conserva paginación', async () => {
     created_at: '2026-09-10T13:00:00.000Z',
     total_records: 20,
     summary: { totalRecords: 20, totalDesvios: 3 }
-  });
+  }, 120);
   __setSupabaseAdminForTests(mock.client);
 
   const req = {
@@ -142,9 +142,10 @@ test('getHistory usa proyección liviana y conserva paginación', async () => {
 
   assert.equal(res.statusCode, 200);
   assert.equal(mock.state.selectColumns, HISTORY_SELECT_COLUMNS);
-  assert.deepEqual(mock.state.selectOptions, { count: 'exact' });
+  assert.deepEqual(mock.state.selectOptions, { count: 'estimated' });
   assert.deepEqual(mock.state.range, [0, 9]);
-  assert.equal(res.body.total, 1);
+  assert.equal(res.body.total, 120);
+  assert.equal(res.body.totalPages, 12);
   assert.equal(res.body.data.length, 1);
   assert.equal('records' in res.body.data[0], false);
 });
