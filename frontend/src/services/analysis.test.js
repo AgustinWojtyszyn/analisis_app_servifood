@@ -10,6 +10,7 @@ vi.mock('../lib/supabaseClient', () => ({
 
 const { supabase } = await import('../lib/supabaseClient');
 const {
+  compareAnalysisPeriods,
   deleteAllAnalyses,
   deleteAnalysesBulk,
   getAnalysisHistory,
@@ -49,6 +50,29 @@ describe('analysis service', () => {
         Authorization: 'Bearer token-123'
       }
     });
+  });
+
+  it('construye la comparación de períodos con fechas y autorización', async () => {
+    const payload = { periodA: { metrics: {} }, periodB: { metrics: {} } };
+    globalThis.fetch.mockResolvedValueOnce(mockJsonResponse(payload));
+
+    const result = await compareAnalysisPeriods({
+      periodAFrom: '2026-09-01',
+      periodATo: '2026-09-10',
+      periodBFrom: '2026-08-01',
+      periodBTo: '2026-08-10'
+    });
+
+    expect(result).toEqual(payload);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/analysis/compare-periods?periodAFrom=2026-09-01&periodATo=2026-09-10&periodBFrom=2026-08-01&periodBTo=2026-08-10',
+      {
+        cache: 'no-store',
+        headers: {
+          Authorization: 'Bearer token-123'
+        }
+      }
+    );
   });
 
   it('ejecuta reproceso ISO debug con PATCH', async () => {
