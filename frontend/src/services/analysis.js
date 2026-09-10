@@ -1,6 +1,11 @@
 import { supabase } from '../lib/supabaseClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const HISTORY_SEARCH_DEBOUNCE_MS = 250;
+
+let historySearchTimer = null;
+let pendingHistorySearchRequests = [];
+let latestHistorySearchParams = null;
 
 export async function getAccessToken() {
   const { data } = await supabase.auth.getSession();
@@ -105,16 +110,69 @@ async function authorizedFetch(path, options = {}) {
   return payload;
 }
 
-export async function getAnalysisHistory(params = {}) {
+function buildHistoryPath(params = {}) {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
       query.set(key, String(value));
     }
   });
+  return `/analysis/history${query.toString() ? `?${query.toString()}` : ''}`;
+}
 
-  const data = await authorizedFetch(`/analysis/history${query.toString() ? `?${query.toString()}` : ''}`);
+async function requestHistory(params = {}) {
+  const data = await authorizedFetch(buildHistoryPath(params));
   return { data, error: null };
+}
+
+function settlePendingHistorySearchRequests(method, value) {
+  const pending = pendingHistorySearchRequests;
+  pendingHistorySearchRequests = [];
+  pending.forEach((request) => request[method](value));
+}
+
+export async function getAnalysisHistory(params = {}) {
+  const hasSearch = Boolean(String(params.search || '').trim());
+
+  if (!hasSearch) {
+    if (historySearchTimer) {
+      clearTimeout(historySearchTimer);
+      historySearchTimer = null;
+    }
+    latestHistorySearchParams = null;
+
+    try {
+      const result = await requestHistory(params);
+      settlePendingHistorySearchRequests('resolve', result);
+      return result;
+    } catch (error) {
+      settlePendingHistorySearchRequests('reject', error);
+      throw error;
+    }
+  }
+
+  latestHistorySearchParams = { ...params };
+
+  return await new Promise((resolve, reject) => {
+    pendingHistorySearchRequests.push({ resolve, reject });
+
+    if (historySearchTimer) {
+      clearTimeout(historySearchTimer);
+    }
+
+    historySearchTimer = setTimeout(async () => {
+      historySearchTimer = null;
+      const requestParams = latestHistorySearchParams || params;
+      latestHistorySearchParams = null;
+
+      try {
+        const result = await requestHistory(requestParams);
+        settlePendingHistorySearchRequests('resolve', result);
+      } catch (error) {
+        settlePendingHistorySearchRequests('reject', error);
+      }
+    }, HISTORY_SEARCH_DEBOUNCE_MS);
+  });
 }
 
 export async function compareAnalysisPeriods(params = {}) {
