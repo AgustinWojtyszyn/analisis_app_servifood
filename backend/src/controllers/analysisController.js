@@ -4,6 +4,7 @@ export {
   buildBatchUploadResponse,
   getAnalysis,
   getHistory,
+  compareAnalysisPeriods,
   deleteAnalysis,
   deleteAnalysisBulk,
   deleteAllAnalyses,
