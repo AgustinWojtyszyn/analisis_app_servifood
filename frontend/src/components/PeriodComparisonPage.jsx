@@ -66,11 +66,17 @@ function buildPreset(id, now = new Date()) {
   }
 
   if (id === 'year') {
-    const previousEquivalent = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+    const previousYear = today.getFullYear() - 1;
+    const previousMonthLastDay = new Date(previousYear, today.getMonth() + 1, 0).getDate();
+    const previousEquivalent = new Date(
+      previousYear,
+      today.getMonth(),
+      Math.min(today.getDate(), previousMonthLastDay)
+    );
     return {
       periodAFrom: `${today.getFullYear()}-01-01`,
       periodATo: toInputDate(today),
-      periodBFrom: `${today.getFullYear() - 1}-01-01`,
+      periodBFrom: `${previousYear}-01-01`,
       periodBTo: toInputDate(previousEquivalent)
     };
   }
@@ -219,7 +225,7 @@ export default function PeriodComparisonPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const runComparison = useCallback(async (nextFilters = filters) => {
+  const runComparison = useCallback(async (nextFilters) => {
     setLoading(true);
     setError('');
     try {
@@ -231,12 +237,12 @@ export default function PeriodComparisonPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   useEffect(() => {
     const initial = buildPreset('month');
     runComparison(initial);
-  }, []); // La primera comparación se carga una sola vez.
+  }, [runComparison]);
 
   const handlePreset = (id) => {
     setPreset(id);
@@ -326,7 +332,7 @@ export default function PeriodComparisonPage() {
 
         <Button
           variant="contained"
-          onClick={() => runComparison()}
+          onClick={() => runComparison(filters)}
           disabled={loading}
           startIcon={loading ? <CircularProgress size={17} color="inherit" /> : <CompareArrowsRoundedIcon />}
           sx={{ mt: 2.5, textTransform: 'none', fontWeight: 900 }}
