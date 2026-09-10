@@ -4,6 +4,7 @@ import {
   uploadAndAnalyzeMultiple,
   getAnalysis,
   getHistory,
+  compareAnalysisPeriods,
   deleteAnalysis,
   deleteAnalysisBulk,
   deleteAllAnalyses,
@@ -31,6 +32,7 @@ router.post('/upload-excel', authenticateToken, requireAdmin, upload.single('exc
 router.post('/upload-multiple', authenticateToken, requireAdmin, upload.array('files', 10), uploadAndAnalyzeMultiple);
 
 router.get('/history', authenticateToken, requireAdmin, getHistory);
+router.get('/compare-periods', authenticateToken, requireAdmin, compareAnalysisPeriods);
 router.get('/user/history', authenticateToken, requireAdmin, getHistory);
 router.get('/user/active', authenticateToken, requireAdmin, getActiveAnalysis);
 router.delete('/user/active', authenticateToken, requireAdmin, deleteActiveAnalysis);
@@ -44,11 +46,11 @@ router.post('/annual/upload-excel', authenticateToken, requireAdminOrNutritionis
 router.get('/annual/:id/export/excel', authenticateToken, requireAdminOrNutritionist, exportAnnualDeviationExcel);
 router.get('/annual/:id', authenticateToken, requireAdminOrNutritionist, getAnnualDeviationUpload);
 
+router.post('/reprocess-history', authenticateToken, requireAdmin, reprocessHistoryClassifications);
+router.patch('/reprocess-iso-all', authenticateToken, requireAdmin, reprocessIsoAll);
 router.get('/:id', authenticateToken, requireAdmin, getAnalysis);
 router.delete('/:id', authenticateToken, requireAdmin, deleteAnalysis);
 router.patch('/:id/status', authenticateToken, requireAdmin, updateAnalysisStatus);
 router.patch('/:id/archive', authenticateToken, requireAdmin, archiveAnalysis);
-router.post('/reprocess-history', authenticateToken, requireAdmin, reprocessHistoryClassifications);
-router.patch('/reprocess-iso-all', authenticateToken, requireAdmin, reprocessIsoAll);
 
 export default router;
