@@ -68,9 +68,9 @@ test('HISTORY_SELECT_COLUMNS evita cargar el JSON completo de results', () => {
   assert.doesNotMatch(HISTORY_SELECT_COLUMNS, /\*/);
   assert.match(HISTORY_SELECT_COLUMNS, /summary:results->summary/);
   assert.match(HISTORY_SELECT_COLUMNS, /total_records:results->totalRecords/);
-  assert.doesNotMatch(HISTORY_SELECT_COLUMNS, /records/);
-  assert.doesNotMatch(HISTORY_SELECT_COLUMNS, /cases/);
-  assert.doesNotMatch(HISTORY_SELECT_COLUMNS, /diagnostics/);
+  assert.doesNotMatch(HISTORY_SELECT_COLUMNS, /results->records/);
+  assert.doesNotMatch(HISTORY_SELECT_COLUMNS, /results->cases/);
+  assert.doesNotMatch(HISTORY_SELECT_COLUMNS, /results->diagnostics/);
 });
 
 test('buildCompactSummary conserva solo métricas necesarias para la tabla', () => {
