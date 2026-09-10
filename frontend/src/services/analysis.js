@@ -125,10 +125,8 @@ async function requestHistory(params = {}) {
   return { data, error: null };
 }
 
-function settlePendingHistorySearchRequests(method, value) {
-  const pending = pendingHistorySearchRequests;
-  pendingHistorySearchRequests = [];
-  pending.forEach((request) => request[method](value));
+function settleHistoryRequests(requests, method, value) {
+  requests.forEach((request) => request[method](value));
 }
 
 export async function getAnalysisHistory(params = {}) {
@@ -140,13 +138,15 @@ export async function getAnalysisHistory(params = {}) {
       historySearchTimer = null;
     }
     latestHistorySearchParams = null;
+    const pending = pendingHistorySearchRequests;
+    pendingHistorySearchRequests = [];
 
     try {
       const result = await requestHistory(params);
-      settlePendingHistorySearchRequests('resolve', result);
+      settleHistoryRequests(pending, 'resolve', result);
       return result;
     } catch (error) {
-      settlePendingHistorySearchRequests('reject', error);
+      settleHistoryRequests(pending, 'reject', error);
       throw error;
     }
   }
@@ -164,12 +164,14 @@ export async function getAnalysisHistory(params = {}) {
       historySearchTimer = null;
       const requestParams = latestHistorySearchParams || params;
       latestHistorySearchParams = null;
+      const pending = pendingHistorySearchRequests;
+      pendingHistorySearchRequests = [];
 
       try {
         const result = await requestHistory(requestParams);
-        settlePendingHistorySearchRequests('resolve', result);
+        settleHistoryRequests(pending, 'resolve', result);
       } catch (error) {
-        settlePendingHistorySearchRequests('reject', error);
+        settleHistoryRequests(pending, 'reject', error);
       }
     }, HISTORY_SEARCH_DEBOUNCE_MS);
   });
