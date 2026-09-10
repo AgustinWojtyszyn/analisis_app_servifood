@@ -292,7 +292,7 @@ async function exportRowsToExcel(rows, fileName) {
   const worksheet = workbook.addWorksheet('Tabla filtrada');
   worksheet.addRow(headers.map(safeExcelCell));
   data.forEach((row) => {
-    worksheet.addRow(headers.map((header) => safeExcelCell(row[header] ?? ''));
+    worksheet.addRow(headers.map((header) => safeExcelCell(row[header] ?? '')));
   });
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
