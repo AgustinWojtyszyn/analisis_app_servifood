@@ -20,6 +20,10 @@ export {
 } from './analysis/analysisQueries.js';
 
 export {
+  compareAnalysisPeriods
+} from './analysis/analysisComparison.js';
+
+export {
   exportBulkAnalyses
 } from './analysis/analysisExports.js';
 
