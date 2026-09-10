@@ -405,7 +405,9 @@ function selectRowsForType(allRows = [], sheetType) {
     row.sheetType === SHEET_TYPES.ANNUAL && isClassification(row, expectedKey)
   ));
 
-  const useAnnualRows = annualClassifiedRows.length > 0;
+  // Priorizamos la fuente con mayor cobertura de filas válidas. En empate,
+  // la hoja anual queda como fuente canónica para no perder trazabilidad histórica.
+  const useAnnualRows = annualClassifiedRows.length >= sheetRows.length;
   const sourceRows = useAnnualRows ? annualClassifiedRows : sheetRows;
   const effectiveSource = useAnnualRows ? 'annual_classification' : 'specific_sheet';
 
