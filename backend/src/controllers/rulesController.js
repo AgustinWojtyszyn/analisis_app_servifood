@@ -1,7 +1,12 @@
 import { PrismaClient } from '@prisma/client';
 import defaultRules from '../../../shared/businessRules/defaultRules.json' with { type: 'json' };
 
-const prisma = new PrismaClient();
+const defaultPrisma = new PrismaClient();
+let prisma = defaultPrisma;
+
+export function __setPrismaForTests(client) {
+  prisma = client || defaultPrisma;
+}
 
 function normalizePeso(value) {
   const numeric = Number(value);
@@ -107,7 +112,7 @@ function toApiRule(rule) {
   };
 }
 
-let fallbackRules = (defaultRules || []).map((rule) => ({
+const fallbackRules = (defaultRules || []).map((rule) => ({
   id: rule.id,
   name: rule.name || rule.nombre,
   keywords: buildStoredKeywordsPayload({
@@ -125,8 +130,28 @@ let fallbackRules = (defaultRules || []).map((rule) => ({
   updatedAt: new Date().toISOString()
 }));
 
+function handleRulePersistenceError(res, operation, error) {
+  const code = String(error?.code || '');
+
+  if (code === 'P2002') {
+    return res.status(409).json({ error: 'Ya existe una regla con ese nombre' });
+  }
+
+  if (code === 'P2025') {
+    return res.status(404).json({ error: 'Regla no encontrada' });
+  }
+
+  console.error(`[rules.${operation}] Error persistiendo regla en Prisma:`, error?.message || error);
+  return res.status(503).json({
+    error: 'No se pudo guardar el cambio de reglas. La configuración persistente no está disponible. Intentá nuevamente.'
+  });
+}
+
 /**
- * Obtener todas las reglas de negocio
+ * Obtener todas las reglas de negocio.
+ * La lectura conserva el fallback histórico para no bloquear la pantalla ni el flujo
+ * de análisis cuando Prisma no está disponible. Las escrituras, en cambio, deben
+ * persistirse realmente o devolver error.
  */
 export async function getRules(req, res) {
   try {
@@ -136,7 +161,7 @@ export async function getRules(req, res) {
 
     res.json(rules.map(toApiRule));
   } catch (error) {
-    console.warn('Error obteniendo reglas por Prisma, usando fallback en memoria:', error?.message || error);
+    console.warn('Error obteniendo reglas por Prisma, usando reglas por defecto solo para lectura:', error?.message || error);
     res.json(fallbackRules.map(toApiRule));
   }
 }
@@ -195,59 +220,9 @@ export async function createRule(req, res) {
       }
     });
 
-    res.status(201).json(toApiRule(rule));
+    return res.status(201).json(toApiRule(rule));
   } catch (error) {
-    const {
-      name,
-      nombre,
-      keywords,
-      category,
-      categoria,
-      severity,
-      gravedad,
-      suggestedAction,
-      accion_inmediata,
-      accion_correctiva,
-      origen,
-      peso
-    } = req.body;
-
-    const resolvedName = name || nombre;
-    const resolvedCategory = category || categoria;
-    const resolvedSeverity = severity || gravedad || 'media';
-    const resolvedImmediateAction = resolveAction(
-      accion_inmediata || suggestedAction,
-      'Registrar incidencia y notificar'
-    );
-    const resolvedCorrectiveAction = resolveAction(
-      accion_correctiva,
-      'Definir mejora y seguimiento'
-    );
-    const resolvedKeywords = normalizeKeywords(keywords);
-    const resolvedPeso = resolvePeso(peso, resolvedCategory, resolvedSeverity);
-    const nextId = fallbackRules.length ? Math.max(...fallbackRules.map((r) => Number(r.id) || 0)) + 1 : 1;
-    const now = new Date().toISOString();
-
-    const fallbackRule = {
-      id: nextId,
-      name: resolvedName,
-      keywords: buildStoredKeywordsPayload({
-        keywords: resolvedKeywords,
-        origen,
-        accion_inmediata: resolvedImmediateAction,
-        accion_correctiva: resolvedCorrectiveAction,
-        peso: resolvedPeso
-      }),
-      category: resolvedCategory,
-      severity: resolvedSeverity,
-      suggestedAction: resolvedImmediateAction,
-      enabled: true,
-      createdAt: now,
-      updatedAt: now
-    };
-
-    fallbackRules.unshift(fallbackRule);
-    res.status(201).json(toApiRule(fallbackRule));
+    return handleRulePersistenceError(res, 'create', error);
   }
 }
 
@@ -312,67 +287,9 @@ export async function updateRule(req, res) {
       }
     });
 
-    res.json(toApiRule(rule));
+    return res.json(toApiRule(rule));
   } catch (error) {
-    const { id } = req.params;
-    const numericId = parseInt(id, 10);
-    const {
-      name,
-      nombre,
-      keywords,
-      category,
-      categoria,
-      severity,
-      gravedad,
-      suggestedAction,
-      accion_inmediata,
-      accion_correctiva,
-      origen,
-      peso,
-      enabled
-    } = req.body;
-
-    const index = fallbackRules.findIndex((rule) => Number(rule.id) === numericId);
-
-    if (index < 0) {
-      return res.status(404).json({ error: 'Regla no encontrada' });
-    }
-
-    const current = fallbackRules[index];
-    const currentMeta = parseRuleMetadata(current.keywords);
-    const nextKeywords = keywords !== undefined ? normalizeKeywords(keywords) : currentMeta.keywords;
-    const nextOrigen = origen ?? currentMeta.origen ?? 'interno';
-    const nextSeverity = severity ?? gravedad ?? current.severity;
-    const nextCategory = category ?? categoria ?? current.category;
-    const nextAccionInmediata = resolveAction(
-      accion_inmediata ?? suggestedAction ?? currentMeta.accion_inmediata ?? current.suggestedAction,
-      'Registrar incidencia y notificar'
-    );
-    const nextAccionCorrectiva = resolveAction(
-      accion_correctiva ?? currentMeta.accion_correctiva,
-      'Definir mejora y seguimiento'
-    );
-    const nextPeso = resolvePeso(peso !== undefined ? peso : currentMeta.peso, nextCategory, nextSeverity);
-
-    const updated = {
-      ...current,
-      name: name ?? nombre ?? current.name,
-      keywords: buildStoredKeywordsPayload({
-        keywords: nextKeywords,
-        origen: nextOrigen,
-        accion_inmediata: nextAccionInmediata,
-        accion_correctiva: nextAccionCorrectiva,
-        peso: nextPeso
-      }),
-      category: nextCategory,
-      severity: nextSeverity,
-      suggestedAction: nextAccionInmediata,
-      enabled: enabled ?? current.enabled,
-      updatedAt: new Date().toISOString()
-    };
-
-    fallbackRules[index] = updated;
-    res.json(toApiRule(updated));
+    return handleRulePersistenceError(res, 'update', error);
   }
 }
 
@@ -387,11 +304,8 @@ export async function deleteRule(req, res) {
       where: { id: parseInt(id, 10) }
     });
 
-    res.json({ success: true });
+    return res.json({ success: true });
   } catch (error) {
-    const { id } = req.params;
-    const numericId = parseInt(id, 10);
-    fallbackRules = fallbackRules.filter((rule) => Number(rule.id) !== numericId);
-    res.json({ success: true });
+    return handleRulePersistenceError(res, 'delete', error);
   }
 }
