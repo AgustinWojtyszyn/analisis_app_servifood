@@ -2,12 +2,16 @@ import {
   ensureSupabaseConfigured,
   returnSupabaseError
 } from '../analysisController.utils.js';
-import { parseDateInputToParts, toUtcDayNumber } from '../../utils/argentinaDateUtils.js';
+import {
+  getArgentinaDayEndIso,
+  getArgentinaDayStartIso,
+  parseDateInputToParts,
+  toUtcDayNumber
+} from '../../utils/argentinaDateUtils.js';
 import { getSupabaseAdmin } from './context.js';
 
 const MAX_PERIOD_DAYS = 366;
 const PAGE_SIZE = 200;
-const ARGENTINA_OFFSET = '-03:00';
 
 const SUM_METRICS = [
   'totalRecords',
@@ -232,8 +236,8 @@ function parsePeriod(from, to, label) {
       from,
       to,
       days,
-      fromIso: new Date(`${from}T00:00:00${ARGENTINA_OFFSET}`).toISOString(),
-      toIso: new Date(`${to}T23:59:59.999${ARGENTINA_OFFSET}`).toISOString()
+      fromIso: getArgentinaDayStartIso(from),
+      toIso: getArgentinaDayEndIso(to)
     }
   };
 }
