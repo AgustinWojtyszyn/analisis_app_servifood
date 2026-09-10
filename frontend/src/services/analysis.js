@@ -117,6 +117,17 @@ export async function getAnalysisHistory(params = {}) {
   return { data, error: null };
 }
 
+export async function compareAnalysisPeriods(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, String(value));
+    }
+  });
+
+  return await authorizedFetch(`/analysis/compare-periods?${query.toString()}`);
+}
+
 export async function getActiveAnalysis() {
   return await authorizedFetch('/analysis/user/active');
 }
