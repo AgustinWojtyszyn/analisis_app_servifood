@@ -49,4 +49,32 @@ describe('history request performance', () => {
       vi.useRealTimers();
     }
   });
+
+  it('mantiene separados dos lotes cuando la búsqueda anterior sigue en vuelo', async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveFirstFetch;
+      globalThis.fetch = vi.fn()
+        .mockImplementationOnce(() => new Promise((resolve) => {
+          resolveFirstFetch = () => resolve(mockJsonResponse({ marker: 'old' }));
+        }))
+        .mockResolvedValueOnce(mockJsonResponse({ marker: 'new' }));
+
+      const first = getAnalysisHistory({ search: 'viejo' });
+      await vi.advanceTimersByTimeAsync(250);
+
+      const second = getAnalysisHistory({ search: 'nuevo' });
+      await vi.advanceTimersByTimeAsync(250);
+      const secondResult = await second;
+
+      resolveFirstFetch();
+      const firstResult = await first;
+
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+      expect(firstResult.data).toEqual({ marker: 'old' });
+      expect(secondResult.data).toEqual({ marker: 'new' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
