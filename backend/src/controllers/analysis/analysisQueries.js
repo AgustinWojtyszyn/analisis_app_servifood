@@ -4,8 +4,7 @@ import {
   isStatusColumnMissing,
   isUpdatedAtColumnMissing,
   ensureSupabaseConfigured,
-  isAdminUser,
-  parseHistoryRequestParams
+  isAdminUser
 } from '../analysisController.utils.js';
 import { getSupabaseAdmin, STATUS_VALUES } from './context.js';
 
@@ -63,101 +62,6 @@ export async function getAnalysis(req, res) {
   } catch (error) {
     console.error('Error obteniendo análisis:', error);
     return res.status(500).json({ error: 'Error obteniendo análisis' });
-  }
-}
-
-export async function getHistory(req, res) {
-  try {
-    const supabaseAdmin = getSupabaseAdmin();
-    if (!ensureSupabaseConfigured(res, supabaseAdmin)) return;
-
-    const {
-      page,
-      limit,
-      search,
-      status,
-      userId,
-      minRecords,
-      maxRecords,
-      minNC,
-      minOBS,
-      minConformes,
-      fromDateIso,
-      toDateIso,
-      sortConfig,
-      rangeFrom,
-      rangeTo
-    } = parseHistoryRequestParams(req.query || {});
-    const isAdmin = isAdminUser(req.user);
-
-    let query = supabaseAdmin
-      .from('analysis_history')
-      .select('*', { count: 'exact' });
-
-    if (!isAdmin) {
-      query = query.eq('user_id', req.user.id);
-    } else if (userId) {
-      query = query.eq('user_id', userId);
-    }
-
-    if (search) {
-      query = query.or(`filename.ilike.%${search}%,status.ilike.%${search}%`);
-    }
-
-    if (status) {
-      query = query.eq('status', status);
-    }
-
-    if (fromDateIso) {
-      query = query.gte('created_at', fromDateIso);
-    }
-
-    if (toDateIso) {
-      query = query.lte('created_at', toDateIso);
-    }
-
-    if (minRecords != null) {
-      query = query.filter('results->totalRecords', 'gte', String(minRecords));
-    }
-
-    if (maxRecords != null) {
-      query = query.filter('results->totalRecords', 'lte', String(maxRecords));
-    }
-
-    if (minNC != null) {
-      query = query.filter('results->summary->totalNC', 'gte', String(minNC));
-    }
-
-    if (minOBS != null) {
-      query = query.filter('results->summary->totalOBS', 'gte', String(minOBS));
-    }
-
-    if (minConformes != null) {
-      query = query.filter('results->summary->totalConformes', 'gte', String(minConformes));
-    }
-
-    query = query
-      .order(sortConfig.column, { ascending: sortConfig.ascending, nullsFirst: false })
-      .range(rangeFrom, rangeTo);
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      return returnSupabaseError(res, 'get_history', error);
-    }
-    const total = Number(count || 0);
-    const mapped = (data || []).map((item) => mapAnalysisRowToApi(item));
-
-    return res.json({
-      data: mapped,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit) || 1
-    });
-  } catch (error) {
-    console.error('Error obteniendo historial:', error);
-    return res.status(500).json({ error: 'Error obteniendo historial' });
   }
 }
 
