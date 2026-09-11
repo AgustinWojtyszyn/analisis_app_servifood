@@ -536,8 +536,22 @@ export function buildChartsData({ records = [], summary = null } = {}) {
     Externo: Number(summaryScopeSource.Externo ?? summaryScopeSource.externo ?? 0)
   };
   const desviosInternoExterno = objectToChartData(scopeMap).filter((item) => Number(item.value || 0) > 0);
+  const indicatorTotal = Number(safeSummary.totalRecords || records.length || 0);
+  const percentage = (value) => indicatorTotal > 0 ? Number(value || 0) / indicatorTotal * 100 : 0;
+  const mainCategory = [...desviosPorCategoriaCompleta]
+    .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'es'))[0];
+  const keyIndicators = {
+    mainCategory: mainCategory ? { ...mainCategory, percentage: percentage(mainCategory.value) } : null,
+    topArea: desviosPorArea[0] || null,
+    topAreas: desviosPorArea.slice(0, 3),
+    internalPercentage: percentage(scopeMap.Interno),
+    externalPercentage: percentage(scopeMap.Externo),
+    manualReviewCount: Number(safeSummary.totalRevisionManual ?? categoriasCompletas['Revisar manualmente'] ?? 0)
+  };
+
 
   return {
+    keyIndicators,
     resumenHallazgos,
     desviosPorArea,
     desviosInternoExterno,

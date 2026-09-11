@@ -234,6 +234,33 @@ export function ChartsSections({
   return (
     <Box>
       <SummaryCards resumenHallazgos={data.resumenHallazgos} textPrimary={textPrimary} textSecondary={textSecondary} />
+      {data.keyIndicators && (
+        <Card sx={{ mb: 2.25 }}>
+          <CardContent sx={{ p: 1.75 }}>
+            <Typography sx={{ fontWeight: 800, color: textPrimary, fontSize: 17 }}>Indicadores clave</Typography>
+            <Typography variant="caption" sx={{ color: textSecondary }}>Porcentajes sobre el total de registros</Typography>
+            <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
+              {[
+                ['Categoría principal', data.keyIndicators.mainCategory
+                  ? `${data.keyIndicators.mainCategory.name} · ${data.keyIndicators.mainCategory.value} (${data.keyIndicators.mainCategory.percentage.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%)`
+                  : 'Sin datos'],
+                ['Área con más desvíos', data.keyIndicators.topArea
+                  ? `${data.keyIndicators.topArea.name} (${data.keyIndicators.topArea.value})`
+                  : 'Sin datos'],
+                ['Top 3 áreas', data.keyIndicators.topAreas.map((area) => `${area.name} (${area.value})`).join(' · ') || 'Sin datos'],
+                ['Internos', `${data.keyIndicators.internalPercentage.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`],
+                ['Externos', `${data.keyIndicators.externalPercentage.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`],
+                ['Revisión manual', data.keyIndicators.manualReviewCount]
+              ].map(([label, value]) => (
+                <Grid item xs={12} sm={6} md={4} key={label}>
+                  <Typography variant="body2" sx={{ color: textSecondary }}>{label}</Typography>
+                  <Typography variant="body2" sx={{ color: textPrimary, fontWeight: 700 }}>{value}</Typography>
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
       <Grid container spacing={2.25}>
         <AreaChart
           data={data.desviosPorArea}

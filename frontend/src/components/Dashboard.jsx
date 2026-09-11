@@ -17,7 +17,7 @@ const metricVariants = {
   secondary: { icon: TrendingUpIcon, color: 'secondary.main', bg: 'rgba(126, 34, 206, 0.14)' }
 };
 
-function MetricCard({ title, value, variant = 'info' }) {
+function MetricCard({ title, value, secondaryText, variant = 'info' }) {
   const { icon: Icon, color, bg } = metricVariants[variant] || metricVariants.info;
 
   return (
@@ -31,6 +31,11 @@ function MetricCard({ title, value, variant = 'info' }) {
             <Typography variant="h4" sx={{ fontWeight: 800, mt: 0.5, mb: 0 }}>
               {value}
             </Typography>
+            {secondaryText && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {secondaryText}
+              </Typography>
+            )}
           </Box>
           <Box
             sx={{
@@ -203,6 +208,12 @@ export function SummaryGrid({ summary, processedAt = null, records = [] }) {
       return acc;
     }, new Map());
 
+  const totalRecords = Number(effectiveSummary.totalRecords || 0);
+  const percentage = (value) => (totalRecords > 0 ? Number(value || 0) / totalRecords * 100 : 0).toLocaleString('es-AR', { maximumFractionDigits: 1 });
+  const mainCategory = [...dynamicCategoryCards.values()]
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, 'es'))[0];
+
   const fixedCategoryNormalized = new Set([
     'inocuidad',
     'logistica',
@@ -234,7 +245,7 @@ export function SummaryGrid({ summary, processedAt = null, records = [] }) {
         <MetricCard title="Total registros" value={effectiveSummary.totalRecords || 0} variant="info" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Total desvíos" value={effectiveSummary.totalDesvios || 0} variant="error" />
+        <MetricCard title="Total desvíos" value={effectiveSummary.totalDesvios || 0} secondaryText={`${percentage(effectiveSummary.totalDesvios)}% del total de registros`} variant="error" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
         <MetricCard title="Inocuidad" value={effectiveSummary.totalInocuidad || 0} variant="primary" />
@@ -249,13 +260,21 @@ export function SummaryGrid({ summary, processedAt = null, records = [] }) {
         <MetricCard title="Legal" value={effectiveSummary.totalLegal || 0} variant="warning" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Internos" value={effectiveSummary.totalInternos || 0} variant="info" />
+        <MetricCard title="Internos" value={effectiveSummary.totalInternos || 0} secondaryText={`${percentage(effectiveSummary.totalInternos)}% del total de registros`} variant="info" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
-        <MetricCard title="Externos" value={effectiveSummary.totalExternos || 0} variant="primary" />
+        <MetricCard title="Externos" value={effectiveSummary.totalExternos || 0} secondaryText={`${percentage(effectiveSummary.totalExternos)}% del total de registros`} variant="primary" />
       </Grid>
       <Grid item xs={12} sm={6} md={4} lg={2}>
         <MetricCard title="Rev. manual" value={effectiveSummary.totalRevisionManual || 0} variant="warning" />
+      </Grid>
+      <Grid item xs={12} sm={6} md={4} lg={2}>
+        <MetricCard
+          title="Categoría principal"
+          value={mainCategory?.value || 0}
+          secondaryText={mainCategory ? `${mainCategory.label} · ${percentage(mainCategory.value)}% del total de registros` : 'Sin datos'}
+          variant="secondary"
+        />
       </Grid>
       {dynamicCards.map((item) => (
         <Grid item xs={12} sm={6} md={4} lg={2} key={`cat-${item.title}`}>
