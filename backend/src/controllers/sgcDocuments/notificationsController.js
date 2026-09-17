@@ -27,7 +27,7 @@ export async function processDocumentNotifications(req, res) {
     }
 
     const batchSize = Math.max(1, Math.min(100, Number(req.body?.batchSize || 20)));
-    const { claimed, sent, failed } = await processPendingDocumentNotifications({
+    const { claimed, sent, failed, skipped } = await processPendingDocumentNotifications({
       supabaseAdmin,
       batchSize,
       source: 'internal-endpoint'
@@ -37,7 +37,8 @@ export async function processDocumentNotifications(req, res) {
       success: true,
       claimed,
       sent,
-      failed
+      failed,
+      skipped
     });
   } catch (error) {
     return res.status(500).json({ error: error.message || 'Error interno procesando notificaciones' });
