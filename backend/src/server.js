@@ -15,6 +15,7 @@ import { authenticateToken, requireAdmin } from './middlewares/auth.js';
 import { uploadAndAnalyze } from './controllers/analysisController.js';
 import { upload } from './middlewares/upload.js';
 import { globalErrorHandler } from './middlewares/errorHandler.js';
+import { createFrontendRouter } from './middlewares/frontend.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -233,20 +234,7 @@ app.use('/api', certificationRoutes);
 
 // Servir frontend build (Vite)
 const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
-app.use(express.static(frontendDistPath));
-
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) {
-    return next();
-  }
-
-  // No hacer fallback SPA para requests de archivos estaticos (.js, .css, .png, etc)
-  if (path.extname(req.path)) {
-    return res.status(404).send('Not Found');
-  }
-
-  return res.sendFile(path.join(frontendDistPath, 'index.html'));
-});
+app.use(createFrontendRouter(frontendDistPath));
 
 // 404 handler
 app.use((req, res) => {
