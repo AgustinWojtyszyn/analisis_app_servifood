@@ -407,72 +407,120 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
       </Box>
 
       <Box component="main" sx={{ flexGrow: 1, width: { md: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh' }}>
-        <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pt: { xs: 1.5, sm: 2.25 } }}>
+        <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pt: { xs: 1.2, sm: 1.5 }, pb: { xs: 1.1, sm: 1.35 } }}>
           <Box
             sx={{
+              minHeight: { xs: 62, sm: 66 },
               backgroundColor: '#ffffff',
-              borderRadius: 2.5,
+              borderRadius: 2.4,
               border: '1px solid #dce6f6',
-              px: { xs: 1.2, sm: 2.2 },
-              py: { xs: 1.25, sm: 1.6 },
+              px: { xs: 1.2, sm: 1.7 },
+              py: { xs: 0.9, sm: 1 },
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: 1.25
+              gap: 1.2
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.1, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
               {!isDesktop && (
-                <IconButton edge="start" onClick={() => setMobileOpen(true)} sx={{ color: 'primary.main' }}>
+                <IconButton
+                  edge="start"
+                  onClick={() => setMobileOpen(true)}
+                  sx={{ color: 'primary.main', p: 0.75 }}
+                >
                   <MenuRoundedIcon />
                 </IconButton>
               )}
               <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 900, fontSize: { xs: 23, sm: 28 }, color: '#0f2a66', lineHeight: 1.05 }}>
-                  Análisis de Calidad
-                </Typography>
-                <Typography sx={{ mt: 0.35, color: '#1f2f4a', fontSize: { xs: 13.5, sm: 14.5 } }}>
-                  Control y clasificación de incidencias en archivos Excel
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+                  <Typography
+                    sx={{
+                      fontWeight: 900,
+                      fontSize: { xs: 19, sm: 22 },
+                      color: '#0f2a66',
+                      lineHeight: 1.05,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Análisis de Calidad
+                  </Typography>
+                  <Box
+                    component="span"
+                    sx={{
+                      display: { xs: 'none', sm: 'inline-flex' },
+                      alignItems: 'center',
+                      maxWidth: 220,
+                      px: 1,
+                      py: 0.35,
+                      borderRadius: 99,
+                      backgroundColor: '#eef4ff',
+                      color: '#28509b',
+                      fontSize: 11.5,
+                      fontWeight: 800,
+                      lineHeight: 1.2,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {currentMeta.title}
+                  </Box>
+                </Box>
+                <Typography
+                  sx={{
+                    mt: 0.28,
+                    color: '#4b5f7f',
+                    fontSize: { xs: 11.5, sm: 12.5 },
+                    lineHeight: 1.3,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: { xs: 'normal', sm: 'nowrap' }
+                  }}
+                >
+                  {currentMeta.subtitle}
                 </Typography>
               </Box>
             </Box>
-            <Button
-              variant="outlined"
-              startIcon={<LogoutRoundedIcon />}
-              onClick={onLogout}
-              sx={{ borderColor: 'rgba(29,78,216,0.35)', color: '#1f3a73', '&:hover': { borderColor: '#1d4ed8', backgroundColor: 'rgba(29,78,216,0.06)' } }}
-            >
-              Salir
-            </Button>
-          </Box>
 
-          <Box
-            sx={{
-              mt: 1.1,
-              mb: 2.35,
-              backgroundColor: '#ffffff',
-              borderRadius: 2.2,
-              border: '1px solid #e4ecfa',
-              px: { xs: 1.2, sm: 2 },
-              py: 1.05,
-              display: 'flex',
-              alignItems: { xs: 'flex-start', sm: 'center' },
-              justifyContent: 'space-between',
-              gap: 1,
-              flexDirection: { xs: 'column', sm: 'row' }
-            }}
-          >
-            <Box>
-              <Typography sx={{ fontWeight: 800, color: '#17346f', fontSize: { xs: 15.5, sm: 16.5 } }}>
-                {currentMeta.title}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.6, sm: 1 } }}>
+              <Typography
+                sx={{
+                  display: { xs: 'none', lg: 'block' },
+                  maxWidth: 250,
+                  color: '#58709a',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {user?.email || initials.toUpperCase()}
               </Typography>
-              <Typography sx={{ color: '#21334f', fontSize: 13.5, mt: 0.2 }}>
-                {currentMeta.subtitle}
-              </Typography>
+              <Button
+                variant="outlined"
+                startIcon={<LogoutRoundedIcon />}
+                onClick={onLogout}
+                size="small"
+                sx={{
+                  minWidth: 0,
+                  px: { xs: 1, sm: 1.25 },
+                  py: 0.6,
+                  borderRadius: 1.7,
+                  borderColor: 'rgba(29,78,216,0.28)',
+                  color: '#1f3a73',
+                  fontSize: 12.5,
+                  fontWeight: 800,
+                  '&:hover': {
+                    borderColor: '#1d4ed8',
+                    backgroundColor: 'rgba(29,78,216,0.05)'
+                  }
+                }}
+              >
+                Salir
+              </Button>
             </Box>
-            <Typography sx={{ color: '#4f6286', fontWeight: 700, fontSize: 13.5 }}>
-              {user?.email || initials.toUpperCase()}
-            </Typography>
           </Box>
         </Box>
 
