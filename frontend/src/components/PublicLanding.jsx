@@ -29,7 +29,7 @@ function Screenshot({ screen, className = '', priority = false }) {
 }
 
 function Brand() {
-  return <a className="sf-brand" href="#top" aria-label="ServiFood Analysis — inicio"><img src={servifoodLogo} alt="ServiFood Catering" width="62" height="62" /><span>Analysis<span className="sf-brand-sub">SERVIFOOD · PLATAFORMA INTERNA</span></span></a>;
+  return <a className="sf-brand" href="#top" aria-label="ServiFood Análisis — inicio"><img src={servifoodLogo} alt="ServiFood Catering" width="62" height="62" /><span>Análisis<span className="sf-brand-sub">SERVIFOOD · PLATAFORMA INTERNA</span></span></a>;
 }
 
 function SectionLabel({ number, children }) {
