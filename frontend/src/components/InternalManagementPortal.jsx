@@ -176,6 +176,12 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
       target: 'annualAnalysis'
     },
     {
+      icon: Activity,
+      title: 'Gráficos',
+      description: 'Visualizá patrones e indicadores de los análisis.',
+      target: 'charts'
+    },
+    {
       icon: History,
       title: 'Historial',
       description: formatLatest(summary.latestAnalysisDate),
@@ -190,7 +196,7 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
       target: 'customerNonconformities'
     },
     {
-      icon: Activity,
+      icon: HeartPulse,
       title: 'Solicitudes de salud',
       description: 'Abrí directamente los casos Amarillo/Rojo del personal.',
       metric: metric(summary.healthAlerts),
