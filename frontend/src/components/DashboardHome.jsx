@@ -4,62 +4,67 @@ import {
   Box,
   Button,
   ButtonBase,
-  Chip,
   IconButton,
-  Paper,
   Skeleton,
   Stack,
   Tooltip as MuiTooltip,
   Typography
 } from '@mui/material';
 import {
-  ArrowForwardRounded,
-  RefreshRounded,
-  RemoveRounded,
-  TaskAltRounded,
-  TrendingDownRounded,
-  TrendingUpRounded,
-  WarningAmberRounded
+  ArrowOutwardRounded,
+  AutorenewRounded,
+  EventBusyRounded,
+  FactCheckRounded,
+  GppMaybeRounded,
+  QueryStatsRounded
 } from '@mui/icons-material';
 import { getExecutiveDashboard } from '../services/analysis';
 import { getCertifications } from '../services/certificationService';
 
-const C = {
-  navy: '#0e2a4d',
-  navy2: '#143a67',
-  blue: '#1f5ca8',
-  ink: '#15243a',
-  muted: '#708096',
-  faint: '#96a3b5',
-  line: '#dfe6ee',
-  canvas: '#f4f6f8',
-  white: '#ffffff',
-  red: '#c73f37',
-  redSoft: '#fff1ef',
-  amber: '#a86a17',
-  amberSoft: '#fff6e5',
-  teal: '#0b7b73',
-  tealSoft: '#ebf7f5'
-};
+const BLUE = '#1f5ca8';
+const BLUE_DARK = '#123f77';
+const BLUE_INK = '#0f315d';
+const BLUE_PALE = '#edf4ff';
+const INK = '#101828';
+const MUTED = '#667085';
+const LINE = '#d9e0e8';
+const CANVAS = '#f6f7f9';
+const WHITE = '#ffffff';
 
-const n = (value) => value == null
+const formatNumber = (value) => value == null
   ? '—'
   : Number(value).toLocaleString('es-AR', { maximumFractionDigits: 1 });
 
-function SmallAction({ children, onClick }) {
+const formatMonthLabel = (value) => {
+  if (!value) return 'Mes actual';
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+const formatDateParts = (isoDate) => {
+  if (!isoDate) return { day: '—', month: '' };
+  const [year, month, day] = String(isoDate).split('-').map(Number);
+  if (!year || !month || !day) return { day: '—', month: '' };
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return {
+    day: String(day).padStart(2, '0'),
+    month: date.toLocaleDateString('es-AR', { month: 'short', timeZone: 'UTC' }).replace('.', '').toUpperCase()
+  };
+};
+
+function TextAction({ children, onClick }) {
   return (
     <Button
-      size="small"
       onClick={onClick}
-      endIcon={<ArrowForwardRounded sx={{ fontSize: '14px !important' }} />}
+      endIcon={<ArrowOutwardRounded sx={{ fontSize: '15px !important' }} />}
       sx={{
         p: 0,
         minWidth: 0,
-        color: C.blue,
-        fontSize: 11.5,
+        color: BLUE,
+        fontSize: 11,
         fontWeight: 800,
-        textTransform: 'none',
-        '&:hover': { bgcolor: 'transparent', color: C.navy }
+        textTransform: 'uppercase',
+        letterSpacing: 0.45,
+        '&:hover': { bgcolor: 'transparent', color: BLUE_DARK }
       }}
     >
       {children}
@@ -67,26 +72,76 @@ function SmallAction({ children, onClick }) {
   );
 }
 
-function SectionTitle({ kicker, title, action, onAction }) {
+function SignalCell({ index, label, value, note, onClick, loading }) {
   return (
-    <Stack direction="row" justifyContent="space-between" alignItems="flex-end" gap={2} sx={{ mb: 2 }}>
-      <Box>
-        {kicker && <Typography sx={{ color: C.faint, fontSize: 9.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: 1.25, mb: 0.45 }}>{kicker}</Typography>}
-        <Typography component="h2" sx={{ color: C.ink, fontSize: { xs: 18, md: 20 }, fontWeight: 820, letterSpacing: -0.4 }}>{title}</Typography>
-      </Box>
-      {action && <SmallAction onClick={onAction}>{action}</SmallAction>}
+    <ButtonBase
+      onClick={onClick}
+      sx={{
+        width: '100%',
+        minWidth: 0,
+        minHeight: { xs: 112, md: 132 },
+        display: 'block',
+        textAlign: 'left',
+        px: { xs: 2, md: 2.6 },
+        py: 2.1,
+        borderRadius: 0,
+        '&.Mui-focusVisible': { outline: `2px solid ${BLUE}`, outlineOffset: -2 },
+        '&:hover': { bgcolor: '#f8fbff' }
+      }}
+    >
+      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" gap={1} sx={{ mb: 1.2 }}>
+        <Typography sx={{ color: BLUE, fontSize: 10, fontWeight: 900, letterSpacing: 1.2 }}>
+          {String(index).padStart(2, '0')}
+        </Typography>
+        <ArrowOutwardRounded sx={{ fontSize: 15, color: '#9aa7b8' }} />
+      </Stack>
+
+      <Typography sx={{ color: MUTED, fontSize: 10.5, fontWeight: 750, textTransform: 'uppercase', letterSpacing: 0.65 }}>
+        {label}
+      </Typography>
+
+      {loading ? (
+        <Skeleton width="45%" height={48} />
+      ) : (
+        <Typography sx={{ color: INK, fontSize: { xs: 34, md: 42 }, fontWeight: 850, lineHeight: 1.02, letterSpacing: -1.5, mt: 0.5 }}>
+          {formatNumber(value)}
+        </Typography>
+      )}
+
+      {loading ? (
+        <Skeleton width="66%" />
+      ) : (
+        <Typography sx={{ color: MUTED, fontSize: 10.8, lineHeight: 1.45, mt: 0.65 }}>
+          {note}
+        </Typography>
+      )}
+    </ButtonBase>
+  );
+}
+
+function SectionHeader({ index, title, action, onAction }) {
+  return (
+    <Stack direction="row" alignItems="flex-end" justifyContent="space-between" gap={2} sx={{ mb: 2.1 }}>
+      <Stack direction="row" alignItems="baseline" gap={1.2}>
+        <Typography sx={{ color: BLUE, fontSize: 10, fontWeight: 900, letterSpacing: 1.15 }}>
+          {index}
+        </Typography>
+        <Typography component="h2" sx={{ color: INK, fontSize: { xs: 18, md: 21 }, fontWeight: 850, letterSpacing: -0.5 }}>
+          {title}
+        </Typography>
+      </Stack>
+      {action && <TextAction onClick={onAction}>{action}</TextAction>}
     </Stack>
   );
 }
 
-function EmptyMessage({ children, action, onAction }) {
+function LoadingRows({ count = 3 }) {
   return (
-    <Box sx={{ minHeight: 104, display: 'grid', placeItems: 'center', textAlign: 'center', px: 2 }}>
-      <Box>
-        <Typography sx={{ color: C.muted, fontSize: 12, lineHeight: 1.55 }}>{children}</Typography>
-        {action && <Button size="small" onClick={onAction} sx={{ mt: 1, color: C.blue, fontSize: 11.5, fontWeight: 800 }}>{action}</Button>}
-      </Box>
-    </Box>
+    <Stack spacing={1.4}>
+      {Array.from({ length: count }, (_, index) => (
+        <Skeleton key={index} variant="rectangular" height={54} sx={{ borderRadius: 0.5 }} />
+      ))}
+    </Stack>
   );
 }
 
@@ -130,7 +185,7 @@ export default function DashboardHome({ user, onNavigate }) {
       .catch((err) => {
         if (!controller.signal.aborted) {
           setData(null);
-          setError(err.message || 'No se pudo cargar el dashboard.');
+          setError(err.message || 'No se pudo cargar el panel.');
         }
       })
       .finally(() => {
@@ -146,49 +201,35 @@ export default function DashboardHome({ user, onNavigate }) {
   const cert = data?.certifications;
   const change = deviations?.change;
   const previousLabel = deviations?.previous?.label || 'mes anterior';
-  const topSector = deviations?.topSectors?.[0] || null;
 
   const changeText = !change
     ? 'Comparación pendiente'
     : change.percentage == null
       ? `${previousLabel}: 0`
-      : `${change.percentage > 0 ? '+' : ''}${n(change.percentage)}% vs ${previousLabel}`;
-
-  const ChangeIcon = change?.direction === 'up'
-    ? TrendingUpRounded
-    : change?.direction === 'down'
-      ? TrendingDownRounded
-      : RemoveRounded;
+      : `${change.percentage > 0 ? '+' : ''}${formatNumber(change.percentage)}% frente a ${previousLabel}`;
 
   const alerts = useMemo(() => {
     const source = data?.alerts || [];
-    const important = source.filter((item) => item.severity === 'error' || item.severity === 'warning');
-    return (important.length ? important : source).slice(0, 3);
+    const priority = source.filter((item) => item.severity === 'error' || item.severity === 'warning');
+    return (priority.length ? priority : source).slice(0, 4);
   }, [data?.alerts]);
 
-  const certifications = useMemo(
-    () => [...(expiredItems || []), ...(cert?.urgent || [])].slice(0, 4),
+  const certificationItems = useMemo(
+    () => [...(expiredItems || []), ...(cert?.urgent || [])].slice(0, 5),
     [expiredItems, cert?.urgent]
   );
 
-  const hasUrgent = Boolean(cert?.expired || nc?.overdue);
-  const status = loading
-    ? { label: 'Actualizando', detail: 'Estamos reuniendo los últimos registros.' }
+  const executiveHeadline = loading
+    ? 'Actualizando el estado operativo.'
     : error
-      ? { label: 'Datos no disponibles', detail: 'No pudimos actualizar el panorama.' }
-      : hasUrgent
-        ? { label: 'Atención requerida', detail: 'Hay asuntos vencidos o pendientes para revisar.' }
-        : alerts.length
-          ? { label: 'Seguimiento activo', detail: 'Hay señales operativas que conviene seguir.' }
-          : { label: 'Sin alertas críticas', detail: 'No aparecen señales críticas con la información disponible.' };
-
-  const statusChip = loading
-    ? { bgcolor: '#eaf1f8', color: C.blue }
-    : hasUrgent
-      ? { bgcolor: C.redSoft, color: C.red }
-      : alerts.length
-        ? { bgcolor: C.amberSoft, color: C.amber }
-        : { bgcolor: C.tealSoft, color: C.teal };
+      ? 'No pudimos actualizar el estado operativo.'
+      : cert?.expired
+        ? `${formatNumber(cert.expired)} certificaciones vencidas requieren revisión.`
+        : nc?.overdue
+          ? `${formatNumber(nc.overdue)} no conformidades requieren seguimiento.`
+          : alerts.length
+            ? 'Hay señales operativas que conviene revisar.'
+            : 'No hay alertas críticas en los registros disponibles.';
 
   const refreshed = data
     ? new Date(data.generatedAt).toLocaleString('es-AR', {
@@ -201,264 +242,285 @@ export default function DashboardHome({ user, onNavigate }) {
     : '';
 
   return (
-    <Box aria-busy={loading} sx={{ minHeight: '100%', bgcolor: C.canvas, color: C.ink, px: { xs: 1.5, sm: 2.5, xl: 4 }, py: { xs: 2, md: 3 } }}>
-      <Box sx={{ maxWidth: 1380, mx: 'auto' }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} gap={2} sx={{ mb: 2.4 }}>
-          <Box>
-            <Typography sx={{ color: C.blue, fontSize: 10, fontWeight: 900, letterSpacing: 1.45, textTransform: 'uppercase', mb: 0.55 }}>
-              ServiFood · Dirección
-            </Typography>
-            <Stack direction="row" alignItems="baseline" gap={1.3} flexWrap="wrap">
-              <Typography component="h1" sx={{ fontSize: { xs: 27, md: 32 }, fontWeight: 850, letterSpacing: -1.1, lineHeight: 1.05 }}>
-                Resumen ejecutivo
+    <Box aria-busy={loading} sx={{ minHeight: '100%', bgcolor: CANVAS, color: INK }}>
+      <Box sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2, sm: 3.2, xl: 5 }, py: { xs: 2.4, md: 4 } }}>
+        <Box sx={{ borderTop: `5px solid ${BLUE}`, pt: { xs: 2.2, md: 2.8 }, mb: { xs: 3, md: 4 } }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-end' }} gap={2.5}>
+            <Box sx={{ maxWidth: 850 }}>
+              <Typography sx={{ color: BLUE, fontSize: 10.5, fontWeight: 900, letterSpacing: 1.7, textTransform: 'uppercase', mb: 1 }}>
+                Calidad operativa / {formatMonthLabel(deviations?.current?.label)}
               </Typography>
-              <Typography sx={{ color: C.muted, fontSize: 11.5, textTransform: 'capitalize' }}>
-                {deviations?.current?.label || 'Mes actual'}
+              <Typography component="h1" sx={{ color: INK, fontSize: { xs: 38, sm: 48, lg: 58 }, fontWeight: 900, letterSpacing: -2.4, lineHeight: 0.98 }}>
+                Pulso de ServiFood
               </Typography>
-            </Stack>
-          </Box>
+              <Typography sx={{ color: BLUE_INK, fontSize: { xs: 18, md: 22 }, fontWeight: 650, letterSpacing: -0.45, lineHeight: 1.25, mt: 1.5 }}>
+                {executiveHeadline}
+              </Typography>
+            </Box>
 
-          <Stack direction="row" alignItems="center" gap={1}>
-            <Chip label={status.label} size="small" sx={{ ...statusChip, height: 28, fontSize: 10.8, fontWeight: 850, borderRadius: 1.5 }} />
-            <MuiTooltip title={loading ? 'Actualizando' : refreshed ? `Última consulta ${refreshed}` : 'Actualizar'}>
-              <span>
-                <IconButton
-                  aria-label="Actualizar dashboard"
-                  disabled={loading}
-                  onClick={() => setRevision((value) => value + 1)}
-                  sx={{ width: 36, height: 36, bgcolor: C.white, border: `1px solid ${C.line}`, color: C.blue }}
-                >
-                  <RefreshRounded sx={{ fontSize: 18 }} />
-                </IconButton>
-              </span>
-            </MuiTooltip>
+            <Stack direction="row" alignItems="center" gap={1.2}>
+              <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+                <Typography sx={{ color: MUTED, fontSize: 10, fontWeight: 750, textTransform: 'uppercase', letterSpacing: 0.7 }}>
+                  Última lectura
+                </Typography>
+                <Typography sx={{ color: INK, fontSize: 11.5, fontWeight: 700, mt: 0.2 }}>
+                  {loading ? 'Actualizando…' : refreshed || 'Sin lectura'}
+                </Typography>
+              </Box>
+              <MuiTooltip title="Actualizar">
+                <span>
+                  <IconButton
+                    aria-label="Actualizar dashboard"
+                    disabled={loading}
+                    onClick={() => setRevision((value) => value + 1)}
+                    sx={{
+                      width: 42,
+                      height: 42,
+                      border: `1px solid ${LINE}`,
+                      borderRadius: 1.5,
+                      color: BLUE,
+                      bgcolor: WHITE,
+                      '&:hover': { bgcolor: BLUE_PALE }
+                    }}
+                  >
+                    <AutorenewRounded sx={{ fontSize: 19 }} />
+                  </IconButton>
+                </span>
+              </MuiTooltip>
+            </Stack>
           </Stack>
-        </Stack>
+        </Box>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2.2, borderRadius: 2.2 }} action={<Button color="inherit" onClick={() => setRevision((value) => value + 1)}>Reintentar</Button>}>
+          <Alert
+            severity="error"
+            sx={{ mb: 2.5, borderRadius: 0.5 }}
+            action={<Button color="inherit" onClick={() => setRevision((value) => value + 1)}>Reintentar</Button>}
+          >
             {error}
           </Alert>
         )}
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.35fr) minmax(340px, 0.65fr)' }, gap: 2.2, mb: 2.2 }}>
-          <Paper
-            elevation={0}
-            sx={{
-              position: 'relative',
-              overflow: 'hidden',
-              minHeight: 300,
-              borderRadius: 3.5,
-              bgcolor: C.navy,
-              color: '#fff',
-              p: { xs: 2.5, md: 3.4 },
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              boxShadow: '0 18px 38px rgba(14,42,77,0.14)',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                width: 360,
-                height: 360,
-                right: -150,
-                bottom: -230,
-                borderRadius: '50%',
-                background: 'radial-gradient(circle, rgba(57,112,177,0.55), rgba(57,112,177,0) 70%)'
-              }
-            }}
-          >
-            <Box sx={{ position: 'relative', zIndex: 1 }}>
-              <Typography sx={{ color: '#9fb6d1', fontSize: 10, fontWeight: 900, letterSpacing: 1.25, textTransform: 'uppercase' }}>
-                Brief del día
-              </Typography>
-              <Typography sx={{ mt: 1.2, maxWidth: 650, fontSize: { xs: 23, md: 30 }, fontWeight: 780, letterSpacing: -0.9, lineHeight: 1.18 }}>
-                {status.detail}
-              </Typography>
-
-              {!loading && topSector && (
-                <ButtonBase
-                  onClick={() => go('annualAnalysis')}
-                  sx={{
-                    mt: 2.2,
-                    display: 'inline-flex',
-                    px: 1.4,
-                    py: 0.9,
-                    borderRadius: 1.6,
-                    bgcolor: 'rgba(255,255,255,0.08)',
-                    border: '1px solid rgba(255,255,255,0.11)',
-                    color: '#fff',
-                    textAlign: 'left',
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.12)' }
-                  }}
-                >
-                  <Stack direction="row" alignItems="center" gap={1}>
-                    <Typography sx={{ color: '#9fb6d1', fontSize: 9.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.8 }}>Foco</Typography>
-                    <Typography sx={{ fontSize: 12, fontWeight: 800 }}>{topSector.name}</Typography>
-                    <Typography sx={{ color: '#bdd0e5', fontSize: 11 }}>{n(topSector.value)} desvíos · {n(topSector.share)}%</Typography>
-                    <ArrowForwardRounded sx={{ fontSize: 16, color: '#9fb6d1' }} />
-                  </Stack>
-                </ButtonBase>
-              )}
-            </Box>
-
-            <Stack direction={{ xs: 'column', sm: 'row' }} gap={{ xs: 1, sm: 3 }} sx={{ position: 'relative', zIndex: 1, mt: 4 }}>
-              <Box sx={{ minWidth: 125 }}>
-                <Typography sx={{ color: '#8ea7c3', fontSize: 9.5, fontWeight: 800 }}>DESVÍOS DEL MES</Typography>
-                {loading ? <Skeleton width={70} sx={{ bgcolor: 'rgba(255,255,255,0.12)' }} /> : (
-                  <Stack direction="row" alignItems="baseline" gap={0.8}>
-                    <Typography sx={{ fontSize: 35, fontWeight: 820, letterSpacing: -1 }}>{n(deviations?.current?.total)}</Typography>
-                    <Stack component="span" direction="row" alignItems="center" gap={0.25} sx={{ color: change?.direction === 'up' ? '#ffd08b' : '#bdd0e5', fontSize: 10.5 }}>
-                      <ChangeIcon sx={{ fontSize: 13 }} />
-                      {changeText}
-                    </Stack>
-                  </Stack>
-                )}
-              </Box>
-              <Box sx={{ minWidth: 125 }}>
-                <Typography sx={{ color: '#8ea7c3', fontSize: 9.5, fontWeight: 800 }}>NC ABIERTAS</Typography>
-                {loading ? <Skeleton width={70} sx={{ bgcolor: 'rgba(255,255,255,0.12)' }} /> : (
-                  <Typography sx={{ fontSize: 35, fontWeight: 820, letterSpacing: -1 }}>{n(nc?.total ? nc.open : null)}</Typography>
-                )}
-              </Box>
-              <Box sx={{ minWidth: 150 }}>
-                <Typography sx={{ color: '#8ea7c3', fontSize: 9.5, fontWeight: 800 }}>CERTIFICACIONES</Typography>
-                {loading ? <Skeleton width={70} sx={{ bgcolor: 'rgba(255,255,255,0.12)' }} /> : (
-                  <Stack direction="row" alignItems="baseline" gap={0.8}>
-                    <Typography sx={{ fontSize: 35, fontWeight: 820, letterSpacing: -1 }}>{n(cert ? cert.count + cert.expired : null)}</Typography>
-                    <Typography sx={{ color: cert?.expired ? '#ffaaa3' : '#bdd0e5', fontSize: 10.5 }}>
-                      {cert?.expired ? `${n(cert.expired)} vencidas` : 'en seguimiento'}
-                    </Typography>
-                  </Stack>
-                )}
-              </Box>
-            </Stack>
-          </Paper>
-
-          <Paper elevation={0} sx={{ borderRadius: 3.5, border: `1px solid ${C.line}`, bgcolor: '#fff', p: { xs: 2.2, md: 2.6 } }}>
-            <SectionTitle kicker="Prioridad" title="Qué atender hoy" />
-            {loading ? (
-              <Stack spacing={1.2}>{[1, 2, 3].map((id) => <Skeleton key={id} variant="rounded" height={67} />)}</Stack>
-            ) : alerts.length ? (
-              <Stack spacing={0.8}>
-                {alerts.map((item, index) => {
-                  const danger = item.severity === 'error';
-                  return (
-                    <ButtonBase
-                      key={item.id}
-                      onClick={() => go(item.target)}
-                      sx={{
-                        width: '100%',
-                        textAlign: 'left',
-                        borderRadius: 2,
-                        px: 1.25,
-                        py: 1.05,
-                        justifyContent: 'flex-start',
-                        border: `1px solid ${index === 0 ? (danger ? '#efc0bc' : '#ead5ad') : '#edf1f5'}`,
-                        bgcolor: index === 0 ? (danger ? C.redSoft : C.amberSoft) : '#fff',
-                        '&:hover': { bgcolor: index === 0 ? (danger ? '#ffe9e6' : '#fff0d6') : '#f8fafc' }
-                      }}
-                    >
-                      <Stack direction="row" gap={1.1} alignItems="flex-start" sx={{ width: '100%' }}>
-                        <Box sx={{ mt: 0.1, color: danger ? C.red : C.amber }}>
-                          <WarningAmberRounded sx={{ fontSize: 16 }} />
-                        </Box>
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                          <Typography sx={{ color: C.ink, fontSize: 12.2, fontWeight: 820, lineHeight: 1.35 }}>{item.title}</Typography>
-                          <Typography sx={{ color: C.muted, fontSize: 10.8, lineHeight: 1.45, mt: 0.35 }}>{item.detail}</Typography>
-                        </Box>
-                        <ArrowForwardRounded sx={{ fontSize: 16, color: '#a8b2bf', mt: 0.1 }} />
-                      </Stack>
-                    </ButtonBase>
-                  );
-                })}
-              </Stack>
-            ) : (
-              <EmptyMessage>No hay alertas prioritarias con la información disponible.</EmptyMessage>
-            )}
-          </Paper>
+        <Box
+          sx={{
+            bgcolor: WHITE,
+            border: `1px solid ${LINE}`,
+            borderLeft: `5px solid ${BLUE}`,
+            mb: { xs: 3, md: 4 },
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+            '& > *:not(:last-child)': {
+              borderRight: { xs: 'none', md: `1px solid ${LINE}` },
+              borderBottom: { xs: `1px solid ${LINE}`, md: 'none' }
+            }
+          }}
+        >
+          <SignalCell
+            index={1}
+            label="Desvíos este mes"
+            value={deviations?.current?.total}
+            note={changeText}
+            onClick={() => go('annualAnalysis')}
+            loading={loading}
+          />
+          <SignalCell
+            index={2}
+            label="No conformidades abiertas"
+            value={nc?.total ? nc.open : null}
+            note={!nc ? 'Información no disponible' : nc.overdue ? `${formatNumber(nc.overdue)} declaradas vencidas` : nc.total ? 'Pendientes de cierre' : 'Sin registros persistidos'}
+            onClick={() => go('customerNonconformities')}
+            loading={loading}
+          />
+          <SignalCell
+            index={3}
+            label="Certificaciones en atención"
+            value={cert ? cert.count + cert.expired : null}
+            note={!cert ? 'Información no disponible' : cert.expired ? `${formatNumber(cert.expired)} vencidas` : cert.count ? `${formatNumber(cert.count)} próximas a vencer` : 'Sin vencimientos próximos'}
+            onClick={() => go('certifications')}
+            loading={loading}
+          />
         </Box>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 0.9fr) minmax(0, 1.1fr)' }, gap: 2.2 }}>
-          <Paper elevation={0} sx={{ borderRadius: 3, border: `1px solid ${C.line}`, bgcolor: '#fff', p: { xs: 2.2, md: 2.6 } }}>
-            <SectionTitle kicker="Dónde actuar" title="Sectores principales" action="Abrir análisis" onAction={() => go('annualAnalysis')} />
-            {loading ? (
-              <Stack spacing={1.3}>{[1, 2, 3].map((id) => <Skeleton key={id} variant="rounded" height={52} />)}</Stack>
-            ) : deviations?.topSectors?.length ? (
-              <Stack spacing={1.6}>
-                {deviations.topSectors.map((sector, index) => (
-                  <Box key={sector.key}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="baseline" gap={1}>
-                      <Stack direction="row" alignItems="baseline" gap={1} minWidth={0}>
-                        <Typography sx={{ color: index === 0 ? C.blue : C.faint, fontSize: 10.5, fontWeight: 900 }}>0{index + 1}</Typography>
-                        <Typography sx={{ color: C.ink, fontSize: 12.5, fontWeight: index === 0 ? 820 : 700, overflowWrap: 'anywhere' }}>{sector.name}</Typography>
-                      </Stack>
-                      <Typography sx={{ color: C.muted, fontSize: 11.5, whiteSpace: 'nowrap' }}>{n(sector.value)} · {n(sector.share)}%</Typography>
-                    </Stack>
-                    <Box sx={{ mt: 0.75, ml: 3.7, height: 5, bgcolor: '#edf1f5', borderRadius: 99, overflow: 'hidden' }}>
-                      <Box sx={{ width: `${Math.max(4, Math.min(100, sector.share || 0))}%`, height: '100%', bgcolor: index === 0 ? C.blue : '#a8bbd1', borderRadius: 99 }} />
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.2fr) minmax(360px, 0.8fr)' }, gap: { xs: 3.5, lg: 5 }, alignItems: 'start' }}>
+          <Box component="section" sx={{ minWidth: 0 }}>
+            <SectionHeader index="A" title="Señales que requieren decisión" />
+            <Box sx={{ borderTop: `1px solid ${INK}` }}>
+              {loading ? (
+                <Box sx={{ py: 2 }}><LoadingRows count={4} /></Box>
+              ) : alerts.length ? (
+                alerts.map((item, index) => (
+                  <ButtonBase
+                    key={item.id}
+                    onClick={() => go(item.target)}
+                    sx={{
+                      width: '100%',
+                      textAlign: 'left',
+                      borderRadius: 0,
+                      borderBottom: `1px solid ${LINE}`,
+                      px: 0,
+                      py: { xs: 1.8, md: 2.1 },
+                      '&:hover': { bgcolor: '#fafcff' },
+                      '&.Mui-focusVisible': { outline: `2px solid ${BLUE}`, outlineOffset: -2 }
+                    }}
+                  >
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '38px minmax(0, 1fr)', sm: '54px minmax(0, 1fr) auto' }, width: '100%', gap: { xs: 1, sm: 1.5 }, alignItems: 'start' }}>
+                      <Typography sx={{ color: BLUE, fontSize: 11, fontWeight: 900, pt: 0.15 }}>
+                        {String(index + 1).padStart(2, '0')}
+                      </Typography>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ color: INK, fontSize: { xs: 14, md: 15 }, fontWeight: 850, lineHeight: 1.3 }}>
+                          {item.title}
+                        </Typography>
+                        <Typography sx={{ color: MUTED, fontSize: 11.5, lineHeight: 1.55, mt: 0.45 }}>
+                          {item.detail}
+                        </Typography>
+                      </Box>
+                      <ArrowOutwardRounded sx={{ display: { xs: 'none', sm: 'block' }, fontSize: 18, color: '#8c99aa', mt: 0.15 }} />
                     </Box>
-                  </Box>
-                ))}
-              </Stack>
-            ) : (
-              <EmptyMessage action="Revisar análisis anual" onAction={() => go('annualAnalysis')}>Sin registros sectorizados para el mes actual.</EmptyMessage>
-            )}
-          </Paper>
+                  </ButtonBase>
+                ))
+              ) : (
+                <Box sx={{ py: 5 }}>
+                  <Stack direction="row" alignItems="center" gap={1.2}>
+                    <FactCheckRounded sx={{ color: BLUE, fontSize: 21 }} />
+                    <Typography sx={{ color: INK, fontSize: 14, fontWeight: 800 }}>
+                      Sin señales prioritarias para mostrar.
+                    </Typography>
+                  </Stack>
+                  <Typography sx={{ color: MUTED, fontSize: 11.5, mt: 0.8 }}>
+                    El panel se actualizará automáticamente cuando existan registros relevantes.
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Box>
 
-          <Paper elevation={0} sx={{ borderRadius: 3, border: `1px solid ${C.line}`, bgcolor: '#fff', p: { xs: 2.2, md: 2.6 } }}>
-            <SectionTitle kicker="Agenda" title="Vencimientos y cumplimiento" action="Ver certificaciones" onAction={() => go('certifications')} />
-            {loading || expiredLoading ? (
-              <Stack spacing={1.2}>{[1, 2, 3].map((id) => <Skeleton key={id} variant="rounded" height={52} />)}</Stack>
-            ) : certifications.length ? (
-              <Stack divider={<Box sx={{ height: 1, bgcolor: '#edf1f5' }} />}>
-                {certifications.map((item) => {
-                  const days = item.daysUntilExpiration;
-                  const expired = days < 0;
-                  const urgent = !expired && days <= 7;
+          <Box component="section" sx={{ minWidth: 0 }}>
+            <SectionHeader index="B" title="Agenda de cumplimiento" action="Ver certificaciones" onAction={() => go('certifications')} />
+            <Box sx={{ borderTop: `1px solid ${INK}` }}>
+              {loading || expiredLoading ? (
+                <Box sx={{ py: 2 }}><LoadingRows count={4} /></Box>
+              ) : certificationItems.length ? (
+                certificationItems.map((item) => {
+                  const date = formatDateParts(item.expirationDate);
                   return (
                     <ButtonBase
                       key={item.id}
                       onClick={() => go('certifications')}
-                      sx={{ width: '100%', py: 1.15, justifyContent: 'space-between', gap: 2, textAlign: 'left', '&.Mui-focusVisible': { outline: `2px solid ${C.blue}` } }}
+                      sx={{
+                        width: '100%',
+                        textAlign: 'left',
+                        borderRadius: 0,
+                        borderBottom: `1px solid ${LINE}`,
+                        py: 1.65,
+                        px: 0,
+                        '&:hover': { bgcolor: '#fafcff' },
+                        '&.Mui-focusVisible': { outline: `2px solid ${BLUE}`, outlineOffset: -2 }
+                      }}
                     >
-                      <Stack direction="row" alignItems="center" gap={1.1} minWidth={0}>
-                        <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: expired ? C.red : urgent ? C.amber : C.blue, flexShrink: 0 }} />
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '58px minmax(0, 1fr) auto', width: '100%', gap: 1.3, alignItems: 'center' }}>
+                        <Box>
+                          <Typography sx={{ color: BLUE, fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{date.day}</Typography>
+                          <Typography sx={{ color: MUTED, fontSize: 9, fontWeight: 850, letterSpacing: 0.9, mt: 0.25 }}>{date.month}</Typography>
+                        </Box>
                         <Box sx={{ minWidth: 0 }}>
-                          <Typography sx={{ color: C.ink, fontSize: 12.2, fontWeight: 760, overflowWrap: 'anywhere' }}>{item.name}</Typography>
-                          <Typography sx={{ color: C.muted, fontSize: 10.3, mt: 0.25 }}>
-                            {item.expirationDate?.split('-').reverse().join('/')}{item.responsibleArea ? ` · ${item.responsibleArea}` : ''}
+                          <Typography sx={{ color: INK, fontSize: 12.5, fontWeight: 800, lineHeight: 1.35, overflowWrap: 'anywhere' }}>
+                            {item.name}
+                          </Typography>
+                          <Typography sx={{ color: MUTED, fontSize: 10.5, mt: 0.3 }}>
+                            {item.responsibleArea || 'Responsable no informado'}
                           </Typography>
                         </Box>
-                      </Stack>
-                      <Typography sx={{ color: expired ? C.red : urgent ? C.amber : C.muted, fontSize: 10.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
-                        {expired ? 'Vencida' : days === 0 ? 'Hoy' : `${days} días`}
-                      </Typography>
+                        <Typography sx={{ color: BLUE, fontSize: 9.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.55, whiteSpace: 'nowrap' }}>
+                          {item.daysUntilExpiration < 0 ? 'Vencida' : item.daysUntilExpiration === 0 ? 'Hoy' : `${item.daysUntilExpiration} días`}
+                        </Typography>
+                      </Box>
                     </ButtonBase>
                   );
-                })}
-              </Stack>
-            ) : (
-              <EmptyMessage>{!cert ? 'Agenda no disponible.' : cert.expired ? 'Detalle de vencidas no disponible.' : 'Sin vencimientos próximos.'}</EmptyMessage>
-            )}
+                })
+              ) : (
+                <Box sx={{ py: 4.5 }}>
+                  <Stack direction="row" alignItems="center" gap={1.2}>
+                    <EventBusyRounded sx={{ color: BLUE, fontSize: 21 }} />
+                    <Typography sx={{ color: INK, fontSize: 13.5, fontWeight: 800 }}>
+                      {!cert ? 'Agenda no disponible.' : cert.expired ? 'El detalle de vencidas no está disponible.' : 'Sin vencimientos próximos.'}
+                    </Typography>
+                  </Stack>
+                </Box>
+              )}
 
-            {cert?.expired > 0 && !expiredItems?.length && !expiredLoading && (
-              <Button onClick={() => go('certifications')} size="small" sx={{ color: C.blue, px: 0, mt: 1, fontWeight: 800, fontSize: 11.5 }}>
-                Consultar certificaciones vencidas
-              </Button>
-            )}
-          </Paper>
+              {cert?.expired > 0 && !expiredItems?.length && !expiredLoading && (
+                <Box sx={{ pt: 1.5 }}>
+                  <TextAction onClick={() => go('certifications')}>Consultar vencidas</TextAction>
+                </Box>
+              )}
+            </Box>
+          </Box>
         </Box>
 
-        {!loading && !error && (
-          <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" gap={1} sx={{ mt: 2.1, px: 0.4 }}>
-            <Stack direction="row" alignItems="center" gap={0.65}>
-              <TaskAltRounded sx={{ fontSize: 14, color: C.teal }} />
-              <Typography sx={{ color: C.faint, fontSize: 10.3 }}>Resumen generado con registros persistidos de análisis, NC y certificaciones.</Typography>
+        <Box component="section" sx={{ mt: { xs: 4.5, md: 6 } }}>
+          <SectionHeader index="C" title="Dónde se concentra el problema" action="Abrir análisis anual" onAction={() => go('annualAnalysis')} />
+          <Box sx={{ borderTop: `1px solid ${INK}` }}>
+            {loading ? (
+              <Box sx={{ py: 2 }}><LoadingRows count={3} /></Box>
+            ) : deviations?.topSectors?.length ? (
+              deviations.topSectors.map((sector, index) => (
+                <Box
+                  key={sector.key}
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '44px minmax(0, 1fr)', sm: '62px minmax(220px, 0.9fr) minmax(200px, 1.4fr) 110px' },
+                    gap: { xs: 1, sm: 2 },
+                    alignItems: 'center',
+                    borderBottom: `1px solid ${LINE}`,
+                    py: { xs: 1.8, sm: 1.65 }
+                  }}
+                >
+                  <Typography sx={{ color: index === 0 ? BLUE : '#9aa7b8', fontSize: 11, fontWeight: 900 }}>
+                    {String(index + 1).padStart(2, '0')}
+                  </Typography>
+                  <Typography sx={{ color: INK, fontSize: 13, fontWeight: index === 0 ? 850 : 720, overflowWrap: 'anywhere' }}>
+                    {sector.name}
+                  </Typography>
+                  <Box sx={{ display: { xs: 'none', sm: 'block' }, height: 8, bgcolor: '#e9eef4', overflow: 'hidden' }}>
+                    <Box sx={{ width: `${Math.max(3, Math.min(100, sector.share || 0))}%`, height: '100%', bgcolor: index === 0 ? BLUE : '#8fb0d3' }} />
+                  </Box>
+                  <Typography sx={{ gridColumn: { xs: '2', sm: 'auto' }, color: MUTED, fontSize: 11.5, fontWeight: 700, textAlign: { sm: 'right' } }}>
+                    {formatNumber(sector.value)} · {formatNumber(sector.share)}%
+                  </Typography>
+                </Box>
+              ))
+            ) : (
+              <Box sx={{ py: 4.5 }}>
+                <Stack direction="row" alignItems="center" gap={1.2}>
+                  <QueryStatsRounded sx={{ color: BLUE, fontSize: 21 }} />
+                  <Box>
+                    <Typography sx={{ color: INK, fontSize: 13.5, fontWeight: 800 }}>
+                      Aún no hay un sector dominante para este mes.
+                    </Typography>
+                    <Typography sx={{ color: MUTED, fontSize: 11.5, mt: 0.45 }}>
+                      Se mostrará el ranking cuando existan desvíos sectorizados con cobertura mensual.
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Box>
+            )}
+          </Box>
+        </Box>
+
+        <Box sx={{ mt: { xs: 4, md: 5 }, pt: 1.6, borderTop: `1px solid ${LINE}` }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={0.8}>
+            <Typography sx={{ color: MUTED, fontSize: 9.8 }}>
+              Datos de análisis anual, no conformidades persistidas y certificaciones.
+            </Typography>
+            <Stack direction="row" alignItems="center" gap={0.75}>
+              <GppMaybeRounded sx={{ color: BLUE, fontSize: 13 }} />
+              <Typography sx={{ color: MUTED, fontSize: 9.8 }}>
+                Los módulos fuente siguen siendo la referencia para el detalle.
+              </Typography>
             </Stack>
-            {refreshed && <Typography sx={{ color: C.faint, fontSize: 10.3 }}>Actualizado {refreshed}</Typography>}
           </Stack>
-        )}
+        </Box>
       </Box>
     </Box>
   );
