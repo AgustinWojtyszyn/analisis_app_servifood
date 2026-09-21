@@ -25,7 +25,11 @@ import {
 import { authenticateToken, requireAdmin, requireAdminOrNutritionist } from '../middlewares/auth.js';
 import { upload } from '../middlewares/upload.js';
 
+import { getExecutiveDashboard } from '../controllers/analysis/executiveDashboardController.js';
+
 const router = express.Router();
+
+router.get('/executive-dashboard', authenticateToken, requireAdmin, getExecutiveDashboard);
 
 router.post('/upload', authenticateToken, requireAdmin, upload.single('file'), uploadAndAnalyze);
 router.post('/upload-excel', authenticateToken, requireAdmin, upload.single('excel'), uploadAndAnalyze);
