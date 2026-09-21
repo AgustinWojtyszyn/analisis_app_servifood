@@ -14,14 +14,11 @@ import {
 } from '@mui/material';
 import {
   ArrowForwardRounded,
-  AssignmentLateRounded,
-  InsightsRounded,
   RefreshRounded,
   RemoveRounded,
   TaskAltRounded,
   TrendingDownRounded,
   TrendingUpRounded,
-  VerifiedRounded,
   WarningAmberRounded
 } from '@mui/icons-material';
 import { getExecutiveDashboard } from '../services/analysis';
@@ -67,40 +64,6 @@ function SmallAction({ children, onClick }) {
     >
       {children}
     </Button>
-  );
-}
-
-function MetricLine({ icon, label, value, helper, tone = 'default', onClick, loading }) {
-  const toneColor = tone === 'danger' ? C.red : tone === 'warning' ? C.amber : C.muted;
-  return (
-    <ButtonBase
-      onClick={onClick}
-      sx={{
-        width: '100%',
-        justifyContent: 'flex-start',
-        textAlign: 'left',
-        borderRadius: 2,
-        px: 1.2,
-        py: 1.1,
-        '&.Mui-focusVisible': { outline: `2px solid ${C.blue}`, outlineOffset: 2 }
-      }}
-    >
-      <Stack direction="row" alignItems="center" gap={1.2} sx={{ width: '100%', minWidth: 0 }}>
-        <Box sx={{ width: 34, height: 34, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 1.5, bgcolor: '#eef3f8', color: C.blue }}>
-          {icon}
-        </Box>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography sx={{ color: C.muted, fontSize: 10.5, fontWeight: 700, mb: 0.2 }}>{label}</Typography>
-          {loading ? <Skeleton width={80} /> : (
-            <Stack direction="row" alignItems="baseline" gap={1} flexWrap="wrap">
-              <Typography sx={{ color: C.ink, fontSize: 26, fontWeight: 820, lineHeight: 1, letterSpacing: -0.7 }}>{n(value)}</Typography>
-              <Typography component="div" sx={{ color: toneColor, fontSize: 10.8, lineHeight: 1.35 }}>{helper}</Typography>
-            </Stack>
-          )}
-        </Box>
-        <ArrowForwardRounded sx={{ fontSize: 17, color: '#a4b0bf', flexShrink: 0 }} />
-      </Stack>
-    </ButtonBase>
   );
 }
 
@@ -415,38 +378,6 @@ export default function DashboardHome({ user, onNavigate }) {
             )}
           </Paper>
         </Box>
-
-        <Paper elevation={0} sx={{ borderRadius: 3, border: `1px solid ${C.line}`, bgcolor: '#fff', mb: 2.2, overflow: 'hidden' }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }, '& > *:not(:last-child)': { borderRight: { xs: 'none', md: `1px solid ${C.line}` }, borderBottom: { xs: `1px solid ${C.line}`, md: 'none' } } }}>
-            <MetricLine
-              icon={<InsightsRounded sx={{ fontSize: 18 }} />}
-              label="Desvíos del mes"
-              value={deviations?.current?.total}
-              helper={changeText}
-              tone={change?.direction === 'up' ? 'warning' : 'default'}
-              onClick={() => go('annualAnalysis')}
-              loading={loading}
-            />
-            <MetricLine
-              icon={<AssignmentLateRounded sx={{ fontSize: 18 }} />}
-              label="No conformidades abiertas"
-              value={nc?.total ? nc.open : null}
-              helper={!nc ? 'No disponible' : nc?.overdue ? `${n(nc.overdue)} vencidas` : nc?.total ? 'Pendientes de cierre' : 'Sin registros'}
-              tone={nc?.overdue ? 'danger' : 'default'}
-              onClick={() => go('customerNonconformities')}
-              loading={loading}
-            />
-            <MetricLine
-              icon={<VerifiedRounded sx={{ fontSize: 18 }} />}
-              label="Certificaciones que requieren atención"
-              value={cert ? cert.count + cert.expired : null}
-              helper={!cert ? 'No disponible' : cert.expired ? `${n(cert.expired)} vencidas` : 'Próximos 30 días'}
-              tone={cert?.expired ? 'danger' : cert?.count ? 'warning' : 'default'}
-              onClick={() => go('certifications')}
-              loading={loading}
-            />
-          </Box>
-        </Paper>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 0.9fr) minmax(0, 1.1fr)' }, gap: 2.2 }}>
           <Paper elevation={0} sx={{ borderRadius: 3, border: `1px solid ${C.line}`, bgcolor: '#fff', p: { xs: 2.2, md: 2.6 } }}>
