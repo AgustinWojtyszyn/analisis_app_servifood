@@ -380,6 +380,24 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
           <Typography sx={{ display: isExecutiveHome ? 'none' : 'block', color: 'rgba(225,236,255,0.82)', fontSize: 12.5, mt: 0.2 }}>
             Sesión activa en la plataforma
           </Typography>
+          {isExecutiveHome && (
+            <Button
+              onClick={onLogout}
+              startIcon={<LogoutRoundedIcon sx={{ fontSize: '16px !important' }} />}
+              sx={{
+                mt: 0.7,
+                px: 0,
+                minWidth: 0,
+                color: 'rgba(229,238,250,0.72)',
+                fontSize: 11.5,
+                fontWeight: 700,
+                textTransform: 'none',
+                '&:hover': { bgcolor: 'transparent', color: '#ffffff' }
+              }}
+            >
+              Salir
+            </Button>
+          )}
         </Box>
       </Box>
     </Box>
@@ -416,7 +434,12 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
       </Box>
 
       <Box component="main" sx={{ flexGrow: 1, minWidth: 0, width: { md: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh' }}>
-        <Box sx={{ px: isExecutiveHome ? { xs: 1.5, sm: 2.5, xl: 4 } : { xs: 1.5, sm: 2.5 }, pt: { xs: 1.2, sm: 1.5 }, pb: isExecutiveHome ? 0.5 : { xs: 1.1, sm: 1.35 } }}>
+        <Box sx={{
+          display: isExecutiveHome ? { xs: 'block', md: 'none' } : 'block',
+          px: isExecutiveHome ? { xs: 1.5, sm: 2.5, xl: 4 } : { xs: 1.5, sm: 2.5 },
+          pt: { xs: 1.2, sm: 1.5 },
+          pb: isExecutiveHome ? 0.5 : { xs: 1.1, sm: 1.35 }
+        }}>
           <Box
             sx={{
               minHeight: isExecutiveHome ? 38 : { xs: 62, sm: 66 },
