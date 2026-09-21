@@ -14,7 +14,13 @@ Los análisis individuales siguen disponibles en Historial. No se suman a la fue
 
 ## Alertas
 
-Se muestran entre tres y cinco señales reales, ordenadas por severidad: vencimientos, NC declaradas vencidas, aumento mensual de al menos 15%, presencia del sector principal en meses consecutivos, crecimiento de una categoría en tres meses completos y NC abiertas. La reiteración de sector significa presencia en ambos meses, no una identidad comprobada de causa raíz. Si faltan incidentes para generar alertas, se muestran mensajes de cobertura y disponibilidad; no se inventan riesgos para completar la lista.
+El backend genera entre tres y cinco señales reales, ordenadas por severidad: vencimientos, NC declaradas vencidas, aumento mensual de al menos 15%, presencia del sector principal en meses consecutivos, crecimiento de una categoría en tres meses completos y NC abiertas. La reiteración de sector significa presencia en ambos meses, no una identidad comprobada de causa raíz. Si faltan incidentes, el backend devuelve mensajes de cobertura y disponibilidad. La vista ejecutiva muestra como máximo tres alertas adicionales: omite mensajes informativos y señales ya visibles en los KPIs, sin inventar riesgos para completar la lista.
+
+## Composición visual
+
+Tres indicadores sin cards: desvíos del mes, NC abiertas y certificaciones que requieren atención (vencidas + próximas a vencer en 30 días). La tendencia ocupa la zona principal, junto a un panel compacto de atención. Sectores y agenda completan la vista. Los detalles de cobertura, fuentes y estados desconocidos se consultan en los tooltips de los indicadores.
+
+Cuando hay certificaciones vencidas, el frontend consulta sus nombres mediante `getCertifications`, el servicio autenticado existente. La agenda prioriza las vencidas y luego las próximas, con hasta tres registros y acceso al módulo completo. Un error en esa consulta no descarta el resumen. No se modifica el backend.
 
 ## API y estados
 

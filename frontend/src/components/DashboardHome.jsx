@@ -1,64 +1,42 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Alert, Box, Button, Chip, Divider, LinearProgress, Skeleton, Stack, Typography
-} from '@mui/material';
-import {
-  ArrowForwardRounded, RefreshRounded, TrendingUpRounded, TrendingDownRounded,
-  RemoveRounded, ReportProblemOutlined, BusinessOutlined, AssignmentLateOutlined,
-  VerifiedOutlined, NotificationsNoneRounded, ArrowOutwardRounded, CalendarTodayOutlined
-} from '@mui/icons-material';
+import { Alert, Box, Button, ButtonBase, IconButton, Skeleton, Stack, Tooltip as MuiTooltip, Typography } from '@mui/material';
+import { ArrowForwardRounded, RefreshRounded, TrendingUpRounded, TrendingDownRounded, RemoveRounded } from '@mui/icons-material';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { getExecutiveDashboard } from '../services/analysis';
+import { getCertifications } from '../services/certificationService';
 
-const ink = '#172e3a';
-const muted = '#5d6d76';
-const border = '#e3e9eb';
-const teal = '#137f78';
+const blue = '#214c91';
+const ink = '#182d4b';
+const muted = '#758092';
+const tones = { error: '#b5443e', warning: '#a56e25', info: muted };
 const number = (value) => value == null ? '—' : value.toLocaleString('es-AR', { maximumFractionDigits: 1 });
-const panel = { p: { xs: 2.5, lg: 3.5 }, minWidth: 0 };
-const toneColor = { error: '#b63732', warning: '#95601b', info: '#456578', success: '#147564' };
+const heading = { fontSize: 16, fontWeight: 650, letterSpacing: -0.3, color: ink };
+const quiet = { color: muted, fontSize: 12, lineHeight: 1.7 };
 
-function SectionHeading({ eyebrow, title, action, onClick }) {
-  return <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 2.5 }}>
-    <Box>
-      <Typography sx={{ fontSize: 10, letterSpacing: 1.7, color: muted, fontWeight: 700, mb: 0.65 }}>{eyebrow}</Typography>
-      <Typography component="h2" sx={{ fontSize: 19, fontWeight: 750, color: ink }}>{title}</Typography>
-    </Box>
-    {action && <Button size="small" onClick={onClick} endIcon={<ArrowOutwardRounded sx={{ fontSize: 16 }} />} sx={{ color: teal, flexShrink: 0 }}>{action}</Button>}
+function Metric({ title, value, helper, detail, tone = 'info', onClick, children, loading }) {
+  return <MuiTooltip title={detail || ''} arrow>
+    <ButtonBase onClick={onClick} sx={{ display: 'block', textAlign: 'left', minWidth: 0, width: '100%', borderRadius: 1, '&.Mui-focusVisible': { outline: `2px solid ${blue}`, outlineOffset: 5 } }}>
+      <Typography component="h2" sx={{ fontSize: { xs: 11, sm: 13 }, color: muted, lineHeight: 1.5, minHeight: { xs: 50, sm: 40, lg: 20 } }}>{title}</Typography>
+      {loading ? <Skeleton width="65%" height={76} /> : <Typography sx={{ fontSize: { xs: 44, sm: 62, xl: 72 }, fontWeight: 500, color: blue, letterSpacing: -2.5, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>{number(value)}</Typography>}
+      {loading ? <Skeleton width="75%" /> : <Typography sx={{ fontSize: { xs: 10, sm: 12 }, color: tones[tone], display: 'flex', alignItems: 'flex-start', gap: 0.5, minHeight: 36, lineHeight: 1.5 }}>{children}{helper}</Typography>}
+    </ButtonBase>
+  </MuiTooltip>;
+}
+
+function SectionHeading({ title, onClick, action }) {
+  return <Stack direction="row" justifyContent="space-between" alignItems="baseline" gap={2} sx={{ mb: 3 }}>
+    <Typography component="h2" sx={heading}>{title}</Typography>
+    {action && <Button size="small" onClick={onClick} sx={{ p: 0, minWidth: 0, fontSize: 11, color: muted, whiteSpace: 'nowrap' }}>{action}</Button>}
   </Stack>;
-}
-
-function Metric({ icon: Icon, title, value, helper, tone = 'info', onClick, children, loading }) {
-  return <Box sx={{ p: { xs: 1.75, sm: 2.5, lg: 3 }, minWidth: 0 }}>
-    <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
-      <Typography sx={{ fontSize: 12, fontWeight: 650, color: muted, minHeight: { xs: 36, sm: 0 } }}>{title}</Typography>
-      <Icon sx={{ fontSize: 20, color: muted, display: { xs: 'none', sm: 'block' } }} />
-    </Stack>
-    {loading ? <Skeleton width="55%" height={70} /> : <Typography sx={{ fontSize: { xs: 36, md: 40, xl: 48 }, fontWeight: 700, letterSpacing: -2, lineHeight: 1.4, color: ink, fontVariantNumeric: 'tabular-nums' }}>{number(value)}</Typography>}
-    <Box sx={{ minHeight: 45 }}>
-      {loading ? <Skeleton width="85%" /> : <>
-        <Typography sx={{ fontSize: 12, fontWeight: 650, color: toneColor[tone], display: 'flex', gap: 0.5, alignItems: 'center' }}>{children}{helper}</Typography>
-      </>}
-    </Box>
-    <Button size="small" onClick={onClick} endIcon={<ArrowForwardRounded />} sx={{ mt: 0.8, p: 0, color: muted, fontSize: 11, justifyContent: 'flex-start' }}>Ver detalle</Button>
-  </Box>;
-}
-
-function EmptyState({ title, detail, action, onClick }) {
-  return <Box sx={{ py: 4, px: 1, textAlign: 'center' }}>
-    <Typography sx={{ fontWeight: 700, color: ink, mb: 0.8 }}>{title}</Typography>
-    <Typography sx={{ fontSize: 13, color: muted, maxWidth: 410, mx: 'auto', lineHeight: 1.7 }}>{detail}</Typography>
-    {action && <Button onClick={onClick} sx={{ mt: 1.5, color: teal }} endIcon={<ArrowForwardRounded />}>{action}</Button>}
-  </Box>;
 }
 
 function TrendTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const month = payload[0].payload;
-  return <Box sx={{ bgcolor: ink, color: '#fff', p: 1.75, borderRadius: 2, boxShadow: '0 8px 30px #172e3a25' }}>
-    <Typography sx={{ fontSize: 12, textTransform: 'capitalize' }}>{month.label}</Typography>
-    <Typography sx={{ fontWeight: 750, my: 0.5 }}>{number(month.total)} desvíos</Typography>
-    <Typography sx={{ fontSize: 11, color: '#cfdddd' }}>{month.partial ? 'Mes en curso · acumulado parcial' : 'Total mensual registrado'}</Typography>
+  return <Box sx={{ bgcolor: ink, color: '#fff', p: 1.5, borderRadius: '8px' }}>
+    <Typography sx={{ fontSize: 11 }}>{month.label}</Typography>
+    <Typography sx={{ fontWeight: 650, my: 0.5 }}>{number(month.total)} desvíos</Typography>
+    {month.partial && <Typography sx={{ fontSize: 10, opacity: 0.7 }}>Mes en curso</Typography>}
   </Box>;
 }
 
@@ -67,12 +45,31 @@ export default function DashboardHome({ user, onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
+  const [expiredItems, setExpiredItems] = useState(null);
+  const [expiredLoading, setExpiredLoading] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError('');
+    setExpiredItems(null);
+    setExpiredLoading(false);
     getExecutiveDashboard({ signal: controller.signal }).then((result) => {
-      if (!controller.signal.aborted) setData(result);
+      if (controller.signal.aborted) return;
+      setData(result);
+      // The summary includes an expired count. Fetch names only when needed,
+      // using the existing authenticated certification service.
+      if (result.certifications?.expired > 0) {
+        setExpiredLoading(true);
+        getCertifications().then((payload) => {
+          if (!controller.signal.aborted) setExpiredItems((payload.items || [])
+            .filter((item) => item.daysUntilExpiration < 0)
+            .sort((a, b) => a.daysUntilExpiration - b.daysUntilExpiration));
+        }).catch(() => {
+          if (!controller.signal.aborted) setExpiredItems(null);
+        }).finally(() => {
+          if (!controller.signal.aborted) setExpiredLoading(false);
+        });
+      }
     }).catch((err) => {
       if (!controller.signal.aborted) { setData(null); setError(err.message || 'No se pudo cargar el dashboard.'); }
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
@@ -84,130 +81,109 @@ export default function DashboardHome({ user, onNavigate }) {
   const nc = data?.nonconformities;
   const cert = data?.certifications;
   const change = deviations?.change;
-  const top = deviations?.topSectors?.[0];
   const hasTrend = deviations?.months.some((month) => month.total !== null);
   const previousLabel = deviations?.previous.label || 'mes anterior';
-  const changeText = !change ? 'Sin base comparable'
-    : change.percentage == null ? `Sin base porcentual · ${previousLabel}: 0`
+  const changeText = !change ? 'Comparación pendiente'
+    : change.percentage == null ? `${previousLabel}: 0`
       : `${change.percentage > 0 ? '+' : ''}${number(change.percentage)}% vs ${previousLabel}`;
   const ChangeIcon = change?.direction === 'up' ? TrendingUpRounded : change?.direction === 'down' ? TrendingDownRounded : RemoveRounded;
-  const critical = data?.alerts.filter((item) => item.severity === 'error').length || 0;
-  const warnings = data?.alerts.filter((item) => item.severity === 'warning').length || 0;
-  const partial = data && (Object.keys(data.errors).length > 0 || deviations?.current.total == null || !nc?.total || !cert?.total || nc?.unknown > 0 || cert?.invalidDates > 0);
-  const status = critical ? 'Atención prioritaria' : warnings ? 'Requiere seguimiento' : partial ? 'Información por completar' : 'Resumen actualizado';
-  const statusTone = critical ? 'error' : warnings ? 'warning' : 'info';
+  // Keep backend severity order, omit informational filler and repeated KPI alerts.
+  const alerts = (data?.alerts || []).filter((item) => item.severity !== 'info'
+    && !['expired', 'upcoming', 'nc-open', 'nc-overdue', 'increase'].includes(item.id)).slice(0, 3);
+  const certificationItems = [...(expiredItems || []), ...(cert?.urgent || [])].slice(0, 3);
+  const sources = deviations?.sources.map((source) => `${source.year}: ${source.filename}`).join(' · ');
+  const refreshed = data ? new Date(data.generatedAt).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
 
-  return <Box sx={{ bgcolor: '#f7f9f9', borderRadius: '20px', overflow: 'hidden', color: ink, border: `1px solid ${border}` }} aria-busy={loading}>
-    <Box sx={{ px: { xs: 2.5, lg: 3.5 }, pt: 3.5, pb: 3 }}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={2}>
-        <Box>
-          <Typography sx={{ color: teal, fontSize: 10, letterSpacing: 2.4, fontWeight: 800, mb: 1 }}>SERVIFOOD / DIRECCIÓN</Typography>
-          <Typography component="h1" sx={{ fontSize: { xs: 26, md: 32 }, fontWeight: 750, letterSpacing: -1 }}>Dashboard ejecutivo</Typography>
-          <Typography sx={{ mt: 0.8, color: muted, fontSize: 13 }}>Hola, {user?.name || 'equipo'}. Estas son las señales que requieren tu atención.</Typography>
-        </Box>
-        <Stack alignItems={{ xs: 'flex-start', sm: 'flex-end' }} justifyContent="center" gap={1}>
-          <Button onClick={() => setRevision((value) => value + 1)} disabled={loading} startIcon={<RefreshRounded />} variant="outlined" sx={{ borderColor: border, color: ink, bgcolor: '#fff' }}>Actualizar</Button>
-          <Typography sx={{ fontSize: 10, color: muted }} aria-live="polite">
-            {loading ? 'Consultando fuentes…' : data ? `Consultado ${new Date(data.generatedAt).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · Argentina` : 'Sin conexión con los indicadores'}
-          </Typography>
+  return <Box aria-busy={loading} sx={{ color: ink, px: { xs: 1, sm: 2.5, lg: 4 }, pt: { xs: 1, md: 2 }, pb: 5 }}>
+    <Stack direction="row" justifyContent="space-between" alignItems="center" gap={2} sx={{ mb: { xs: 4, md: 5 } }}>
+      <Box>
+        <Typography component="h1" sx={{ fontSize: { xs: 25, sm: 30 }, fontWeight: 600, letterSpacing: -1 }}>Dashboard ejecutivo</Typography>
+        <Typography sx={{ ...quiet, mt: 0.7, textTransform: 'capitalize' }}>{deviations?.current.label || 'Mes actual'}</Typography>
+      </Box>
+      <MuiTooltip title={loading ? 'Actualizando' : refreshed ? `Actualizar · última consulta ${refreshed}` : 'Actualizar'}>
+        <span><IconButton aria-label="Actualizar dashboard" disabled={loading} onClick={() => setRevision((value) => value + 1)} sx={{ color: muted }}><RefreshRounded sx={{ fontSize: 19 }} /></IconButton></span>
+      </MuiTooltip>
+    </Stack>
+    {error && <Alert severity="error" sx={{ mb: 3 }} action={<Button color="inherit" onClick={() => setRevision((value) => value + 1)}>Reintentar</Button>}>{error}</Alert>}
+
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: { xs: 2, sm: 4, lg: 6 }, mb: { xs: 4, md: 6 } }}>
+      <Metric title="Desvíos del mes" value={deviations?.current.total} helper={deviations ? changeText : 'No disponible'} detail={`Mes en curso frente al mes anterior completo. ${sources || 'Fuente: análisis anual'}. Los meses sin cobertura no equivalen a cero.`} tone={change?.direction === 'up' ? 'warning' : 'info'} onClick={() => go('annualAnalysis')} loading={loading}>
+        {change && <ChangeIcon sx={{ fontSize: 15, flexShrink: 0, mt: 0.1 }} />}
+      </Metric>
+      <Metric title="No conformidades abiertas" value={nc?.total ? nc.open : null} helper={!nc ? 'No disponible' : nc.overdue ? `${number(nc.overdue)} declaradas vencidas` : nc.total ? 'Pendientes de cierre' : 'Sin registros'} detail={`NC persistidas. No hay fechas límite registradas.${nc?.unknown ? ` ${nc.unknown} NC sin estado reconocido, excluidas del total abierto.` : ''}`} tone={nc?.overdue ? 'error' : 'info'} onClick={() => go('customerNonconformities')} loading={loading} />
+      <Metric title="Certificaciones que requieren atención" value={cert ? cert.count + cert.expired : null} helper={!cert ? 'No disponible' : cert.expired ? `${number(cert.expired)} vencidas` : 'Próximos 30 días'} detail={`Incluye vencidas y próximas a vencer en 30 días.${cert?.invalidDates ? ` ${cert.invalidDates} sin fecha válida, excluidas.` : ''}`} tone={cert?.expired ? 'error' : 'info'} onClick={() => go('certifications')} loading={loading} />
+    </Box>
+
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 2.5fr) minmax(220px, 1fr)' }, gap: { xs: 4, lg: 5 }, alignItems: 'start', mb: { xs: 5, md: 6 } }}>
+      <Box sx={{ minWidth: 0 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 2 }}>
+          <Typography component="h2" sx={{ ...heading, fontSize: { xs: 19, sm: 22 } }}>Tendencia de desvíos</Typography>
+          <Typography sx={{ ...quiet, fontSize: 10 }}>6 meses</Typography>
         </Stack>
-      </Stack>
-      <Stack direction="row" flexWrap="wrap" gap={1.5} alignItems="center" sx={{ mt: 2.5 }}>
-        {!loading && data && <Chip size="small" label={status} sx={{ color: toneColor[statusTone], bgcolor: `${toneColor[statusTone]}10`, border: `1px solid ${toneColor[statusTone]}25`, borderRadius: 5 }} />}
-        <Typography sx={{ display: 'flex', alignItems: 'center', gap: 0.8, color: muted, fontSize: 12, textTransform: 'capitalize' }}>
-          <CalendarTodayOutlined sx={{ fontSize: 15 }} />{deviations?.current.label || 'Mes actual'} · mes en curso
-        </Typography>
-      </Stack>
+        {loading ? <Skeleton variant="rounded" height={300} /> : hasTrend ? <>
+          <Box sx={{ height: { xs: 260, sm: 320, xl: 350 }, minWidth: 0 }} role="img" aria-label={`Evolución mensual: ${deviations.months.map((month) => `${month.label}: ${month.total == null ? 'sin cobertura' : `${month.total} desvíos`}`).join('; ')}. El mes actual es parcial.`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={deviations.months} margin={{ top: 20, right: 10, left: -25, bottom: 0 }} accessibilityLayer>
+                <defs><linearGradient id="executiveTrendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={blue} stopOpacity={0.16} /><stop offset="100%" stopColor={blue} stopOpacity={0} /></linearGradient></defs>
+                <CartesianGrid vertical={false} stroke="#e9edf3" strokeDasharray="2 6" />
+                <XAxis dataKey="shortLabel" axisLine={false} tickLine={false} tick={{ fill: muted, fontSize: 11 }} dy={8} />
+                <YAxis allowDecimals={false} tickCount={4} axisLine={false} tickLine={false} tick={{ fill: muted, fontSize: 10 }} />
+                <Tooltip content={<TrendTooltip />} />
+                <Area type="linear" dataKey="total" stroke={blue} strokeWidth={3} fill="url(#executiveTrendFill)" connectNulls={false} dot={{ r: 3, fill: '#fff', strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Box>
+          <Typography sx={{ ...quiet, fontSize: 10, mt: 1.5 }}>Mes actual en curso · comparación con meses completos</Typography>
+        </> : <Box sx={{ minHeight: { xs: 90, sm: 160 }, display: 'flex', alignItems: 'center' }}>
+          <Typography sx={quiet}>{data?.errors.deviations ? 'No se pudo consultar la evolución.' : 'La tendencia aparecerá con la próxima carga anual.'}</Typography>
+        </Box>}
+      </Box>
+      <Box component="aside" aria-label="Requiere atención" sx={{ bgcolor: '#f4f6fa', p: { xs: 2.5, lg: 3 }, borderRadius: '4px' }}>
+        <Typography component="h2" sx={{ ...heading, mb: 2.5 }}>Requiere atención</Typography>
+        {loading ? <Stack spacing={2}>{[1, 2].map((key) => <Skeleton key={key} height={45} />)}</Stack> : alerts.length ? <Stack spacing={3}>
+          {alerts.map((item) => <Box key={item.id}>
+            <ButtonBase onClick={() => go(item.target)} sx={{ textAlign: 'left', width: '100%', justifyContent: 'space-between', gap: 1, alignItems: 'flex-start', '&.Mui-focusVisible': { outline: `2px solid ${blue}` } }}>
+              <Typography sx={{ fontSize: 13, fontWeight: 600, color: item.severity === 'error' ? tones.error : ink, lineHeight: 1.5 }}>{item.title}</Typography>
+              <ArrowForwardRounded sx={{ fontSize: 15, color: tones[item.severity], flexShrink: 0, mt: 0.3 }} />
+            </ButtonBase>
+            <Typography sx={{ ...quiet, fontSize: 11, mt: 0.7 }}>{item.detail}</Typography>
+          </Box>)}
+        </Stack> : <Typography sx={quiet}>{data ? 'Sin alertas adicionales.' : 'No disponible.'}</Typography>}
+      </Box>
     </Box>
-    {error && <Alert severity="error" sx={{ mx: 3, mb: 3 }} action={<Button color="inherit" onClick={() => setRevision((value) => value + 1)}>Reintentar</Button>}>{error}</Alert>}
-    <Box sx={{ bgcolor: '#fff' }}>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' }, borderTop: `1px solid ${border}`, borderBottom: `1px solid ${border}`, '& > *:not(:last-child)': { borderRight: `1px solid ${border}` }, '& > *': { borderBottom: { xs: `1px solid ${border}`, lg: 0 } } }}>
-        <Metric icon={ReportProblemOutlined} title="Desvíos del mes" value={deviations?.current.total} helper={changeText} tone={change?.direction === 'up' ? 'error' : 'info'} onClick={() => go('annualAnalysis')} loading={loading}>
-          {change && <ChangeIcon sx={{ fontSize: 17 }} />}
-        </Metric>
-        <Metric icon={BusinessOutlined} title="Sector con más desvíos" value={top?.value} helper={!deviations ? 'Información no disponible' : top ? `${top.name} · ${number(top.share)}% del mes` : 'Sin desvíos sectorizados este mes'} tone={top ? 'warning' : 'info'} onClick={() => go('annualAnalysis')} loading={loading} />
-        <Metric icon={AssignmentLateOutlined} title="No conformidades abiertas" value={nc?.total ? nc.open : null} helper={!nc ? 'Información no disponible' : !nc.total ? 'Sin registros persistidos' : nc.overdue ? `${number(nc.overdue)} declaradas vencidas` : `${number(nc.total)} NC registradas · sin fechas límite`} tone={nc?.overdue ? 'error' : nc?.open ? 'warning' : 'info'} onClick={() => go('customerNonconformities')} loading={loading} />
-        <Metric icon={VerifiedOutlined} title="Certificaciones por vencer" value={cert?.count} helper={!cert ? 'Información no disponible' : cert.expired ? `${number(cert.expired)} ya vencidas · revisar` : 'Próximos 30 días, incluido hoy'} tone={cert?.expired ? 'error' : cert?.count ? 'warning' : 'info'} onClick={() => go('certifications')} loading={loading} />
-      </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1.55fr) minmax(310px, 1fr)' } }}>
-        <Box sx={{ ...panel, borderRight: { lg: `1px solid ${border}` } }}>
-          <SectionHeading eyebrow="EVOLUCIÓN OPERATIVA" title="Tendencia de desvíos" action="Análisis anual" onClick={() => go('annualAnalysis')} />
-          <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1} sx={{ mb: 2 }}>
-            <Typography sx={{ fontSize: 12, color: muted }}>Últimos 6 meses · menor es mejor</Typography>
-            <Stack direction="row" gap={0.8} alignItems="center"><Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: teal }} /><Typography sx={{ fontSize: 11, color: muted }}>Desvíos</Typography></Stack>
-          </Stack>
-          {loading ? <Skeleton variant="rounded" height={245} /> : hasTrend ? <>
-            <Box sx={{ height: 245, width: '100%', minWidth: 0 }} role="img" aria-label={`Evolución mensual: ${deviations.months.map((month) => `${month.label}: ${month.total == null ? 'sin cobertura' : `${month.total} desvíos`}`).join('; ')}. El mes actual es parcial.`}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={deviations.months} margin={{ top: 15, right: 15, left: -25, bottom: 0 }} accessibilityLayer>
-                  <defs><linearGradient id="executiveTrendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={teal} stopOpacity={0.18} /><stop offset="100%" stopColor={teal} stopOpacity={0.01} /></linearGradient></defs>
-                  <CartesianGrid vertical={false} stroke={border} strokeDasharray="3 5" />
-                  <XAxis dataKey="shortLabel" axisLine={false} tickLine={false} tick={{ fill: muted, fontSize: 11 }} dy={8} />
-                  <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: muted, fontSize: 11 }} />
-                  <Tooltip content={<TrendTooltip />} />
-                  <Area type="linear" dataKey="total" stroke={teal} strokeWidth={2.5} fill="url(#executiveTrendFill)" connectNulls={false} dot={{ r: 4, fill: '#fff', strokeWidth: 2 }} activeDot={{ r: 6 }} isAnimationActive={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </Box>
-            <Typography sx={{ fontSize: 11, color: muted, mt: 2, lineHeight: 1.6 }}>Mes actual parcial frente a meses completos. Los meses sin cobertura se muestran como interrupciones, no como cero.</Typography>
-          </> : <EmptyState title={data?.errors.deviations ? 'No pudimos consultar la evolución' : 'Todavía no hay una tendencia disponible'} detail="El análisis anual alimenta esta vista con el mes real de cada desvío." action="Abrir análisis anual" onClick={() => go('annualAnalysis')} />}
-        </Box>
-        <Box sx={{ ...panel, bgcolor: '#fbfcfc', borderTop: { xs: `1px solid ${border}`, lg: 0 } }}>
-          <SectionHeading eyebrow="PRIORIDADES DE HOY" title="Centro de alertas" />
-          {loading ? <Stack spacing={2}>{[1, 2, 3].map((key) => <Skeleton key={key} variant="rounded" height={68} />)}</Stack> : data?.alerts.length ? <Stack spacing={1.2}>
-            {data.alerts.map((item) => <Box key={item.id} sx={{ borderLeft: `3px solid ${toneColor[item.severity]}`, pl: 1.6, py: 0.5 }}>
-              <Button onClick={() => go(item.target)} sx={{ p: 0, textAlign: 'left', color: ink, fontSize: 12.5, fontWeight: 750, justifyContent: 'flex-start', lineHeight: 1.5 }} endIcon={<ArrowForwardRounded sx={{ fontSize: 14 }} />}>{item.title}</Button>
-              <Typography sx={{ fontSize: 10, color: toneColor[item.severity], fontWeight: 700, mt: 0.25 }}>{item.severity === 'error' ? 'PRIORITARIA' : item.severity === 'warning' ? 'SEGUIMIENTO' : 'INFORMACIÓN'}</Typography>
-              <Typography sx={{ fontSize: 11.5, color: muted, mt: 0.35, lineHeight: 1.6 }}>{item.detail}</Typography>
-            </Box>)}
-          </Stack> : <EmptyState title="Alertas no disponibles" detail="Actualizá el dashboard para consultar las prioridades." />}
-          <Stack direction="row" gap={0.7} sx={{ mt: 2, color: muted }}><NotificationsNoneRounded sx={{ fontSize: 14 }} /><Typography sx={{ fontSize: 10 }}>Señales automáticas de los registros disponibles.</Typography></Stack>
-        </Box>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, gap: { xs: 4, md: 7 } }}>
+      <Box sx={{ minWidth: 0 }}>
+        <SectionHeading title="Sectores principales" action="Análisis anual ↗" onClick={() => go('annualAnalysis')} />
+        {loading ? <Skeleton height={100} /> : deviations?.topSectors.length ? <Stack spacing={2.5}>
+          {deviations.topSectors.map((sector, index) => <Box key={sector.key}>
+            <Stack direction="row" alignItems="baseline" justifyContent="space-between" gap={1} sx={{ mb: 0.8 }}>
+              <Typography sx={{ fontSize: 13, color: index === 0 ? blue : ink, fontWeight: index === 0 ? 600 : 400, overflowWrap: 'anywhere' }}>{sector.name}</Typography>
+              <Typography sx={{ fontSize: 13, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{number(sector.value)} <Box component="span" sx={{ color: muted, fontSize: 11, ml: 1 }}>{number(sector.share)}%</Box></Typography>
+            </Stack>
+            <Box role="meter" aria-label={sector.name} aria-valuenow={sector.share} aria-valuemin={0} aria-valuemax={100} sx={{ height: 3, bgcolor: '#eef1f6' }}><Box sx={{ width: `${sector.share}%`, height: '100%', bgcolor: index === 0 ? blue : '#b0bfd4' }} /></Box>
+          </Box>)}
+        </Stack> : <Typography sx={quiet}>Sin registros del mes.</Typography>}
       </Box>
-
-      <Divider sx={{ borderColor: border }} />
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' } }}>
-        <Box sx={{ ...panel, borderRight: { lg: `1px solid ${border}` } }}>
-          <SectionHeading eyebrow="DÓNDE ACTUAR" title="Sectores con más problemas" />
-          {loading ? <Skeleton variant="rounded" height={190} /> : deviations?.topSectors.length ? <Stack spacing={2.5}>
-            {deviations.topSectors.map((sector, index) => <Box key={sector.key}>
-              <Stack direction="row" justifyContent="space-between" gap={1} alignItems="center" sx={{ mb: 1 }}>
-                <Stack direction="row" gap={1} alignItems="center" sx={{ minWidth: 0 }}>
-                  <Typography sx={{ color: index === 0 ? '#95601b' : muted, fontSize: 12, fontWeight: 750 }}>0{index + 1}</Typography>
-                  <Box sx={{ minWidth: 0 }}><Typography sx={{ fontSize: 13, fontWeight: 700, overflowWrap: 'anywhere' }}>{sector.name}</Typography>{index === 0 && <Typography sx={{ fontSize: 10, color: '#95601b' }}>Mayor concentración del mes</Typography>}</Box>
-                </Stack>
-                <Typography sx={{ fontWeight: 750, fontSize: 14, whiteSpace: 'nowrap' }}>{number(sector.value)} <Box component="span" sx={{ color: muted, fontWeight: 400, fontSize: 11 }}>· {number(sector.share)}%</Box></Typography>
-              </Stack>
-              <LinearProgress variant="determinate" value={sector.share} aria-label={`${sector.name}: ${number(sector.share)}% de los desvíos del mes`} sx={{ height: 5, borderRadius: 3, bgcolor: '#edf1f2', '& .MuiLinearProgress-bar': { borderRadius: 3, bgcolor: index === 0 ? '#b98235' : '#829d9c' } }} />
-            </Box>)}
-            <Typography sx={{ fontSize: 11, color: muted }}>Top 3 · distribución sobre los {number(deviations.current.total)} desvíos del mes.</Typography>
-          </Stack> : <EmptyState title="Sin ranking para este mes" detail="El ranking estará disponible cuando existan desvíos sectorizados con cobertura mensual." />}
-        </Box>
-        <Box sx={{ ...panel, borderTop: { xs: `1px solid ${border}`, lg: 0 } }}>
-          <SectionHeading eyebrow="AGENDA DE CUMPLIMIENTO" title="Próximos vencimientos" action="Ver todos" onClick={() => go('certifications')} />
-          {loading ? <Skeleton variant="rounded" height={190} /> : cert?.urgent.length ? <Stack divider={<Divider sx={{ borderColor: border }} />} spacing={1.7}>
-            {cert.urgent.map((item) => {
-              const color = item.daysUntilExpiration <= 7 ? toneColor.error : item.daysUntilExpiration <= 15 ? toneColor.warning : toneColor.success;
-              const days = item.daysUntilExpiration === 0 ? 'Hoy' : `${item.daysUntilExpiration} días`;
-              return <Stack key={item.id} direction="row" alignItems="center" justifyContent="space-between" gap={1.5}>
-                <Box sx={{ minWidth: 0 }}><Typography sx={{ fontSize: 13, fontWeight: 700, overflowWrap: 'anywhere' }}>{item.name}</Typography><Typography sx={{ fontSize: 11, color: muted, mt: 0.6 }}>{item.expirationDate.split('-').reverse().join('/')} · {item.responsibleArea || item.responsiblePerson || 'Sin responsable asignado'}</Typography></Box>
-                <Chip size="small" label={days} sx={{ flexShrink: 0, color, bgcolor: `${color}10`, fontSize: 11, border: `1px solid ${color}25` }} />
-              </Stack>;
+      <Box sx={{ minWidth: 0 }}>
+        <SectionHeading title="Próximos vencimientos" action="Ver todos ↗" onClick={() => go('certifications')} />
+        {loading || expiredLoading ? <Skeleton height={100} /> : <>
+          {certificationItems.length ? <Stack spacing={2.5}>
+            {certificationItems.map((item) => {
+              const days = item.daysUntilExpiration;
+              const color = days <= 7 ? tones.error : days <= 15 ? tones.warning : muted;
+              return <ButtonBase key={item.id} onClick={() => go('certifications')} sx={{ width: '100%', textAlign: 'left', justifyContent: 'space-between', gap: 2, '&.Mui-focusVisible': { outline: `2px solid ${blue}` } }}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontSize: 13, color: ink, overflowWrap: 'anywhere' }}>{item.name}</Typography>
+                  <Typography sx={{ ...quiet, fontSize: 10, mt: 0.4 }}>{item.expirationDate?.split('-').reverse().join('/')}{item.responsibleArea ? ` · ${item.responsibleArea}` : ''}</Typography>
+                </Box>
+                <Typography sx={{ fontSize: 11, color, whiteSpace: 'nowrap' }}>{days < 0 ? 'Vencida' : days === 0 ? 'Hoy' : `${days} días`}</Typography>
+              </ButtonBase>;
             })}
-          </Stack> : <EmptyState title={!cert ? 'Agenda no disponible' : cert.total ? 'Sin vencimientos en los próximos 30 días' : 'Sin certificaciones registradas'} detail={cert?.expired ? `${cert.expired} certificaciones ya vencieron. Revisá su renovación.` : 'Consultá las certificaciones y sus responsables desde el módulo.'} />}
-          {cert?.urgent.length > 0 && <Typography sx={{ mt: 2, fontSize: 10, color: muted }}>Urgente ≤ 7 días · próximo ≤ 15 días · programado ≤ 30 días</Typography>}
-        </Box>
+          </Stack> : <Typography sx={quiet}>{!cert ? 'Agenda no disponible.' : cert.expired ? 'Detalle de vencidas no disponible.' : 'Sin vencimientos próximos.'}</Typography>}
+          {cert?.expired > 0 && !expiredItems?.length && <Button onClick={() => go('certifications')} size="small" sx={{ color: blue, px: 0, mt: 1 }}>Consultar certificaciones vencidas ↗</Button>}
+        </>}
       </Box>
-    </Box>
-    <Box sx={{ px: { xs: 2.5, lg: 3.5 }, py: 2, borderTop: `1px solid ${border}` }}>
-      <Typography sx={{ fontSize: 10.5, color: muted, lineHeight: 1.8 }}>Fuentes: última carga anual de cada año · NC persistidas · certificaciones. Las cargas de análisis individuales se consultan en Historial.</Typography>
-      {deviations?.sources.map((source) => <Typography key={source.id} sx={{ fontSize: 10, color: muted, overflowWrap: 'anywhere' }}>Anual {source.year}: {source.filename} · cargado {new Date(source.uploadedAt).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })}</Typography>)}
-      {nc?.unknown > 0 && <Typography sx={{ fontSize: 11, color: toneColor.warning, mt: 0.5 }}>{nc.unknown} NC sin estado reconocido: no se incluyen como abiertas ni cerradas.</Typography>}
-      {cert?.invalidDates > 0 && <Typography sx={{ fontSize: 11, color: toneColor.warning, mt: 0.5 }}>{cert.invalidDates} certificaciones sin fecha válida: no se pueden evaluar sus vencimientos.</Typography>}
-      <Stack direction="row" gap={1} flexWrap="wrap" sx={{ mt: 1 }}>
-        {[['upload', 'Cargar archivos'], ['history', 'Historial'], ['charts', 'Comparar períodos'], ['customerNonconformities', 'NC Clientes']].map(([target, label]) => <Button key={target} size="small" onClick={() => go(target)} sx={{ color: teal, fontSize: 11 }}>{label}</Button>)}
-      </Stack>
     </Box>
   </Box>;
 }

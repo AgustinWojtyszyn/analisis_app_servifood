@@ -1,8 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import DashboardHome from './DashboardHome';
+import { getCertifications } from '../services/certificationService';
 import { getExecutiveDashboard } from '../services/analysis';
 
+vi.mock('../services/certificationService', () => ({ getCertifications: vi.fn() }));
 vi.mock('../services/analysis', () => ({ getExecutiveDashboard: vi.fn() }));
 const emptyPayload = () => ({
   generatedAt: '2026-09-21T15:00:00Z', errors: {},
@@ -20,7 +22,7 @@ beforeEach(() => vi.clearAllMocks());
 test('loading never presents invented zero counts', () => {
   getExecutiveDashboard.mockReturnValue(new Promise(() => {}));
   const { container } = render(<DashboardHome user={{ id: 'admin' }} />);
-  expect(screen.getByText('Consultando fuentes…')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Actualizar dashboard' })).toBeDisabled();
   expect(container.querySelector('[aria-busy="true"]')).toBeInTheDocument();
   expect(screen.queryByText('0')).not.toBeInTheDocument();
 });
@@ -29,12 +31,11 @@ test('empty data explains coverage and navigates to source modules', async () =>
   getExecutiveDashboard.mockResolvedValue(emptyPayload());
   const onNavigate = vi.fn();
   render(<DashboardHome user={{ id: 'admin', name: 'Dirección' }} onNavigate={onNavigate} />);
-  expect(await screen.findByText('Información por completar')).toBeInTheDocument();
-  expect(screen.getByText('Sin registros persistidos')).toBeInTheDocument();
-  expect(screen.getByText('Sin base comparable')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Faltan registros anuales' }));
+  expect(await screen.findByText('Comparación pendiente')).toBeInTheDocument();
+  expect(screen.getByText('Sin registros')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Análisis anual/ }));
   expect(onNavigate).toHaveBeenCalledWith('annualAnalysis');
-  fireEvent.click(screen.getByRole('button', { name: 'Ver todos' }));
+  fireEvent.click(screen.getByRole('button', { name: /Ver todos/ }));
   expect(onNavigate).toHaveBeenCalledWith('certifications');
 });
 
@@ -43,7 +44,7 @@ test('network error allows recovery with retry', async () => {
   render(<DashboardHome user={{ id: 'admin' }} />);
   expect(await screen.findByText('Error de red')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
-  await screen.findByText('Información por completar');
+  await screen.findByText('Comparación pendiente');
   expect(screen.queryByText('Error de red')).not.toBeInTheDocument();
   expect(getExecutiveDashboard).toHaveBeenCalledTimes(2);
 });
@@ -56,10 +57,9 @@ test('partial source failure preserves NC counts and explicitly marks unavailabl
   data.alerts = [{ id: 'nc-overdue', severity: 'error', title: '2 NC declaradas vencidas', detail: 'Revisá los casos.', target: 'customerNonconformities' }];
   getExecutiveDashboard.mockResolvedValue(data);
   render(<DashboardHome user={{ id: 'admin' }} />);
-  expect(await screen.findByText('Atención prioritaria')).toBeInTheDocument();
-  expect(screen.getByText('12')).toBeInTheDocument();
-  expect(screen.getByText('Agenda no disponible')).toBeInTheDocument();
-  expect(screen.getByText(/1 NC sin estado reconocido/)).toBeInTheDocument();
+  expect(await screen.findByText('12')).toBeInTheDocument();
+  expect(screen.getByText('Agenda no disponible.')).toBeInTheDocument();
+  expect(screen.getByText('2 declaradas vencidas')).toBeInTheDocument();
 });
 
 test('unmount aborts in-flight requests', async () => {
@@ -69,4 +69,41 @@ test('unmount aborts in-flight requests', async () => {
   const { signal } = getExecutiveDashboard.mock.calls[0][0];
   unmount();
   expect(signal.aborted).toBe(true);
+});
+
+
+test('attention panel shows at most three non-repeated alerts', async () => {
+  const data = emptyPayload();
+  data.alerts = [
+    { id: 'expired', severity: 'error', title: 'Repetición de vencidas' },
+    ...Array.from({ length: 4 }, (_, index) => ({ id: `signal-${index}`, severity: 'warning', title: `Señal ${index}`, detail: 'Revisar', target: 'annualAnalysis' }))
+  ];
+  getExecutiveDashboard.mockResolvedValue(data);
+  render(<DashboardHome user={{ id: 'admin' }} />);
+  await screen.findByText('Señal 0');
+  expect(screen.getByText('Señal 2')).toBeInTheDocument();
+  expect(screen.queryByText('Señal 3')).not.toBeInTheDocument();
+  expect(screen.queryByText('Repetición de vencidas')).not.toBeInTheDocument();
+});
+
+test('certification KPI includes expired and upcoming, with expired names in the agenda', async () => {
+  const data = emptyPayload();
+  data.certifications = { total: 10, count: 3, expired: 6, urgent: [], invalidDates: 0 };
+  getExecutiveDashboard.mockResolvedValue(data);
+  getCertifications.mockResolvedValue({ items: [{ id: 'iso', name: 'ISO 22000', daysUntilExpiration: -8, expirationDate: '2026-09-13' }] });
+  render(<DashboardHome user={{ id: 'admin' }} />);
+  expect(await screen.findByText('9')).toBeInTheDocument();
+  expect(await screen.findByText('ISO 22000')).toBeInTheDocument();
+  expect(screen.getAllByText('6 vencidas')).toHaveLength(1);
+  expect(screen.getByText('Vencida')).toBeInTheDocument();
+});
+
+test('certification detail failure preserves summary and provides a module link', async () => {
+  const data = emptyPayload();
+  data.certifications = { total: 2, count: 0, expired: 2, urgent: [], invalidDates: 0 };
+  getExecutiveDashboard.mockResolvedValue(data);
+  getCertifications.mockRejectedValue(new Error('Unavailable'));
+  render(<DashboardHome user={{ id: 'admin' }} />);
+  expect(await screen.findByRole('button', { name: /Consultar certificaciones vencidas/ })).toBeInTheDocument();
+  expect(screen.getByText('2 vencidas')).toBeInTheDocument();
 });

@@ -331,7 +331,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         <Box
           aria-hidden="true"
           sx={{
-            display: 'flex',
+            display: isExecutiveHome ? 'none' : 'flex',
             justifyContent: 'center',
             alignItems: 'center',
             gap: 0.75,
@@ -345,7 +345,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
           <Box component="span">★</Box>
           <Box component="span">★</Box>
         </Box>
-        <Typography sx={{ mt: 0.85, color: 'rgba(255,255,255,0.88)', fontSize: 11.5, textAlign: 'center', fontWeight: 600 }}>
+        <Typography sx={{ display: isExecutiveHome ? 'none' : 'block', mt: 0.85, color: 'rgba(255,255,255,0.88)', fontSize: 11.5, textAlign: 'center', fontWeight: 600 }}>
           Plataforma de análisis de desvíos
         </Typography>
       </Box>
@@ -368,8 +368,8 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         <Box
           sx={{
             borderRadius: 2,
-            border: '1px solid rgba(255,255,255,0.16)',
-            backgroundColor: 'rgba(255,255,255,0.08)',
+            border: isExecutiveHome ? 'none' : '1px solid rgba(255,255,255,0.16)',
+            backgroundColor: isExecutiveHome ? 'transparent' : 'rgba(255,255,255,0.08)',
             px: 1.25,
             py: 1.05
           }}
@@ -377,7 +377,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
           <Typography sx={{ color: 'rgba(236,244,255,0.92)', fontWeight: 700, fontSize: 13.5 }}>
             Hola, {user?.name || 'equipo'}
           </Typography>
-          <Typography sx={{ color: 'rgba(225,236,255,0.82)', fontSize: 12.5, mt: 0.2 }}>
+          <Typography sx={{ display: isExecutiveHome ? 'none' : 'block', color: 'rgba(225,236,255,0.82)', fontSize: 12.5, mt: 0.2 }}>
             Sesión activa en la plataforma
           </Typography>
         </Box>
@@ -386,7 +386,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', ...(isExecutiveHome ? { bgcolor: '#edf2f3' } : {}) }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', ...(isExecutiveHome ? { bgcolor: '#ffffff' } : {}) }}>
       <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
         <Drawer
           variant={isDesktop ? 'permanent' : 'temporary'}
@@ -398,7 +398,15 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
               width: drawerWidth,
               boxSizing: 'border-box',
               borderRight: '1px solid rgba(255,255,255,0.14)',
-              background: 'linear-gradient(180deg, #14316f 0%, #1c428d 100%)',
+              background: isExecutiveHome ? '#172e52' : 'linear-gradient(180deg, #14316f 0%, #1c428d 100%)',
+              ...(isExecutiveHome ? {
+                borderRadius: 0,
+                '& .MuiListItemText-primary': { fontSize: 12.5, fontWeight: 400, color: '#b9c5d6' },
+                '& .MuiListItemIcon-root': { color: '#8597b1' },
+                '& .MuiListItemIcon-root .MuiSvgIcon-root': { fontSize: 19 },
+                '& .MuiListItemButton-root.Mui-selected': { bgcolor: '#ffffff0d' },
+                '& .MuiListItemButton-root.Mui-selected .MuiListItemText-primary': { color: '#fff', fontWeight: 600 }
+              } : {}),
               boxShadow: 'none'
             }
           }}
@@ -411,10 +419,10 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pt: { xs: 1.2, sm: 1.5 }, pb: { xs: 1.1, sm: 1.35 } }}>
           <Box
             sx={{
-              minHeight: { xs: 62, sm: 66 },
+              minHeight: isExecutiveHome ? 38 : { xs: 62, sm: 66 },
               backgroundColor: '#ffffff',
               borderRadius: 2.4,
-              border: '1px solid #dce6f6',
+              border: isExecutiveHome ? 'none' : '1px solid #dce6f6',
               px: { xs: 1.2, sm: 1.7 },
               py: { xs: 0.9, sm: 1 },
               display: 'flex',
@@ -427,13 +435,14 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
               {!isDesktop && (
                 <IconButton
                   edge="start"
+                  aria-label="Abrir menú"
                   onClick={() => setMobileOpen(true)}
                   sx={{ color: 'primary.main', p: 0.75 }}
                 >
                   <MenuRoundedIcon />
                 </IconButton>
               )}
-              <Box sx={{ minWidth: 0 }}>
+              <Box sx={{ minWidth: 0, display: isExecutiveHome ? 'none' : 'block' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
                   <Typography
                     sx={{
