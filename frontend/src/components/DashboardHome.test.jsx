@@ -32,8 +32,8 @@ test('empty data explains coverage and navigates to source modules', async () =>
   const onNavigate = vi.fn();
   render(<DashboardHome user={{ id: 'admin', name: 'Dirección' }} onNavigate={onNavigate} />);
   expect(await screen.findByText('Comparación pendiente')).toBeInTheDocument();
-  expect(screen.getByText('Sin registros sectorizados para el mes actual.')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: /Abrir análisis/ }));
+  expect(screen.getByText('Aún no hay un sector dominante para este mes.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Abrir análisis anual/ }));
   expect(onNavigate).toHaveBeenCalledWith('annualAnalysis');
   fireEvent.click(screen.getByRole('button', { name: /Ver certificaciones/ }));
   expect(onNavigate).toHaveBeenCalledWith('certifications');
@@ -72,7 +72,7 @@ test('unmount aborts in-flight requests', async () => {
 });
 
 
-test('attention panel shows the three highest-priority signals', async () => {
+test('decision signals show at most four priority items', async () => {
   const data = emptyPayload();
   data.alerts = [
     { id: 'expired', severity: 'error', title: 'Repetición de vencidas', detail: 'Resolver', target: 'certifications' },
@@ -83,7 +83,8 @@ test('attention panel shows the three highest-priority signals', async () => {
   expect(await screen.findByText('Repetición de vencidas')).toBeInTheDocument();
   expect(screen.getByText('Señal 0')).toBeInTheDocument();
   expect(screen.getByText('Señal 1')).toBeInTheDocument();
-  expect(screen.queryByText('Señal 2')).not.toBeInTheDocument();
+  expect(screen.getByText('Señal 2')).toBeInTheDocument();
+  expect(screen.queryByText('Señal 3')).not.toBeInTheDocument();
 });
 
 test('certification KPI includes expired and upcoming, with expired names in the agenda', async () => {
@@ -104,24 +105,27 @@ test('certification detail failure preserves summary and provides a module link'
   getExecutiveDashboard.mockResolvedValue(data);
   getCertifications.mockRejectedValue(new Error('Unavailable'));
   render(<DashboardHome user={{ id: 'admin' }} />);
-  expect(await screen.findByRole('button', { name: /Consultar certificaciones vencidas/ })).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: /Consultar vencidas/ })).toBeInTheDocument();
   expect(screen.getByText('2 vencidas')).toBeInTheDocument();
 });
 
-test('current leading sector is surfaced as the monthly focus', async () => {
+test('current leading sector is surfaced in the concentration ranking', async () => {
   const data = emptyPayload();
   data.deviations.current = { label: 'septiembre de 2026', total: 12 };
   data.deviations.topSectors = [{ key: 'cocina', name: 'Cocina', value: 5, share: 41.7 }];
   getExecutiveDashboard.mockResolvedValue(data);
   render(<DashboardHome user={{ id: 'admin' }} />);
-  expect(await screen.findByText('Foco del mes')).toBeInTheDocument();
+  expect(await screen.findByText('Dónde se concentra el problema')).toBeInTheDocument();
   expect(screen.getByText('Cocina')).toBeInTheDocument();
-  expect(screen.getByText(/5 desvíos/)).toBeInTheDocument();
+  expect(screen.getByText(/5 · 41,7%/)).toBeInTheDocument();
 });
 
-test('legacy trend chart is no longer rendered', async () => {
+test('legacy dashboard resources are no longer rendered', async () => {
   getExecutiveDashboard.mockResolvedValue(emptyPayload());
   render(<DashboardHome user={{ id: 'admin' }} />);
-  await screen.findByText('Resumen ejecutivo');
+  await screen.findByText('Pulso de ServiFood');
   expect(screen.queryByText('Tendencia de desvíos')).not.toBeInTheDocument();
+  expect(screen.queryByText('Resumen ejecutivo')).not.toBeInTheDocument();
+  expect(screen.queryByText('Brief del día')).not.toBeInTheDocument();
+  expect(screen.queryByText('Qué atender hoy')).not.toBeInTheDocument();
 });
