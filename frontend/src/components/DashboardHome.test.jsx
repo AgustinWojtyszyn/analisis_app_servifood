@@ -32,10 +32,10 @@ test('empty data explains coverage and navigates to source modules', async () =>
   const onNavigate = vi.fn();
   render(<DashboardHome user={{ id: 'admin', name: 'Dirección' }} onNavigate={onNavigate} />);
   expect(await screen.findByText('Comparación pendiente')).toBeInTheDocument();
-  expect(screen.getByText('Sin registros')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: /Análisis anual/ }));
+  expect(screen.getByText('Sin registros sectorizados para el mes actual.')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Abrir análisis/ }));
   expect(onNavigate).toHaveBeenCalledWith('annualAnalysis');
-  fireEvent.click(screen.getByRole('button', { name: /Ver todos/ }));
+  fireEvent.click(screen.getByRole('button', { name: /Ver certificaciones/ }));
   expect(onNavigate).toHaveBeenCalledWith('certifications');
 });
 
@@ -59,7 +59,7 @@ test('partial source failure preserves NC counts and explicitly marks unavailabl
   render(<DashboardHome user={{ id: 'admin' }} />);
   expect(await screen.findByText('12')).toBeInTheDocument();
   expect(screen.getByText('Agenda no disponible.')).toBeInTheDocument();
-  expect(screen.getByText('2 declaradas vencidas')).toBeInTheDocument();
+  expect(screen.getByText('2 NC declaradas vencidas')).toBeInTheDocument();
 });
 
 test('unmount aborts in-flight requests', async () => {
@@ -117,4 +117,11 @@ test('current leading sector is surfaced as the monthly focus', async () => {
   expect(await screen.findByText('Foco del mes')).toBeInTheDocument();
   expect(screen.getByText('Cocina')).toBeInTheDocument();
   expect(screen.getByText(/5 desvíos/)).toBeInTheDocument();
+});
+
+test('legacy trend chart is no longer rendered', async () => {
+  getExecutiveDashboard.mockResolvedValue(emptyPayload());
+  render(<DashboardHome user={{ id: 'admin' }} />);
+  await screen.findByText('Resumen ejecutivo');
+  expect(screen.queryByText('Tendencia de desvíos')).not.toBeInTheDocument();
 });
