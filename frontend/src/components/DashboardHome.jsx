@@ -223,17 +223,23 @@ export default function DashboardHome({ user, onNavigate }) {
     [expiredItems, cert?.urgent]
   );
 
-  const status = cert?.expired || nc?.overdue
-    ? { label: 'Requiere atención', tone: 'danger', description: 'Hay vencimientos o pendientes que conviene revisar hoy.' }
-    : priorityAlerts.length
-      ? { label: 'Seguimiento', tone: 'warning', description: 'Hay señales operativas para seguir de cerca.' }
-      : { label: 'Sin alertas críticas', tone: 'ok', description: 'No aparecen señales críticas con la información disponible.' };
+  const status = loading
+    ? { label: 'Actualizando', tone: 'neutral', description: 'Actualizando el panorama operativo con los últimos registros.' }
+    : error
+      ? { label: 'Datos no disponibles', tone: 'warning', description: 'No pudimos actualizar el panorama. Reintentá la consulta.' }
+      : cert?.expired || nc?.overdue
+        ? { label: 'Requiere atención', tone: 'danger', description: 'Hay vencimientos o pendientes que conviene revisar hoy.' }
+        : priorityAlerts.length
+          ? { label: 'Seguimiento', tone: 'warning', description: 'Hay señales operativas para seguir de cerca.' }
+          : { label: 'Sin alertas críticas', tone: 'ok', description: 'No aparecen señales críticas con la información disponible.' };
 
   const statusStyles = status.tone === 'danger'
     ? { bgcolor: colors.redSoft, color: colors.red, borderColor: '#f0c3bf' }
     : status.tone === 'warning'
       ? { bgcolor: colors.amberSoft, color: colors.amber, borderColor: '#efd7aa' }
-      : { bgcolor: colors.tealSoft, color: colors.teal, borderColor: '#bde7e2' };
+      : status.tone === 'neutral'
+        ? { bgcolor: colors.blueSoft, color: colors.blue, borderColor: '#cbdcf2' }
+        : { bgcolor: colors.tealSoft, color: colors.teal, borderColor: '#bde7e2' };
 
   const sources = deviations?.sources?.map((source) => `${source.year}: ${source.filename}`).join(' · ');
   const refreshed = data
