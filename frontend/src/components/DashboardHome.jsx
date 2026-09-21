@@ -13,13 +13,16 @@ import {
 import {
   ArrowOutwardRounded,
   AutorenewRounded,
+  AssignmentRounded,
   EventBusyRounded,
   FactCheckRounded,
   GppMaybeRounded,
-  QueryStatsRounded
+  QueryStatsRounded,
+  WorkspacePremiumRounded
 } from '@mui/icons-material';
 import { getExecutiveDashboard } from '../services/analysis';
 import { getCertifications } from '../services/certificationService';
+import { getAdminHealthDeclarations } from '../services/healthDeclarations';
 
 const BLUE = '#1f5ca8';
 const BLUE_DARK = '#123f77';
@@ -135,6 +138,58 @@ function SectionHeader({ index, title, action, onAction }) {
   );
 }
 
+function QuickCard({ icon, eyebrow, title, value, helper, onClick, loading }) {
+  return (
+    <ButtonBase
+      onClick={onClick}
+      sx={{
+        width: '100%',
+        minWidth: 0,
+        textAlign: 'left',
+        display: 'block',
+        borderRadius: 2.5,
+        bgcolor: WHITE,
+        border: `1px solid ${LINE}`,
+        px: 2,
+        py: 1.8,
+        transition: 'transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease',
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          borderColor: '#b7c9df',
+          boxShadow: '0 10px 24px rgba(31,92,168,0.08)'
+        },
+        '&.Mui-focusVisible': { outline: `2px solid ${BLUE}`, outlineOffset: 2 }
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1.5}>
+        <Box sx={{ width: 34, height: 34, borderRadius: 1.5, bgcolor: BLUE_PALE, color: BLUE, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+          {icon}
+        </Box>
+        <ArrowOutwardRounded sx={{ fontSize: 17, color: '#8da2bb' }} />
+      </Stack>
+
+      <Typography sx={{ color: MUTED, fontSize: 9.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.9, mt: 1.5 }}>
+        {eyebrow}
+      </Typography>
+      <Typography sx={{ color: INK, fontSize: 15, fontWeight: 850, letterSpacing: -0.2, mt: 0.35 }}>
+        {title}
+      </Typography>
+
+      {loading ? (
+        <Skeleton width="45%" height={34} />
+      ) : (
+        <Typography sx={{ color: BLUE_DARK, fontSize: 24, fontWeight: 900, lineHeight: 1.05, mt: 1 }}>
+          {value}
+        </Typography>
+      )}
+
+      <Typography sx={{ color: MUTED, fontSize: 10.5, lineHeight: 1.45, mt: 0.5 }}>
+        {helper}
+      </Typography>
+    </ButtonBase>
+  );
+}
+
 function LoadingRows({ count = 3 }) {
   return (
     <Stack spacing={1.4}>
@@ -152,6 +207,8 @@ export default function DashboardHome({ user, onNavigate }) {
   const [revision, setRevision] = useState(0);
   const [expiredItems, setExpiredItems] = useState(null);
   const [expiredLoading, setExpiredLoading] = useState(false);
+  const [healthAlerts, setHealthAlerts] = useState(null);
+  const [healthLoading, setHealthLoading] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -159,6 +216,21 @@ export default function DashboardHome({ user, onNavigate }) {
     setError('');
     setExpiredItems(null);
     setExpiredLoading(false);
+    setHealthAlerts(null);
+    setHealthLoading(true);
+
+    Promise.resolve(getAdminHealthDeclarations())
+      .then((rows) => {
+        if (controller.signal.aborted) return;
+        const list = Array.isArray(rows) ? rows : [];
+        setHealthAlerts(list.filter((row) => ['rojo', 'amarillo'].includes(String(row.trafficLight || '').toLowerCase())).length);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setHealthAlerts(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setHealthLoading(false);
+      });
 
     getExecutiveDashboard({ signal: controller.signal })
       .then((result) => {
@@ -339,6 +411,48 @@ export default function DashboardHome({ user, onNavigate }) {
             onClick={() => go('certifications')}
             loading={loading}
           />
+        </Box>
+
+        <Box component="section" sx={{ mb: { xs: 3.5, md: 4.5 } }}>
+          <SectionHeader index="Accesos" title="Ir directo a gestionar" />
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 1.5 }}>
+            <QuickCard
+              icon={<QueryStatsRounded sx={{ fontSize: 18 }} />}
+              eyebrow="Análisis"
+              title="Análisis anual"
+              value={deviations?.current?.total == null ? 'Abrir' : `${formatNumber(deviations.current.total)} desvíos`}
+              helper="Resumen, sectores y clasificaciones."
+              onClick={() => go('annualAnalysis')}
+              loading={loading}
+            />
+            <QuickCard
+              icon={<FactCheckRounded sx={{ fontSize: 18 }} />}
+              eyebrow="Clientes"
+              title="No conformidades"
+              value={!nc ? 'Abrir' : nc.total ? `${formatNumber(nc.open)} abiertas` : 'Sin registros'}
+              helper="Revisá casos pendientes y su estado."
+              onClick={() => go('customerNonconformities')}
+              loading={loading}
+            />
+            <QuickCard
+              icon={<AssignmentRounded sx={{ fontSize: 18 }} />}
+              eyebrow="Salud"
+              title="Solicitudes de salud"
+              value={healthAlerts == null ? 'Abrir gestor' : `${formatNumber(healthAlerts)} alertas`}
+              helper="Casos Amarillo/Rojo del personal."
+              onClick={() => go('adminHealthDeclarations')}
+              loading={healthLoading}
+            />
+            <QuickCard
+              icon={<WorkspacePremiumRounded sx={{ fontSize: 18 }} />}
+              eyebrow="Cumplimiento"
+              title="Certificaciones vencidas"
+              value={!cert ? 'Abrir' : `${formatNumber(cert.expired)} vencidas`}
+              helper="Entrá directo al control de renovaciones."
+              onClick={() => go('certifications')}
+              loading={loading}
+            />
+          </Box>
         </Box>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.2fr) minmax(360px, 0.8fr)' }, gap: { xs: 3.5, lg: 5 }, alignItems: 'start' }}>
