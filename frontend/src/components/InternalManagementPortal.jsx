@@ -3,14 +3,10 @@ import {
   Activity,
   AlertTriangle,
   Award,
-  BarChart3,
-  ClipboardCheck,
   ClipboardList,
   FileSpreadsheet,
   HeartPulse,
-  History,
   ShieldCheck,
-  UserCog,
   Users
 } from 'lucide-react';
 import PortalActionCard from './PortalActionCard';
@@ -82,41 +78,18 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
           <>
             <PortalActionCard
               icon={FileSpreadsheet}
-              title="Cargar archivos"
-              description="Subí planillas, clasificá desvíos y generá resultados operativos trazables."
+              title="Cargar y analizar"
+              description="Subí una planilla y empezá un nuevo análisis. El historial, gráficos y análisis anual quedan disponibles desde el menú lateral."
+              actionLabel="Cargar archivo"
               tone="orange"
               featured
               onClick={() => onNavigate?.('upload')}
             />
 
             <PortalActionCard
-              icon={BarChart3}
-              title="Indicadores y comparador"
-              description="Analizá gráficos del análisis actual o compará períodos históricos para detectar mejoras y desvíos."
-              tone="blue"
-              onClick={() => onNavigate?.('charts')}
-            />
-
-            <PortalActionCard
-              icon={ClipboardList}
-              title="NC Clientes"
-              description="Cargá reclamos de clientes, normalizá datos y analizá KPIs por mes, peligro y sector."
-              tone="green"
-              onClick={() => onNavigate?.('customerNonconformities')}
-            />
-
-            <PortalActionCard
-              icon={History}
-              title="Historial"
-              description="Consultá análisis anteriores, estados y resultados exportables."
-              tone="orange"
-              onClick={() => onNavigate?.('history')}
-            />
-
-            <PortalActionCard
               icon={Activity}
               title="Solicitudes de salud"
-              description="Abrí el gestor de declaraciones y revisá los casos que requieren atención."
+              description="Revisá directamente los casos Amarillo/Rojo del personal."
               statusText={healthAlerts == null ? 'Ver solicitudes' : `${healthAlerts} alertas activas`}
               tone={healthAlerts > 0 ? 'orange' : 'green'}
               onClick={() => onNavigate?.('adminHealthDeclarations')}
@@ -125,31 +98,31 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
             <PortalActionCard
               icon={AlertTriangle}
               title="Certificaciones vencidas"
-              description="Entrá directo al control de renovaciones vencidas y responsables."
+              description="Revisá renovaciones vencidas y responsables pendientes."
               statusText={expiredCertifications == null ? 'Ver vencimientos' : `${expiredCertifications} vencidas`}
               tone={expiredCertifications > 0 ? 'orange' : 'violet'}
               onClick={() => onNavigate?.('certifications')}
             />
 
             <PortalActionCard
-              icon={ClipboardCheck}
-              title="Reglas"
-              description="Administrá criterios de clasificación y acciones sugeridas."
-              tone="slate"
-              onClick={() => onNavigate?.('rules')}
+              icon={ClipboardList}
+              title="NC Clientes"
+              description="Gestioná reclamos, estados y seguimiento de no conformidades."
+              tone="green"
+              onClick={() => onNavigate?.('customerNonconformities')}
             />
 
             <PortalActionCard
-              icon={UserCog}
-              title="Gestión de usuarios"
-              description="Controlá roles, estado de acceso y perfiles internos."
-              tone="blue"
-              onClick={() => onNavigate?.('adminUsers')}
+              icon={Users}
+              title="Documentos SGC"
+              description="Consultá procedimientos, registros, estrategias y archivos asociados."
+              tone="slate"
+              onClick={() => onNavigate?.('nutritionModules')}
             />
           </>
         )}
 
-        {(isAdmin || isNutritionist) && (
+        {isNutritionist && (
           <>
             <PortalActionCard
               icon={Users}
