@@ -170,8 +170,8 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     }
   }), []);
 
-  const isExecutiveHome = currentSection === 'internalManagement' && user?.role === 'admin';
-  const currentMeta = (isExecutiveHome ? { title: 'Dashboard ejecutivo', subtitle: 'Estado operativo, prioridades y cumplimiento' } : sectionMeta[currentSection]) || {
+  const isExecutiveHome = false;
+  const currentMeta = sectionMeta[currentSection] || {
     title: 'Análisis de Desvíos',
     subtitle: 'Control y clasificación de desvíos de inocuidad, logística y legal'
   };
