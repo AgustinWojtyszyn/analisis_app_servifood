@@ -398,7 +398,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
               width: drawerWidth,
               boxSizing: 'border-box',
               borderRight: '1px solid rgba(255,255,255,0.14)',
-              background: isExecutiveHome ? '#172e52' : 'linear-gradient(180deg, #14316f 0%, #1c428d 100%)',
+              background: isExecutiveHome ? 'linear-gradient(180deg, #102b52 0%, #173a67 100%)' : 'linear-gradient(180deg, #14316f 0%, #1c428d 100%)',
               ...(isExecutiveHome ? {
                 borderRadius: 0,
                 '& .MuiListItemText-primary': { fontSize: 12.5, fontWeight: 400, color: '#b9c5d6' },
@@ -416,7 +416,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
       </Box>
 
       <Box component="main" sx={{ flexGrow: 1, minWidth: 0, width: { md: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh' }}>
-        <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pt: { xs: 1.2, sm: 1.5 }, pb: { xs: 1.1, sm: 1.35 } }}>
+        <Box sx={{ px: isExecutiveHome ? { xs: 1.5, sm: 2.5, xl: 4 } : { xs: 1.5, sm: 2.5 }, pt: { xs: 1.2, sm: 1.5 }, pb: isExecutiveHome ? 0.5 : { xs: 1.1, sm: 1.35 } }}>
           <Box
             sx={{
               minHeight: isExecutiveHome ? 38 : { xs: 62, sm: 66 },
