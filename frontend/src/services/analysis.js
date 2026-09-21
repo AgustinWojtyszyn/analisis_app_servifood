@@ -276,3 +276,7 @@ export async function reprocessIsoAllAnalyses(options = {}) {
     method: 'PATCH'
   });
 }
+
+export function getExecutiveDashboard(options = {}) {
+  return authorizedFetch('/analysis/executive-dashboard', options);
+}

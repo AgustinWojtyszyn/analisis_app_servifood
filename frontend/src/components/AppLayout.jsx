@@ -170,7 +170,8 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     }
   }), []);
 
-  const currentMeta = sectionMeta[currentSection] || {
+  const isExecutiveHome = currentSection === 'internalManagement' && user?.role === 'admin';
+  const currentMeta = (isExecutiveHome ? { title: 'Dashboard ejecutivo', subtitle: 'Estado operativo, prioridades y cumplimiento' } : sectionMeta[currentSection]) || {
     title: 'Análisis de Desvíos',
     subtitle: 'Control y clasificación de desvíos de inocuidad, logística y legal'
   };
@@ -385,7 +386,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', ...(isExecutiveHome ? { bgcolor: '#edf2f3' } : {}) }}>
       <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
         <Drawer
           variant={isDesktop ? 'permanent' : 'temporary'}
@@ -406,7 +407,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         </Drawer>
       </Box>
 
-      <Box component="main" sx={{ flexGrow: 1, width: { md: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh' }}>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, width: { md: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh' }}>
         <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pt: { xs: 1.2, sm: 1.5 }, pb: { xs: 1.1, sm: 1.35 } }}>
           <Box
             sx={{

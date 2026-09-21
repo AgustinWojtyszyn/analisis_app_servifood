@@ -22,6 +22,7 @@ import {
 } from './lib/roleRouting';
 import { deleteAnalysis, getAnalysisById, updateAnalysisStatus } from './services/analysis';
 
+const DashboardHome = lazy(() => import('./components/DashboardHome'));
 const AdminUsersPage = lazy(() => import('./components/AdminUsersPage'));
 const AnnualDeviationAnalysisPage = lazy(() => import('./components/AnnualDeviationAnalysisPage'));
 const AnalysisHistory = lazy(() => import('./components/AnalysisHistory'));
@@ -478,7 +479,9 @@ function MainApp({ user, profileStatus, onLogout }) {
     }
 
     if (currentSection === 'internalManagement') {
-      return <InternalManagementPortal user={layoutUser} role={normalizedRole} onNavigate={navigateToSection} />;
+      return isAdmin
+        ? <DashboardHome user={layoutUser} onNavigate={navigateToSection} />
+        : <InternalManagementPortal user={layoutUser} role={normalizedRole} onNavigate={navigateToSection} />;
     }
 
     if (currentSection === 'history') {
