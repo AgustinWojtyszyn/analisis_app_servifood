@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -14,6 +14,7 @@ import {
   Typography
 } from '@mui/material';
 import CompareArrowsRoundedIcon from '@mui/icons-material/CompareArrowsRounded';
+import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded';
 import TrendingFlatRoundedIcon from '@mui/icons-material/TrendingFlatRounded';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
@@ -34,6 +35,26 @@ const METRIC_CARDS = [
   { key: 'actionClosureRate', label: 'Cierre de acciones', suffix: '%', lowerIsBetter: false },
   { key: 'totalRecords', label: 'Registros analizados', lowerIsBetter: null }
 ];
+
+const ZERO_METRICS = {
+  totalAnalyses: 0,
+  totalDesvios: 0,
+  conformityRate: 0,
+  totalNC: 0,
+  totalOBS: 0,
+  actionClosureRate: 0,
+  totalRecords: 0,
+  byCategoria: {},
+  byArea: {}
+};
+
+const ZERO_CHANGE = {
+  current: 0,
+  previous: 0,
+  absolute: 0,
+  percentage: 0,
+  direction: 'same'
+};
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -115,7 +136,8 @@ function formatRange(range) {
   return `${format(range.from)} → ${format(range.to)}`;
 }
 
-function changeLabel(change, suffix = '') {
+function changeLabel(change, suffix = '', confirmed = true) {
+  if (!confirmed) return 'Sin confirmar';
   if (!change) return 'Sin comparación';
   if (change.absolute === 0) return 'Sin cambios';
   if (change.percentage == null) {
@@ -126,8 +148,8 @@ function changeLabel(change, suffix = '') {
   return `${sign}${formatNumber(change.percentage, '%')}`;
 }
 
-function resolveChangeTone(change, lowerIsBetter) {
-  if (!change || change.absolute === 0 || lowerIsBetter == null) return 'default';
+function resolveChangeTone(change, lowerIsBetter, confirmed) {
+  if (!confirmed || !change || change.absolute === 0 || lowerIsBetter == null) return 'default';
   const improved = lowerIsBetter ? change.absolute < 0 : change.absolute > 0;
   return improved ? 'success' : 'error';
 }
@@ -138,8 +160,8 @@ function ChangeIcon({ direction }) {
   return <TrendingFlatRoundedIcon fontSize="small" />;
 }
 
-function MetricCard({ config, current, previous, change }) {
-  const tone = resolveChangeTone(change, config.lowerIsBetter);
+function MetricCard({ config, current, previous, change, confirmed }) {
+  const tone = resolveChangeTone(change, config.lowerIsBetter, confirmed);
 
   return (
     <Card variant="outlined" sx={{ height: '100%', borderRadius: 3 }}>
@@ -155,8 +177,8 @@ function MetricCard({ config, current, previous, change }) {
             size="small"
             color={tone}
             variant={tone === 'default' ? 'outlined' : 'filled'}
-            icon={<ChangeIcon direction={change?.direction} />}
-            label={changeLabel(change, config.suffix)}
+            icon={<ChangeIcon direction={confirmed ? change?.direction : 'same'} />}
+            label={changeLabel(change, config.suffix, confirmed)}
             sx={{ fontWeight: 800 }}
           />
         </Box>
@@ -168,7 +190,7 @@ function MetricCard({ config, current, previous, change }) {
   );
 }
 
-function CounterComparison({ title, current = {}, previous = {} }) {
+function CounterComparison({ title, current = {}, previous = {}, emptyLabel }) {
   const rows = useMemo(() => {
     const keys = [...new Set([...Object.keys(current || {}), ...Object.keys(previous || {})])];
     return keys
@@ -190,7 +212,7 @@ function CounterComparison({ title, current = {}, previous = {} }) {
         {title}
       </Typography>
       {rows.length === 0 ? (
-        <Typography color="text.secondary">No hay datos para estos períodos.</Typography>
+        <Typography color="text.secondary">{emptyLabel || 'No hay datos para estos períodos.'}</Typography>
       ) : (
         <Stack spacing={2}>
           {rows.map((item) => (
@@ -219,41 +241,71 @@ function CounterComparison({ title, current = {}, previous = {} }) {
 }
 
 export default function PeriodComparisonPage() {
+  const initialFilters = useMemo(() => buildPreset('month'), []);
   const [preset, setPreset] = useState('month');
-  const [filters, setFilters] = useState(() => buildPreset('month'));
+  const [filters, setFilters] = useState(initialFilters);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const requestVersionRef = useRef(0);
 
-  const runComparison = useCallback(async (nextFilters) => {
+  const invalidateComparison = () => {
+    requestVersionRef.current += 1;
+    setResult(null);
+    setError('');
+    setLoading(false);
+  };
+
+  const applyFilters = (patch) => {
+    invalidateComparison();
+    setFilters((prev) => ({ ...prev, ...patch }));
+  };
+
+  const runComparison = async () => {
+    const requestVersion = requestVersionRef.current + 1;
+    requestVersionRef.current = requestVersion;
+    setResult(null);
     setLoading(true);
     setError('');
+
     try {
-      const payload = await compareAnalysisPeriods(nextFilters);
+      const payload = await compareAnalysisPeriods(filters);
+      if (requestVersion !== requestVersionRef.current) return;
       setResult(payload);
     } catch (err) {
+      if (requestVersion !== requestVersionRef.current) return;
       setResult(null);
       setError(err.message || 'No se pudieron comparar los períodos');
     } finally {
-      setLoading(false);
+      if (requestVersion === requestVersionRef.current) {
+        setLoading(false);
+      }
     }
-  }, []);
-
-  useEffect(() => {
-    const initial = buildPreset('month');
-    runComparison(initial);
-  }, [runComparison]);
+  };
 
   const handlePreset = (id) => {
     setPreset(id);
-    if (id === 'custom') return;
-    const next = buildPreset(id);
-    setFilters(next);
-    runComparison(next);
+    invalidateComparison();
+
+    if (id !== 'custom') {
+      setFilters(buildPreset(id));
+    }
   };
 
-  const metricsA = result?.periodA?.metrics || {};
-  const metricsB = result?.periodB?.metrics || {};
+  const handleReset = () => {
+    requestVersionRef.current += 1;
+    setPreset('month');
+    setFilters(buildPreset('month'));
+    setResult(null);
+    setError('');
+    setLoading(false);
+  };
+
+  const confirmed = Boolean(result);
+  const metricsA = result?.periodA?.metrics || ZERO_METRICS;
+  const metricsB = result?.periodB?.metrics || ZERO_METRICS;
+  const displayedRangeA = result?.periodA?.range || { from: filters.periodAFrom, to: filters.periodATo };
+  const displayedRangeB = result?.periodB?.range || { from: filters.periodBFrom, to: filters.periodBTo };
 
   return (
     <Box sx={{ display: 'grid', gap: 3 }}>
@@ -264,7 +316,7 @@ export default function PeriodComparisonPage() {
               Comparador de períodos
             </Typography>
             <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-              Compará indicadores históricos y detectá rápidamente qué mejoró, qué empeoró y dónde cambió la operación.
+              Elegí los períodos y confirmá la comparación. Los resultados permanecen en 0 hasta confirmar.
             </Typography>
           </Box>
           <CompareArrowsRoundedIcon color="primary" sx={{ fontSize: 36 }} />
@@ -293,7 +345,7 @@ export default function PeriodComparisonPage() {
                 size="small"
                 label="Desde"
                 value={filters.periodAFrom}
-                onChange={(e) => { setPreset('custom'); setFilters((prev) => ({ ...prev, periodAFrom: e.target.value })); }}
+                onChange={(e) => { setPreset('custom'); applyFilters({ periodAFrom: e.target.value }); }}
                 InputLabelProps={{ shrink: true }}
               />
               <TextField
@@ -301,7 +353,7 @@ export default function PeriodComparisonPage() {
                 size="small"
                 label="Hasta"
                 value={filters.periodATo}
-                onChange={(e) => { setPreset('custom'); setFilters((prev) => ({ ...prev, periodATo: e.target.value })); }}
+                onChange={(e) => { setPreset('custom'); applyFilters({ periodATo: e.target.value }); }}
                 InputLabelProps={{ shrink: true }}
               />
             </Box>
@@ -315,7 +367,7 @@ export default function PeriodComparisonPage() {
                 size="small"
                 label="Desde"
                 value={filters.periodBFrom}
-                onChange={(e) => { setPreset('custom'); setFilters((prev) => ({ ...prev, periodBFrom: e.target.value })); }}
+                onChange={(e) => { setPreset('custom'); applyFilters({ periodBFrom: e.target.value }); }}
                 InputLabelProps={{ shrink: true }}
               />
               <TextField
@@ -323,88 +375,106 @@ export default function PeriodComparisonPage() {
                 size="small"
                 label="Hasta"
                 value={filters.periodBTo}
-                onChange={(e) => { setPreset('custom'); setFilters((prev) => ({ ...prev, periodBTo: e.target.value })); }}
+                onChange={(e) => { setPreset('custom'); applyFilters({ periodBTo: e.target.value }); }}
                 InputLabelProps={{ shrink: true }}
               />
             </Box>
           </Paper>
         </Box>
 
-        <Button
-          variant="contained"
-          onClick={() => runComparison(filters)}
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={17} color="inherit" /> : <CompareArrowsRoundedIcon />}
-          sx={{ mt: 2.5, textTransform: 'none', fontWeight: 900 }}
-        >
-          {loading ? 'Comparando...' : 'Comparar períodos'}
-        </Button>
+        <Stack direction="row" spacing={1.25} useFlexGap flexWrap="wrap" sx={{ mt: 2.5 }}>
+          <Button
+            variant="contained"
+            onClick={runComparison}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={17} color="inherit" /> : <CompareArrowsRoundedIcon />}
+            sx={{ textTransform: 'none', fontWeight: 900 }}
+          >
+            {loading ? 'Comparando...' : 'Comparar períodos'}
+          </Button>
+
+          <Button
+            variant="outlined"
+            onClick={handleReset}
+            disabled={loading}
+            startIcon={<RestartAltRoundedIcon />}
+            sx={{ textTransform: 'none', fontWeight: 900 }}
+          >
+            Reiniciar
+          </Button>
+        </Stack>
       </Paper>
 
       {error && <Alert severity="error">{error}</Alert>}
 
-      {result && (
-        <>
-          <Paper variant="outlined" sx={{ px: { xs: 2, md: 2.5 }, py: 2, borderRadius: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-              <Box>
-                <Typography color="primary" sx={{ fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>Período A</Typography>
-                <Typography sx={{ fontWeight: 800 }}>{formatRange(result.periodA?.range)}</Typography>
-                <Typography color="text.secondary" sx={{ fontSize: 12.5 }}>{metricsA.totalAnalyses || 0} análisis</Typography>
-              </Box>
-              <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
-                <Typography color="text.secondary" sx={{ fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>Período B</Typography>
-                <Typography sx={{ fontWeight: 800 }}>{formatRange(result.periodB?.range)}</Typography>
-                <Typography color="text.secondary" sx={{ fontSize: 12.5 }}>{metricsB.totalAnalyses || 0} análisis</Typography>
-              </Box>
-            </Box>
-          </Paper>
+      <Paper variant="outlined" sx={{ px: { xs: 2, md: 2.5 }, py: 2, borderRadius: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+          <Box>
+            <Typography color="primary" sx={{ fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>Período A</Typography>
+            <Typography sx={{ fontWeight: 800 }}>{formatRange(displayedRangeA)}</Typography>
+            <Typography color="text.secondary" sx={{ fontSize: 12.5 }}>{confirmed ? metricsA.totalAnalyses || 0 : 0} análisis</Typography>
+          </Box>
+          <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
+            <Typography color="text.secondary" sx={{ fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>Período B</Typography>
+            <Typography sx={{ fontWeight: 800 }}>{formatRange(displayedRangeB)}</Typography>
+            <Typography color="text.secondary" sx={{ fontSize: 12.5 }}>{confirmed ? metricsB.totalAnalyses || 0 : 0} análisis</Typography>
+          </Box>
+        </Box>
+      </Paper>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' }, gap: 2 }}>
-            {METRIC_CARDS.map((config) => (
-              <MetricCard
-                key={config.key}
-                config={config}
-                current={metricsA[config.key]}
-                previous={metricsB[config.key]}
-                change={result.changes?.[config.key]}
-              />
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' }, gap: 2 }}>
+        {METRIC_CARDS.map((config) => (
+          <MetricCard
+            key={config.key}
+            config={config}
+            current={confirmed ? metricsA[config.key] : 0}
+            previous={confirmed ? metricsB[config.key] : 0}
+            change={confirmed ? result?.changes?.[config.key] : ZERO_CHANGE}
+            confirmed={confirmed}
+          />
+        ))}
+      </Box>
+
+      <Paper sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: 900 }}>Lectura rápida</Typography>
+        <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
+          Señales principales detectadas al comparar ambos períodos.
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+
+        {!confirmed ? (
+          <Alert severity="info">
+            Todavía no hay una comparación confirmada. Los indicadores permanecen en 0 hasta que pulses “Comparar períodos”.
+          </Alert>
+        ) : (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 1.5 }}>
+            {(result.insights || []).map((insight) => (
+              <Alert
+                key={insight.key}
+                severity={insight.tone === 'positive' ? 'success' : insight.tone === 'negative' ? 'warning' : 'info'}
+                sx={{ alignItems: 'center' }}
+              >
+                {insight.text}
+              </Alert>
             ))}
           </Box>
+        )}
+      </Paper>
 
-          <Paper sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 900 }}>Lectura rápida</Typography>
-            <Typography color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-              Señales principales detectadas al comparar ambos períodos.
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 1.5 }}>
-              {(result.insights || []).map((insight) => (
-                <Alert
-                  key={insight.key}
-                  severity={insight.tone === 'positive' ? 'success' : insight.tone === 'negative' ? 'warning' : 'info'}
-                  sx={{ alignItems: 'center' }}
-                >
-                  {insight.text}
-                </Alert>
-              ))}
-            </Box>
-          </Paper>
-
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2.5 }}>
-            <CounterComparison
-              title="Categorías con mayor movimiento"
-              current={metricsA.byCategoria}
-              previous={metricsB.byCategoria}
-            />
-            <CounterComparison
-              title="Áreas con mayor movimiento"
-              current={metricsA.byArea}
-              previous={metricsB.byArea}
-            />
-          </Box>
-        </>
-      )}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, gap: 2.5 }}>
+        <CounterComparison
+          title="Categorías con mayor movimiento"
+          current={confirmed ? metricsA.byCategoria : {}}
+          previous={confirmed ? metricsB.byCategoria : {}}
+          emptyLabel={confirmed ? 'No hay datos para estos períodos.' : 'Confirmá la comparación para cargar categorías.'}
+        />
+        <CounterComparison
+          title="Áreas con mayor movimiento"
+          current={confirmed ? metricsA.byArea : {}}
+          previous={confirmed ? metricsB.byArea : {}}
+          emptyLabel={confirmed ? 'No hay datos para estos períodos.' : 'Confirmá la comparación para cargar áreas.'}
+        />
+      </Box>
     </Box>
   );
 }
