@@ -1,105 +1,101 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
+  AlertTriangle,
+  ArrowRight,
   Award,
   BarChart3,
-  ClipboardCheck,
   ClipboardList,
   FileSpreadsheet,
+  FileText,
   HeartPulse,
   History,
   ShieldCheck,
-  UserCog,
-  Users,
-  ArrowRight,
-  AlertTriangle,
-  FileText
+  UserCog
 } from 'lucide-react';
 import { normalizeRole, ROLES } from '../lib/roleRouting';
 import { getAnalysisHistory } from '../services/analysis';
 import { getCertifications } from '../services/certificationService';
 import { getNutritionModules } from '../services/nutritionModulesService';
+import { getAdminHealthDeclarations } from '../services/healthDeclarations';
 
-const toneStyles = {
-  orange: 'border-orange-400/25 bg-orange-400/10 text-orange-300',
-  blue: 'border-sky-400/20 bg-sky-400/10 text-sky-300',
-  slate: 'border-slate-300/15 bg-slate-300/10 text-slate-200',
-  violet: 'border-violet-400/20 bg-violet-400/10 text-violet-300'
-};
-
-const emptyOperationalSummary = {
+const emptySummary = {
   loading: true,
   analyses: null,
   latestAnalysisDate: null,
-  nearExpiration: null,
-  expired: null,
   documents: null,
-  partialError: false
+  expired: null,
+  nearExpiration: null,
+  healthAlerts: null
 };
 
-function formatOperationalDate(value) {
+function formatLatest(value) {
   if (!value) return 'Sin análisis recientes';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Último análisis disponible';
-  return `Último: ${date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })} ${date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
+  return `Último: ${date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}`;
 }
 
-function OperationalMetric({ icon: Icon, label, value, detail, tone = 'blue', onClick }) {
-  const isOrange = tone === 'orange';
+function DashboardCard({
+  icon: Icon,
+  title,
+  description,
+  metric,
+  metricLabel,
+  alert = false,
+  featured = false,
+  onClick
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group flex min-h-[118px] flex-col justify-between rounded-xl border p-4 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70 ${
-        isOrange
-          ? 'border-orange-400/20 bg-orange-400/[0.07] hover:border-orange-300/40 hover:bg-orange-400/10'
-          : 'border-sky-300/15 bg-sky-300/[0.06] hover:border-sky-300/30 hover:bg-sky-300/[0.09]'
+      className={`group relative flex min-h-[166px] w-full flex-col justify-between overflow-hidden rounded-2xl border p-5 text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/80 ${
+        alert
+          ? 'border-amber-300/25 bg-amber-300/[0.08] hover:border-amber-200/45 hover:bg-amber-300/[0.11]'
+          : featured
+            ? 'border-sky-300/25 bg-sky-300/[0.10] hover:border-sky-200/45 hover:bg-sky-300/[0.14]'
+            : 'border-white/10 bg-white/[0.045] hover:border-sky-200/25 hover:bg-white/[0.07]'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <span className={`grid h-9 w-9 place-items-center rounded-lg border ${isOrange ? toneStyles.orange : toneStyles.blue}`}>
-          <Icon size={18} strokeWidth={2.1} aria-hidden="true" />
+      <div className="flex items-start justify-between gap-4">
+        <span className={`grid h-11 w-11 place-items-center rounded-xl border ${
+          alert
+            ? 'border-amber-300/25 bg-amber-300/10 text-amber-200'
+            : 'border-sky-300/20 bg-sky-300/10 text-sky-200'
+        }`}>
+          <Icon size={21} strokeWidth={2.1} aria-hidden="true" />
         </span>
         <ArrowRight
-          size={16}
+          size={18}
           strokeWidth={2.2}
           aria-hidden="true"
-          className="text-slate-500 transition-all group-hover:translate-x-0.5 group-hover:text-white"
+          className="text-slate-500 transition-all duration-200 group-hover:translate-x-1 group-hover:text-white"
         />
       </div>
-      <div className="mt-4">
-        <strong className="block text-2xl font-black leading-none text-white">{value}</strong>
-        <span className="mt-1.5 block text-xs font-bold text-slate-100">{label}</span>
-        <span className="mt-1 block text-[11px] leading-4 text-slate-400">{detail}</span>
+
+      <div className="mt-5">
+        <div className="flex items-end justify-between gap-3">
+          <h2 className="text-[17px] font-extrabold leading-tight text-white">
+            {title}
+          </h2>
+          {metric !== undefined && metric !== null && (
+            <strong className={`shrink-0 text-2xl font-black leading-none ${alert ? 'text-amber-200' : 'text-sky-200'}`}>
+              {metric}
+            </strong>
+          )}
+        </div>
+
+        {metricLabel && (
+          <p className={`mt-1 text-[11px] font-bold ${alert ? 'text-amber-200/90' : 'text-sky-200/80'}`}>
+            {metricLabel}
+          </p>
+        )}
+
+        <p className="mt-2 text-xs leading-5 text-slate-300/75">
+          {description}
+        </p>
       </div>
-    </button>
-  );
-}
-
-function CompactAction({ icon: Icon, title, description, tone = 'blue', onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70"
-    >
-      <span
-        className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border ${toneStyles[tone] || toneStyles.blue}`}
-      >
-        <Icon size={19} strokeWidth={2.1} aria-hidden="true" />
-      </span>
-
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold text-white">{title}</span>
-        <span className="mt-0.5 block text-xs leading-5 text-slate-300/75">{description}</span>
-      </span>
-
-      <ArrowRight
-        size={17}
-        strokeWidth={2.2}
-        aria-hidden="true"
-        className="shrink-0 text-slate-500 transition-all group-hover:translate-x-0.5 group-hover:text-sky-200"
-      />
     </button>
   );
 }
@@ -109,369 +105,212 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
   const isAdmin = normalizedRole === ROLES.ADMIN;
   const isNutritionist = normalizedRole === ROLES.NUTRITIONIST;
   const displayName = user?.full_name || user?.name || user?.email || 'equipo';
-  const enabledModules = isAdmin ? 11 : 4;
-  const [operationalSummary, setOperationalSummary] = useState(emptyOperationalSummary);
+  const [summary, setSummary] = useState(emptySummary);
 
   useEffect(() => {
     if (!isAdmin) {
-      setOperationalSummary({ ...emptyOperationalSummary, loading: false });
+      setSummary({ ...emptySummary, loading: false });
       return undefined;
     }
 
     let active = true;
 
-    async function loadOperationalSummary() {
-      const [historyResult, certificationsResult, documentsResult] = await Promise.allSettled([
+    async function loadSummary() {
+      const [historyResult, certResult, docsResult, healthResult] = await Promise.allSettled([
         getAnalysisHistory({ page: 1, limit: 1 }),
         getCertifications(),
-        getNutritionModules()
+        getNutritionModules(),
+        getAdminHealthDeclarations()
       ]);
 
       if (!active) return;
 
       const historyPayload = historyResult.status === 'fulfilled' ? historyResult.value?.data : null;
       const historyItems = Array.isArray(historyPayload?.data) ? historyPayload.data : [];
-      const certificationPayload = certificationsResult.status === 'fulfilled' ? certificationsResult.value : null;
-      const documentsPayload = documentsResult.status === 'fulfilled' ? documentsResult.value : null;
+      const certifications = certResult.status === 'fulfilled' ? certResult.value : null;
+      const documents = docsResult.status === 'fulfilled' ? docsResult.value : null;
+      const healthRows = healthResult.status === 'fulfilled' && Array.isArray(healthResult.value) ? healthResult.value : null;
 
-      setOperationalSummary({
+      setSummary({
         loading: false,
-        analyses: historyResult.status === 'fulfilled' ? Number(historyPayload?.total || historyItems.length || 0) : null,
+        analyses: historyResult.status === 'fulfilled'
+          ? Number(historyPayload?.total || historyItems.length || 0)
+          : null,
         latestAnalysisDate: historyItems[0]?.uploadDate || historyItems[0]?.createdAt || historyItems[0]?.created_at || null,
-        nearExpiration: certificationsResult.status === 'fulfilled'
-          ? Number(certificationPayload?.summary?.nearExpiration || 0)
+        documents: docsResult.status === 'fulfilled'
+          ? (Array.isArray(documents) ? documents.length : 0)
           : null,
-        expired: certificationsResult.status === 'fulfilled'
-          ? Number(certificationPayload?.summary?.expired || 0)
+        expired: certResult.status === 'fulfilled'
+          ? Number(certifications?.summary?.expired || certifications?.items?.filter?.((item) => item.daysUntilExpiration < 0)?.length || 0)
           : null,
-        documents: documentsResult.status === 'fulfilled'
-          ? (Array.isArray(documentsPayload) ? documentsPayload.length : 0)
+        nearExpiration: certResult.status === 'fulfilled'
+          ? Number(certifications?.summary?.nearExpiration || certifications?.items?.filter?.((item) => item.daysUntilExpiration >= 0 && item.daysUntilExpiration <= 30)?.length || 0)
           : null,
-        partialError: [historyResult, certificationsResult, documentsResult].some((result) => result.status === 'rejected')
+        healthAlerts: healthRows
+          ? healthRows.filter((row) => ['rojo', 'amarillo'].includes(String(row.trafficLight || '').toLowerCase())).length
+          : null
       });
     }
 
-    loadOperationalSummary();
+    loadSummary();
 
     return () => {
       active = false;
     };
   }, [isAdmin]);
 
-  const certificationAlerts = Number(operationalSummary.nearExpiration || 0) + Number(operationalSummary.expired || 0);
-  const metricValue = (value) => operationalSummary.loading ? '—' : (value ?? '—');
+  const metric = (value) => summary.loading ? '—' : (value ?? '—');
 
-  const dailyActions = [
+  const adminCards = useMemo(() => [
     {
-      icon: BarChart3,
-      title: 'Indicadores y comparador',
-      description: 'Gráficos actuales y comparación histórica.',
-      tone: 'blue',
-      target: 'charts'
+      icon: FileSpreadsheet,
+      title: 'Cargar archivos',
+      description: 'Subí planillas y generá nuevos análisis.',
+      featured: true,
+      target: 'upload'
     },
     {
-      icon: ClipboardList,
-      title: 'NC Clientes',
-      description: 'Reclamos, normalización y KPIs de clientes.',
-      tone: 'orange',
-      target: 'customerNonconformities'
+      icon: BarChart3,
+      title: 'Análisis anual',
+      description: 'Resumen, sectores, clasificaciones y evolución anual.',
+      target: 'annualAnalysis'
     },
     {
       icon: History,
       title: 'Historial',
-      description: 'Análisis anteriores y resultados exportables.',
-      tone: 'orange',
+      description: formatLatest(summary.latestAnalysisDate),
+      metric: metric(summary.analyses),
+      metricLabel: 'análisis',
       target: 'history'
-    }
-  ];
-
-  const managementActions = [
+    },
+    {
+      icon: ClipboardList,
+      title: 'NC Clientes',
+      description: 'Reclamos, estados y seguimiento de no conformidades.',
+      target: 'customerNonconformities'
+    },
     {
       icon: Activity,
-      title: 'Declaraciones administrativas',
-      description: 'Estado diario y registros de salud.',
-      tone: 'blue',
+      title: 'Solicitudes de salud',
+      description: 'Abrí directamente los casos Amarillo/Rojo del personal.',
+      metric: metric(summary.healthAlerts),
+      metricLabel: 'alertas activas',
+      alert: Number(summary.healthAlerts || 0) > 0,
       target: 'adminHealthDeclarations'
     },
     {
-      icon: ClipboardCheck,
-      title: 'Reglas',
-      description: 'Criterios de clasificación y acciones.',
-      tone: 'slate',
-      target: 'rules'
+      icon: AlertTriangle,
+      title: 'Certificaciones vencidas',
+      description: 'Revisá renovaciones y responsables pendientes.',
+      metric: metric(summary.expired),
+      metricLabel: 'vencidas',
+      alert: Number(summary.expired || 0) > 0,
+      target: 'certifications'
+    },
+    {
+      icon: Award,
+      title: 'Certificaciones',
+      description: 'Próximos vencimientos y control general.',
+      metric: metric(summary.nearExpiration),
+      metricLabel: 'próximas',
+      target: 'certifications'
+    },
+    {
+      icon: FileText,
+      title: 'Documentos SGC',
+      description: 'Procedimientos, registros y documentación vigente.',
+      metric: metric(summary.documents),
+      metricLabel: 'documentos',
+      target: 'nutritionModules'
+    },
+    {
+      icon: ShieldCheck,
+      title: 'Políticas',
+      description: 'Políticas internas y aceptación del personal.',
+      target: 'policies'
     },
     {
       icon: UserCog,
-      title: 'Gestión de usuarios',
-      description: 'Roles, accesos y perfiles internos.',
-      tone: 'blue',
+      title: 'Usuarios y permisos',
+      description: 'Roles, accesos y administración de usuarios.',
       target: 'adminUsers'
     },
     {
-      icon: Users,
+      icon: HeartPulse,
+      title: 'Mi declaración',
+      description: 'Completá o revisá tu declaración diaria de salud.',
+      target: 'declaration'
+    }
+  ], [
+    summary.analyses,
+    summary.latestAnalysisDate,
+    summary.healthAlerts,
+    summary.expired,
+    summary.nearExpiration,
+    summary.documents,
+    summary.loading
+  ]);
+
+  const nutritionCards = [
+    {
+      icon: FileText,
       title: 'Documentos SGC',
-      description: 'Procedimientos, registros y archivos.',
-      tone: 'slate',
+      description: 'Procedimientos, registros y documentación disponible.',
       target: 'nutritionModules'
     },
     {
       icon: Award,
       title: 'Certificaciones',
-      description: 'Vencimientos, responsables y alertas.',
-      tone: 'violet',
+      description: 'Vencimientos, responsables y seguimiento.',
       target: 'certifications'
     },
     {
       icon: ShieldCheck,
       title: 'Políticas',
       description: 'Políticas internas vigentes.',
-      tone: 'blue',
       target: 'policies'
     },
     {
       icon: HeartPulse,
-      title: 'Declaración de Salud',
-      description: 'Declaración personal de salud.',
-      tone: 'blue',
+      title: 'Mi declaración',
+      description: 'Declaración diaria de salud.',
       target: 'declaration'
     }
   ];
 
-  const nutritionActions = managementActions.filter(({ target }) =>
-    ['nutritionModules', 'certifications', 'policies', 'declaration'].includes(target)
-  );
+  const cards = isAdmin ? adminCards : nutritionCards;
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-5 lg:px-8 lg:py-6">
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-sky-200">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" aria-hidden="true" />
-              Centro de operaciones
-            </span>
-            <span className="text-xs text-slate-400">·</span>
-            <span className="text-xs font-medium text-slate-300">
-              {enabledModules} módulos habilitados
-            </span>
+    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
+      <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#18283e] shadow-2xl shadow-slate-950/20">
+        <div className="flex flex-col gap-2 border-b border-white/10 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-300">
+              Gestión interna
+            </p>
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
+              Hola, {displayName}
+            </h1>
+            <p className="mt-1 text-sm text-slate-300/70">
+              Elegí un módulo y entrá directo a gestionar.
+            </p>
           </div>
-          <p className="mt-1.5 text-sm text-slate-300/80">
-            Hola, {displayName}. Elegí una herramienta para continuar.
+
+          <p className="text-xs font-semibold text-slate-400">
+            {isAdmin ? 'Administración' : isNutritionist ? 'Nutrición' : 'Accesos habilitados'}
           </p>
         </div>
 
-        <span className="w-fit rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200">
-          {isAdmin
-            ? `Administración${!operationalSummary.loading && certificationAlerts > 0 ? ` · ${certificationAlerts} alertas` : ''}`
-            : 'Nutrición'}
-        </span>
-      </div>
-
-      {isAdmin && (
-        <div className="space-y-5">
-          <section
-            aria-labelledby="operational-status-title"
-            className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 shadow-lg shadow-slate-950/10"
-          >
-            <div className="flex flex-col gap-3 border-b border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-orange-300/90">
-                  Estado operativo
-                </p>
-                <h2 id="operational-status-title" className="mt-0.5 text-lg font-bold text-white">
-                  Lo importante, apenas entrás
-                </h2>
-              </div>
-              <span className="text-xs font-medium text-slate-400">
-                {operationalSummary.partialError ? 'Actualización parcial' : 'Datos actuales'}
-              </span>
-            </div>
-
-            <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
-              <OperationalMetric
-                icon={History}
-                label="Análisis registrados"
-                value={metricValue(operationalSummary.analyses)}
-                detail={operationalSummary.loading ? 'Actualizando historial…' : formatOperationalDate(operationalSummary.latestAnalysisDate)}
-                onClick={() => onNavigate?.('history')}
-              />
-              <OperationalMetric
-                icon={Award}
-                label="Próximas a vencer"
-                value={metricValue(operationalSummary.nearExpiration)}
-                detail="Certificaciones que requieren seguimiento"
-                tone="orange"
-                onClick={() => onNavigate?.('certifications')}
-              />
-              <OperationalMetric
-                icon={AlertTriangle}
-                label="Certificaciones vencidas"
-                value={metricValue(operationalSummary.expired)}
-                detail="Revisión prioritaria"
-                tone="orange"
-                onClick={() => onNavigate?.('certifications')}
-              />
-              <OperationalMetric
-                icon={FileText}
-                label="Documentos SGC"
-                value={metricValue(operationalSummary.documents)}
-                detail="Documentos disponibles en la biblioteca"
-                onClick={() => onNavigate?.('nutritionModules')}
-              />
-            </div>
-
-            <div className="mx-4 mb-4 flex flex-col gap-3 rounded-xl border border-orange-400/15 bg-gradient-to-r from-orange-400/[0.08] via-slate-950/20 to-sky-400/[0.05] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-orange-400/20 bg-orange-400/10 text-orange-300">
-                  <AlertTriangle size={17} aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-orange-200">Atención hoy</p>
-                  <p className="mt-0.5 text-xs text-slate-300">
-                    {operationalSummary.loading
-                      ? 'Revisando el estado de certificaciones…'
-                      : certificationAlerts > 0
-                        ? `${certificationAlerts} certificación${certificationAlerts === 1 ? '' : 'es'} requiere${certificationAlerts === 1 ? '' : 'n'} seguimiento.`
-                        : 'No hay alertas de certificaciones pendientes.'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onNavigate?.('certifications')}
-                className="inline-flex items-center gap-2 self-start text-xs font-bold text-orange-200 transition-colors hover:text-orange-100 sm:self-auto"
-              >
-                Ver certificaciones
-                <ArrowRight size={14} aria-hidden="true" />
-              </button>
-            </div>
-          </section>
-          <section
-            aria-labelledby="daily-work-title"
-            className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 shadow-lg shadow-slate-950/10"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-sky-300/80">
-                  Análisis y operación
-                </p>
-                <h2 id="daily-work-title" className="mt-0.5 text-lg font-bold text-white">
-                  Trabajo diario
-                </h2>
-              </div>
-              <span className="text-xs font-medium text-slate-400">4 accesos</span>
-            </div>
-
-            <div className="grid gap-0 lg:grid-cols-[1.15fr_1fr]">
-              <div className="border-b border-white/10 p-4 lg:border-b-0 lg:border-r">
-                <button
-                  type="button"
-                  onClick={() => onNavigate?.('upload')}
-                  className="group flex h-full min-h-[178px] w-full flex-col justify-between rounded-xl border border-orange-400/15 bg-gradient-to-br from-orange-400/10 via-slate-900/35 to-slate-950/20 p-5 text-left transition-all hover:border-orange-300/30 hover:from-orange-400/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="grid h-11 w-11 place-items-center rounded-xl border border-orange-400/20 bg-orange-400/10 text-orange-300">
-                      <FileSpreadsheet size={21} strokeWidth={2.1} aria-hidden="true" />
-                    </span>
-                    <ArrowRight
-                      size={19}
-                      strokeWidth={2.2}
-                      aria-hidden="true"
-                      className="text-slate-500 transition-all group-hover:translate-x-0.5 group-hover:text-orange-200"
-                    />
-                  </div>
-
-                  <div>
-                    <h3 className="text-xl font-bold text-white">Cargar archivos</h3>
-                    <p className="mt-1.5 max-w-xl text-sm leading-6 text-slate-300/80">
-                      Subí planillas, clasificá desvíos y generá resultados operativos trazables.
-                    </p>
-                    <span className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-orange-100">
-                      Cargar archivo
-                      <ArrowRight size={15} strokeWidth={2.2} aria-hidden="true" />
-                    </span>
-                  </div>
-                </button>
-              </div>
-
-              <div className="divide-y divide-white/10 p-2">
-                {dailyActions.map((action) => (
-                  <CompactAction
-                    key={action.target}
-                    icon={action.icon}
-                    title={action.title}
-                    description={action.description}
-                    tone={action.tone}
-                    onClick={() => onNavigate?.(action.target)}
-                  />
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section
-            aria-labelledby="management-title"
-            className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 shadow-lg shadow-slate-950/10"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-orange-300/80">
-                  Calidad y gestión
-                </p>
-                <h2 id="management-title" className="mt-0.5 text-lg font-bold text-white">
-                  Administración interna
-                </h2>
-              </div>
-              <span className="text-xs font-medium text-slate-400">7 accesos</span>
-            </div>
-
-            <div className="grid gap-x-2 p-2 md:grid-cols-2 xl:grid-cols-3">
-              {managementActions.map((action) => (
-                <CompactAction
-                  key={action.target}
-                  icon={action.icon}
-                  title={action.title}
-                  description={action.description}
-                  tone={action.tone}
-                  onClick={() => onNavigate?.(action.target)}
-                />
-              ))}
-            </div>
-          </section>
+        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:p-5 xl:grid-cols-3">
+          {cards.map((card) => (
+            <DashboardCard
+              key={card.title}
+              {...card}
+              onClick={() => onNavigate?.(card.target)}
+            />
+          ))}
         </div>
-      )}
-
-      {isNutritionist && (
-        <section
-          aria-labelledby="nutrition-tools-title"
-          className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/35 shadow-lg shadow-slate-950/10"
-        >
-          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-orange-300/80">
-                Calidad y gestión
-              </p>
-              <h2 id="nutrition-tools-title" className="mt-0.5 text-lg font-bold text-white">
-                Herramientas habilitadas
-              </h2>
-            </div>
-            <span className="text-xs font-medium text-slate-400">4 accesos</span>
-          </div>
-
-          <div className="grid gap-x-2 p-2 md:grid-cols-2">
-            {nutritionActions.map((action) => (
-              <CompactAction
-                key={action.target}
-                icon={action.icon}
-                title={action.title}
-                description={action.description}
-                tone={action.tone}
-                onClick={() => onNavigate?.(action.target)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      </div>
     </div>
   );
 }
