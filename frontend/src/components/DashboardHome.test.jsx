@@ -72,18 +72,18 @@ test('unmount aborts in-flight requests', async () => {
 });
 
 
-test('attention panel shows at most three non-repeated alerts', async () => {
+test('attention panel shows the three highest-priority signals', async () => {
   const data = emptyPayload();
   data.alerts = [
-    { id: 'expired', severity: 'error', title: 'Repetición de vencidas' },
+    { id: 'expired', severity: 'error', title: 'Repetición de vencidas', detail: 'Resolver', target: 'certifications' },
     ...Array.from({ length: 4 }, (_, index) => ({ id: `signal-${index}`, severity: 'warning', title: `Señal ${index}`, detail: 'Revisar', target: 'annualAnalysis' }))
   ];
   getExecutiveDashboard.mockResolvedValue(data);
   render(<DashboardHome user={{ id: 'admin' }} />);
-  await screen.findByText('Señal 0');
-  expect(screen.getByText('Señal 2')).toBeInTheDocument();
-  expect(screen.queryByText('Señal 3')).not.toBeInTheDocument();
-  expect(screen.queryByText('Repetición de vencidas')).not.toBeInTheDocument();
+  expect(await screen.findByText('Repetición de vencidas')).toBeInTheDocument();
+  expect(screen.getByText('Señal 0')).toBeInTheDocument();
+  expect(screen.getByText('Señal 1')).toBeInTheDocument();
+  expect(screen.queryByText('Señal 2')).not.toBeInTheDocument();
 });
 
 test('certification KPI includes expired and upcoming, with expired names in the agenda', async () => {
@@ -106,4 +106,15 @@ test('certification detail failure preserves summary and provides a module link'
   render(<DashboardHome user={{ id: 'admin' }} />);
   expect(await screen.findByRole('button', { name: /Consultar certificaciones vencidas/ })).toBeInTheDocument();
   expect(screen.getByText('2 vencidas')).toBeInTheDocument();
+});
+
+test('current leading sector is surfaced as the monthly focus', async () => {
+  const data = emptyPayload();
+  data.deviations.current = { label: 'septiembre de 2026', total: 12 };
+  data.deviations.topSectors = [{ key: 'cocina', name: 'Cocina', value: 5, share: 41.7 }];
+  getExecutiveDashboard.mockResolvedValue(data);
+  render(<DashboardHome user={{ id: 'admin' }} />);
+  expect(await screen.findByText('Foco del mes')).toBeInTheDocument();
+  expect(screen.getByText('Cocina')).toBeInTheDocument();
+  expect(screen.getByText(/5 desvíos/)).toBeInTheDocument();
 });
