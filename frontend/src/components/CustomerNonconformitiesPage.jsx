@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -37,6 +37,8 @@ import {
   sortMonthData,
   uniqueValues
 } from '../lib/customerNonconformities';
+
+import { getStoredCustomerNonconformities } from '../services/customerNonconformities';
 
 const CHART_COLORS = ['#1d4ed8', '#0f766e', '#d97706', '#7c3aed', '#dc2626', '#0891b2', '#4d7c0f', '#be123c'];
 const FILTER_FIELDS = [
@@ -161,6 +163,21 @@ export default function CustomerNonconformitiesPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState(emptyFilters);
+  const [storedMessage, setStoredMessage] = useState('Consultando registros persistidos…');
+  const localPreview = useRef(false);
+  useEffect(() => {
+    let active = true;
+    getStoredCustomerNonconformities().then((rows) => {
+      if (!active || localPreview.current) return;
+      setRecords(rows);
+      setStoredMessage(rows.length
+        ? 'Mostrando NC persistidas: la misma fuente del dashboard ejecutivo. No se registran fechas límite.'
+        : 'Sin NC persistidas. Los Excel que se analizan aquí son vistas previas locales y no se guardan en el dashboard.');
+    }).catch((err) => {
+      if (active && !localPreview.current) setStoredMessage(err.message);
+    });
+    return () => { active = false; };
+  }, []);
 
   const filteredRecords = useMemo(() => applyFilters(records, filters), [records, filters]);
   const filterOptions = useMemo(() => {
@@ -176,7 +193,7 @@ export default function CustomerNonconformitiesPage() {
 
     return {
       total: filteredRecords.length,
-      open: statusCounts.find((item) => item.name === 'Abierto')?.value || 0,
+      open: statusCounts.filter((item) => ['Abierto', 'Pendiente', 'En Proceso', 'Vencido', 'Vencida'].includes(item.name)).reduce((sum, item) => sum + item.value, 0),
       closed: statusCounts.find((item) => item.name === 'Cerrado')?.value || 0,
       severityText: severityCounts.length ? severityCounts.map((item) => `${item.name}: ${item.value}`).join(' · ') : 'Sin datos',
       topClient: clients[0],
@@ -195,6 +212,8 @@ export default function CustomerNonconformitiesPage() {
   }), [filteredRecords]);
 
   const clearCurrentLoad = () => {
+    localPreview.current = true;
+    setStoredMessage('Vista limpiada. Los registros persistidos no se modificaron. Volvé a ingresar al módulo para consultarlos.');
     setFileName('');
     setRecords([]);
     setWarnings([]);
@@ -209,6 +228,8 @@ export default function CustomerNonconformitiesPage() {
       return;
     }
 
+    localPreview.current = true;
+    setStoredMessage('Vista previa local: este Excel no modifica los datos persistidos del dashboard.');
     setLoading(true);
     setError('');
     setWarnings([]);
@@ -299,6 +320,7 @@ export default function CustomerNonconformitiesPage() {
         </CardContent>
       </Card>
 
+      <Alert severity="info" sx={{ mb: 2 }}>{storedMessage}</Alert>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {warnings.map((warning) => (
         <Alert key={warning} severity="warning" sx={{ mb: 1.25 }}>{warning}</Alert>
