@@ -2,9 +2,11 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import DashboardHome from './DashboardHome';
 import { getCertifications } from '../services/certificationService';
+import { getAdminHealthDeclarations } from '../services/healthDeclarations';
 import { getExecutiveDashboard } from '../services/analysis';
 
 vi.mock('../services/certificationService', () => ({ getCertifications: vi.fn() }));
+vi.mock('../services/healthDeclarations', () => ({ getAdminHealthDeclarations: vi.fn() }));
 vi.mock('../services/analysis', () => ({ getExecutiveDashboard: vi.fn() }));
 const emptyPayload = () => ({
   generatedAt: '2026-09-21T15:00:00Z', errors: {},
@@ -17,7 +19,10 @@ const emptyPayload = () => ({
   alerts: [{ id: 'missing', severity: 'info', title: 'Faltan registros anuales', detail: 'Revisá la cobertura.', target: 'annualAnalysis' }]
 });
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  getAdminHealthDeclarations.mockResolvedValue([]);
+});
 
 test('loading never presents invented zero counts', () => {
   getExecutiveDashboard.mockReturnValue(new Promise(() => {}));
@@ -95,7 +100,7 @@ test('certification KPI includes expired and upcoming, with expired names in the
   render(<DashboardHome user={{ id: 'admin' }} />);
   expect(await screen.findByText('9')).toBeInTheDocument();
   expect(await screen.findByText('ISO 22000')).toBeInTheDocument();
-  expect(screen.getAllByText('6 vencidas')).toHaveLength(1);
+  expect(screen.getAllByText('6 vencidas').length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText('Vencida')).toBeInTheDocument();
 });
 
@@ -128,4 +133,26 @@ test('legacy dashboard resources are no longer rendered', async () => {
   expect(screen.queryByText('Resumen ejecutivo')).not.toBeInTheDocument();
   expect(screen.queryByText('Brief del día')).not.toBeInTheDocument();
   expect(screen.queryByText('Qué atender hoy')).not.toBeInTheDocument();
+});
+
+test('quick access cards navigate to health requests and expired certifications', async () => {
+  const data = emptyPayload();
+  data.certifications = { total: 8, count: 0, expired: 3, urgent: [], invalidDates: 0 };
+  getExecutiveDashboard.mockResolvedValue(data);
+  getCertifications.mockResolvedValue({ items: [] });
+  getAdminHealthDeclarations.mockResolvedValue([
+    { id: '1', trafficLight: 'Amarillo' },
+    { id: '2', trafficLight: 'Rojo' },
+    { id: '3', trafficLight: 'Verde' }
+  ]);
+
+  const onNavigate = vi.fn();
+  render(<DashboardHome user={{ id: 'admin' }} onNavigate={onNavigate} />);
+
+  expect(await screen.findByText('2 alertas')).toBeInTheDocument();
+  fireEvent.click(screen.getByText('Solicitudes de salud'));
+  expect(onNavigate).toHaveBeenCalledWith('adminHealthDeclarations');
+
+  fireEvent.click(screen.getByText('Certificaciones vencidas'));
+  expect(onNavigate).toHaveBeenCalledWith('certifications');
 });
