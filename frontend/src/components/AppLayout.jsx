@@ -404,7 +404,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', ...(isExecutiveHome ? { bgcolor: '#ffffff' } : {}) }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', ...(isExecutiveHome ? { bgcolor: '#f6f7f9' } : {}) }}>
       <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
         <Drawer
           variant={isDesktop ? 'permanent' : 'temporary'}
