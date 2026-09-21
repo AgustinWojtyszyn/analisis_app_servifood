@@ -17,6 +17,7 @@ import {
   AssignmentLateRounded,
   InsightsRounded,
   RefreshRounded,
+  RemoveRounded,
   TrendingDownRounded,
   TrendingUpRounded,
   VerifiedRounded,
@@ -208,6 +209,9 @@ export default function DashboardHome({ user, onNavigate }) {
       ? `${previousLabel}: 0`
       : `${change.percentage > 0 ? '+' : ''}${formatNumber(change.percentage)}% vs ${previousLabel}`;
 
+  const ChangeIcon = change?.direction === 'up' ? TrendingUpRounded : change?.direction === 'down' ? TrendingDownRounded : RemoveRounded;
+  const topSector = deviations?.topSectors?.[0] || null;
+
   const priorityAlerts = useMemo(() => {
     const source = data?.alerts || [];
     const priority = source.filter((item) => item.severity === 'error' || item.severity === 'warning');
@@ -363,7 +367,7 @@ export default function DashboardHome({ user, onNavigate }) {
               <HeroMetric
                 label="Desvíos del mes"
                 value={deviations?.current?.total}
-                helper={deviations ? changeText : 'No disponible'}
+                helper={deviations ? <Stack component="span" direction="row" alignItems="center" gap={0.5}><ChangeIcon sx={{ fontSize: 14 }} />{changeText}</Stack> : 'No disponible'}
                 tone={change?.direction === 'up' ? 'warning' : 'default'}
                 onClick={() => go('annualAnalysis')}
                 loading={loading}
@@ -388,6 +392,33 @@ export default function DashboardHome({ user, onNavigate }) {
                 icon={<VerifiedRounded sx={{ fontSize: 16 }} />}
               />
             </Box>
+
+            {!loading && topSector && (
+              <ButtonBase
+                onClick={() => go('annualAnalysis')}
+                sx={{
+                  width: '100%',
+                  mt: 2,
+                  px: 1.5,
+                  py: 1.1,
+                  borderRadius: 2,
+                  justifyContent: 'space-between',
+                  gap: 2,
+                  bgcolor: 'rgba(255,255,255,0.07)',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  color: '#fff',
+                  textAlign: 'left',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.10)' }
+                }}
+              >
+                <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'baseline' }} gap={{ xs: 0.25, sm: 1.2 }}>
+                  <Typography sx={{ color: '#9fb7d5', fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8 }}>Foco del mes</Typography>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 750 }}>{topSector.name}</Typography>
+                  <Typography sx={{ color: '#b9cbe0', fontSize: 11.5 }}>{formatNumber(topSector.value)} desvíos · {formatNumber(topSector.share)}% del mes</Typography>
+                </Stack>
+                <ArrowForwardRounded sx={{ fontSize: 17, color: '#a9bfd9', flexShrink: 0 }} />
+              </ButtonBase>
+            )}
           </Box>
         </Paper>
 
