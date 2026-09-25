@@ -62,16 +62,17 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
-        <div>
-          <h2 className="text-lg font-extrabold text-slate-900">Accesos disponibles</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Ingresá directamente al módulo que necesitás gestionar.
-          </p>
+      <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm md:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-950">Accesos disponibles</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Ingresá directamente al módulo que necesitás gestionar.
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {isAdmin && (
           <>
             <PortalActionCard
@@ -155,7 +156,8 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
             />
           </>
         )}
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
