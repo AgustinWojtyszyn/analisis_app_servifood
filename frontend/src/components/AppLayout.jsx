@@ -367,7 +367,7 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         <Box sx={{ mx: 'auto', width: '100%', maxWidth: 1600 }}>
           <Box
             sx={{
-              minHeight: { xs: 72, sm: 82 },
+              minHeight: 72,
               mb: 1.6,
               px: { xs: 1.5, sm: 2.2 },
               py: { xs: 1.2, sm: 1.4 },
@@ -425,20 +425,6 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
               </Box>
             </Box>
 
-            <Typography
-              sx={{
-                display: { xs: 'none', lg: 'block' },
-                maxWidth: 300,
-                color: '#dbeafe',
-                fontSize: 12.5,
-                fontWeight: 700,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              {user?.email || user?.name || ''}
-            </Typography>
           </Box>
 
           <Box
