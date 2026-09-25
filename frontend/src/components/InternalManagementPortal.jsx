@@ -62,8 +62,8 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm md:p-5">
-        <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+      <section className="rounded-2xl border border-slate-300 bg-slate-100 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] md:p-5">
+        <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-300 pb-3">
           <div>
             <h2 className="text-lg font-extrabold text-slate-950">Accesos disponibles</h2>
             <p className="mt-1 text-sm text-slate-600">
