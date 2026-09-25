@@ -18,8 +18,6 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
   const normalizedRole = normalizeRole(role || user?.role);
   const isAdmin = normalizedRole === ROLES.ADMIN;
   const isNutritionist = normalizedRole === ROLES.NUTRITIONIST;
-  const displayName = user?.full_name || user?.name || user?.email || 'equipo';
-
   const [expiredCertifications, setExpiredCertifications] = useState(null);
   const [healthAlerts, setHealthAlerts] = useState(null);
 
@@ -63,17 +61,17 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
   }, [isAdmin]);
 
   return (
-    <div className="mx-auto max-w-7xl p-6">
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-white">
-          Gestión interna
-        </h2>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400">
-          Hola, {displayName}. Accedé a los módulos habilitados para tu rol.
-        </p>
+    <div className="mx-auto max-w-7xl">
+      <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <div>
+          <h2 className="text-lg font-extrabold text-slate-900">Accesos disponibles</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Ingresá directamente al módulo que necesitás gestionar.
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {isAdmin && (
           <>
             <PortalActionCard
