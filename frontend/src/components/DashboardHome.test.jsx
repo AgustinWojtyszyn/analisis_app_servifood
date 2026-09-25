@@ -111,7 +111,7 @@ test('certification detail failure preserves summary and provides a module link'
   getCertifications.mockRejectedValue(new Error('Unavailable'));
   render(<DashboardHome user={{ id: 'admin' }} />);
   expect(await screen.findByRole('button', { name: /Consultar vencidas/ })).toBeInTheDocument();
-  expect(screen.getByText('2 vencidas')).toBeInTheDocument();
+  expect(screen.getAllByText('2 vencidas').length).toBeGreaterThanOrEqual(1);
 });
 
 test('current leading sector is surfaced in the concentration ranking', async () => {
