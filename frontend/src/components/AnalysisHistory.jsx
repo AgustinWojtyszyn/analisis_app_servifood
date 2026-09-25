@@ -324,11 +324,11 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
   return (
     <Paper
       sx={{
-        p: { xs: 1.5, md: 2.25 },
-        borderRadius: 3,
-        border: '1px solid rgba(29,78,216,0.12)',
-        background: 'linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)',
-        boxShadow: '0 10px 28px rgba(15, 23, 42, 0.08)'
+        p: { xs: 1.25, md: 1.5 },
+        borderRadius: 1.5,
+        border: '1px solid #e2e8f0',
+        backgroundColor: '#ffffff',
+        boxShadow: 'none'
       }}
     >
       <Box sx={{ mb: 1.5 }}>
@@ -384,14 +384,14 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
         elevation={0}
         sx={{
           mb: 1.5,
-          border: '1px solid rgba(148,163,184,0.28)',
-          borderRadius: 2,
-          backgroundColor: 'rgba(255,255,255,0.7)',
+          border: '1px solid #e2e8f0',
+          borderRadius: 1.25,
+          backgroundColor: '#f8fafc',
           '&:before': { display: 'none' }
         }}
       >
         <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />} sx={{ minHeight: 44 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#1e3a8a' }}>
+          <Typography sx={{ fontWeight: 800, fontSize: 13.5, color: '#334155' }}>
             Filtros avanzados
           </Typography>
         </AccordionSummary>
@@ -462,8 +462,8 @@ export default function AnalysisHistory({ onSelectAnalysis, isAdmin = false, onA
 
       <TableContainer
         sx={{
-          border: '1px solid rgba(148,163,184,0.25)',
-          borderRadius: 2.5,
+          border: '1px solid #e2e8f0',
+          borderRadius: 1.25,
           backgroundColor: '#fff'
         }}
       >
