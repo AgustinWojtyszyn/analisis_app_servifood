@@ -24,14 +24,14 @@ import { getExecutiveDashboard } from '../services/analysis';
 import { getCertifications } from '../services/certificationService';
 import { getAdminHealthDeclarations } from '../services/healthDeclarations';
 
-const BLUE = '#1f5ca8';
-const BLUE_DARK = '#123f77';
-const BLUE_INK = '#0f315d';
-const BLUE_PALE = '#edf4ff';
+const BLUE = '#2563eb';
+const BLUE_DARK = '#1e40af';
+const BLUE_INK = '#334155';
+const BLUE_PALE = '#eff6ff';
 const INK = '#101828';
 const MUTED = '#667085';
-const LINE = '#d9e0e8';
-const CANVAS = '#f6f7f9';
+const LINE = '#e2e8f0';
+const CANVAS = 'transparent';
 const WHITE = '#ffffff';
 
 const formatNumber = (value) => value == null
@@ -315,17 +315,17 @@ export default function DashboardHome({ user, onNavigate }) {
 
   return (
     <Box aria-busy={loading} sx={{ minHeight: '100%', bgcolor: CANVAS, color: INK }}>
-      <Box sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2, sm: 3.2, xl: 5 }, py: { xs: 2.4, md: 4 } }}>
-        <Box sx={{ borderTop: `5px solid ${BLUE}`, pt: { xs: 2.2, md: 2.8 }, mb: { xs: 3, md: 4 } }}>
+      <Box sx={{ maxWidth: 1440, mx: 'auto', px: 0, py: { xs: 0.5, md: 0.75 } }}>
+        <Box sx={{ pt: 0, mb: { xs: 2, md: 2.5 } }}>
           <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-end' }} gap={2.5}>
             <Box sx={{ maxWidth: 850 }}>
               <Typography sx={{ color: BLUE, fontSize: 10.5, fontWeight: 900, letterSpacing: 1.7, textTransform: 'uppercase', mb: 1 }}>
                 Calidad operativa / {formatMonthLabel(deviations?.current?.label)}
               </Typography>
-              <Typography component="h1" sx={{ color: INK, fontSize: { xs: 38, sm: 48, lg: 58 }, fontWeight: 900, letterSpacing: -2.4, lineHeight: 0.98 }}>
+              <Typography component="h1" sx={{ color: INK, fontSize: { xs: 26, sm: 30, lg: 34 }, fontWeight: 900, letterSpacing: -1.1, lineHeight: 1.05 }}>
                 Pulso de ServiFood
               </Typography>
-              <Typography sx={{ color: BLUE_INK, fontSize: { xs: 18, md: 22 }, fontWeight: 650, letterSpacing: -0.45, lineHeight: 1.25, mt: 1.5 }}>
+              <Typography sx={{ color: BLUE_INK, fontSize: { xs: 14, md: 16 }, fontWeight: 650, letterSpacing: -0.2, lineHeight: 1.35, mt: 0.8 }}>
                 {executiveHeadline}
               </Typography>
             </Box>
