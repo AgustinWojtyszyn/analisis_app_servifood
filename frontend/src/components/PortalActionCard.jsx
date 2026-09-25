@@ -9,6 +9,7 @@ export default function PortalActionCard({
   statusText = '',
   tone = 'orange',
   featured = false,
+  strongBorder = false,
   onClick
 }) {
   const tones = {
@@ -40,12 +41,18 @@ export default function PortalActionCard({
   };
 
   const currentTone = tones[tone] || tones.blue;
+  const cardBorderClass = strongBorder
+    ? 'border-[2.5px] border-black hover:border-blue-600'
+    : 'border-2 border-slate-600 hover:border-blue-600';
+  const arrowBorderClass = strongBorder
+    ? 'border-[1.5px] border-black text-slate-700 group-hover:border-blue-600'
+    : 'border border-slate-300 text-slate-500 group-hover:border-blue-300';
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex min-h-[168px] w-full cursor-pointer flex-col justify-between overflow-hidden rounded-xl border-2 border-slate-600 bg-white p-5 text-left shadow-[0_4px_12px_rgba(15,23,42,0.10)] transition-all duration-150 hover:-translate-y-0.5 hover:border-blue-600 hover:shadow-[0_10px_24px_rgba(37,99,235,0.16)] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+      className={`group relative flex min-h-[168px] w-full cursor-pointer flex-col justify-between overflow-hidden rounded-xl bg-white p-5 text-left shadow-[0_4px_12px_rgba(15,23,42,0.08)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(37,99,235,0.16)] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${cardBorderClass}`}
       data-featured={featured ? 'true' : 'false'}
     >
       <span className={`absolute inset-y-0 left-0 w-1 ${currentTone.rail}`} aria-hidden="true" />
@@ -66,7 +73,7 @@ export default function PortalActionCard({
           </div>
         </div>
 
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-slate-300 bg-slate-50 text-slate-500 transition-all group-hover:border-blue-300 group-hover:bg-blue-50 group-hover:text-blue-700">
+        <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-50 transition-all group-hover:bg-blue-50 group-hover:text-blue-700 ${arrowBorderClass}`}>
           <ArrowRight size={16} strokeWidth={2.2} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5" />
         </span>
       </div>
