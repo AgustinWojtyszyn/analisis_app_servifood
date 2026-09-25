@@ -2,8 +2,6 @@ import React, { useMemo, useState } from 'react';
 import {
   Box,
   Button,
-  Collapse,
-  Divider,
   Drawer,
   IconButton,
   List,
@@ -32,10 +30,9 @@ import RestaurantMenuRoundedIcon from '@mui/icons-material/RestaurantMenuRounded
 import WorkspacePremiumRoundedIcon from '@mui/icons-material/WorkspacePremiumRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
-import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
-import servifoodLogo from '../assets/servifood_logo_white_text_HQ.png';
+import AnalyticsRoundedIcon from '@mui/icons-material/AnalyticsRounded';
 
-const drawerWidth = 260;
+const drawerWidth = 256;
 
 const sectionIcons = {
   collaboratorPortal: <HealthAndSafetyRoundedIcon />,
@@ -58,10 +55,16 @@ const sectionIcons = {
   certifications: <WorkspacePremiumRoundedIcon />
 };
 
-const menuGroups = [
+const defaultMenuGroups = [
   {
-    key: 'main',
-    ids: ['collaboratorPortal', 'internalManagement', 'upload', 'history', 'charts', 'annualAnalysis', 'customerNonconformities']
+    key: 'operation',
+    label: 'Operación',
+    ids: ['internalManagement', 'upload']
+  },
+  {
+    key: 'reports',
+    label: 'Reportes y análisis',
+    ids: ['history', 'charts', 'annualAnalysis', 'customerNonconformities']
   },
   {
     key: 'internal',
@@ -74,34 +77,24 @@ const menuGroups = [
     ids: ['rules', 'adminUsers']
   },
   {
-    key: 'bottom',
+    key: 'account',
+    label: 'Cuenta y ayuda',
     ids: ['profile', 'tutorial']
   }
 ];
 
-const collapsibleGroupKeys = ['internal', 'admin'];
-const menuStorageKey = 'servifood.sidebar.openGroups';
-
-function readOpenGroupsFromSession() {
-  if (typeof window === 'undefined') return {};
-  try {
-    return JSON.parse(window.sessionStorage.getItem(menuStorageKey) || '{}') || {};
-  } catch {
-    return {};
+const collaboratorMenuGroups = [
+  {
+    key: 'operation',
+    label: 'Operación',
+    ids: ['collaboratorPortal', 'declaration', 'policies']
   }
-}
+];
 
 export default function AppLayout({ user, onLogout, sections, currentSection, onSelectSection, children }) {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [openGroups, setOpenGroups] = useState(() => readOpenGroupsFromSession());
-
-  const initials = useMemo(() => {
-    const source = user?.name || user?.email || 'U';
-    const parts = source.split(' ').filter(Boolean);
-    return (parts[0]?.[0] || 'U') + (parts[1]?.[0] || '');
-  }, [user]);
 
   const sectionMeta = useMemo(() => ({
     collaboratorPortal: {
@@ -109,8 +102,12 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
       subtitle: 'Declaración de salud y políticas de seguridad'
     },
     internalManagement: {
-      title: 'Gestión interna',
+      title: 'Inicio',
       subtitle: 'Accesos operativos habilitados según rol'
+    },
+    upload: {
+      title: 'Cargar archivos',
+      subtitle: 'Procesá nuevos archivos para análisis de calidad'
     },
     history: {
       title: 'Historial',
@@ -118,14 +115,14 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     },
     charts: {
       title: 'Gráficos',
-      subtitle: 'Visualiza patrones por area, tipo de desvio e ISO 22000'
+      subtitle: 'Visualizá patrones por área, tipo de desvío e ISO 22000'
     },
     annualAnalysis: {
       title: 'Análisis anual',
       subtitle: 'Resumen, calidad, logística y tabla completa de desvíos anuales'
     },
     customerNonconformities: {
-      title: 'No conformidades de clientes',
+      title: 'NC Clientes',
       subtitle: 'Carga y análisis de reclamos de clientes desde Excel'
     },
     profile: {
@@ -166,61 +163,43 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
     },
     certifications: {
       title: 'Certificaciones',
-      subtitle: 'Control de vencimientos y triggers de aviso'
+      subtitle: 'Control de vencimientos y avisos'
     }
   }), []);
 
-  const isExecutiveHome = false;
   const currentMeta = sectionMeta[currentSection] || {
-    title: 'Análisis de Desvíos',
+    title: 'Análisis de Calidad',
     subtitle: 'Control y clasificación de desvíos de inocuidad, logística y legal'
   };
 
-  const sectionById = useMemo(() => new Map(sections.map((section) => [section.id, section])), [sections]);
+  const sectionById = useMemo(
+    () => new Map(sections.map((section) => [section.id, section])),
+    [sections]
+  );
+
   const isCollaboratorMenu = sectionById.has('collaboratorPortal')
     && !sectionById.has('internalManagement')
     && !sectionById.has('upload');
-  const effectiveMenuGroups = useMemo(() => (
-    isCollaboratorMenu
-      ? [{ key: 'main', ids: ['collaboratorPortal', 'declaration', 'policies'] }]
-      : menuGroups
-  ), [isCollaboratorMenu]);
+
   const groupedSections = useMemo(() => {
-    return effectiveMenuGroups.map((group) => ({
-      ...group,
-      items: group.ids.map((id) => sectionById.get(id)).filter(Boolean)
-    }));
-  }, [effectiveMenuGroups, sectionById]);
-
-  const currentGroupKey = useMemo(() => {
-    return effectiveMenuGroups.find((group) => group.ids.includes(currentSection))?.key || null;
-  }, [currentSection, effectiveMenuGroups]);
-
-  const isGroupOpen = (groupKey) => {
-    return currentGroupKey === groupKey || Boolean(openGroups[groupKey]);
-  };
-
-  const toggleGroup = (groupKey) => {
-    setOpenGroups((prev) => {
-      const next = { ...prev, [groupKey]: !prev[groupKey] };
-      try {
-        window.sessionStorage.setItem(menuStorageKey, JSON.stringify(next));
-      } catch {
-        // Session state is optional.
-      }
-      return next;
-    });
-  };
+    const groups = isCollaboratorMenu ? collaboratorMenuGroups : defaultMenuGroups;
+    return groups
+      .map((group) => ({
+        ...group,
+        items: group.ids.map((id) => sectionById.get(id)).filter(Boolean)
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [isCollaboratorMenu, sectionById]);
 
   const handleSelect = (id) => {
     onSelectSection(id);
-    if (!isDesktop) {
-      setMobileOpen(false);
-    }
+    if (!isDesktop) setMobileOpen(false);
   };
 
   const renderMenuItem = (section) => {
     const selected = currentSection === section.id;
+    const Icon = sectionIcons[section.id];
+
     return (
       <ListItemButton
         key={section.id}
@@ -228,183 +207,131 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         onClick={() => handleSelect(section.id)}
         disabled={section.disabled}
         sx={{
-          mb: 0.35,
-          px: 1.2,
-          py: 0.72,
-          minHeight: 40,
-          borderRadius: 1.7,
+          minHeight: 44,
+          mb: 0.5,
+          px: 1.5,
+          py: 1,
+          borderRadius: 1.5,
+          color: selected ? '#fff' : '#334155',
+          transition: 'background-color 140ms ease, color 140ms ease, box-shadow 140ms ease',
+          '& .MuiListItemIcon-root': {
+            minWidth: 34,
+            color: selected ? '#fff' : '#475569'
+          },
+          '& .MuiSvgIcon-root': {
+            fontSize: 20
+          },
           '&.Mui-selected': {
-            backgroundColor: 'rgba(255, 255, 255, 0.16)',
-            color: '#ffffff',
-            '& .MuiListItemIcon-root': { color: '#ffffff' },
-            '& .MuiListItemText-primary': { fontWeight: 700 }
+            backgroundColor: '#2563eb',
+            color: '#fff',
+            boxShadow: '0 5px 12px rgba(37,99,235,.22)'
+          },
+          '&.Mui-selected:hover': {
+            backgroundColor: '#1d4ed8'
           },
           '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.11)'
+            backgroundColor: '#eff6ff',
+            color: '#1d4ed8',
+            '& .MuiListItemIcon-root': { color: '#2563eb' }
           }
         }}
       >
-        <ListItemIcon sx={{ minWidth: 32, color: selected ? '#ffffff' : 'rgba(255,255,255,0.74)' }}>
-          {sectionIcons[section.id]}
-        </ListItemIcon>
+        <ListItemIcon>{Icon}</ListItemIcon>
         <ListItemText
           primary={section.id === 'declaration' && !isCollaboratorMenu ? 'Mi Declaración Salud' : section.label}
-          primaryTypographyProps={{ fontWeight: selected ? 700 : 600, fontSize: 13.5, color: selected ? '#ffffff' : 'rgba(255,255,255,0.86)' }}
+          primaryTypographyProps={{
+            fontWeight: selected ? 800 : 700,
+            fontSize: 14
+          }}
         />
       </ListItemButton>
     );
   };
 
-  const renderGroup = (group) => {
-    if (!group.items.length) return null;
-    if (!collapsibleGroupKeys.includes(group.key)) {
-      return group.items.map(renderMenuItem);
-    }
+  const drawerContent = (
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#fff' }}>
+      <Box
+        sx={{
+          height: 72,
+          px: 2,
+          display: 'flex',
+          alignItems: 'center',
+          borderBottom: '1px solid #e2e8f0'
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          <Box sx={{ lineHeight: 0.92, whiteSpace: 'nowrap' }}>
+            <Typography component="span" sx={{ fontSize: 34, fontWeight: 900, letterSpacing: '-.055em', color: '#2563eb' }}>
+              Servi
+            </Typography>
+            <Typography component="span" sx={{ fontSize: 34, fontWeight: 900, letterSpacing: '-.055em', color: '#f97316' }}>
+              Food
+            </Typography>
+          </Box>
+          <Box sx={{ mt: 0.55, display: 'flex', alignItems: 'center', gap: 0.65, color: '#94a3b8' }}>
+            <AnalyticsRoundedIcon sx={{ fontSize: 12 }} />
+            <Typography sx={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '.15em', textTransform: 'uppercase' }}>
+              Análisis de Calidad
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
 
-    const open = isGroupOpen(group.key);
-    const selected = group.ids.includes(currentSection);
-    return (
-      <Box key={group.key} sx={{ mb: 0.45 }}>
-        <ListItemButton
-          onClick={() => toggleGroup(group.key)}
-          selected={selected}
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', px: 1.5, py: 2 }}>
+        {groupedSections.map((group) => (
+          <Box component="section" key={group.key} sx={{ mb: 2.2 }}>
+            <Typography
+              sx={{
+                mb: 0.85,
+                px: 1.5,
+                color: '#94a3b8',
+                fontSize: 10.5,
+                fontWeight: 900,
+                letterSpacing: '.17em',
+                textTransform: 'uppercase'
+              }}
+            >
+              {group.label}
+            </Typography>
+            <List disablePadding>
+              {group.items.map(renderMenuItem)}
+            </List>
+          </Box>
+        ))}
+      </Box>
+
+      <Box sx={{ borderTop: '1px solid #e2e8f0', px: 1.5, py: 1.5 }}>
+        <Button
+          fullWidth
+          onClick={onLogout}
+          startIcon={<LogoutRoundedIcon />}
           sx={{
-            mb: 0.35,
-            px: 1.2,
-            py: 0.72,
-            minHeight: 40,
-            borderRadius: 1.7,
-            '&.Mui-selected': {
-              backgroundColor: 'rgba(255, 255, 255, 0.12)',
-              color: '#ffffff',
-              '& .MuiListItemText-primary': { fontWeight: 700 }
-            },
+            justifyContent: 'flex-start',
+            minHeight: 44,
+            px: 1.5,
+            color: '#b91c1c',
+            fontSize: 14,
+            fontWeight: 800,
             '&:hover': {
-              backgroundColor: 'rgba(255, 255, 255, 0.11)'
+              backgroundColor: '#fef2f2'
             }
           }}
         >
-          <ListItemText
-            primary={group.label}
-            primaryTypographyProps={{ fontWeight: selected ? 700 : 650, fontSize: 13.2, color: selected ? '#ffffff' : 'rgba(255,255,255,0.86)' }}
-          />
-          <KeyboardArrowDownRoundedIcon
-            sx={{
-              fontSize: 19,
-              color: 'rgba(255,255,255,0.72)',
-              transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
-              transition: 'transform 160ms ease'
-            }}
-          />
-        </ListItemButton>
-        <Collapse in={open} timeout="auto" unmountOnExit>
-          <Box sx={{ pl: 0.5 }}>
-            {group.items.map(renderMenuItem)}
-          </Box>
-        </Collapse>
-      </Box>
-    );
-  };
-
-  const drawerContent = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Box
-        sx={{
-          px: 2,
-          pt: 1.6,
-          pb: 1.25
-        }}
-      >
-        <Box
-          component="img"
-          src={servifoodLogo}
-          alt="ServiFood Logo"
-          sx={{
-            width: '100%',
-            maxWidth: 150,
-            height: 68,
-            objectFit: 'contain',
-            display: 'block',
-            mx: 'auto'
-          }}
-        />
-        <Box
-          aria-hidden="true"
-          sx={{
-            display: isExecutiveHome ? 'none' : 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 0.75,
-            mt: 0.65,
-            color: '#f6c45a',
-            fontSize: 12,
-            lineHeight: 1
-          }}
-        >
-          <Box component="span">★</Box>
-          <Box component="span">★</Box>
-          <Box component="span">★</Box>
-        </Box>
-        <Typography sx={{ display: isExecutiveHome ? 'none' : 'block', mt: 0.85, color: 'rgba(255,255,255,0.88)', fontSize: 11.5, textAlign: 'center', fontWeight: 600 }}>
-          Plataforma de análisis de desvíos
-        </Typography>
-      </Box>
-
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.14)' }} />
-
-      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
-        <List sx={{ px: 1.25, py: 1.25 }}>
-          {groupedSections.find((group) => group.key === 'main')?.items.map(renderMenuItem)}
-          {groupedSections
-            .filter((group) => collapsibleGroupKeys.includes(group.key))
-            .map(renderGroup)}
-          <Box sx={{ mt: 0.7, pt: 0.7, borderTop: '1px solid rgba(255,255,255,0.10)' }}>
-            {groupedSections.find((group) => group.key === 'bottom')?.items.map(renderMenuItem)}
-          </Box>
-        </List>
-      </Box>
-
-      <Box sx={{ px: 1.75, pt: 1.1, pb: 1.5 }}>
-        <Box
-          sx={{
-            borderRadius: 2,
-            border: isExecutiveHome ? 'none' : '1px solid rgba(255,255,255,0.16)',
-            backgroundColor: isExecutiveHome ? 'transparent' : 'rgba(255,255,255,0.08)',
-            px: 1.25,
-            py: 1.05
-          }}
-        >
-          <Typography sx={{ color: 'rgba(236,244,255,0.92)', fontWeight: 700, fontSize: 13.5 }}>
-            Hola, {user?.name || 'equipo'}
-          </Typography>
-          <Typography sx={{ display: isExecutiveHome ? 'none' : 'block', color: 'rgba(225,236,255,0.82)', fontSize: 12.5, mt: 0.2 }}>
-            Sesión activa en la plataforma
-          </Typography>
-          {isExecutiveHome && (
-            <Button
-              onClick={onLogout}
-              startIcon={<LogoutRoundedIcon sx={{ fontSize: '16px !important' }} />}
-              sx={{
-                mt: 0.7,
-                px: 0,
-                minWidth: 0,
-                color: 'rgba(229,238,250,0.72)',
-                fontSize: 11.5,
-                fontWeight: 700,
-                textTransform: 'none',
-                '&:hover': { bgcolor: 'transparent', color: '#ffffff' }
-              }}
-            >
-              Salir
-            </Button>
-          )}
-        </Box>
+          Cerrar sesión
+        </Button>
       </Box>
     </Box>
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', ...(isExecutiveHome ? { bgcolor: '#f6f7f9' } : {}) }}>
+    <Box
+      sx={{
+        display: 'flex',
+        minHeight: '100dvh',
+        background:
+          'radial-gradient(circle at 15% 0%, rgba(96,165,250,.18), transparent 30%), linear-gradient(135deg, #2563eb 0%, #1d4ed8 52%, #1e40af 100%)'
+      }}
+    >
       <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
         <Drawer
           variant={isDesktop ? 'permanent' : 'temporary'}
@@ -415,17 +342,11 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
             '& .MuiDrawer-paper': {
               width: drawerWidth,
               boxSizing: 'border-box',
-              borderRight: '1px solid rgba(255,255,255,0.14)',
-              background: isExecutiveHome ? 'linear-gradient(180deg, #102b52 0%, #173a67 100%)' : 'linear-gradient(180deg, #14316f 0%, #1c428d 100%)',
-              ...(isExecutiveHome ? {
-                borderRadius: 0,
-                '& .MuiListItemText-primary': { fontSize: 12.5, fontWeight: 400, color: '#b9c5d6' },
-                '& .MuiListItemIcon-root': { color: '#8597b1' },
-                '& .MuiListItemIcon-root .MuiSvgIcon-root': { fontSize: 19 },
-                '& .MuiListItemButton-root.Mui-selected': { bgcolor: '#ffffff0d' },
-                '& .MuiListItemButton-root.Mui-selected .MuiListItemText-primary': { color: '#fff', fontWeight: 600 }
-              } : {}),
-              boxShadow: 'none'
+              border: 0,
+              borderRight: '4px solid #f97316',
+              backgroundColor: '#fff',
+              color: '#0f172a',
+              boxShadow: '0 16px 34px rgba(15,23,42,.16)'
             }
           }}
         >
@@ -433,82 +354,70 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
         </Drawer>
       </Box>
 
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, width: { md: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh' }}>
-        <Box sx={{
-          display: isExecutiveHome ? { xs: 'block', md: 'none' } : 'block',
-          px: isExecutiveHome ? { xs: 1.5, sm: 2.5, xl: 4 } : { xs: 1.5, sm: 2.5 },
-          pt: { xs: 1.2, sm: 1.5 },
-          pb: isExecutiveHome ? 0.5 : { xs: 1.1, sm: 1.35 }
-        }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          width: { md: `calc(100% - ${drawerWidth}px)` },
+          minHeight: '100dvh',
+          p: { xs: 1.5, sm: 2, md: 2.5 }
+        }}
+      >
+        <Box sx={{ mx: 'auto', width: '100%', maxWidth: 1600 }}>
           <Box
             sx={{
-              minHeight: isExecutiveHome ? 38 : { xs: 62, sm: 66 },
-              backgroundColor: '#ffffff',
-              borderRadius: 2.4,
-              border: isExecutiveHome ? 'none' : '1px solid #dce6f6',
-              px: { xs: 1.2, sm: 1.7 },
-              py: { xs: 0.9, sm: 1 },
+              minHeight: { xs: 72, sm: 82 },
+              mb: 1.6,
+              px: { xs: 1.5, sm: 2.2 },
+              py: { xs: 1.2, sm: 1.4 },
+              borderRadius: 2,
+              border: '1px solid rgba(191,219,254,.28)',
+              background: 'linear-gradient(90deg, #2563eb 0%, #1e40af 100%)',
+              boxShadow: '0 10px 24px rgba(30,64,175,.18)',
+              color: '#fff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: 1.2
+              gap: 1.5
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
               {!isDesktop && (
                 <IconButton
-                  edge="start"
                   aria-label="Abrir menú"
                   onClick={() => setMobileOpen(true)}
-                  sx={{ color: 'primary.main', p: 0.75 }}
+                  sx={{
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,.22)',
+                    backgroundColor: 'rgba(255,255,255,.08)',
+                    '&:hover': { backgroundColor: 'rgba(255,255,255,.16)' }
+                  }}
                 >
                   <MenuRoundedIcon />
                 </IconButton>
               )}
-              <Box sx={{ minWidth: 0, display: isExecutiveHome ? 'none' : 'block' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
-                  <Typography
-                    sx={{
-                      fontWeight: 900,
-                      fontSize: { xs: 19, sm: 22 },
-                      color: '#0f2a66',
-                      lineHeight: 1.05,
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    Análisis de Calidad
-                  </Typography>
-                  <Box
-                    component="span"
-                    sx={{
-                      display: { xs: 'none', sm: 'inline-flex' },
-                      alignItems: 'center',
-                      maxWidth: 220,
-                      px: 1,
-                      py: 0.35,
-                      borderRadius: 99,
-                      backgroundColor: '#eef4ff',
-                      color: '#28509b',
-                      fontSize: 11.5,
-                      fontWeight: 800,
-                      lineHeight: 1.2,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {currentMeta.title}
-                  </Box>
-                </Box>
+
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  component="h1"
+                  sx={{
+                    color: '#fff',
+                    fontWeight: 900,
+                    fontSize: { xs: 24, sm: 31 },
+                    lineHeight: 1.05,
+                    letterSpacing: '-.035em'
+                  }}
+                >
+                  {currentMeta.title}
+                </Typography>
                 <Typography
                   sx={{
-                    mt: 0.28,
-                    color: '#4b5f7f',
-                    fontSize: { xs: 11.5, sm: 12.5 },
-                    lineHeight: 1.3,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: { xs: 'normal', sm: 'nowrap' }
+                    mt: 0.45,
+                    color: '#dbeafe',
+                    fontSize: { xs: 12, sm: 13.5 },
+                    fontWeight: 600,
+                    lineHeight: 1.35
                   }}
                 >
                   {currentMeta.subtitle}
@@ -516,49 +425,35 @@ export default function AppLayout({ user, onLogout, sections, currentSection, on
               </Box>
             </Box>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.6, sm: 1 } }}>
-              <Typography
-                sx={{
-                  display: { xs: 'none', lg: 'block' },
-                  maxWidth: 250,
-                  color: '#58709a',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {user?.email || initials.toUpperCase()}
-              </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<LogoutRoundedIcon />}
-                onClick={onLogout}
-                size="small"
-                sx={{
-                  minWidth: 0,
-                  px: { xs: 1, sm: 1.25 },
-                  py: 0.6,
-                  borderRadius: 1.7,
-                  borderColor: 'rgba(29,78,216,0.28)',
-                  color: '#1f3a73',
-                  fontSize: 12.5,
-                  fontWeight: 800,
-                  '&:hover': {
-                    borderColor: '#1d4ed8',
-                    backgroundColor: 'rgba(29,78,216,0.05)'
-                  }
-                }}
-              >
-                Salir
-              </Button>
-            </Box>
+            <Typography
+              sx={{
+                display: { xs: 'none', lg: 'block' },
+                maxWidth: 300,
+                color: '#dbeafe',
+                fontSize: 12.5,
+                fontWeight: 700,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {user?.email || user?.name || ''}
+            </Typography>
           </Box>
-        </Box>
 
-        <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pb: { xs: 2, sm: 2.5 } }}>
-          {children}
+          <Box
+            className="analysis-workspace"
+            sx={{
+              minHeight: 'calc(100dvh - 130px)',
+              borderRadius: 2.5,
+              border: '1px solid rgba(255,255,255,.28)',
+              backgroundColor: '#fff',
+              p: { xs: 1.25, sm: 1.6, md: 2 },
+              boxShadow: '0 16px 36px rgba(15,23,42,.10)'
+            }}
+          >
+            {children}
+          </Box>
         </Box>
       </Box>
     </Box>
