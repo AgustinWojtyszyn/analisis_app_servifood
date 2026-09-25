@@ -62,7 +62,7 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <section className="rounded-2xl border border-slate-300 bg-slate-100 p-4 shadow-sm md:p-5">
+      <section className="rounded-2xl border border-slate-400 bg-slate-100 p-4 shadow-sm md:p-5">
         <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-300 pb-3">
           <div>
             <h2 className="text-lg font-extrabold text-slate-950">Accesos disponibles</h2>
@@ -76,6 +76,7 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
         {isAdmin && (
           <>
             <PortalActionCard
+              strongBorder
               icon={FileSpreadsheet}
               title="Cargar y analizar"
               description="Subí una planilla y empezá un nuevo análisis. El historial, gráficos y análisis anual quedan disponibles desde el menú lateral."
@@ -86,6 +87,7 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
             />
 
             <PortalActionCard
+              strongBorder
               icon={Activity}
               title="Solicitudes de salud"
               description="Revisá directamente los casos Amarillo/Rojo del personal."
@@ -95,6 +97,7 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
             />
 
             <PortalActionCard
+              strongBorder
               icon={AlertTriangle}
               title="Certificaciones vencidas"
               description="Revisá renovaciones vencidas y responsables pendientes."
@@ -104,6 +107,7 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
             />
 
             <PortalActionCard
+              strongBorder
               icon={ClipboardList}
               title="NC Clientes"
               description="Gestioná reclamos, estados y seguimiento de no conformidades."
@@ -112,6 +116,7 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
             />
 
             <PortalActionCard
+              strongBorder
               icon={Users}
               title="Documentos SGC"
               description="Consultá procedimientos, registros, estrategias y archivos asociados."
@@ -124,6 +129,7 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
         {isNutritionist && (
           <>
             <PortalActionCard
+              strongBorder
               icon={Users}
               title="Documentos SGC"
               description="Consultá procedimientos, registros, estrategias y archivos asociados."
@@ -132,6 +138,7 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
             />
 
             <PortalActionCard
+              strongBorder
               icon={Award}
               title="Certificaciones"
               description="Gestioná próximos vencimientos, responsables y alertas preventivas."
@@ -140,6 +147,7 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
             />
 
             <PortalActionCard
+              strongBorder
               icon={ShieldCheck}
               title="Políticas"
               description="Accedé a las políticas internas vigentes."
@@ -148,6 +156,7 @@ export default function InternalManagementPortal({ user, role, onNavigate }) {
             />
 
             <PortalActionCard
+              strongBorder
               icon={HeartPulse}
               title="Declaración de Salud"
               description="Completá o revisá tu declaración personal."
