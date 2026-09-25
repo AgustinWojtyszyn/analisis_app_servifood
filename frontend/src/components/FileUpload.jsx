@@ -214,13 +214,11 @@ export default function FileUpload({ onUploadSuccess, showHeader = true }) {
               textAlign: 'center',
               border: '2px dashed',
               borderColor: dragActive ? 'primary.main' : 'divider',
-              background: dragActive
-                ? 'linear-gradient(145deg, rgba(29,78,216,0.15), rgba(37,99,235,0.11))'
-                : 'linear-gradient(145deg, #f4f8ff, #ecf3ff)',
+              backgroundColor: dragActive ? '#eff6ff' : '#f8fafc',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
               mb: 2.5,
-              borderRadius: 3
+              borderRadius: 1.5
             }}
           >
             <CloudUploadIcon sx={{ fontSize: 54, mb: 2, color: 'primary.main' }} />
