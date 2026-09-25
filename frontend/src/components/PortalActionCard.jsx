@@ -11,48 +11,65 @@ export default function PortalActionCard({
   featured = false,
   onClick
 }) {
-  const toneClasses = {
-    orange: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-    green: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    slate: 'bg-slate-500/10 text-slate-300 border-slate-600/40',
-    violet: 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+  const tones = {
+    orange: {
+      icon: 'border-orange-200 bg-orange-50 text-orange-600',
+      accent: 'text-orange-600'
+    },
+    green: {
+      icon: 'border-emerald-200 bg-emerald-50 text-emerald-600',
+      accent: 'text-emerald-700'
+    },
+    blue: {
+      icon: 'border-blue-200 bg-blue-50 text-blue-600',
+      accent: 'text-blue-700'
+    },
+    slate: {
+      icon: 'border-slate-200 bg-slate-100 text-slate-600',
+      accent: 'text-slate-700'
+    },
+    violet: {
+      icon: 'border-violet-200 bg-violet-50 text-violet-600',
+      accent: 'text-violet-700'
+    }
   };
+
+  const currentTone = tones[tone] || tones.blue;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group flex min-h-[210px] w-full cursor-pointer flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/50 p-6 text-left transition-all hover:-translate-y-1 hover:border-slate-700 hover:bg-slate-800/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70 ${
-        featured ? 'md:col-span-2' : ''
-      }`}
+      className="group flex min-h-[168px] w-full cursor-pointer flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+      data-featured={featured ? 'true' : 'false'}
     >
-      <div className="flex items-start justify-between gap-5">
+      <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-4">
-          <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border ${toneClasses[tone] || toneClasses.orange}`}>
-            <Icon size={24} strokeWidth={2.2} aria-hidden="true" />
+          <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl border ${currentTone.icon}`}>
+            <Icon size={21} strokeWidth={2.1} aria-hidden="true" />
           </div>
+
           <div className="min-w-0">
-            <h3 className={`${featured ? 'text-2xl' : 'text-xl'} font-bold text-white`}>
+            <h3 className="text-[17px] font-extrabold leading-6 text-slate-900">
               {title}
             </h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
+            <p className="mt-1.5 text-sm leading-5 text-slate-500">
               {description}
             </p>
           </div>
         </div>
 
         <ArrowRight
-          size={19}
+          size={18}
           strokeWidth={2.2}
           aria-hidden="true"
-          className="mt-1 shrink-0 text-slate-500 transition-transform group-hover:translate-x-1 group-hover:text-slate-200"
+          className="mt-1 shrink-0 text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-blue-600"
         />
       </div>
 
-      <div className="mt-5 flex min-h-[28px] items-end justify-between gap-3">
+      <div className="mt-4 flex min-h-[24px] items-end justify-between gap-3">
         {statusText ? (
-          <span className="text-sm font-bold text-sky-200">
+          <span className={`text-sm font-extrabold ${currentTone.accent}`}>
             {statusText}
           </span>
         ) : (
@@ -60,9 +77,9 @@ export default function PortalActionCard({
         )}
 
         {actionLabel ? (
-          <span className="inline-flex items-center gap-2 text-sm font-semibold text-blue-100">
+          <span className="inline-flex items-center gap-1.5 text-sm font-bold text-blue-700">
             {actionLabel}
-            <ArrowRight size={16} strokeWidth={2.3} aria-hidden="true" />
+            <ArrowRight size={15} strokeWidth={2.3} aria-hidden="true" />
           </span>
         ) : null}
       </div>
